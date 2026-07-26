@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { presentGuidedChatOutput } from "./guided-chat-output";
+import {
+  analyzeGuidedChatOutput,
+  presentGuidedChatOutput,
+} from "./guided-chat-output";
 
 describe("presentGuidedChatOutput", () => {
   it("hides tool calls, paths, and file diffs while work is running", () => {
@@ -46,5 +49,18 @@ a//Users/u/funcoding/todo/index.html → b//Users/u/funcoding/todo/index.html
     expect(presentGuidedChatOutput(transcript)).toContain(
       "Should tasks have due dates?",
     );
+  });
+
+  it("identifies the specialist currently working", () => {
+    const presentation = analyzeGuidedChatOutput(`
+└─ ▾ Tool calls (1)
+└─ ● Write File("Writing requirements.md")
+`);
+
+    expect(presentation.phase).toBe("working");
+    expect(presentation.specialist).toEqual({
+      id: "req-engineer",
+      label: "Requirements",
+    });
   });
 });

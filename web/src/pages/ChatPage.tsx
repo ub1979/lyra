@@ -36,7 +36,11 @@ import { usePageHeader } from "@/contexts/usePageHeader";
 import { useI18n } from "@/i18n";
 import { api } from "@/lib/api";
 import { latchChatActivation } from "@/lib/chat-activation";
-import { presentGuidedChatOutput } from "@/lib/guided-chat-output";
+import {
+  analyzeGuidedChatOutput,
+  type GuidedChatPresentation,
+  type GuidedSpecialist,
+} from "@/lib/guided-chat-output";
 import { normalizeSessionTitle } from "@/lib/chat-title";
 import {
   PTY_CONNECTING_TIMEOUT_MS,
@@ -110,10 +114,92 @@ const DEFAULT_TERMINAL_BACKGROUND = "#000000";
 const DEFAULT_TERMINAL_FOREGROUND = "#f0e6d2";
 const MODEL_CONNECTION_ERROR_MARKER = "[[IDRAK_MODEL_CONNECTION_ERROR]]";
 
-function guidedTerminalSnapshot(term: Terminal): string {
+interface GuidedMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+}
+
+const GUIDED_SPECIALIST_LABELS: Record<string, string> = {
+  "req-engineer": "Requirements",
+  spec: "Technical specification",
+  "sw-architect": "Architecture",
+  "task-planner": "Task planning",
+  "proj-manager": "Project planning",
+  "sw-developer": "Development",
+  "oop-restructurer": "Code restructuring",
+  debugger: "Debugging",
+  "code-reviewer": "Code review",
+  "qa-engineer": "Quality assurance",
+  "security-auditor": "Security",
+  "devops-engineer": "Deployment",
+  "tech-writer": "Documentation",
+  benchmark: "Benchmarks",
+  health: "Health checks",
+  "context-save": "Context preservation",
+  learn: "Controlled learning",
+  idk_it: "Workflow coordination",
+};
+
+function specialistFromBuilderSeed(seed: string | null): GuidedSpecialist {
+  if (seed) {
+    const match = seed.match(/IDRAK_INTERNAL_SETUP_BEGIN\s+(.+?)\s+IDRAK_INTERNAL_SETUP_END/);
+    if (match) {
+      try {
+        const setup = JSON.parse(match[1]) as {
+          enabled_specialists?: unknown;
+        };
+        if (Array.isArray(setup.enabled_specialists)) {
+          const first = setup.enabled_specialists.find(
+            (id): id is string =>
+              typeof id === "string" && id in GUIDED_SPECIALIST_LABELS,
+          );
+          if (first) {
+            return { id: first, label: GUIDED_SPECIALIST_LABELS[first] };
+          }
+        }
+      } catch {
+        // A malformed setup seed should not prevent the guided chat opening.
+      }
+    }
+  }
+  return { id: "idk_it", label: "Workflow coordination" };
+}
+
+function guidedMessageStorageKey(workspace: string): string {
+  return `idrak-it.guided-messages.v1:${workspace || "default"}`;
+}
+
+function readGuidedMessages(workspace: string): GuidedMessage[] {
+  try {
+    const value = JSON.parse(
+      window.localStorage.getItem(guidedMessageStorageKey(workspace)) ?? "[]",
+    ) as unknown;
+    if (!Array.isArray(value)) return [];
+    return value.filter(
+      (item): item is GuidedMessage =>
+        typeof item === "object" &&
+        item !== null &&
+        typeof (item as GuidedMessage).id === "string" &&
+        ((item as GuidedMessage).role === "user" ||
+          (item as GuidedMessage).role === "assistant") &&
+        typeof (item as GuidedMessage).content === "string",
+    );
+  } catch {
+    return [];
+  }
+}
+
+function guidedTerminalSnapshot(
+  term: Terminal,
+  turnStartLine = 0,
+): {
+  output: string;
+  presentation: GuidedChatPresentation;
+} {
   const buffer = term.buffer.active;
   const lines: string[] = [];
-  const start = Math.max(0, buffer.length - 160);
+  const start = Math.max(turnStartLine, buffer.length - 220, 0);
   let insideInternalSetup = false;
   let modelConnectionError = false;
   const technicalChrome =
@@ -166,12 +252,16 @@ function guidedTerminalSnapshot(term: Terminal): string {
     );
   }
 
-  const snapshot = presentGuidedChatOutput(
+  const presentation = analyzeGuidedChatOutput(
     lines.join("\n").replace(/\n{3,}/g, "\n\n").trim(),
   );
-  return [snapshot, modelConnectionError ? MODEL_CONNECTION_ERROR_MARKER : ""]
+  const output = [
+    presentation.text,
+    modelConnectionError ? MODEL_CONNECTION_ERROR_MARKER : "",
+  ]
     .filter(Boolean)
     .join("\n\n");
+  return { output, presentation };
 }
 
 function buildTerminalTheme(background: string, foreground: string) {
@@ -244,15 +334,25 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const projectName =
     workspaceParam.split(/[\\/]/).filter(Boolean).pop() ?? "Project";
   const [guidedOutput, setGuidedOutput] = useState("");
+  const [guidedActivity, setGuidedActivity] = useState<GuidedChatPresentation>({
+    phase: "idle",
+    text: "",
+    specialist: null,
+  });
+  const [guidedMessages, setGuidedMessages] = useState<GuidedMessage[]>(() =>
+    typeof window === "undefined" ? [] : readGuidedMessages(workspaceParam),
+  );
+  const guidedDefaultSpecialistRef = useRef<GuidedSpecialist>(
+    specialistFromBuilderSeed(searchParams.get("builder")),
+  );
+  const guidedTurnStartLineRef = useRef(0);
+  const lastGuidedResponseRef = useRef("");
   const [guidedInput, setGuidedInput] = useState("");
   const [guidedPaused, setGuidedPaused] = useState(false);
   const guidedOutputRef = useRef<HTMLDivElement | null>(null);
   const hasModelConnectionError = guidedOutput.includes(
     MODEL_CONNECTION_ERROR_MARKER,
   );
-  const visibleGuidedOutput = guidedOutput
-    .replace(MODEL_CONNECTION_ERROR_MARKER, "")
-    .trim();
   // Lazy-init: the missing-token check happens at construction so the effect
   // body doesn't have to setState (React 19's set-state-in-effect rule).
   // In gated (OAuth) mode the server intentionally omits the session token —
@@ -523,6 +623,25 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     const text = guidedInput.trim();
     const ws = wsRef.current;
     if (guidedPaused || !text || !ws || ws.readyState !== WebSocket.OPEN) return;
+    guidedTurnStartLineRef.current = Math.max(
+      0,
+      (termRef.current?.buffer.active.length ?? 1) - 1,
+    );
+    lastGuidedResponseRef.current = "";
+    setGuidedMessages((messages) => [
+      ...messages,
+      {
+        id: `user-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        role: "user",
+        content: text,
+      },
+    ]);
+    setGuidedActivity({
+      phase: "working",
+      text: "Let me think…",
+      specialist: guidedDefaultSpecialistRef.current,
+    });
+    setGuidedOutput("");
     ws.send(text);
     window.setTimeout(() => {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -1100,6 +1219,15 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         window.setTimeout(() => {
           const active = wsRef.current;
           if (!active || active.readyState !== WebSocket.OPEN) return;
+          guidedTurnStartLineRef.current = Math.max(
+            0,
+            term.buffer.active.length - 1,
+          );
+          setGuidedActivity({
+            phase: "working",
+            text: "Let me think…",
+            specialist: guidedDefaultSpecialistRef.current,
+          });
           active.send(builderSeed);
           window.setTimeout(() => {
             if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -1259,7 +1387,36 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       });
       if (guided) {
         guidedWriteDisposable = term.onWriteParsed(() => {
-          setGuidedOutput(guidedTerminalSnapshot(term));
+          const snapshot = guidedTerminalSnapshot(
+            term,
+            guidedTurnStartLineRef.current,
+          );
+          setGuidedOutput(snapshot.output);
+          setGuidedActivity(snapshot.presentation);
+          if (
+            snapshot.presentation.phase === "response" &&
+            snapshot.presentation.text &&
+            snapshot.presentation.text !== lastGuidedResponseRef.current
+          ) {
+            lastGuidedResponseRef.current = snapshot.presentation.text;
+            setGuidedMessages((messages) => {
+              const last = messages[messages.length - 1];
+              if (last?.role === "assistant") {
+                return [
+                  ...messages.slice(0, -1),
+                  { ...last, content: snapshot.presentation.text },
+                ];
+              }
+              return [
+                ...messages,
+                {
+                  id: `assistant-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                  role: "assistant",
+                  content: snapshot.presentation.text,
+                },
+              ];
+            });
+          }
         });
       }
     })();
@@ -1323,7 +1480,19 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   useEffect(() => {
     if (!guidedOutputRef.current) return;
     guidedOutputRef.current.scrollTop = guidedOutputRef.current.scrollHeight;
-  }, [guidedOutput]);
+  }, [guidedActivity, guidedMessages, guidedOutput]);
+
+  useEffect(() => {
+    if (!guided || typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        guidedMessageStorageKey(workspaceParam),
+        JSON.stringify(guidedMessages.slice(-200)),
+      );
+    } catch {
+      // Private browsing/storage limits should not break the live conversation.
+    }
+  }, [guided, guidedMessages, workspaceParam]);
 
   // When the user returns to the chat tab (isActive: false → true), the
   // terminal host just transitioned from display:none to display:flex.
@@ -1592,7 +1761,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-7 sm:py-7"
             aria-live="polite"
           >
-            <div className="mx-auto max-w-3xl whitespace-pre-wrap text-[15px] leading-7 text-text-primary">
+            <div className="mx-auto max-w-3xl text-[15px] leading-7 text-text-primary">
               {guidedPaused && (
                 <div className="mb-4 rounded-xl border border-warning/30 bg-warning/10 p-5 text-warning">
                   Project paused. Select Resume whenever you are ready to continue.
@@ -1618,13 +1787,71 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                   </Button>
                 </div>
               )}
-              {visibleGuidedOutput || (!hasModelConnectionError && (
-                <div className="rounded-xl border border-current/10 bg-midground/5 p-5 text-text-secondary">
-                  {ptyState === "open"
-                    ? "Let’s start building. What’s the cool idea?"
-                    : "Idrak IT is preparing your project conversation…"}
-                </div>
-              ))}
+              <div className="space-y-4">
+                {guidedMessages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={cn(
+                      "flex",
+                      message.role === "user" ? "justify-end" : "justify-start",
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "max-w-[88%] whitespace-pre-wrap rounded-2xl px-4 py-3 shadow-sm sm:max-w-[78%]",
+                        message.role === "user"
+                          ? "rounded-br-md bg-midground text-background-base"
+                          : "rounded-bl-md border border-current/10 bg-midground/5 text-text-primary",
+                      )}
+                    >
+                      <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider opacity-65">
+                        {message.role === "user" ? "You" : "Idrak IT"}
+                      </div>
+                      {message.content}
+                    </div>
+                  </div>
+                ))}
+
+                {!hasModelConnectionError &&
+                  guidedActivity.phase === "working" &&
+                  (() => {
+                    const specialist =
+                      guidedActivity.specialist ??
+                      guidedDefaultSpecialistRef.current;
+                    return (
+                      <div className="flex justify-start">
+                        <div className="flex max-w-[88%] items-center gap-3 rounded-2xl rounded-bl-md border border-current/10 bg-midground/5 px-4 py-3 sm:max-w-[78%]">
+                          <div className="guided-specialist-avatar-wrap shrink-0">
+                            <img
+                              src={`/skill-avatars/${specialist.id.replaceAll("_", "-")}.webp`}
+                              alt=""
+                              className="guided-specialist-avatar h-12 w-12 rounded-xl object-cover"
+                            />
+                            <span className="guided-specialist-dot" />
+                          </div>
+                          <div>
+                            <strong className="block text-sm text-midground">
+                              {specialist.label} is working
+                            </strong>
+                            <span className="block text-sm text-text-secondary">
+                              {guidedActivity.text}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                {!hasModelConnectionError &&
+                  guidedMessages.length === 0 &&
+                  guidedActivity.phase === "idle" && (
+                    <div className="rounded-xl border border-current/10 bg-midground/5 p-5 text-text-secondary">
+                      {ptyState === "open"
+                        ? "Let’s start building. What’s the cool idea?"
+                        : "Idrak IT is preparing your project conversation…"}
+                    </div>
+                  )}
+              </div>
             </div>
           </div>
 
