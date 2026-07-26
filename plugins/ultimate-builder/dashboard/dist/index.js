@@ -259,7 +259,13 @@
           .some((skill) => selected.has(skill));
         const request = brief.trim() || defaultBrief(templateId, mode === "existing");
         const prompt = "IDRAK_INTERNAL_SETUP_BEGIN " + JSON.stringify({
-          instruction: "Use ultimate-builder:ultimate-app-builder. Work only in the selected workspace, run only enabled specialist phases, and ask only concise questions when an important decision is missing.",
+          instruction: "The selected workflow below is authoritative and self-contained. Do not search for, test, or discuss skill availability. Work only in the selected workspace. Run only enabled specialist phases and never silently add a disabled phase.",
+          first_turn_gate: mode === "new" && selected.has("req-engineer")
+            ? "Before inspecting files, using tools, or writing code, ask 2 to 5 concise requirements questions in the chat and wait for the user's answers. Then summarize the agreed MVP scope for confirmation before development. This gate is mandatory even for a simple app."
+            : "Inspect the selected existing workspace first, then ask only concise questions whose answers materially change the requested work.",
+          coordination_rule: selected.has("idk_it")
+            ? "Coordinate the enabled phases in order, verify each phase's evidence, and keep tool calls, terminal output, diffs, and internal workflow details out of user-facing messages."
+            : "Complete only the selected specialist work and report concise user-facing results.",
           workspace,
           template: activeTemplate.name,
           enabled_specialists: enabled,

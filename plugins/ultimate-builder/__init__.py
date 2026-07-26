@@ -16,9 +16,11 @@ def _command_prompt(raw_args: str) -> str:
             "Example: /ultimate-build a private task manager with email login"
         )
     return (
-        "Start the Ultimate Application Builder workflow now. "
-        "Load the skill `ultimate-builder:ultimate-app-builder`, follow its gates, "
-        "and use the current working directory as the project workspace.\n\n"
+        "Start the registered Ultimate Application Builder workflow now. "
+        "Do not search for or discuss a qualified skill name. Follow the selected "
+        "workflow gates and use the current working directory as the project "
+        "workspace. For a new project, ask concise requirements questions and "
+        "wait for the answers before using tools or writing code.\n\n"
         f"Build brief:\n{brief}"
     )
 
@@ -26,8 +28,8 @@ def _command_prompt(raw_args: str) -> str:
 def _status_prompt(raw_args: str) -> str:
     target = raw_args.strip() or "the current working directory"
     return (
-        "Load `ultimate-builder:ultimate-app-builder` in status-only mode. "
-        f"Inspect {target}, read its .sdlc ledger and reports, and summarize the "
+        "Use the registered Ultimate Application Builder workflow in status-only "
+        f"mode. Inspect {target}, read its .sdlc ledger and reports, and summarize the "
         "current phase, open high-severity findings, evidence, and next safe action. "
         "Do not mutate the project."
     )

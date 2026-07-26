@@ -36,6 +36,7 @@ import { usePageHeader } from "@/contexts/usePageHeader";
 import { useI18n } from "@/i18n";
 import { api } from "@/lib/api";
 import { latchChatActivation } from "@/lib/chat-activation";
+import { presentGuidedChatOutput } from "@/lib/guided-chat-output";
 import { normalizeSessionTitle } from "@/lib/chat-title";
 import {
   PTY_CONNECTING_TIMEOUT_MS,
@@ -165,7 +166,9 @@ function guidedTerminalSnapshot(term: Terminal): string {
     );
   }
 
-  const snapshot = lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  const snapshot = presentGuidedChatOutput(
+    lines.join("\n").replace(/\n{3,}/g, "\n\n").trim(),
+  );
   return [snapshot, modelConnectionError ? MODEL_CONNECTION_ERROR_MARKER : ""]
     .filter(Boolean)
     .join("\n\n");

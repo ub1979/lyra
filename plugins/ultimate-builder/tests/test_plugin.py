@@ -45,7 +45,8 @@ def test_build_command_requires_brief():
     module = load_plugin()
     assert "Usage:" in module._command_prompt("")
     prompt = module._command_prompt("a task manager")
-    assert "ultimate-builder:ultimate-app-builder" in prompt
+    assert "qualified skill name" in prompt
+    assert "requirements questions" in prompt
     assert "a task manager" in prompt
 
 
@@ -57,4 +58,12 @@ def test_build_command_injects_normal_idrak_turn():
     response = handler("a task manager")
     assert response == "Ultimate Builder started in the current Idrak IT conversation."
     assert len(ctx.injected) == 1
-    assert "ultimate-builder:ultimate-app-builder" in ctx.injected[0]
+    assert "qualified skill name" in ctx.injected[0]
+
+
+def test_dashboard_enforces_requirements_gate_without_skill_lookup():
+    dashboard = (ROOT / "dashboard" / "dist" / "index.js").read_text()
+    assert "first_turn_gate" in dashboard
+    assert "ask 2 to 5 concise requirements questions" in dashboard
+    assert "Do not search for, test, or discuss skill availability" in dashboard
+    assert "Use ultimate-builder:ultimate-app-builder" not in dashboard
