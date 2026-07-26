@@ -107,18 +107,27 @@ function generateChannelId(scope?: string): string {
 // terminal chrome just needs to sit quietly inside the dashboard.
 const DEFAULT_TERMINAL_BACKGROUND = "#000000";
 const DEFAULT_TERMINAL_FOREGROUND = "#f0e6d2";
+const MODEL_CONNECTION_ERROR_MARKER = "[[IDRAK_MODEL_CONNECTION_ERROR]]";
 
 function guidedTerminalSnapshot(term: Terminal): string {
   const buffer = term.buffer.active;
   const lines: string[] = [];
   const start = Math.max(0, buffer.length - 160);
   let insideInternalSetup = false;
+  let modelConnectionError = false;
   const technicalChrome =
-    /(?:nous research|hermes|available tools|available skills|toolsets|\/help for commands|commits behind|run .* update|session:|voice off|try ["“]|browser:|clarify:|code_execution:|cronjob:|delegation:|file:|memory:|project:)/i;
+    /(?:nous research|hermes|available tools|available skills|toolsets|system prompt|starting a fresh dashboard chat|\/help for commands|commits behind|run .* update|session:|voice off|try ["“]|browser:|clarify:|code_execution:|cronjob:|delegation:|file:|memory:|project:|api call failed after)/i;
 
   for (let index = start; index < buffer.length; index += 1) {
     const line = buffer.getLine(index)?.translateToString(true).trimEnd() ?? "";
     const trimmed = line.trim();
+    if (
+      /UnrecognizedClientException/i.test(trimmed) ||
+      /security token included in the request is invalid/i.test(trimmed)
+    ) {
+      modelConnectionError = true;
+      continue;
+    }
     if (trimmed.includes("IDRAK_INTERNAL_SETUP_BEGIN")) {
       insideInternalSetup = !trimmed.includes("IDRAK_INTERNAL_SETUP_END");
       continue;
@@ -153,7 +162,10 @@ function guidedTerminalSnapshot(term: Terminal): string {
     );
   }
 
-  return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  const snapshot = lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  return [snapshot, modelConnectionError ? MODEL_CONNECTION_ERROR_MARKER : ""]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 function buildTerminalTheme(background: string, foreground: string) {
@@ -227,7 +239,14 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     workspaceParam.split(/[\\/]/).filter(Boolean).pop() ?? "Project";
   const [guidedOutput, setGuidedOutput] = useState("");
   const [guidedInput, setGuidedInput] = useState("");
+  const [guidedPaused, setGuidedPaused] = useState(false);
   const guidedOutputRef = useRef<HTMLDivElement | null>(null);
+  const hasModelConnectionError = guidedOutput.includes(
+    MODEL_CONNECTION_ERROR_MARKER,
+  );
+  const visibleGuidedOutput = guidedOutput
+    .replace(MODEL_CONNECTION_ERROR_MARKER, "")
+    .trim();
   // Lazy-init: the missing-token check happens at construction so the effect
   // body doesn't have to setState (React 19's set-state-in-effect rule).
   // In gated (OAuth) mode the server intentionally omits the session token —
@@ -237,7 +256,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     typeof window !== "undefined" &&
     !window.__IDRAK_IT_SESSION_TOKEN__ &&
     !window.__IDRAK_IT_AUTH_REQUIRED__
-      ? "Session token unavailable. Open this page through `hermes dashboard`, not directly."
+      ? "Session token unavailable. Open this page through the Idrak IT launcher."
       : null,
   );
   const [copyState, setCopyState] = useState<"idle" | "copied">("idle");
@@ -497,7 +516,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const sendGuidedMessage = useCallback(() => {
     const text = guidedInput.trim();
     const ws = wsRef.current;
-    if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
+    if (guidedPaused || !text || !ws || ws.readyState !== WebSocket.OPEN) return;
     ws.send(text);
     window.setTimeout(() => {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -505,7 +524,16 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       }
     }, 80);
     setGuidedInput("");
-  }, [guidedInput]);
+  }, [guidedInput, guidedPaused]);
+
+  const toggleGuidedPause = useCallback(() => {
+    if (!guidedPaused && wsRef.current?.readyState === WebSocket.OPEN) {
+      // Interrupt the current response but keep the PTY/session alive so the
+      // user can resume the conversation without losing project context.
+      wsRef.current.send("\x03");
+    }
+    setGuidedPaused((value) => !value);
+  }, [guidedPaused]);
 
   const handleCopyLast = () => {
     const ws = wsRef.current;
@@ -1527,15 +1555,29 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 {workspaceParam || "Guided project chat"}
               </div>
             </div>
-            <Button
-              ghost
-              size="sm"
-              onClick={() => {
-                window.location.href = "/ultimate-builder";
-              }}
-            >
-              Change project
-            </Button>
+            <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+              <Button ghost size="sm" onClick={toggleGuidedPause}>
+                {guidedPaused ? "Resume" : "Pause"}
+              </Button>
+              <Button
+                ghost
+                size="sm"
+                onClick={() => {
+                  window.location.href = "/models";
+                }}
+              >
+                AI model
+              </Button>
+              <Button
+                ghost
+                size="sm"
+                onClick={() => {
+                  window.location.href = "/ultimate-builder";
+                }}
+              >
+                ← Projects
+              </Button>
+            </div>
           </div>
 
           <div
@@ -1544,13 +1586,37 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             aria-live="polite"
           >
             <div className="mx-auto max-w-3xl whitespace-pre-wrap text-[15px] leading-7 text-text-primary">
-              {guidedOutput || (
-                <div className="rounded-xl border border-current/10 bg-midground/5 p-5 text-text-secondary">
-                  {ptyState === "open"
-                    ? "Your project is ready. Tell Idrak IT what you would like to do."
-                    : "Idrak IT is preparing your project conversation…"}
+              {guidedPaused && (
+                <div className="mb-4 rounded-xl border border-warning/30 bg-warning/10 p-5 text-warning">
+                  Project paused. Select Resume whenever you are ready to continue.
                 </div>
               )}
+              {hasModelConnectionError && (
+                <div className="mb-4 rounded-xl border border-warning/40 bg-warning/10 p-5">
+                  <strong className="block text-midground">
+                    Connect an AI model to continue
+                  </strong>
+                  <span className="mt-2 block text-sm text-text-secondary">
+                    The current AWS Bedrock credentials are not valid. Choose a working provider and model in AI model settings.
+                  </span>
+                  <Button
+                    className="mt-4"
+                    size="sm"
+                    onClick={() => {
+                      window.location.href = "/models";
+                    }}
+                  >
+                    Open AI model settings
+                  </Button>
+                </div>
+              )}
+              {visibleGuidedOutput || (!hasModelConnectionError && (
+                <div className="rounded-xl border border-current/10 bg-midground/5 p-5 text-text-secondary">
+                  {ptyState === "open"
+                    ? "Let’s start building. What’s the cool idea?"
+                    : "Idrak IT is preparing your project conversation…"}
+                </div>
+              ))}
             </div>
           </div>
 
@@ -1559,6 +1625,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               <textarea
                 value={guidedInput}
                 onChange={(event) => setGuidedInput(event.target.value)}
+                disabled={guidedPaused}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && !event.shiftKey) {
                     event.preventDefault();
@@ -1566,7 +1633,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                   }
                 }}
                 rows={2}
-                placeholder="Tell Idrak IT what you want to do…"
+                placeholder={
+                  guidedPaused
+                    ? "Project paused"
+                    : "Describe your idea or ask Idrak IT what to do next…"
+                }
                 className="min-h-12 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-text-primary outline-none placeholder:text-text-secondary"
                 aria-label="Message Idrak IT"
               />
@@ -1574,7 +1645,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 size="icon"
                 onClick={sendGuidedMessage}
                 disabled={
-                  !guidedInput.trim() || ptyState !== "open"
+                  guidedPaused || !guidedInput.trim() || ptyState !== "open"
                 }
                 aria-label="Send message"
               >

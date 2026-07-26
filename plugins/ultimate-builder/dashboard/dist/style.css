@@ -195,10 +195,10 @@
 }
 .ub-skill {
   display: grid;
-  grid-template-columns: 22px 72px minmax(0, 1fr);
-  align-items: start;
-  gap: 10px;
-  min-height: 86px;
+  grid-template-columns: 22px 78px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-height: 112px;
   padding: 13px;
   border: 1px solid var(--color-border);
   border-radius: 10px;
@@ -222,20 +222,21 @@
 }
 .ub-skill:has(input:checked) .ub-skill-check { border-color: var(--ub-lime); background: var(--ub-lime); }
 .ub-skill-avatar {
-  display: grid;
-  min-height: 28px;
-  place-items: center;
-  color: var(--color-text-tertiary);
-  font: 12px/1 var(--font-mono);
-  white-space: nowrap;
-  opacity: .62;
-  transform: translateY(4px) scale(.96);
-  transition: color 160ms ease, opacity 160ms ease, transform 160ms ease;
+  display: block;
+  width: 76px;
+  height: 76px;
+  object-fit: cover;
+  border: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
+  border-radius: 17px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .18);
+  opacity: .72;
+  transform: scale(.96);
+  transition: opacity 160ms ease, transform 160ms ease, box-shadow 160ms ease;
 }
 .ub-skill:has(input:checked) .ub-skill-avatar {
-  color: var(--ub-lime);
   opacity: 1;
-  transform: translateY(2px) scale(1.04);
+  transform: scale(1);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ub-lime) 45%, transparent), 0 10px 24px rgba(0, 0, 0, .24);
   animation: ub-happy-pop 260ms ease-out;
 }
 .ub-skill-copy { min-width: 0; }
@@ -250,9 +251,9 @@
   word-break: normal;
 }
 @keyframes ub-happy-pop {
-  0% { transform: translateY(4px) scale(.9) rotate(-4deg); }
-  70% { transform: translateY(0) scale(1.1) rotate(3deg); }
-  100% { transform: translateY(2px) scale(1.04) rotate(0); }
+  0% { transform: scale(.9) rotate(-3deg); }
+  70% { transform: scale(1.06) rotate(2deg); }
+  100% { transform: scale(1) rotate(0); }
 }
 .ub-save-template { display: flex; gap: 8px; margin-top: 14px; padding-top: 16px; border-top: 1px solid var(--color-border); }
 .ub-save-template > :first-child { flex: 1; }
