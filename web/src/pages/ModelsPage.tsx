@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import {
   Brain,
@@ -9,7 +15,6 @@ import {
   Eye,
   HardDrive,
   RefreshCw,
-  Settings2,
   Star,
   Wrench,
   X,
@@ -950,41 +955,10 @@ function ModelSettingsPanel({
   const [auxModalOpen, setAuxModalOpen] = useState(false);
   const [moaModalOpen, setMoaModalOpen] = useState(false);
   const [moa, setMoa] = useState<MoaConfigResponse | null>(null);
-  const [picker, setPicker] = useState<PickerTarget | null>(null);
-  const [pendingReloadModel, setPendingReloadModel] = useState<string | null>(
-    null,
-  );
-
-  const mainProv = aux?.main.provider ?? "";
-  const mainModel = aux?.main.model ?? "";
 
   useEffect(() => {
     api.getMoaModels().then(setMoa).catch(() => setMoa(null));
   }, [refreshKey]);
-
-  const applyAssignment = async ({
-    scope,
-    task,
-    provider,
-    model,
-    confirmExpensiveModel,
-  }: {
-    confirmExpensiveModel?: boolean;
-    scope: "main" | "auxiliary";
-    task: string;
-    provider: string;
-    model: string;
-  }) => {
-    const result = await api.setModelAssignment({
-      confirm_expensive_model: confirmExpensiveModel,
-      scope,
-      task,
-      provider,
-      model,
-    });
-    if (!result.confirm_required) onSaved();
-    return result;
-  };
 
   // Count how many aux tasks have overrides
   const auxOverrideCount = aux?.tasks.filter(
@@ -992,42 +966,7 @@ function ModelSettingsPanel({
   ).length ?? 0;
 
   return (
-    <Card className="min-w-0 max-w-full overflow-hidden">
-      <CardHeader className="min-w-0 pb-3">
-        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-          <Settings2 className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <CardTitle className="text-sm">Model Settings</CardTitle>
-          <span className="max-w-full min-w-0 text-xs text-text-secondary [overflow-wrap:anywhere]">
-            applies to new sessions
-          </span>
-        </div>
-      </CardHeader>
-
-      <CardContent className="min-w-0 space-y-3 pt-3">
-        {/* Main row */}
-        <div className="flex min-w-0 flex-col gap-2 bg-muted/20 border border-border/50 px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 mb-0.5">
-              <Star className="h-3 w-3 text-primary" />
-              <span className="text-display text-xs font-medium tracking-wider">
-                Main model
-              </span>
-            </div>
-            <div className="text-xs font-mono text-text-secondary truncate">
-              {mainProv || "(unset)"}
-              {mainProv && mainModel && " · "}
-              {mainModel || "(unset)"}
-            </div>
-          </div>
-          <Button
-            size="sm"
-            onClick={() => setPicker({ kind: "main" })}
-            className="shrink-0 self-start text-xs uppercase sm:self-center"
-          >
-            Change
-          </Button>
-        </div>
-
+    <div className="min-w-0 space-y-3">
         {/* Auxiliary tasks summary + open modal */}
         <div className="flex min-w-0 flex-col gap-2 bg-muted/20 border border-border/50 px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
           <div className="min-w-0 flex-1">
@@ -1078,29 +1017,6 @@ function ModelSettingsPanel({
           </Button>
         </div>
 
-        {picker && (
-          <ModelPickerDialog
-            key={`picker-${refreshKey}`}
-            loader={api.getModelOptions}
-            alwaysGlobal
-            title="Set Main Model"
-            onApply={async ({ provider, model, confirmExpensiveModel }) => {
-              const result = await applyAssignment({
-                confirmExpensiveModel,
-                scope: "main",
-                task: "",
-                provider,
-                model,
-              });
-              if (!result.confirm_required) {
-                setPendingReloadModel(model.split("/").slice(-1)[0]);
-              }
-              return result;
-            }}
-            onClose={() => setPicker(null)}
-          />
-        )}
-
         {auxModalOpen && (
           <AuxiliaryTasksModal
             aux={aux}
@@ -1110,10 +1026,6 @@ function ModelSettingsPanel({
           />
         )}
 
-        <ModelReloadConfirm
-          model={pendingReloadModel}
-          onCancel={() => setPendingReloadModel(null)}
-        />
         {moaModalOpen && moa && (
           <MoaModelsModal
             config={moa}
@@ -1125,7 +1037,128 @@ function ModelSettingsPanel({
             onClose={() => setMoaModalOpen(false)}
           />
         )}
+    </div>
+  );
+}
+
+function CollapsiblePanel({
+  title,
+  description,
+  children,
+  onOpen,
+}: {
+  title: string;
+  description: string;
+  children: ReactNode;
+  onOpen?: () => void;
+}) {
+  const [openedOnce, setOpenedOnce] = useState(false);
+
+  return (
+    <details
+      className="group overflow-hidden border border-border bg-card"
+      onToggle={(event) => {
+        if (!event.currentTarget.open) return;
+        setOpenedOnce(true);
+        onOpen?.();
+      }}
+    >
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 hover:bg-muted/20">
+        <div>
+          <div className="text-sm font-semibold text-text-primary">{title}</div>
+          <div className="mt-1 text-xs text-text-secondary">{description}</div>
+        </div>
+        <ChevronDown className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" />
+      </summary>
+      {openedOnce && (
+        <div className="border-t border-border p-5">{children}</div>
+      )}
+    </details>
+  );
+}
+
+function QuickModelSetup({
+  aux,
+  refreshKey,
+  onSaved,
+  onBack,
+  backLabel,
+}: {
+  aux: AuxiliaryModelsResponse | null;
+  refreshKey: number;
+  onSaved(): void;
+  onBack(): void;
+  backLabel: string;
+}) {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pendingReloadModel, setPendingReloadModel] = useState<string | null>(
+    null,
+  );
+  const provider = aux?.main.provider ?? "";
+  const model = aux?.main.model ?? "";
+
+  return (
+    <Card className="overflow-hidden border-primary/30">
+      <CardHeader className="border-b border-border/60">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <CardTitle className="text-base">AI model</CardTitle>
+            <p className="mt-1 text-sm text-text-secondary">
+              Pick the model that will build your project.
+            </p>
+          </div>
+          <Button outlined onClick={onBack}>
+            <ArrowLeft className="h-4 w-4" />
+            {backLabel}
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Star className="h-4 w-4 text-primary" />
+            Current model
+          </div>
+          <div className="mt-2 truncate font-mono text-sm text-text-secondary">
+            {provider && model ? `${provider} · ${model}` : "No model selected yet"}
+          </div>
+        </div>
+        <Button
+          className="shrink-0"
+          onClick={() => setPickerOpen(true)}
+        >
+          Choose model
+        </Button>
       </CardContent>
+
+      {pickerOpen && (
+        <ModelPickerDialog
+          key={`quick-picker-${refreshKey}`}
+          loader={api.getModelOptions}
+          alwaysGlobal
+          title="Choose your AI model"
+          onApply={async ({ provider: nextProvider, model: nextModel, confirmExpensiveModel }) => {
+            const result = await api.setModelAssignment({
+              confirm_expensive_model: confirmExpensiveModel,
+              scope: "main",
+              task: "",
+              provider: nextProvider,
+              model: nextModel,
+            });
+            if (!result.confirm_required) {
+              onSaved();
+              setPendingReloadModel(nextModel.split("/").slice(-1)[0]);
+            }
+            return result;
+          }}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
+
+      <ModelReloadConfirm
+        model={pendingReloadModel}
+        onCancel={() => setPendingReloadModel(null)}
+      />
     </Card>
   );
 }
@@ -1245,7 +1278,7 @@ export default function ModelsPage() {
   const [days, setDays] = useState(30);
   const [data, setData] = useState<ModelsAnalyticsResponse | null>(null);
   const [aux, setAux] = useState<AuxiliaryModelsResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveKey, setSaveKey] = useState(0);
   // Gate the token/cost UI on `dashboard.show_token_analytics`.  See
@@ -1302,47 +1335,19 @@ export default function ModelsPage() {
   }, [refreshAux]);
 
   useLayoutEffect(() => {
-    // Period selector + refresh both live in afterTitle so the controls
-    // sit immediately next to the page title instead of being pinned to
-    // the far-right `end` slot. The active period is conveyed by the
-    // filled (non-outlined) button — no redundant period badge.
-    setAfterTitle(
-      <div className="flex flex-wrap items-center gap-1.5">
-        {PERIODS.map((p) => (
-          <Button
-            key={p.label}
-            type="button"
-            size="sm"
-            outlined={days !== p.days}
-            onClick={() => setDays(p.days)}
-            className="uppercase"
-          >
-            {p.label}
-          </Button>
-        ))}
-        <Button
-          type="button"
-          ghost
-          size="icon"
-          className="text-muted-foreground hover:text-foreground"
-          onClick={load}
-          disabled={loading}
-          aria-label={t.common.refresh}
-        >
-          {loading ? <Spinner /> : <RefreshCw />}
-        </Button>
-      </div>,
-    );
+    // Keep the page header calm for first-time users. Usage-period controls
+    // live inside the collapsed Usage panel instead.
+    setAfterTitle(null);
     setEnd(null);
     return () => {
       setAfterTitle(null);
       setEnd(null);
     };
-  }, [days, loading, load, setAfterTitle, setEnd, t.common.refresh]);
+  }, [setAfterTitle, setEnd]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    refreshAux();
+  }, [refreshAux]);
 
   // Model assignments can change outside this page (config editor, chat
   // /model --global, CLI), so refetch them when the page regains focus.
@@ -1364,44 +1369,88 @@ export default function ModelsPage() {
 
   return (
     <div className="flex min-w-0 max-w-full flex-col gap-6">
-      <div>
-        <Button outlined onClick={() => navigate(safeReturnTo)}>
-          <ArrowLeft className="h-4 w-4" />
-          {requestedReturnTo ? "Back to project" : "Back to projects"}
-        </Button>
-      </div>
+      <QuickModelSetup
+        aux={aux}
+        refreshKey={saveKey}
+        onSaved={onAssigned}
+        onBack={() => navigate(safeReturnTo)}
+        backLabel={requestedReturnTo ? "Back to project" : "Back to projects"}
+      />
 
       <PluginSlot name="models:top" />
 
-      <div className="grid min-w-0 gap-6 xl:grid-cols-2">
-        <LocalOllamaCard onActivated={onAssigned} />
-        <OAuthProvidersCard
-          providerIds={SUBSCRIPTION_PROVIDER_IDS}
-          title="Claude and ChatGPT connections"
-          description="Use the accounts already signed in through Claude Code or Codex. API keys remain optional alternatives."
-          onError={setError}
-          onSuccess={() => {
-            setError(null);
-            onAssigned();
-          }}
-        />
-      </div>
+      {error && (
+        <div className="border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
 
-      <Card className="border-dashed">
-        <CardContent className="py-4 text-sm text-text-secondary">
+      <CollapsiblePanel
+        title="Model connections"
+        description="Ollama, Claude, ChatGPT, and other account connections."
+      >
+        <div className="grid min-w-0 gap-6 xl:grid-cols-2">
+          <LocalOllamaCard onActivated={onAssigned} />
+          <OAuthProvidersCard
+            providerIds={SUBSCRIPTION_PROVIDER_IDS}
+            title="Claude and ChatGPT"
+            description="Use accounts already signed in through Claude Code or Codex."
+            onError={setError}
+            onSuccess={() => {
+              setError(null);
+              onAssigned();
+            }}
+          />
+        </div>
+        <div className="mt-5 border border-dashed border-border px-4 py-3 text-sm text-text-secondary">
           <strong className="text-text-primary">Google Gemini:</strong>{" "}
-          Idrak IT supports Google AI Studio with a Gemini API key. It does not
-          reuse Gemini CLI Google-login credentials because Google explicitly
-          disallows using those credentials from third-party software.
-        </CardContent>
-      </Card>
+          available through a Google AI Studio API key. Gemini CLI login
+          credentials are not reused by third-party applications.
+        </div>
+      </CollapsiblePanel>
 
-      <div className="grid min-w-0 gap-6 lg:grid-cols-2">
+      <CollapsiblePanel
+        title="Advanced model routing"
+        description="Helper models and Mixture of Agents. Most people can leave these on Auto."
+      >
         <ModelSettingsPanel
           aux={aux}
           refreshKey={saveKey}
           onSaved={onAssigned}
         />
+      </CollapsiblePanel>
+
+      <CollapsiblePanel
+        title="Usage and model history"
+        description="Session totals, model activity, and optional token estimates."
+        onOpen={() => {
+          if (!data && !loading) load();
+        }}
+      >
+        <div className="mb-5 flex flex-wrap items-center gap-2">
+          <span className="mr-1 text-xs text-text-secondary">Period</span>
+          {PERIODS.map((period) => (
+            <Button
+              key={period.label}
+              type="button"
+              size="sm"
+              outlined={days !== period.days}
+              onClick={() => setDays(period.days)}
+            >
+              {period.label}
+            </Button>
+          ))}
+          <Button
+            type="button"
+            ghost
+            size="icon"
+            onClick={load}
+            disabled={loading}
+            aria-label={t.common.refresh}
+          >
+            {loading ? <Spinner /> : <RefreshCw />}
+          </Button>
+        </div>
 
         {data && (
           <Card className="min-w-0 max-w-full overflow-hidden">
@@ -1466,53 +1515,39 @@ export default function ModelsPage() {
             </CardContent>
           </Card>
         )}
-      </div>
 
-      {loading && !data && (
-        <div className="flex items-center justify-center py-24">
-          <Spinner className="text-2xl text-primary" />
-        </div>
-      )}
+        {loading && !data && (
+          <div className="flex items-center justify-center py-16">
+            <Spinner className="text-2xl text-primary" />
+          </div>
+        )}
 
-      {error && (
-        <Card>
-          <CardContent className="py-6">
-            <p className="text-sm text-destructive text-center">{error}</p>
-          </CardContent>
-        </Card>
-      )}
-
-      {data && (
-        <>
-          {data.models.length > 0 ? (
-            <div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {data.models.map((m, i) => (
-                <ModelCard
-                  key={`${m.model}:${m.provider}`}
-                  entry={m}
-                  rank={i + 1}
-                  main={aux?.main ?? null}
-                  aux={aux?.tasks ?? []}
-                  onAssigned={onAssigned}
-                  showTokens={showTokens}
-                />
-              ))}
-            </div>
-          ) : (
-            <Card>
-              <CardContent className="py-12">
-                <div className="flex flex-col items-center text-muted-foreground">
-                  <Cpu className="h-8 w-8 mb-3 opacity-40" />
-                  <p className="text-sm font-medium">{t.models.noModelsData}</p>
-                  <p className="text-xs mt-1 text-text-tertiary">
-                    {t.models.startSession}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </>
-      )}
+        {data && (
+          <div className="mt-5">
+            {data.models.length > 0 ? (
+              <div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {data.models.map((modelEntry, index) => (
+                  <ModelCard
+                    key={`${modelEntry.model}:${modelEntry.provider}`}
+                    entry={modelEntry}
+                    rank={index + 1}
+                    main={aux?.main ?? null}
+                    aux={aux?.tasks ?? []}
+                    onAssigned={onAssigned}
+                    showTokens={showTokens}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="py-10 text-center text-text-secondary">
+                <Cpu className="mx-auto mb-3 h-8 w-8 opacity-40" />
+                <p className="text-sm font-medium">{t.models.noModelsData}</p>
+                <p className="mt-1 text-xs">{t.models.startSession}</p>
+              </div>
+            )}
+          </div>
+        )}
+      </CollapsiblePanel>
 
       <PluginSlot name="models:bottom" />
     </div>
