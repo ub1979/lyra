@@ -1,4 +1,4 @@
-# Ultimate Builder for Idrak IT
+# Idrak IT
 
 An evidence-driven application delivery system for Idrak IT. It combines
 requirements engineering, architecture, task planning, implementation,

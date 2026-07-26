@@ -1,8 +1,8 @@
 (function () {
   "use strict";
 
-  const SDK = window.__HERMES_PLUGIN_SDK__;
-  if (!SDK || !window.__HERMES_PLUGINS__) return;
+  const SDK = window.__IDRAK_IT_PLUGIN_SDK__;
+  if (!SDK || !window.__IDRAK_IT_PLUGINS__) return;
 
   const { React, fetchJSON } = SDK;
   const h = React.createElement;
@@ -74,7 +74,7 @@
     return h("div", { className: "ub-page" },
       h("section", { className: "ub-hero" },
         h("div", null,
-          h("p", { className: "ub-kicker" }, "HERMES · DELIVERY SYSTEM"),
+          h("p", { className: "ub-kicker" }, "IDRAK IT · DELIVERY SYSTEM"),
           h("h1", null, "Build software with evidence."),
           h("p", { className: "ub-subtitle" },
             "One agent runtime. Specialist delegates. Visible gates from idea to production."),
@@ -153,11 +153,11 @@
         ),
       ),
       h("footer", { className: "ub-footer" },
-        h("p", null, "Implementation runs in Hermes Chat—no duplicate agent, no reduced tool access."),
+        h("p", null, "Implementation runs in Idrak IT Chat—no duplicate agent, no reduced tool access."),
         h("a", { href: "/chat" }, "Open Chat →"),
       ),
     );
   }
 
-  window.__HERMES_PLUGINS__.register("ultimate-builder", App);
+  window.__IDRAK_IT_PLUGINS__.register("ultimate-builder", App);
 })();

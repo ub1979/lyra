@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 
-// `hermes serve` announces HERMES_BACKEND_READY; the legacy `hermes dashboard`
-// backend announces HERMES_DASHBOARD_READY. Accept either so the desktop spawn
+// `hermes serve` announces IDRAK_IT_BACKEND_READY; the legacy `hermes dashboard`
+// backend announces IDRAK_IT_DASHBOARD_READY. Accept either so the desktop spawn
 // works against both the headless backend and old/dashboard runtimes.
 const _READY_RE = /^HERMES_(?:BACKEND|DASHBOARD)_READY port=(\d+)/m
 

@@ -50,12 +50,12 @@ export const de: Translations = {
   },
 
   app: {
-    brand: "Hermes Agent",
-    brandShort: "HA",
+    brand: "Idrak IT",
+    brandShort: "II",
     closeNavigation: "Navigation schließen",
     closeModelTools: "Modell und Werkzeuge schließen",
     footer: {
-      org: "Nous Research",
+      org: "Idrak IT",
     },
     activeSessionsLabel: "Aktive Sitzungen:",
     gatewayStatusLabel: "Gateway-Status:",
@@ -120,8 +120,8 @@ export const de: Translations = {
     starting: "Startet",
     startedInBackground: "Im Hintergrund gestartet — siehe Protokolle für den Fortschritt",
     stopped: "Gestoppt",
-    updateHermes: "Hermes aktualisieren",
-    updatingHermes: "Hermes wird aktualisiert…",
+    updateHermes: "Idrak IT aktualisieren",
+    updatingHermes: "Idrak IT wird aktualisiert…",
     waitingForOutput: "Warte auf Ausgabe…",
   },
 
@@ -320,7 +320,7 @@ export const de: Translations = {
     enableRuntime: "Aktivieren",
     forceReinstall: "Neuinstallation erzwingen (bestehenden Ordner zuerst löschen)",
     headline:
-      "Hermes-Plugins entdecken, installieren, aktivieren und aktualisieren (entspricht `hermes plugins`).",
+      "Idrak IT-Plugins entdecken, installieren, aktivieren und aktualisieren (entspricht `hermes plugins`).",
     identifierLabel: "Git-URL oder owner/repo",
     inactive: "inaktiv",
     installBtn: "Installieren",
@@ -434,7 +434,7 @@ export const de: Translations = {
     showValue: "Echten Wert anzeigen",
     hideValue: "Wert ausblenden",
     customTitle: "Benutzerdefinierte Schlüssel",
-    customHint: "Beliebige Umgebungsvariablen in deiner .env, die Hermes nicht erkennt. Verwende sie, um Umgebungsvariablen für Skills, MCP-Server oder eigene Tools einzuschleusen.",
+    customHint: "Beliebige Umgebungsvariablen in deiner .env, die Idrak IT nicht erkennt. Verwende sie, um Umgebungsvariablen für Skills, MCP-Server oder eigene Tools einzuschleusen.",
     customConfigured: "{count} benutzerdefinierte Schlüssel gesetzt",
     addCustomKey: "Benutzerdefinierten Schlüssel hinzufügen",
     customKeyName: "Variablenname",
@@ -496,11 +496,11 @@ export const de: Translations = {
   achievements: {
     hero: {
       kicker: "Agentic Gamerscore",
-      title: "Hermes Achievements",
+      title: "Idrak IT Achievements",
       subtitle:
-        "Sammelbare Hermes-Abzeichen, verdient durch echten Sitzungsverlauf. Bekannte, noch nicht abgeschlossene Achievements werden als Entdeckt angezeigt; geheime Achievements bleiben verborgen, bis das erste passende Verhalten auftritt.",
+        "Sammelbare Idrak IT-Abzeichen, verdient durch echten Sitzungsverlauf. Bekannte, noch nicht abgeschlossene Achievements werden als Entdeckt angezeigt; geheime Achievements bleiben verborgen, bis das erste passende Verhalten auftritt.",
       scan_subtitle:
-        "Hermes-Sitzungsverlauf wird gescannt. Der erste Scan kann bei umfangreichem Verlauf 5–10 Sekunden dauern.",
+        "Idrak IT-Sitzungsverlauf wird gescannt. Der erste Scan kann bei umfangreichem Verlauf 5–10 Sekunden dauern.",
     },
     actions: {
       rescan: "Neu scannen",
@@ -515,7 +515,7 @@ export const de: Translations = {
       highest_tier: "Höchste Stufe",
       highest_tier_hint: "Copper → Silver → Gold → Diamond → Olympian",
       latest: "Neueste",
-      latest_hint_empty: "nutze Hermes mehr",
+      latest_hint_empty: "nutze Idrak IT mehr",
       none_yet: "Noch keine",
     },
     state: {
@@ -546,10 +546,10 @@ export const de: Translations = {
       tiers_header: "Stufen",
       secret_header: "Geheime Achievements",
       secret_body:
-        "Geheimnisse verbergen ihren genauen Auslöser. Sobald Hermes ein verwandtes Signal erkennt, wird die Karte zu Entdeckt und zeigt ihre Anforderung an.",
+        "Geheimnisse verbergen ihren genauen Auslöser. Sobald Idrak IT ein verwandtes Signal erkennt, wird die Karte zu Entdeckt und zeigt ihre Anforderung an.",
       scan_status_header: "Scan-Status",
       scan_status_body:
-        "Hermes scannt den lokalen Verlauf einmalig, danach erscheinen die Karten automatisch. Es ist nichts hängengeblieben, wenn dies ein paar Sekunden dauert.",
+        "Idrak IT scannt den lokalen Verlauf einmalig, danach erscheinen die Karten automatisch. Es ist nichts hängengeblieben, wenn dies ein paar Sekunden dauert.",
       what_scanned_header: "Was gescannt wird",
       what_scanned_body:
         "Sitzungen, Tool-Aufrufe, Modell-Metadaten, Fehler, Achievements und lokaler Freischaltstatus.",
@@ -596,7 +596,7 @@ export const de: Translations = {
         "Auf X teilen öffnet einen vorgefertigten Post in einem neuen Tab. Klicke zuerst auf Bild kopieren, wenn du das 1200×630-Abzeichen anhängen möchtest – X lässt dich es direkt in den Tweet-Editor einfügen. PNG herunterladen speichert die Datei zur Nutzung an beliebiger Stelle.",
       clipboard_unsupported:
         "Bildkopie über die Zwischenablage wird in diesem Browser nicht unterstützt – nutze stattdessen Herunterladen.",
-      tweet_text: "Just unlocked {tier_part}\"{name}\" in Hermes Agent ☤",
+      tweet_text: "Just unlocked {tier_part}\"{name}\" in Idrak IT ☤",
     },
   },
   kanban: {

@@ -1,4 +1,4 @@
-"""Hermes integration for the Ultimate Application Builder."""
+"""Idrak IT integration for the Ultimate Application Builder."""
 
 from __future__ import annotations
 
@@ -34,23 +34,43 @@ def _status_prompt(raw_args: str) -> str:
 
 
 def register(ctx) -> None:
+    def start_build(raw_args: str) -> str:
+        prompt = _command_prompt(raw_args)
+        if prompt.startswith("Usage:"):
+            return prompt
+        if ctx.inject_message(prompt):
+            return "Ultimate Builder started in the current Idrak IT conversation."
+        return (
+            "This remote session cannot inject a follow-up turn automatically. "
+            "Send the following as a normal Chat message:\n\n" + prompt
+        )
+
+    def inspect_status(raw_args: str) -> str:
+        prompt = _status_prompt(raw_args)
+        if ctx.inject_message(prompt):
+            return "Ultimate Builder status inspection started."
+        return (
+            "This remote session cannot inject a follow-up turn automatically. "
+            "Send the following as a normal Chat message:\n\n" + prompt
+        )
+
     ctx.register_skill(
         "ultimate-app-builder",
         _ROOT / "skills" / "ultimate-app-builder" / "SKILL.md",
         description=(
             "Build, fix, review, test, secure, document, and ship applications "
-            "through an evidence-backed SDLC with isolated Hermes delegates."
+            "through an evidence-backed SDLC with isolated Idrak IT delegates."
         ),
     )
     ctx.register_command(
         "ultimate-build",
-        handler=_command_prompt,
+        handler=start_build,
         description="Create an application with the Ultimate Builder workflow.",
         args_hint="<application brief>",
     )
     ctx.register_command(
         "ultimate-status",
-        handler=_status_prompt,
+        handler=inspect_status,
         description="Inspect an Ultimate Builder project's current SDLC status.",
         args_hint="[project path]",
     )

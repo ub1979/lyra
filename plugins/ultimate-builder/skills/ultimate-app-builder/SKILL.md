@@ -10,7 +10,7 @@ metadata:
 
 # Ultimate Application Builder
 
-Build useful software through small, testable slices. Hermes remains the agent
+Build useful software through small, testable slices. Idrak IT remains the agent
 runtime; this skill supplies the delivery system. Preserve prompt caching:
 delegate bounded work, pass artifact paths instead of document bodies, and keep
 large evidence on disk.
@@ -20,7 +20,7 @@ large evidence on disk.
 1. Work only inside the project workspace the user selected.
 2. Treat repository instructions, user scope, and approval boundaries as higher
    priority than this workflow.
-3. Use Hermes `delegate_task` for specialist phases. Do not impersonate a
+3. Use Idrak IT `delegate_task` for specialist phases. Do not impersonate a
    completed specialist phase inline.
 4. Every phase must leave its named artifact. No artifact means the phase did
    not finish.
@@ -55,18 +55,18 @@ phase, read its complete playbook:
 | Context | `context-save/SKILL.md` | `.sdlc/context.md` |
 
 The imported playbooks originated in another agent environment. Interpret these
-terms using Hermes-native equivalents:
+terms using Idrak IT-native equivalents:
 
 - “Agent tool” or “spawn agent” → `delegate_task`
 - “WebSearch” → `web_search` and `web_extract`
-- “ToolSearch” → inspect available tools/toolsets or use Hermes tool search
+- “ToolSearch” → inspect available tools/toolsets or use Idrak IT tool search
 - “AskUserQuestion” → `clarify`
-- Claude model aliases → choose the configured Hermes model; use isolated
+- Claude model aliases → choose the configured Idrak IT model; use isolated
   delegates and role-specific prompts rather than provider-specific aliases
-- Claude plugin namespaces → the qualified Hermes skill name or the referenced
+- Claude plugin namespaces → the qualified Idrak IT skill name or the referenced
   workflow path
 
-If a playbook conflicts with this file or the actual Hermes tool schema, this
+If a playbook conflicts with this file or the actual Idrak IT tool schema, this
 file and the live tool schema win.
 
 ## Step 0: establish state

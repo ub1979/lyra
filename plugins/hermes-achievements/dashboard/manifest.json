@@ -1,7 +1,7 @@
 {
   "name": "hermes-achievements",
   "label": "Achievements",
-  "description": "Steam-style achievements for vibe coding and agentic Hermes workflows.",
+  "description": "Achievement badges for vibe coding and autonomous Idrak IT workflows.",
   "icon": "Star",
   "version": "0.4.0",
   "tab": { "path": "/achievements", "position": "after:analytics" },

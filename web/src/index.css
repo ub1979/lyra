@@ -43,7 +43,7 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* Hermes Agent — Nous DS with the LENS_0 (Hermes teal) palette applied
+/* Idrak IT — private application palette
    statically as the default dashboard theme. */
 /* ------------------------------------------------------------------ */
 
@@ -252,4 +252,3 @@ code { font-size: 0.875rem; }
 html[dir="rtl"] {
   direction: rtl;
 }
-

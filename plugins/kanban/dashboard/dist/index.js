@@ -1,18 +1,18 @@
 /**
- * Hermes Kanban — Dashboard Plugin
+ * Idrak IT Kanban — Dashboard Plugin
  *
  * Board view for the multi-agent collaboration board backed by
  * ~/.hermes/kanban.db. Calls the plugin's backend at /api/plugins/kanban/
  * and tails task_events over a WebSocket for live updates.
  *
- * Plain IIFE, no build step. Uses window.__HERMES_PLUGIN_SDK__ for React +
+ * Plain IIFE, no build step. Uses window.__IDRAK_IT_PLUGIN_SDK__ for React +
  * shadcn primitives; HTML5 drag-and-drop for card movement on desktop and
  * a pointer-based fallback for touch.
  */
 (function () {
   "use strict";
 
-  const SDK = window.__HERMES_PLUGIN_SDK__;
+  const SDK = window.__IDRAK_IT_PLUGIN_SDK__;
   if (!SDK) return;
 
   const { React } = SDK;
@@ -198,8 +198,8 @@
   // Docs link — surfaced as a `?` icon next to the board switcher and as
   // `title=` hints on unlabelled controls. Kept in one place so rebrands or
   // path changes are a single edit.
-  const DOCS_URL = "https://hermes-agent.nousresearch.com/docs/user-guide/features/kanban";
-  const DOCS_TUTORIAL_URL = "https://hermes-agent.nousresearch.com/docs/user-guide/features/kanban-tutorial";
+  const DOCS_URL = "#/docs/user-guide/features/kanban";
+  const DOCS_TUTORIAL_URL = "#/docs/user-guide/features/kanban-tutorial";
 
   // localStorage key for the user's selected board. Independent of the
   // CLI's on-disk ``<root>/kanban/current`` pointer so browser users
@@ -1544,8 +1544,8 @@
       target: "_blank",
       rel: "noopener noreferrer",
       className: "hermes-kanban-docs-link",
-      title: "Open Hermes Kanban docs in a new tab",
-      "aria-label": "Hermes Kanban documentation",
+      title: "Open Idrak IT Kanban docs in a new tab",
+      "aria-label": "Idrak IT Kanban documentation",
     }, "?");
   }
 
@@ -2195,7 +2195,7 @@
         ),
       ),
       h("div", { className: "flex flex-col gap-1",
-                 title: "Filter by assigned Hermes profile. Profiles are the named agent identities that claim and work on tasks." },
+                 title: "Filter by assigned Idrak IT profile. Profiles are the named agent identities that claim and work on tasks." },
         h(Label, { className: "text-xs text-muted-foreground" }, tx(t, "assignee", "Assignee")),
         h(Select, Object.assign({
           value: props.assigneeFilter,
@@ -2325,7 +2325,7 @@
         }, tx(t, "setPriority", "Set priority")),
       ),
       h("div", { className: "hermes-kanban-bulk-reassign",
-                 title: "Reassign selected tasks to a different Hermes profile. Pick a profile (or unassign) and click Apply." },
+                 title: "Reassign selected tasks to a different Idrak IT profile. Pick a profile (or unassign) and click Apply." },
         h(Select, Object.assign({
           value: assignee,
           className: "h-7 text-xs",
@@ -2872,7 +2872,7 @@
           h("div", { className: "hermes-kanban-card-row hermes-kanban-card-meta" },
             t.assignee
               ? h("span", { className: "hermes-kanban-assignee",
-                            title: `Assigned to Hermes profile @${t.assignee}` }, "@", t.assignee)
+                            title: `Assigned to Idrak IT profile @${t.assignee}` }, "@", t.assignee)
               : h("span", { className: "hermes-kanban-unassigned",
                             title: needsAssignee
                               ? tx(i18n, "needsAssigneeHint", "Dependencies are satisfied, but the dispatcher skips this task until you assign a profile.")
@@ -3019,8 +3019,8 @@
                   : tx(t, "assigneePlaceholder", "assignee"),
                 className: "h-8 text-sm",
                 title: props.columnName === "triage"
-                  ? "Hermes profile that will spec this task (default: the dispatcher's configured specifier). Leave blank to let the dispatcher pick."
-                  : "Hermes profile to assign. Leave blank and the dispatcher will pick from available profiles when the task is Ready.",
+                  ? "Idrak IT profile that will spec this task (default: the dispatcher's configured specifier). Leave blank to let the dispatcher pick."
+                  : "Idrak IT profile to assign. Leave blank and the dispatcher will pick from available profiles when the task is Ready.",
                 style: { textTransform: "none" },
                 autoCapitalize: "none",
                 autoCorrect: "off",
@@ -4463,7 +4463,7 @@
   // Register
   // -------------------------------------------------------------------------
 
-  if (window.__HERMES_PLUGINS__ && typeof window.__HERMES_PLUGINS__.register === "function") {
-    window.__HERMES_PLUGINS__.register("kanban", KanbanPage);
+  if (window.__IDRAK_IT_PLUGINS__ && typeof window.__IDRAK_IT_PLUGINS__.register === "function") {
+    window.__IDRAK_IT_PLUGINS__.register("kanban", KanbanPage);
   }
 })();

@@ -324,8 +324,8 @@ test('spawnRemoteDashboard always spawns serve (legacy dashboard path removed)',
 })
 
 test('READY_RE accepts both serve and dashboard sentinels', () => {
-  assert.equal(READY_RE.exec('HERMES_BACKEND_READY port=4321')?.[1], '4321')
-  assert.equal(READY_RE.exec('HERMES_DASHBOARD_READY port=8765')?.[1], '8765')
+  assert.equal(READY_RE.exec('IDRAK_IT_BACKEND_READY port=4321')?.[1], '4321')
+  assert.equal(READY_RE.exec('IDRAK_IT_DASHBOARD_READY port=8765')?.[1], '8765')
 })
 
 test('spawnRemoteDashboard rejects when no pid is returned', async () => {
@@ -348,7 +348,7 @@ test('spawnRemoteDashboard rejects when no pid is returned', async () => {
 
 test('scrapeReadyPort reads only the named spawn log', async () => {
   const logPath = spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE)
-  const ssh = fakeSsh([[/cat/, 'some noise\nHERMES_DASHBOARD_READY port=51234\n']])
+  const ssh = fakeSsh([[/cat/, 'some noise\nIDRAK_IT_DASHBOARD_READY port=51234\n']])
   const port = await scrapeReadyPort(ssh, logPath, { timeoutMs: 1000 })
   assert.equal(port, 51234)
   assert.ok(ssh.calls.every(call => !call.includes('desktop-ssh.log')))
@@ -407,7 +407,7 @@ test('connect() spawns fresh when there is no lockfile, adopts the served token'
     [/printf '%s\\n'/, ''],
     [/setsid/, '777\n'],
     [/kill -0 777/, 'ALIVE'],
-    [/cat .*\.log/, 'HERMES_DASHBOARD_READY port=51999\n']
+    [/cat .*\.log/, 'IDRAK_IT_DASHBOARD_READY port=51999\n']
   ])
 
   const result = await connect(connectDeps(ssh, { adoptServedToken: async () => 'the-served-token' }))
@@ -454,7 +454,7 @@ test('connect() respawns when the lockfile hermesPath differs from the resolved 
     [/grep -q ssh-session-token-file/, 'YES\n'],
     [/python3 -c/, ''],
     [/setsid/, '890\n'],
-    [/cat .*\.log/, 'HERMES_DASHBOARD_READY port=52050\n']
+    [/cat .*\.log/, 'IDRAK_IT_DASHBOARD_READY port=52050\n']
   ])
 
   const result = await connect(
@@ -489,7 +489,7 @@ test('connect() respawns when the lockfile protocolVersion is incompatible', asy
     [/python3 -c/, ''],
     [/setsid/, '901\n'],
     [/kill -0 901/, 'ALIVE'],
-    [/cat .*\.log/, 'HERMES_DASHBOARD_READY port=44100\n']
+    [/cat .*\.log/, 'IDRAK_IT_DASHBOARD_READY port=44100\n']
   ])
 
   const result = await connect(connectDeps(ssh, { reuseToken, adoptServedToken: async () => 'fresh' }))
@@ -510,7 +510,7 @@ test('connect() fresh spawn writes hermesHome + protocolVersion into the lockfil
     [/printf '%s\\n'/, ''],
     [/setsid/, '700\n'],
     [/kill -0 700/, 'ALIVE'],
-    [/cat .*\.log/, 'HERMES_DASHBOARD_READY port=45500\n'],
+    [/cat .*\.log/, 'IDRAK_IT_DASHBOARD_READY port=45500\n'],
     [
       /printf '%s' '/,
       c => {
@@ -540,7 +540,7 @@ test('connect() respawns when the lockfile pid is dead (killed dashboard)', asyn
     [/python3 -c/, ''],
     [/setsid/, '888\n'],
     [/kill -0 888/, 'ALIVE'],
-    [/cat .*\.log/, 'HERMES_DASHBOARD_READY port=42000\n']
+    [/cat .*\.log/, 'IDRAK_IT_DASHBOARD_READY port=42000\n']
   ])
 
   const result = await connect(connectDeps(ssh, { reuseToken: 't', adoptServedToken: async () => 'fresh' }))
@@ -574,7 +574,7 @@ test('connect() respawns when the dashboard is wedged (alive pid, probe fails)',
     [/python3 -c/, ''],
     [/setsid/, '999\n'],
     [/kill -0 999/, 'ALIVE'],
-    [/cat .*\.log/, 'HERMES_DASHBOARD_READY port=43000\n']
+    [/cat .*\.log/, 'IDRAK_IT_DASHBOARD_READY port=43000\n']
   ])
 
   const result = await connect(
@@ -974,7 +974,7 @@ test('connect replaces an exact-owned backend only after authenticated stale pro
     [/python3 -c/, ''],
     [/setsid/, '999\n'],
     [/kill -0 999/, 'ALIVE'],
-    [/cat .*\.log/, 'HERMES_DASHBOARD_READY port=43000\n']
+    [/cat .*\.log/, 'IDRAK_IT_DASHBOARD_READY port=43000\n']
   ])
 
   const result = await connect(

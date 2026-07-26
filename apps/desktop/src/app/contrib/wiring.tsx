@@ -94,7 +94,6 @@ import { useOverlayRouting } from '../shell/hooks/use-overlay-routing'
 import { useWindowControlsOverlayWidth } from '../shell/hooks/use-window-controls-overlay-width'
 import { titlebarControlsPosition } from '../shell/titlebar'
 import { TitlebarControls } from '../shell/titlebar-controls'
-import { UpdatesOverlay } from '../updates-overlay'
 
 import { ContribWiringContext } from './context'
 import { useBackgroundSync } from './hooks/use-background-sync'
@@ -949,7 +948,6 @@ export function ContribWiring({ children }: { children: ReactNode }) {
         onOpenProviders={openProviderSettings}
         profile={activeGatewayProfile}
       />
-      <UpdatesOverlay />
       <GatewayConnectingOverlay />
       <BootFailureOverlay />
       <CommandPalette />

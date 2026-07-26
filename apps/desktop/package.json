@@ -1,10 +1,10 @@
 {
   "name": "hermes",
-  "productName": "Hermes",
+  "productName": "Idrak IT",
   "private": true,
   "version": "0.17.0",
-  "description": "Native desktop shell for Hermes Agent.",
-  "author": "Nous Research",
+  "description": "Private desktop application for Idrak IT.",
+  "author": "Idrak IT",
   "type": "module",
   "main": "dist/electron-main.mjs",
   "engines": {
@@ -169,18 +169,18 @@
   },
   "build": {
     "electronVersion": "40.10.2",
-    "appId": "com.nousresearch.hermes",
-    "productName": "Hermes",
-    "executableName": "Hermes",
+    "appId": "com.idrakit.desktop",
+    "productName": "Idrak IT",
+    "executableName": "Idrak IT",
     "protocols": [
       {
-        "name": "Hermes Protocol",
+        "name": "Idrak IT Protocol",
         "schemes": [
           "hermes"
         ]
       }
     ],
-    "artifactName": "Hermes-${version}-${os}-${arch}.${ext}",
+    "artifactName": "Idrak-IT-${version}-${os}-${arch}.${ext}",
     "icon": "assets/icon",
     "directories": {
       "output": "release"
@@ -216,11 +216,11 @@
       "entitlements": "electron/entitlements.mac.plist",
       "entitlementsInherit": "electron/entitlements.mac.inherit.plist",
       "extendInfo": {
-        "CFBundleDisplayName": "Hermes",
-        "CFBundleExecutable": "Hermes",
-        "CFBundleName": "Hermes",
-        "NSAudioCaptureUsageDescription": "Hermes uses audio capture for voice conversations.",
-        "NSMicrophoneUsageDescription": "Hermes uses the microphone for voice input and voice conversations."
+        "CFBundleDisplayName": "Idrak IT",
+        "CFBundleExecutable": "Idrak IT",
+        "CFBundleName": "Idrak IT",
+        "NSAudioCaptureUsageDescription": "Idrak IT uses audio capture for voice conversations.",
+        "NSMicrophoneUsageDescription": "Idrak IT uses the microphone for voice input and voice conversations."
       },
       "gatekeeperAssess": false,
       "hardenedRuntime": true,
@@ -230,7 +230,7 @@
       ]
     },
     "dmg": {
-      "title": "Install Hermes",
+      "title": "Install Idrak IT",
       "backgroundColor": "#f5f5f7",
       "iconSize": 96,
       "window": {
@@ -252,7 +252,7 @@
       ]
     },
     "win": {
-      "legalTrademarks": "Hermes",
+      "legalTrademarks": "Idrak IT",
       "target": [
         "nsis",
         "msi"
@@ -261,8 +261,8 @@
     },
     "linux": {
       "category": "Development",
-      "maintainer": "Nous Research <support@nousresearch.com>",
-      "synopsis": "Native desktop shell for Hermes Agent.",
+      "maintainer": "Idrak IT",
+      "synopsis": "Private desktop application for Idrak IT.",
       "target": [
         "AppImage",
         "deb",
@@ -273,8 +273,8 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "perMachine": false,
-      "shortcutName": "Hermes",
-      "uninstallDisplayName": "Hermes",
+      "shortcutName": "Idrak IT",
+      "uninstallDisplayName": "Idrak IT",
       "warningsAsErrors": false
     }
   }

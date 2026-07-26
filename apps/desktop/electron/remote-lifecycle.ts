@@ -11,7 +11,7 @@
  *   - reuse an existing desktop-dedicated dashboard via a lockfile + an
  *     AUTHENTICATED /api/status probe (pid liveness alone is insufficient),
  *   - spawn a fresh detached `--isolated --port 0` dashboard and scrape its
- *     `HERMES_DASHBOARD_READY port=<n>` readiness line,
+ *     `IDRAK_IT_DASHBOARD_READY port=<n>` readiness line,
  *   - adopt the token the dashboard actually serves (served-token adoption),
  *   - clean up a stale dashboard only when it is provably ours.
  *

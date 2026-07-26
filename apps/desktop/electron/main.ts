@@ -600,7 +600,7 @@ const BOOT_FAKE_STEP_MS = (() => {
   return Math.max(120, raw)
 })()
 
-const APP_NAME = process.env.HERMES_DESKTOP_APP_NAME || 'Hermes'
+const APP_NAME = process.env.HERMES_DESKTOP_APP_NAME || 'Idrak IT'
 const TITLEBAR_HEIGHT = 34
 const MACOS_TRAFFIC_LIGHTS_HEIGHT = 14
 
@@ -1032,7 +1032,7 @@ let nativeThemeListenerInstalled = false
 let bootProgressState = {
   error: null,
   fakeMode: BOOT_FAKE_MODE,
-  message: 'Waiting to start Hermes backend',
+  message: 'Waiting to start Idrak IT backend',
   phase: 'idle',
   progress: 0,
   running: false,
@@ -2068,7 +2068,7 @@ function getVenvPython(venvRoot) {
 // This makes "no flashing windows" a property of the one backend launch rather
 // than a flag that has to be remembered at every descendant spawn site. Restoring
 // console python also restores stdout, so the backend announces its port on the
-// normal HERMES_DASHBOARD_READY stdout line and no ready-file side channel is
+// normal IDRAK_IT_DASHBOARD_READY stdout line and no ready-file side channel is
 // needed.
 
 function makeDashboardReadyFile() {
@@ -8282,7 +8282,7 @@ function spawnSecondaryWindow({ sessionId, watch }: { sessionId?: string; watch?
     height: SESSION_WINDOW_MIN_HEIGHT,
     minWidth: SESSION_WINDOW_MIN_WIDTH,
     minHeight: SESSION_WINDOW_MIN_HEIGHT,
-    title: 'Hermes',
+    title: 'Idrak IT',
     titleBarStyle: 'hidden',
     titleBarOverlay: getTitleBarOverlayOptions(),
     trafficLightPosition: IS_MAC ? WINDOW_BUTTON_POSITION : undefined,
@@ -8365,7 +8365,7 @@ function createInstanceWindow() {
     ...nextInstanceBounds(),
     minWidth: WINDOW_MIN_WIDTH,
     minHeight: WINDOW_MIN_HEIGHT,
-    title: 'Hermes',
+    title: 'Idrak IT',
     titleBarStyle: 'hidden',
     titleBarOverlay: getTitleBarOverlayOptions(),
     trafficLightPosition: IS_MAC ? WINDOW_BUTTON_POSITION : undefined,
@@ -8557,7 +8557,7 @@ function createWindow() {
     ...computeWindowOptions(savedWindowState, screen.getAllDisplays()),
     minWidth: WINDOW_MIN_WIDTH,
     minHeight: WINDOW_MIN_HEIGHT,
-    title: 'Hermes',
+    title: 'Idrak IT',
     // Frameless title bar on every platform so the renderer can paint the
     // "hide sidebar" button (and other left-side titlebar tools) flush with
     // the top edge — matching the macOS layout where the traffic lights sit
@@ -9599,7 +9599,7 @@ ipcMain.handle('hermes:notify', (_event, payload) => {
   const actions = Array.isArray(payload?.actions) ? payload.actions : []
 
   const notification = new Notification({
-    title: payload?.title || 'Hermes',
+    title: payload?.title || 'Idrak IT',
     body: payload?.body || '',
     silent: Boolean(payload?.silent),
     actions: actions.map(action => ({ type: 'button', text: String(action?.text || '') }))
@@ -10019,7 +10019,7 @@ function terminalShellEnv() {
   env.COLORTERM = 'truecolor'
   env.LC_CTYPE = env.LC_CTYPE || 'UTF-8'
   env.TERM = 'xterm-256color'
-  env.TERM_PROGRAM = 'Hermes'
+  env.TERM_PROGRAM = 'Idrak IT'
   env.TERM_PROGRAM_VERSION = app.getVersion()
 
   // Let a hermes/--tui launched in this pane know it's embedded in the desktop

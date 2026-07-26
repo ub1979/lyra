@@ -9,7 +9,7 @@ import { GatewayMenuPanel } from '@/app/shell/gateway-menu-panel'
 import { Codicon } from '@/components/ui/codicon'
 import { GlyphSpinner } from '@/components/ui/glyph-spinner'
 import { useI18n } from '@/i18n'
-import { Activity, AlertCircle, Clock, Command, FolderOpen, Globe, Hash, Loader2, Terminal } from '@/lib/icons'
+import { Activity, AlertCircle, Clock, Command, FolderOpen, Globe, Loader2, Terminal } from '@/lib/icons'
 import type { RuntimeReadinessResult } from '@/lib/runtime-readiness'
 import { contextBarLabel, LiveDuration, usageContextLabel } from '@/lib/statusbar'
 import { cn } from '@/lib/utils'
@@ -33,14 +33,6 @@ import {
 import { $focusedRuntimeId, $focusedSessionState, $focusedStoredSessionId } from '@/store/session-states'
 import { $subagentsBySession, activeSubagentCount, failedSubagentCount } from '@/store/subagents'
 import { $gatewayRestarting } from '@/store/system-actions'
-import {
-  $backendUpdateApply,
-  $backendUpdateStatus,
-  $desktopVersion,
-  $updateApply,
-  $updateStatus,
-  openUpdateOverlayFor
-} from '@/store/updates'
 import type { StatusResponse, UsageStats } from '@/types/hermes'
 
 import { CRON_ROUTE, SETTINGS_ROUTE, WEBHOOKS_ROUTE } from '../../routes'
@@ -104,11 +96,6 @@ export function useStatusbarItems({
   const primarySessionStartedAt = useStore($sessionStartedAt)
   const primaryTurnStartedAt = useStore($turnStartedAt)
   const subagentsBySession = useStore($subagentsBySession)
-  const updateStatus = useStore($updateStatus)
-  const updateApply = useStore($updateApply)
-  const backendUpdateStatus = useStore($backendUpdateStatus)
-  const backendUpdateApply = useStore($backendUpdateApply)
-  const desktopVersion = useStore($desktopVersion)
   const connection = useStore($connection)
 
   // The FOCUSED session (interacted tile, else the primary — the same
@@ -200,103 +187,6 @@ export function useStatusbarItems({
     : gatewayDegraded
       ? 'text-amber-600 hover:text-amber-600'
       : 'text-destructive hover:text-destructive'
-
-  const clientVersionItem = useMemo<StatusbarItem>(() => {
-    const appVersion = desktopVersion?.appVersion
-    const sha = updateStatus?.currentSha?.slice(0, 7) ?? null
-    const behind = updateStatus?.behind ?? 0
-    const applying = updateApply.applying || updateApply.stage === 'restart'
-    const remote = connection?.mode === 'remote'
-
-    const version = appVersion ? `v${appVersion}` : (sha ?? copy.unknown)
-    const base = remote ? copy.clientLabel(appVersion ?? sha ?? copy.unknown) : version
-    const behindHint = !applying && behind > 0 ? ` (+${behind})` : ''
-
-    const label = applying
-      ? `${base} · ${updateApply.stage === 'restart' ? copy.restart : copy.update}`
-      : `${base}${behindHint}`
-
-    const tooltip = [
-      applying ? updateApply.message || copy.updateInProgress : null,
-      !applying && behind > 0 && copy.commitsBehind(behind, updateStatus?.branch ?? '...'),
-      appVersion && copy.desktopVersion(appVersion),
-      sha && copy.commit(sha),
-      updateStatus?.branch && copy.branch(updateStatus.branch)
-    ]
-      .filter(Boolean)
-      .join(' · ')
-
-    return {
-      className: !applying && behind > 0 ? 'text-primary hover:text-primary' : undefined,
-      detail: appVersion && sha && !applying && !remote ? sha : undefined,
-      hidden: !appVersion && !sha,
-      icon: applying ? <Loader2 className="size-3 animate-spin" /> : <Hash className="size-3" />,
-      id: 'version-client',
-      label,
-      onSelect: () => openUpdateOverlayFor('client'),
-      title: tooltip || undefined,
-      variant: 'action'
-    }
-  }, [
-    desktopVersion?.appVersion,
-    connection?.mode,
-    copy,
-    updateApply.applying,
-    updateApply.message,
-    updateApply.stage,
-    updateStatus?.behind,
-    updateStatus?.branch,
-    updateStatus?.currentSha
-  ])
-
-  const backendVersionItem = useMemo<StatusbarItem | null>(() => {
-    if (connection?.mode !== 'remote') {
-      return null
-    }
-
-    const backendVersion = statusSnapshot?.version
-    const behind = backendUpdateStatus?.behind ?? 0
-    const updateAvailable = backendUpdateStatus?.updateAvailable || behind > 0
-    const applying = backendUpdateApply.applying || backendUpdateApply.stage === 'restart'
-
-    const base = copy.backendLabel(backendVersion ?? copy.unknown)
-
-    const behindHint =
-      !applying && behind > 0 ? ` (+${behind})` : !applying && updateAvailable ? ` (${copy.update})` : ''
-
-    const label = applying
-      ? `${base} · ${backendUpdateApply.stage === 'restart' ? copy.restart : copy.update}`
-      : `${base}${behindHint}`
-
-    const tooltip = [
-      applying ? backendUpdateApply.message || copy.updateInProgress : null,
-      !applying && behind > 0 && copy.commitsBehind(behind, 'main'),
-      !applying && behind <= 0 && updateAvailable && copy.update,
-      backendVersion && copy.backendVersion(backendVersion)
-    ]
-      .filter(Boolean)
-      .join(' · ')
-
-    return {
-      className: !applying && updateAvailable ? 'text-primary hover:text-primary' : undefined,
-      hidden: !backendVersion,
-      icon: applying ? <Loader2 className="size-3 animate-spin" /> : <Hash className="size-3" />,
-      id: 'version-backend',
-      label,
-      onSelect: () => openUpdateOverlayFor('backend'),
-      title: tooltip || undefined,
-      variant: 'action'
-    }
-  }, [
-    connection?.mode,
-    statusSnapshot?.version,
-    backendUpdateStatus?.behind,
-    backendUpdateStatus?.updateAvailable,
-    backendUpdateApply.applying,
-    backendUpdateApply.message,
-    backendUpdateApply.stage,
-    copy
-  ])
 
   const connectionItem = useMemo<StatusbarItem | null>(() => {
     if (connection?.mode !== 'remote' || !connection.remoteHost) {
@@ -503,17 +393,13 @@ export function useStatusbarItems({
         onSelect: () => setTerminalTakeover(!$terminalTakeover.get()),
         title: terminalTakeover ? copy.hideTerminal : copy.showTerminal,
         variant: 'action'
-      },
-      clientVersionItem,
-      ...(backendVersionItem ? [backendVersionItem] : [])
+      }
     ],
     [
       activeSessionId,
       approvalModeItem,
-      backendVersionItem,
       busy,
       chatOpen,
-      clientVersionItem,
       contextBar,
       contextUsage,
       copy,

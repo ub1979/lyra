@@ -21,12 +21,10 @@ import {
 import {
   Activity,
   BarChart3,
-  BookOpen,
   Clock,
   Code,
   Cpu,
   Database,
-  Download,
   Eye,
   FolderOpen,
   FileText,
@@ -73,7 +71,6 @@ import { ProfileScopeBanner } from "@/components/ProfileScopeBanner";
 import { useSystemActions } from "@/contexts/useSystemActions";
 import type { SystemAction } from "@/contexts/system-actions-context";
 import ConfigPage from "@/pages/ConfigPage";
-import DocsPage from "@/pages/DocsPage";
 import EnvPage from "@/pages/EnvPage";
 import FilesPage from "@/pages/FilesPage";
 import SessionsPage from "@/pages/SessionsPage";
@@ -100,7 +97,7 @@ import type { PluginManifest } from "@/plugins";
 import { useTheme } from "@/themes";
 import { isDashboardEmbeddedChatEnabled } from "@/lib/dashboard-flags";
 import { api } from "@/lib/api";
-import type { StatusResponse, UpdateCheckResponse } from "@/lib/api";
+import type { StatusResponse } from "@/lib/api";
 
 function RootRedirect() {
   return <Navigate to="/sessions" replace />;
@@ -149,7 +146,6 @@ const BUILTIN_ROUTES_CORE: Record<string, ComponentType> = {
   "/profiles/new": ProfileBuilderPage,
   "/config": ConfigPage,
   "/env": EnvPage,
-  "/docs": DocsPage,
 };
 
 // Route placeholder for /chat.  The persistent ChatPage host (rendered
@@ -192,12 +188,6 @@ const BUILTIN_NAV_REST: NavItem[] = [
   { path: "/config", labelKey: "config", label: "Config", icon: Settings },
   { path: "/env", labelKey: "keys", label: "Keys", icon: KeyRound },
   { path: "/system", label: "System", icon: Wrench },
-  {
-    path: "/docs",
-    labelKey: "documentation",
-    label: "Documentation",
-    icon: BookOpen,
-  },
 ];
 
 const ICON_MAP: Record<string, ComponentType<{ className?: string }>> = {
@@ -374,7 +364,6 @@ export default function App() {
   const isDesktopCollapsed = collapsed && !isMobile;
   const tooltipWarmRef = useRef(0);
   const sidebarStatus = useSidebarStatus();
-  const isDocsRoute = pathname === "/docs" || pathname === "/docs/";
   const normalizedPath = pathname.replace(/\/$/, "") || "/";
   const isChatRoute = normalizedPath === "/chat";
   const embeddedChat = isDashboardEmbeddedChatEnabled();
@@ -576,9 +565,9 @@ export default function App() {
                 <PluginSlot name="header-left" />
 
                 <Typography className="font-bold text-[1.125rem] leading-[0.95] tracking-[0.0525rem] text-midground uppercase">
-                  Hermes
+                  Idrak
                   <br />
-                  Agent
+                  IT
                 </Typography>
               </div>
 
@@ -723,7 +712,6 @@ export default function App() {
                 isChatRoute
                   ? "pb-0 pt-1 sm:pt-2 lg:pt-4"
                   : "pt-2 sm:pt-4 lg:pt-6",
-                isDocsRoute && "min-h-0 flex-1",
               )}
             >
               <PluginSlot name="pre-main" />
@@ -732,8 +720,7 @@ export default function App() {
                   "w-full min-w-0",
                   !isChatRoute &&
                     "pb-[calc(2rem+env(safe-area-inset-bottom,0px))] lg:pb-8",
-                  (isDocsRoute || isChatRoute) &&
-                    "min-h-0 flex flex-1 flex-col",
+                  isChatRoute && "min-h-0 flex flex-1 flex-col",
                 )}
               >
                 <ProfileKeyedRoutes>
@@ -901,48 +888,7 @@ function SidebarSystemActions({
   const navigate = useNavigate();
   const { activeAction, isBusy, isRunning, pendingAction, runAction } =
     useSystemActions();
-  const canUpdateHermes = status?.can_update_hermes === true;
   const [restartConfirmOpen, setRestartConfirmOpen] = useState(false);
-  const [updateConfirmOpen, setUpdateConfirmOpen] = useState(false);
-  const [updateConfirmInfo, setUpdateConfirmInfo] =
-    useState<UpdateCheckResponse | null>(null);
-  const [updateConfirmChecking, setUpdateConfirmChecking] = useState(false);
-
-  useEffect(() => {
-    if (!updateConfirmOpen) {
-      setUpdateConfirmInfo(null);
-      return;
-    }
-    let cancelled = false;
-    setUpdateConfirmChecking(true);
-    api
-      .checkHermesUpdate(false)
-      .then((info) => {
-        if (!cancelled) setUpdateConfirmInfo(info);
-      })
-      .catch(() => {
-        if (!cancelled) setUpdateConfirmInfo(null);
-      })
-      .finally(() => {
-        if (!cancelled) setUpdateConfirmChecking(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [updateConfirmOpen]);
-
-  const updateConfirmDescription = useMemo(() => {
-    if (updateConfirmInfo?.behind && updateConfirmInfo.behind > 0) {
-      const cmd = updateConfirmInfo.update_command;
-      const n = updateConfirmInfo.behind;
-      return `This will run 'hermes update' (${cmd}) and pull ${n} new commit${n === 1 ? "" : "s"}. The gateway restarts when the update finishes; the current session keeps its prompt cache until then.`;
-    }
-    const cmd = updateConfirmInfo?.update_command ?? "hermes update";
-    return (
-      t.status.updateHermesConfirmMessage ??
-      `This will run 'hermes update' (${cmd}) and restart the gateway when it finishes.`
-    );
-  }, [t.status.updateHermesConfirmMessage, updateConfirmInfo]);
 
   const items: SystemActionItem[] = [
     {
@@ -953,24 +899,10 @@ function SidebarSystemActions({
       spin: true,
     },
   ];
-  if (canUpdateHermes) {
-    items.push({
-      action: "update",
-      icon: Download,
-      label: t.status.updateHermes,
-      runningLabel: t.status.updatingHermes,
-      spin: false,
-    });
-  }
-
   const handleClick = (action: SystemAction) => {
     if (isBusy) return;
     if (action === "restart") {
       setRestartConfirmOpen(true);
-      return;
-    }
-    if (action === "update") {
-      setUpdateConfirmOpen(true);
       return;
     }
     void runAction(action);
@@ -981,13 +913,6 @@ function SidebarSystemActions({
   const confirmRestart = () => {
     setRestartConfirmOpen(false);
     void runAction("restart");
-    navigate("/sessions");
-    onNavigate();
-  };
-
-  const confirmUpdate = () => {
-    setUpdateConfirmOpen(false);
-    void runAction("update");
     navigate("/sessions");
     onNavigate();
   };
@@ -1038,7 +963,7 @@ function SidebarSystemActions({
       confirmLabel={t.status.restartGateway}
       description={
         t.status.restartGatewayConfirmMessage ??
-        "This restarts the Hermes gateway process. Connected channels and active sessions will reconnect afterward."
+        "This restarts the Idrak IT gateway process. Connected channels and active sessions will reconnect afterward."
       }
       loading={pendingAction === "restart"}
       onCancel={() => setRestartConfirmOpen(false)}
@@ -1049,18 +974,6 @@ function SidebarSystemActions({
       }
     />
 
-    <ConfirmDialog
-      cancelLabel={t.common.cancel}
-      confirmLabel={t.status.updateHermesConfirmNow ?? "Update now"}
-      description={
-        updateConfirmChecking ? t.common.loading : updateConfirmDescription
-      }
-      loading={pendingAction === "update" || updateConfirmChecking}
-      onCancel={() => setUpdateConfirmOpen(false)}
-      onConfirm={confirmUpdate}
-      open={updateConfirmOpen}
-      title={t.status.updateHermesConfirmTitle ?? `${t.status.updateHermes}?`}
-    />
     </>
   );
 }

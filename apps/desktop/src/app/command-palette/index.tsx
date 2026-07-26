@@ -59,7 +59,6 @@ import { $bindings } from '@/store/keybinds'
 import { openPetGenerate } from '@/store/pet-generate'
 import { requestStartWorkSession } from '@/store/projects'
 import { runGatewayRestart } from '@/store/system-actions'
-import { applyBackendUpdate } from '@/store/updates'
 import { canOpenNewWindow, openNewWindow } from '@/store/windows'
 import { luminance } from '@/themes/color'
 import { type ThemeMode, useTheme } from '@/themes/context'
@@ -515,13 +514,6 @@ export function CommandPalette() {
             label: cc.restartGateway,
             run: () => void runGatewayRestart()
           },
-          {
-            icon: Download,
-            id: 'cc-update-hermes',
-            keywords: ['update', 'upgrade', 'hermes', 'version', 'system', 'restart'],
-            label: cc.updateHermes,
-            run: () => void applyBackendUpdate()
-          }
         ]
       },
       {

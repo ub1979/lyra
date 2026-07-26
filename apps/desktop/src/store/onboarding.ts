@@ -192,7 +192,7 @@ function shouldPreserveConfiguredOnFallback(runtime: RuntimeReadinessResult, sta
 }
 
 function notifyReady(provider: string) {
-  notify({ kind: 'success', title: 'Hermes is ready', message: `${provider} connected.` })
+  notify({ kind: 'success', title: 'Idrak IT is ready', message: `${provider} connected.` })
 }
 
 // Human-friendly labels for tools auto-routed through the Nous Tool Gateway,
@@ -362,7 +362,7 @@ function providerResolutionFailure(reason: null | string) {
 
   return detail
     ? `Connected, but Hermes still cannot resolve a usable provider. ${detail}`
-    : 'Connected, but Hermes still cannot resolve a usable provider.'
+    : 'Connected, but Idrak IT still cannot resolve a usable provider.'
 }
 
 async function refreshProviders() {
@@ -537,7 +537,7 @@ export async function refreshOnboarding(ctx: OnboardingContext) {
       kind: 'error',
       title: 'Runtime not ready',
       message:
-        'Hermes Desktop could not verify the running backend on startup. Some features may be unavailable until the gateway is reachable.'
+        'Idrak IT could not verify the running backend on startup. Some features may be unavailable until the gateway is reachable.'
     })
 
     return false

@@ -13,7 +13,6 @@ import {
   setRememberedSessionId
 } from '@/store/session'
 import { onSessionsChanged } from '@/store/session-sync'
-import { openUpdatesWindow, startUpdatePoller, stopUpdatePoller } from '@/store/updates'
 import { isSecondaryWindow } from '@/store/windows'
 
 import { requestComposerFocus, requestComposerInsert } from '../../chat/composer/focus'
@@ -32,7 +31,7 @@ interface DesktopIntegrationsParams {
 
 /**
  * All the Electron-main / OS / cross-window integrations the shell listens for:
- * update polling, the ⌘W close shortcut, deep links, native-notification
+ * the ⌘W close shortcut, deep links, native-notification
  * navigation, preview-shortcut enablement, remembered-session restore, and
  * cross-window session-list sync. Kept out of the wiring controller so the
  * "talks to the desktop shell" surface reads as one unit.
@@ -45,19 +44,6 @@ export function useDesktopIntegrations({
   routedSessionId,
   runtimeIdByStoredSessionId
 }: DesktopIntegrationsParams): void {
-  // Update polling — populates $desktopVersion/$updateStatus, which feed the
-  // statusbar version pill and the update toasts. Also honors the main
-  // process's "open updates" menu request.
-  useEffect(() => {
-    startUpdatePoller()
-    const unsubscribe = window.hermesDesktop?.onOpenUpdatesRequested?.(() => openUpdatesWindow())
-
-    return () => {
-      unsubscribe?.()
-      stopUpdatePoller()
-    }
-  }, [])
-
   // The renderer OWNS ⌘W: on macOS the native menu accelerator would else
   // close the window, so claim it unconditionally — the menu then routes ⌘W
   // to us (close-preview-requested IPC) and we decide tab-vs-window.
