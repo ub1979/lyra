@@ -1,5 +1,20 @@
 import { fuzzyScoreMulti } from "@/lib/fuzzy";
 
+export function bestProviderForQuery<T extends { name: string; slug: string }>(
+  rankedProviders: readonly T[],
+  trimmedQuery: string,
+): T | null {
+  const normalized = trimmedQuery.trim().toLowerCase();
+  if (!normalized || rankedProviders.length === 0) return null;
+  return (
+    rankedProviders.find((provider) =>
+      `${provider.name} ${provider.slug}`.toLowerCase().includes(normalized),
+    ) ??
+    rankedProviders[0] ??
+    null
+  );
+}
+
 /**
  * True when `trimmedQuery` located the selected provider by name/slug but
  * matches none of its models by id — the case where a single search box

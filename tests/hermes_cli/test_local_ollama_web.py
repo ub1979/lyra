@@ -3,6 +3,7 @@ from contextlib import contextmanager
 import json
 
 from hermes_cli import web_server
+from hermes_cli import local_ollama
 
 
 class _FakeResponse:
@@ -20,9 +21,9 @@ class _FakeResponse:
 
 
 def test_local_ollama_status_needs_no_api_key(monkeypatch):
-    monkeypatch.setattr(web_server.shutil, "which", lambda name: f"/bin/{name}")
+    monkeypatch.setattr(local_ollama.shutil, "which", lambda name: f"/bin/{name}")
     monkeypatch.setattr(
-        web_server.urllib.request,
+        local_ollama.urllib.request,
         "urlopen",
         lambda request, timeout: _FakeResponse(
             {"models": [{"name": "qwen3:8b"}, {"model": "gemma:cloud"}]}

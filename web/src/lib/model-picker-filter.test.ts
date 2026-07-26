@@ -1,5 +1,31 @@
 import { describe, it, expect } from "vitest";
-import { queryMatchesProviderOnly } from "./model-picker-filter";
+import {
+  bestProviderForQuery,
+  queryMatchesProviderOnly,
+} from "./model-picker-filter";
+
+describe("bestProviderForQuery", () => {
+  it("selects local Ollama instead of leaving Anthropic hidden-selected", () => {
+    const providers = [
+      { name: "Ollama — this computer", slug: "ollama-local" },
+      { name: "Ollama Cloud", slug: "ollama-cloud" },
+      { name: "Anthropic", slug: "anthropic" },
+    ];
+
+    expect(bestProviderForQuery(providers, "oll")?.slug).toBe("ollama-local");
+  });
+
+  it("falls back to the fuzzy-ranked first provider for a model-name query", () => {
+    const providers = [
+      { name: "OpenAI Codex", slug: "openai-codex" },
+      { name: "Anthropic", slug: "anthropic" },
+    ];
+
+    expect(bestProviderForQuery(providers, "gpt-5.4")?.slug).toBe(
+      "openai-codex",
+    );
+  });
+});
 
 describe("queryMatchesProviderOnly", () => {
   it("returns true when the query finds the provider but no model id (issue #65374)", () => {

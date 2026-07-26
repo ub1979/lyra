@@ -1390,49 +1390,9 @@ class LocalOllamaSelection(BaseModel):
 
 def _local_ollama_status() -> Dict[str, Any]:
     """Return local Ollama availability without consulting cloud API keys."""
-    executable = shutil.which("ollama")
-    endpoint = "http://127.0.0.1:11434"
-    try:
-        request = urllib.request.Request(
-            f"{endpoint}/api/tags",
-            headers={"Accept": "application/json"},
-        )
-        with urllib.request.urlopen(request, timeout=2.0) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-        models = []
-        for item in payload.get("models", []):
-            if not isinstance(item, dict):
-                continue
-            name = str(item.get("name") or item.get("model") or "").strip()
-            if name and name not in models:
-                models.append(name)
-        return {
-            "installed": bool(executable),
-            "executable": executable or "",
-            "running": True,
-            "endpoint": endpoint,
-            "models": models,
-            "auth": "none",
-            "message": (
-                f"Ready — {len(models)} model{'s' if len(models) != 1 else ''} found. "
-                "Local requests do not need an API key."
-            ),
-        }
-    except Exception as exc:
-        return {
-            "installed": bool(executable),
-            "executable": executable or "",
-            "running": False,
-            "endpoint": endpoint,
-            "models": [],
-            "auth": "none",
-            "message": (
-                "Ollama is installed but its local server is not responding."
-                if executable
-                else "Ollama is not installed on this computer."
-            ),
-            "error": str(exc),
-        }
+    from hermes_cli.local_ollama import local_ollama_status
+
+    return local_ollama_status()
 
 
 @app.get("/api/model/local-ollama")
@@ -1479,23 +1439,22 @@ async def activate_local_ollama(
         )
 
     with _profile_scope(body.profile or profile):
+        from hermes_cli.local_ollama import (
+            LOCAL_OLLAMA_OPENAI_URL,
+            local_ollama_provider,
+        )
+
         cfg = load_config()
         providers = cfg.get("providers")
         if not isinstance(providers, dict):
             providers = {}
-        providers["ollama-local"] = {
-            "name": "Ollama — this computer",
-            "api": "http://127.0.0.1:11434/v1",
-            "transport": "chat_completions",
-            "models": available,
-            "discover_models": True,
-        }
+        providers["ollama-local"] = local_ollama_provider(available)
         cfg["providers"] = providers
         cfg["model"] = _apply_main_model_assignment(
             cfg.get("model", {}),
             "ollama-local",
             selected,
-            "http://127.0.0.1:11434/v1",
+            LOCAL_OLLAMA_OPENAI_URL,
         )
         save_config(cfg)
 
@@ -1503,7 +1462,7 @@ async def activate_local_ollama(
         "ok": True,
         "provider": "ollama-local",
         "model": selected,
-        "base_url": "http://127.0.0.1:11434/v1",
+        "base_url": LOCAL_OLLAMA_OPENAI_URL,
         "auth": "none",
     }
 
@@ -7163,6 +7122,30 @@ def _apply_model_assignment_sync(
     if scope == "main":
         if not provider or not model:
             raise HTTPException(status_code=400, detail="provider and model required for main")
+        if provider.strip().lower() == "ollama-local":
+            from hermes_cli.local_ollama import (
+                LOCAL_OLLAMA_OPENAI_URL,
+                local_ollama_provider,
+                local_ollama_status,
+            )
+
+            local = local_ollama_status()
+            if not local.get("running"):
+                raise HTTPException(
+                    status_code=503,
+                    detail="The Ollama app is not responding on this computer.",
+                )
+            if model not in local.get("models", []):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Model {model!r} is no longer available in Ollama.",
+                )
+            providers = cfg.get("providers")
+            if not isinstance(providers, dict):
+                providers = {}
+            providers["ollama-local"] = local_ollama_provider(local["models"])
+            cfg["providers"] = providers
+            base_url = LOCAL_OLLAMA_OPENAI_URL
         provider, model = _normalize_main_model_assignment(provider, model)
         providers_cfg = cfg.get("providers")
         provider_entry = providers_cfg.get(provider) if isinstance(providers_cfg, dict) else None

@@ -200,6 +200,46 @@ def build_models_payload(
             rows, ctx, current_only=True
         )
 
+    # A running Ollama app is a usable local provider, not an unconfigured
+    # Ollama Cloud account. Surface its live models directly in management
+    # pickers so users can choose one from "Change model" without first
+    # creating a technical custom-provider entry.
+    local_is_relevant = bool(
+        include_unconfigured
+        or str(ctx.current_provider or "").lower() == "ollama-local"
+        or "ollama-local" in (ctx.user_providers or {})
+    )
+    if local_is_relevant and not any(
+        str(row.get("slug") or "").lower() == "ollama-local" for row in rows
+    ):
+        try:
+            from hermes_cli.local_ollama import (
+                LOCAL_OLLAMA_OPENAI_URL,
+                local_ollama_status,
+            )
+
+            local = local_ollama_status(timeout=0.75)
+            if local.get("running") and local.get("models"):
+                rows.append(
+                    {
+                        "slug": "ollama-local",
+                        "name": "Ollama — this computer",
+                        "is_current": (
+                            str(ctx.current_provider or "").lower()
+                            == "ollama-local"
+                        ),
+                        "is_user_defined": True,
+                        "models": list(local["models"]),
+                        "total_models": len(local["models"]),
+                        "source": "local-ollama",
+                        "api_url": LOCAL_OLLAMA_OPENAI_URL,
+                        "authenticated": True,
+                        "auth_type": "none",
+                    }
+                )
+        except Exception:
+            pass
+
     # --- Deduplicate: remove models from aggregators that overlap with
     # user-defined providers.  When a local proxy (e.g. litellm-proxy)
     # serves a model whose name also appears in an aggregator's curated
@@ -540,8 +580,11 @@ def _reorder_canonical(rows: list[dict]) -> list[dict]:
         (r for r in rows if r["slug"] in order),
         key=lambda r: order[r["slug"]],
     )
-    extras = [r for r in rows if r["slug"] not in order]
-    return canon + extras
+    local = [r for r in rows if r["slug"] == "ollama-local"]
+    extras = [
+        r for r in rows if r["slug"] not in order and r["slug"] != "ollama-local"
+    ]
+    return local + canon + extras
 
 
 def _apply_pricing(

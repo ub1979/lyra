@@ -11,7 +11,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn, themedBody } from "@/lib/utils";
 import { fuzzyRank } from "@/lib/fuzzy";
-import { queryMatchesProviderOnly } from "@/lib/model-picker-filter";
+import {
+  bestProviderForQuery,
+  queryMatchesProviderOnly,
+} from "@/lib/model-picker-filter";
 
 /**
  * Two-stage model picker modal.
@@ -116,6 +119,7 @@ export function ModelPickerDialog(props: Props) {
   const [pendingConfirm, setPendingConfirm] =
     useState<PendingExpensiveConfirm | null>(null);
   const closedRef = useRef(false);
+  const lastAutoSelectedQueryRef = useRef("");
 
   const applyOptions = (r: ModelOptionsResponse) => {
     const next = r?.providers ?? [];
@@ -226,6 +230,32 @@ export function ModelPickerDialog(props: Props) {
       ).map((r) => r.item),
     [providers, trimmedQuery],
   );
+
+  // Searching used to filter the left column while leaving a now-unrelated
+  // provider selected. The screenshot symptom was "oll" showing Ollama rows
+  // on the left but searching Anthropic's models on the right. On each new
+  // query, select the strongest matching provider once; subsequent manual
+  // clicks remain respected.
+  useEffect(() => {
+    const normalized = trimmedQuery.toLowerCase();
+    if (!normalized) {
+      lastAutoSelectedQueryRef.current = "";
+      return;
+    }
+    if (
+      filteredProviders.length === 0 ||
+      lastAutoSelectedQueryRef.current === normalized
+    ) {
+      return;
+    }
+    lastAutoSelectedQueryRef.current = normalized;
+    const directMatch = bestProviderForQuery(filteredProviders, normalized);
+    if (!directMatch) return;
+    if (directMatch.slug !== selectedSlug) {
+      setSelectedSlug(directMatch.slug);
+      setSelectedModel("");
+    }
+  }, [filteredProviders, selectedSlug, trimmedQuery]);
 
   // A query that matched the SELECTED provider by name/slug (not its models)
   // located that provider — it shouldn't also hide that provider's models
