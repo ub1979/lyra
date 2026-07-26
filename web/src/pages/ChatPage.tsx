@@ -190,6 +190,128 @@ function readGuidedMessages(workspace: string): GuidedMessage[] {
   }
 }
 
+const GUIDED_WORK_PHRASES = [
+  "I’m getting the ingredients ready…",
+  "Cooking up the next step…",
+  "Putting the pieces together…",
+  "A little more magic is happening in the background…",
+  "Still working—your project is on the stove…",
+];
+
+const GUIDED_SPECIALIST_ETA_SECONDS: Record<string, [number, number]> = {
+  "req-engineer": [20, 60],
+  spec: [45, 120],
+  "sw-architect": [45, 120],
+  "task-planner": [30, 90],
+  "proj-manager": [45, 120],
+  "sw-developer": [60, 240],
+  "oop-restructurer": [60, 240],
+  debugger: [60, 240],
+  "code-reviewer": [60, 180],
+  "qa-engineer": [45, 180],
+  "security-auditor": [60, 240],
+  "devops-engineer": [60, 240],
+  "tech-writer": [45, 150],
+  benchmark: [60, 240],
+  health: [30, 90],
+  "context-save": [20, 60],
+  learn: [30, 90],
+  idk_it: [30, 120],
+};
+
+function formatGuidedDuration(totalSeconds: number): string {
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return seconds ? `${minutes}m ${seconds}s` : `${minutes}m`;
+}
+
+function formatGuidedEta([minimum, maximum]: [number, number]): string {
+  const formatBound = (seconds: number) =>
+    seconds < 60 ? `${seconds}s` : `${Math.round(seconds / 60)}m`;
+  return `${formatBound(minimum)}–${formatBound(maximum)}`;
+}
+
+function GuidedSpecialistActivity({
+  activity,
+  lastSignalAt,
+  onRetry,
+  specialist,
+}: {
+  activity: GuidedChatPresentation;
+  lastSignalAt: number;
+  onRetry: () => void;
+  specialist: GuidedSpecialist;
+}) {
+  const [startedAt] = useState(() => Date.now());
+  const [clock, setClock] = useState(startedAt);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setClock(Date.now());
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const elapsedSeconds = Math.floor((clock - startedAt) / 1000);
+  const eta =
+    GUIDED_SPECIALIST_ETA_SECONDS[specialist.id] ??
+    GUIDED_SPECIALIST_ETA_SECONDS.idk_it;
+  const phraseIndex = Math.floor(elapsedSeconds / 5) % GUIDED_WORK_PHRASES.length;
+  const phrase =
+    elapsedSeconds < 5 && activity.text
+      ? activity.text
+      : GUIDED_WORK_PHRASES[phraseIndex];
+  const silentSeconds = Math.max(
+    0,
+    Math.floor((clock - lastSignalAt) / 1000),
+  );
+  const mayBeStalled = silentSeconds >= 30;
+  const isTakingLonger = elapsedSeconds > eta[1];
+
+  return (
+    <div className="flex justify-start">
+      <div className="flex max-w-[88%] items-center gap-3 rounded-2xl rounded-bl-md border border-current/10 bg-midground/5 px-4 py-3 sm:max-w-[78%]">
+        <div className="guided-specialist-avatar-wrap shrink-0">
+          <img
+            src={`/skill-avatars/${specialist.id.replaceAll("_", "-")}.webp`}
+            alt=""
+            className="guided-specialist-avatar h-12 w-12 rounded-xl object-cover"
+          />
+          <span className="guided-specialist-dot" />
+        </div>
+        <div className="min-w-0">
+          <strong className="block text-sm text-midground">
+            {specialist.label} is working
+          </strong>
+          <span className="block text-sm text-text-secondary">
+            {mayBeStalled
+              ? "No fresh response yet—it may be waiting on the AI model."
+              : phrase}
+          </span>
+          <span
+            className={cn(
+              "mt-1 block text-[11px]",
+              mayBeStalled ? "text-warning" : "text-text-secondary/75",
+            )}
+          >
+            {mayBeStalled
+              ? `No new activity for ${formatGuidedDuration(silentSeconds)} · use Pause above if you want to stop`
+              : isTakingLonger
+              ? `Taking longer than usual · ${formatGuidedDuration(elapsedSeconds)} elapsed`
+              : `Typical time ${formatGuidedEta(eta)} · ${formatGuidedDuration(elapsedSeconds)} elapsed`}
+          </span>
+          {mayBeStalled && (
+            <Button className="mt-2" ghost size="sm" onClick={onRetry}>
+              Stop & retry
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function guidedTerminalSnapshot(
   term: Terminal,
   turnStartLine = 0,
@@ -339,6 +461,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     text: "",
     specialist: null,
   });
+  const [guidedLastSignalAt, setGuidedLastSignalAt] = useState(Date.now);
   const [guidedMessages, setGuidedMessages] = useState<GuidedMessage[]>(() =>
     typeof window === "undefined" ? [] : readGuidedMessages(workspaceParam),
   );
@@ -628,6 +751,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       (termRef.current?.buffer.active.length ?? 1) - 1,
     );
     lastGuidedResponseRef.current = "";
+    setGuidedLastSignalAt(Date.now());
     setGuidedMessages((messages) => [
       ...messages,
       {
@@ -659,6 +783,46 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     }
     setGuidedPaused((value) => !value);
   }, [guidedPaused]);
+
+  const retryLastGuidedMessage = useCallback(() => {
+    const ws = wsRef.current;
+    const lastUserMessage = [...guidedMessages]
+      .reverse()
+      .find((message) => message.role === "user");
+    if (
+      !lastUserMessage ||
+      !ws ||
+      ws.readyState !== WebSocket.OPEN
+    ) {
+      return;
+    }
+
+    ws.send("\x03");
+    setGuidedPaused(false);
+    guidedTurnStartLineRef.current = Math.max(
+      0,
+      (termRef.current?.buffer.active.length ?? 1) - 1,
+    );
+    lastGuidedResponseRef.current = "";
+    setGuidedOutput("");
+    setGuidedLastSignalAt(Date.now());
+    setGuidedActivity({
+      phase: "working",
+      text: "Trying that again…",
+      specialist: guidedDefaultSpecialistRef.current,
+    });
+
+    window.setTimeout(() => {
+      const active = wsRef.current;
+      if (!active || active.readyState !== WebSocket.OPEN) return;
+      active.send(lastUserMessage.content);
+      window.setTimeout(() => {
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send("\r");
+        }
+      }, 80);
+    }, 300);
+  }, [guidedMessages]);
 
   const handleCopyLast = () => {
     const ws = wsRef.current;
@@ -1228,6 +1392,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             text: "Let me think…",
             specialist: guidedDefaultSpecialistRef.current,
           });
+          setGuidedLastSignalAt(Date.now());
           active.send(builderSeed);
           window.setTimeout(() => {
             if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -1391,6 +1556,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             term,
             guidedTurnStartLineRef.current,
           );
+          setGuidedLastSignalAt(Date.now());
           setGuidedOutput(snapshot.output);
           setGuidedActivity(snapshot.presentation);
           if (
@@ -1819,26 +1985,13 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                       guidedActivity.specialist ??
                       guidedDefaultSpecialistRef.current;
                     return (
-                      <div className="flex justify-start">
-                        <div className="flex max-w-[88%] items-center gap-3 rounded-2xl rounded-bl-md border border-current/10 bg-midground/5 px-4 py-3 sm:max-w-[78%]">
-                          <div className="guided-specialist-avatar-wrap shrink-0">
-                            <img
-                              src={`/skill-avatars/${specialist.id.replaceAll("_", "-")}.webp`}
-                              alt=""
-                              className="guided-specialist-avatar h-12 w-12 rounded-xl object-cover"
-                            />
-                            <span className="guided-specialist-dot" />
-                          </div>
-                          <div>
-                            <strong className="block text-sm text-midground">
-                              {specialist.label} is working
-                            </strong>
-                            <span className="block text-sm text-text-secondary">
-                              {guidedActivity.text}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
+                      <GuidedSpecialistActivity
+                        key={specialist.id}
+                        activity={guidedActivity}
+                        lastSignalAt={guidedLastSignalAt}
+                        onRetry={retryLastGuidedMessage}
+                        specialist={specialist}
+                      />
                     );
                   })()}
 
