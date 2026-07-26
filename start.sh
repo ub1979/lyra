@@ -6,6 +6,28 @@ PORT="${IDRAK_IT_PORT:-9119}"
 
 cd "$PROJECT_DIR"
 
+if command -v lsof >/dev/null 2>&1; then
+  RUNNING_PID="$(lsof -tiTCP:"$PORT" -sTCP:LISTEN 2>/dev/null | head -n 1 || true)"
+  if [[ -n "$RUNNING_PID" ]]; then
+    RUNNING_CWD="$(
+      lsof -a -p "$RUNNING_PID" -d cwd -Fn 2>/dev/null |
+        sed -n 's/^n//p' |
+        head -n 1
+    )"
+    RUNNING_COMMAND="$(ps -p "$RUNNING_PID" -o command= 2>/dev/null || true)"
+
+    if [[ "$RUNNING_CWD" == "$PROJECT_DIR" && "$RUNNING_COMMAND" == *"hermes dashboard"* ]]; then
+      echo "Idrak IT is already running at http://127.0.0.1:${PORT}"
+      echo "Open that address, or run ./stop.sh before restarting it."
+      exit 0
+    fi
+
+    echo "Error: port ${PORT} is already being used by another application."
+    echo "Choose another port with IDRAK_IT_PORT=9120 ./start.sh"
+    exit 1
+  fi
+fi
+
 if ! command -v uv >/dev/null 2>&1; then
   echo "Error: uv is required but was not found."
   echo "Install it from https://docs.astral.sh/uv/ and run this script again."
