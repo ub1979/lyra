@@ -1381,6 +1381,133 @@ class ModelAssignment(BaseModel):
     profile: Optional[str] = None
 
 
+class LocalOllamaSelection(BaseModel):
+    """Select a model served by the Ollama app on this computer."""
+
+    model: str = ""
+    profile: Optional[str] = None
+
+
+def _local_ollama_status() -> Dict[str, Any]:
+    """Return local Ollama availability without consulting cloud API keys."""
+    executable = shutil.which("ollama")
+    endpoint = "http://127.0.0.1:11434"
+    try:
+        request = urllib.request.Request(
+            f"{endpoint}/api/tags",
+            headers={"Accept": "application/json"},
+        )
+        with urllib.request.urlopen(request, timeout=2.0) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        models = []
+        for item in payload.get("models", []):
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("name") or item.get("model") or "").strip()
+            if name and name not in models:
+                models.append(name)
+        return {
+            "installed": bool(executable),
+            "executable": executable or "",
+            "running": True,
+            "endpoint": endpoint,
+            "models": models,
+            "auth": "none",
+            "message": (
+                f"Ready — {len(models)} model{'s' if len(models) != 1 else ''} found. "
+                "Local requests do not need an API key."
+            ),
+        }
+    except Exception as exc:
+        return {
+            "installed": bool(executable),
+            "executable": executable or "",
+            "running": False,
+            "endpoint": endpoint,
+            "models": [],
+            "auth": "none",
+            "message": (
+                "Ollama is installed but its local server is not responding."
+                if executable
+                else "Ollama is not installed on this computer."
+            ),
+            "error": str(exc),
+        }
+
+
+@app.get("/api/model/local-ollama")
+async def get_local_ollama(profile: Optional[str] = None):
+    """Detect models from localhost:11434. OLLAMA_API_KEY is never read."""
+    status = await asyncio.to_thread(_local_ollama_status)
+    with _profile_scope(profile):
+        cfg = load_config()
+        model_cfg = cfg.get("model", {})
+        status["active"] = bool(
+            isinstance(model_cfg, dict)
+            and str(model_cfg.get("provider") or "").strip().lower()
+            == "ollama-local"
+        )
+        status["active_model"] = (
+            str(model_cfg.get("default") or model_cfg.get("name") or "")
+            if isinstance(model_cfg, dict)
+            else ""
+        )
+    return status
+
+
+@app.post("/api/model/local-ollama")
+async def activate_local_ollama(
+    body: LocalOllamaSelection,
+    profile: Optional[str] = None,
+):
+    """Make local Ollama the main model provider with no secret required."""
+    status = await asyncio.to_thread(_local_ollama_status)
+    if not status["running"]:
+        raise HTTPException(status_code=503, detail=status["message"])
+
+    available = status["models"]
+    selected = body.model.strip() or (available[0] if available else "")
+    if not selected:
+        raise HTTPException(
+            status_code=400,
+            detail="Ollama is running but has no models. Pull a model in Ollama first.",
+        )
+    if selected not in available:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Model {selected!r} is not available from local Ollama.",
+        )
+
+    with _profile_scope(body.profile or profile):
+        cfg = load_config()
+        providers = cfg.get("providers")
+        if not isinstance(providers, dict):
+            providers = {}
+        providers["ollama-local"] = {
+            "name": "Ollama — this computer",
+            "api": "http://127.0.0.1:11434/v1",
+            "transport": "chat_completions",
+            "models": available,
+            "discover_models": True,
+        }
+        cfg["providers"] = providers
+        cfg["model"] = _apply_main_model_assignment(
+            cfg.get("model", {}),
+            "ollama-local",
+            selected,
+            "http://127.0.0.1:11434/v1",
+        )
+        save_config(cfg)
+
+    return {
+        "ok": True,
+        "provider": "ollama-local",
+        "model": selected,
+        "base_url": "http://127.0.0.1:11434/v1",
+        "auth": "none",
+    }
+
+
 class MoaModelSlot(BaseModel):
     provider: str = ""
     model: str = ""

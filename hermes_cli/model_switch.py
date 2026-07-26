@@ -2136,6 +2136,15 @@ def list_authenticated_providers(
                     has_creds = True
             except Exception as exc:
                 logger.debug("Anthropic external creds check failed: %s", exc)
+        if not has_creds and hermes_slug == "openai-codex":
+            try:
+                # Codex CLI owns and refreshes this token. Discovery only
+                # checks that its current access token is valid; it does not
+                # copy or rotate the CLI's refresh token.
+                from hermes_cli.auth import _import_codex_cli_tokens
+                has_creds = bool(_import_codex_cli_tokens())
+            except Exception as exc:
+                logger.debug("Codex CLI credential check failed: %s", exc)
         if not has_creds:
             continue
 

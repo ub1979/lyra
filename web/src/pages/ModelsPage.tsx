@@ -6,6 +6,7 @@ import {
   Cpu,
   DollarSign,
   Eye,
+  HardDrive,
   RefreshCw,
   Settings2,
   Star,
@@ -17,6 +18,7 @@ import { api } from "@/lib/api";
 import type {
   AuxiliaryModelsResponse,
   AuxiliaryTaskAssignment,
+  LocalOllamaStatus,
   MoaConfigResponse,
   MoaModelSlot,
   ModelsAnalyticsModelEntry,
@@ -42,12 +44,19 @@ import { useI18n } from "@/i18n";
 import { PluginSlot } from "@/plugins";
 import { ModelPickerDialog } from "@/components/ModelPickerDialog";
 import { ModelReloadConfirm } from "@/components/ModelReloadConfirm";
+import { OAuthProvidersCard } from "@/components/OAuthProvidersCard";
 
 const PERIODS = [
   { label: "7d", days: 7 },
   { label: "30d", days: 30 },
   { label: "90d", days: 90 },
 ] as const;
+
+const SUBSCRIPTION_PROVIDER_IDS = [
+  "openai-codex",
+  "anthropic",
+  "claude-code",
+];
 
 // Must match _AUX_TASK_SLOTS in hermes_cli/web_server.py.
 const AUX_TASKS: readonly { key: string; label: string; hint: string }[] = [
@@ -1119,6 +1128,111 @@ function ModelSettingsPanel({
   );
 }
 
+function LocalOllamaCard({ onActivated }: { onActivated(): void }) {
+  const [status, setStatus] = useState<LocalOllamaStatus | null>(null);
+  const [selectedModel, setSelectedModel] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const refresh = useCallback(() => {
+    setError("");
+    api
+      .getLocalOllama()
+      .then((next) => {
+        setStatus(next);
+        setSelectedModel((current) =>
+          current && next.models.includes(current)
+            ? current
+            : next.active_model && next.models.includes(next.active_model)
+              ? next.active_model
+              : next.models[0] ?? "",
+        );
+      })
+      .catch((reason) =>
+        setError(reason instanceof Error ? reason.message : String(reason)),
+      );
+  }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const activate = async () => {
+    if (!selectedModel) return;
+    setBusy(true);
+    setError("");
+    try {
+      await api.activateLocalOllama(selectedModel);
+      refresh();
+      onActivated();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <HardDrive className="h-5 w-5 text-primary" />
+              Ollama on this computer
+            </CardTitle>
+            <p className="mt-1 text-sm text-text-secondary">
+              Uses the Ollama app at localhost. No API key is needed, including
+              for cloud-tagged models handled by your signed-in Ollama app.
+            </p>
+          </div>
+          <Button
+            ghost
+            size="icon"
+            onClick={refresh}
+            aria-label="Check Ollama again"
+          >
+            <RefreshCw />
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <Badge tone={status?.running ? "success" : "outline"}>
+            {status?.running ? "Ready" : status?.installed ? "Not running" : "Not installed"}
+          </Badge>
+          {status?.active && <Badge tone="success">Current provider</Badge>}
+          <span className="text-text-secondary">
+            {status?.message ?? "Checking your local Ollama app…"}
+          </span>
+        </div>
+
+        {status?.running && status.models.length > 0 && (
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <select
+              className="min-h-9 min-w-0 flex-1 border border-border bg-background px-3 text-sm"
+              value={selectedModel}
+              onChange={(event) => setSelectedModel(event.target.value)}
+              aria-label="Local Ollama model"
+            >
+              {status.models.map((model) => (
+                <option key={model} value={model}>
+                  {model}
+                </option>
+              ))}
+            </select>
+            <Button onClick={activate} disabled={busy || !selectedModel}>
+              {busy ? <Spinner /> : status.active && status.active_model === selectedModel ? "Active" : "Use this model"}
+            </Button>
+          </div>
+        )}
+
+        {error && <p className="text-sm text-destructive">{error}</p>}
+      </CardContent>
+    </Card>
+  );
+}
+
 /* ──────────────────────────────────────────────────────────────────── */
 /*  Page                                                                */
 /* ──────────────────────────────────────────────────────────────────── */
@@ -1242,6 +1356,29 @@ export default function ModelsPage() {
   return (
     <div className="flex min-w-0 max-w-full flex-col gap-6">
       <PluginSlot name="models:top" />
+
+      <div className="grid min-w-0 gap-6 xl:grid-cols-2">
+        <LocalOllamaCard onActivated={onAssigned} />
+        <OAuthProvidersCard
+          providerIds={SUBSCRIPTION_PROVIDER_IDS}
+          title="Claude and ChatGPT connections"
+          description="Use the accounts already signed in through Claude Code or Codex. API keys remain optional alternatives."
+          onError={setError}
+          onSuccess={() => {
+            setError(null);
+            onAssigned();
+          }}
+        />
+      </div>
+
+      <Card className="border-dashed">
+        <CardContent className="py-4 text-sm text-text-secondary">
+          <strong className="text-text-primary">Google Gemini:</strong>{" "}
+          Idrak IT supports Google AI Studio with a Gemini API key. It does not
+          reuse Gemini CLI Google-login credentials because Google explicitly
+          disallows using those credentials from third-party software.
+        </CardContent>
+      </Card>
 
       <div className="grid min-w-0 gap-6 lg:grid-cols-2">
         <ModelSettingsPanel

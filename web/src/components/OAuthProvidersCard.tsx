@@ -25,6 +25,9 @@ import { useI18n } from "@/i18n";
 interface Props {
   onError?: (msg: string) => void;
   onSuccess?: (msg: string) => void;
+  providerIds?: string[];
+  title?: string;
+  description?: string;
 }
 
 function formatExpiresAt(
@@ -49,7 +52,13 @@ function formatExpiresAt(
   }
 }
 
-export function OAuthProvidersCard({ onError, onSuccess }: Props) {
+export function OAuthProvidersCard({
+  onError,
+  onSuccess,
+  providerIds,
+  title,
+  description,
+}: Props) {
   const [providers, setProviders] = useState<OAuthProvider[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -65,10 +74,18 @@ export function OAuthProvidersCard({ onError, onSuccess }: Props) {
     setLoading(true);
     api
       .getOAuthProviders()
-      .then((resp) => setProviders(resp.providers))
+      .then((resp) =>
+        setProviders(
+          providerIds?.length
+            ? resp.providers.filter((provider) =>
+                providerIds.includes(provider.id),
+              )
+            : resp.providers,
+        ),
+      )
       .catch((e) => onErrorRef.current?.(`Failed to load providers: ${e}`))
       .finally(() => setLoading(false));
-  }, []);
+  }, [providerIds]);
 
   useEffect(() => {
     refresh();
@@ -99,7 +116,7 @@ export function OAuthProvidersCard({ onError, onSuccess }: Props) {
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-muted-foreground" />
             <CardTitle className="text-base">
-              {t.oauth.providerLogins}
+              {title ?? t.oauth.providerLogins}
             </CardTitle>
           </div>
           <Button
@@ -114,9 +131,10 @@ export function OAuthProvidersCard({ onError, onSuccess }: Props) {
           </Button>
         </div>
         <CardDescription>
-          {t.oauth.description
-            .replace("{connected}", String(connectedCount))
-            .replace("{total}", String(totalCount))}
+          {description ??
+            t.oauth.description
+              .replace("{connected}", String(connectedCount))
+              .replace("{total}", String(totalCount))}
         </CardDescription>
       </CardHeader>
       <CardContent>

@@ -752,6 +752,37 @@ def test_import_codex_cli_tokens_missing(tmp_path, monkeypatch):
     assert _import_codex_cli_tokens() is None
 
 
+def test_runtime_reuses_codex_cli_access_token_without_copying_refresh_token(
+    tmp_path, monkeypatch
+):
+    hermes_home = tmp_path / "idrak"
+    codex_home = tmp_path / "codex-cli"
+    hermes_home.mkdir(parents=True)
+    codex_home.mkdir(parents=True)
+    (hermes_home / "auth.json").write_text(
+        json.dumps({"version": 1, "providers": {}})
+    )
+    (codex_home / "auth.json").write_text(
+        json.dumps(
+            {
+                "tokens": {
+                    "access_token": "cli-access",
+                    "refresh_token": "cli-refresh",
+                }
+            }
+        )
+    )
+    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+    monkeypatch.setenv("CODEX_HOME", str(codex_home))
+
+    resolved = resolve_codex_runtime_credentials()
+
+    assert resolved["api_key"] == "cli-access"
+    assert resolved["source"] == "codex-cli-shared"
+    stored = json.loads((hermes_home / "auth.json").read_text())
+    assert stored["providers"] == {}
+
+
 def test_codex_tokens_not_written_to_shared_file(tmp_path, monkeypatch):
     """Verify _save_codex_tokens writes only to Hermes auth store, not ~/.codex/."""
     hermes_home = tmp_path / "hermes"

@@ -503,6 +503,19 @@ export const api = {
     fetchJSON<AuxiliaryModelsResponse>(
       appendProfileParam("/api/model/auxiliary", profile),
     ),
+  getLocalOllama: (profile = getManagementProfile()) =>
+    fetchJSON<LocalOllamaStatus>(
+      appendProfileParam("/api/model/local-ollama", profile),
+    ),
+  activateLocalOllama: (model: string, profile = getManagementProfile()) =>
+    fetchJSON<LocalOllamaActivation>(
+      appendProfileParam("/api/model/local-ollama", profile),
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model, profile: profile || undefined }),
+      },
+    ),
   getMoaModels: () => fetchJSON<MoaConfigResponse>("/api/model/moa"),
   saveMoaModels: (body: MoaConfigResponse) =>
     fetchJSON<MoaConfigResponse & { ok: boolean }>("/api/model/moa", {
@@ -2293,6 +2306,27 @@ export interface ModelOptionsResponse {
   model?: string;
   provider?: string;
   providers?: ModelOptionProvider[];
+}
+
+export interface LocalOllamaStatus {
+  installed: boolean;
+  executable: string;
+  running: boolean;
+  endpoint: string;
+  models: string[];
+  auth: "none";
+  message: string;
+  error?: string;
+  active: boolean;
+  active_model: string;
+}
+
+export interface LocalOllamaActivation {
+  ok: boolean;
+  provider: "ollama-local";
+  model: string;
+  base_url: string;
+  auth: "none";
 }
 
 export interface AuxiliaryTaskAssignment {

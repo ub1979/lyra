@@ -3853,7 +3853,7 @@ def resolve_codex_runtime_credentials(
     refresh_if_expiring: bool = True,
     refresh_skew_seconds: int = CODEX_ACCESS_TOKEN_REFRESH_SKEW_SECONDS,
 ) -> Dict[str, Any]:
-    """Resolve runtime credentials from Hermes's own Codex token store.
+    """Resolve Codex credentials from Idrak IT, Codex CLI, or the pool.
 
     Falls back to the credential pool when the singleton (``providers.openai-codex.tokens``)
     has no usable access_token but the pool (``credential_pool.openai-codex``) does. This
@@ -3945,6 +3945,26 @@ def resolve_codex_runtime_credentials(
                 code=CODEX_RATE_LIMITED_CODE,
                 relogin_required=False,
             )
+        # Reuse the current Codex CLI access token without copying or rotating
+        # its refresh token. The credential pool remains authoritative when
+        # configured; this is the local ChatGPT-subscription fallback.
+        # Re-reading on every resolution picks up tokens refreshed by the CLI
+        # and avoids two apps persisting the same rotating refresh token.
+        cli_tokens = _import_codex_cli_tokens()
+        if cli_tokens:
+            cli_access_token = str(cli_tokens.get("access_token") or "").strip()
+            if cli_access_token:
+                return {
+                    "provider": "openai-codex",
+                    "base_url": (
+                        os.getenv("HERMES_CODEX_BASE_URL", "").strip().rstrip("/")
+                        or DEFAULT_CODEX_BASE_URL
+                    ),
+                    "api_key": cli_access_token,
+                    "source": "codex-cli-shared",
+                    "last_refresh": cli_tokens.get("last_refresh"),
+                    "auth_mode": "chatgpt",
+                }
         if read_error is not None:
             raise read_error
         raise AuthError(
