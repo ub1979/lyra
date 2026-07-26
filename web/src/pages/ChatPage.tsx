@@ -25,7 +25,7 @@ import "@xterm/xterm/css/xterm.css";
 import { Button } from "@nous-research/ui/ui/components/button";
 import { Typography } from "@nous-research/ui/ui/components/typography/index";
 import { cn } from "@/lib/utils";
-import { Copy, PanelRight, RotateCcw, X } from "lucide-react";
+import { Copy, FolderOpen, PanelRight, RotateCcw, Send, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
@@ -108,6 +108,43 @@ function generateChannelId(scope?: string): string {
 const DEFAULT_TERMINAL_BACKGROUND = "#000000";
 const DEFAULT_TERMINAL_FOREGROUND = "#f0e6d2";
 
+function guidedTerminalSnapshot(term: Terminal): string {
+  const buffer = term.buffer.active;
+  const lines: string[] = [];
+  const start = Math.max(0, buffer.length - 160);
+  const technicalChrome =
+    /(?:nous research|hermes|available tools|available skills|toolsets|\/help for commands|commits behind|run .* update|session:|voice off|try ["“]|browser:|clarify:|code_execution:|cronjob:|delegation:|file:|memory:|project:)/i;
+
+  for (let index = start; index < buffer.length; index += 1) {
+    const line = buffer.getLine(index)?.translateToString(true).trimEnd() ?? "";
+    const trimmed = line.trim();
+    if (!trimmed) {
+      if (lines.length && lines[lines.length - 1] !== "") lines.push("");
+      continue;
+    }
+    if (/^[─━═┄┅┈┉┊┋│┃┌┐└┘├┤┬┴┼╭╮╰╯┏┓┗┛┣┫┳┻╋\s]+$/.test(trimmed)) {
+      continue;
+    }
+    if (
+      technicalChrome.test(trimmed) ||
+      /^[❯▸▾⚕!]/.test(trimmed) ||
+      /[█▀▄▐▌▔▁▂▃▅▆▇]/.test(trimmed) ||
+      /[⠀-⣿]/u.test(trimmed) ||
+      /[╔╗╚╝═]/.test(trimmed)
+    ) {
+      continue;
+    }
+    lines.push(
+      line
+        .replace(/[│┃]/g, " ")
+        .replace(/^[\s❯>$]+/, "")
+        .trim(),
+    );
+  }
+
+  return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
 function buildTerminalTheme(background: string, foreground: string) {
   return {
     background,
@@ -173,6 +210,13 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     setHasActivated((prev) => latchChatActivation(prev, isActive));
   }, [isActive]);
   const [searchParams, setSearchParams] = useSearchParams();
+  const guided = searchParams.get("guided") === "1";
+  const workspaceParam = searchParams.get("workspace")?.trim() ?? "";
+  const projectName =
+    workspaceParam.split(/[\\/]/).filter(Boolean).pop() ?? "Project";
+  const [guidedOutput, setGuidedOutput] = useState("");
+  const [guidedInput, setGuidedInput] = useState("");
+  const guidedOutputRef = useRef<HTMLDivElement | null>(null);
   // Lazy-init: the missing-token check happens at construction so the effect
   // body doesn't have to setState (React 19's set-state-in-effect rule).
   // In gated (OAuth) mode the server intentionally omits the session token —
@@ -414,7 +458,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       setEnd(null);
       return;
     }
-    if (!narrow) {
+    if (!narrow || guided) {
       setEnd(null);
       return;
     }
@@ -437,7 +481,20 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       </Button>,
     );
     return () => setEnd(null);
-  }, [isActive, narrow, mobilePanelOpen, modelToolsLabel, setEnd]);
+  }, [guided, isActive, narrow, mobilePanelOpen, modelToolsLabel, setEnd]);
+
+  const sendGuidedMessage = useCallback(() => {
+    const text = guidedInput.trim();
+    const ws = wsRef.current;
+    if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(text);
+    window.setTimeout(() => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send("\r");
+      }
+    }, 80);
+    setGuidedInput("");
+  }, [guidedInput]);
 
   const handleCopyLast = () => {
     const ws = wsRef.current;
@@ -890,6 +947,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     let unmounting = false;
     let onDataDisposable: { dispose(): void } | null = null;
     let onResizeDisposable: { dispose(): void } | null = null;
+    let guidedWriteDisposable: { dispose(): void } | null = null;
     const forceFresh = forceFreshPtyRef.current;
     forceFreshPtyRef.current = false;
     // A connect attempt is now in flight — set synchronously (before the async
@@ -930,6 +988,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       // selected profile, so the conversation runs with that profile's model,
       // skills, memory, and sessions (see web_server._resolve_chat_argv).
       if (scopedProfile) params.profile = scopedProfile;
+      if (workspaceParam) params.workspace = workspaceParam;
       const url = await api.buildWsUrl("/api/pty", params);
       const ws = new WebSocket(url);
       ws.binaryType = "arraybuffer";
@@ -987,6 +1046,22 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             /* PTY not ready / closed — user can retype */
           }
         }, 800);
+      }
+      const builderSeed = searchParams.get("builder");
+      if (builderSeed) {
+        const next = new URLSearchParams(searchParams);
+        next.delete("builder");
+        setSearchParams(next, { replace: true });
+        window.setTimeout(() => {
+          const active = wsRef.current;
+          if (!active || active.readyState !== WebSocket.OPEN) return;
+          active.send(builderSeed);
+          window.setTimeout(() => {
+            if (wsRef.current?.readyState === WebSocket.OPEN) {
+              wsRef.current.send("\r");
+            }
+          }, 100);
+        }, 900);
       }
     };
 
@@ -1137,6 +1212,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           ws.send(`\x1b[RESIZE:${cols};${rows}]`);
         }
       });
+      if (guided) {
+        guidedWriteDisposable = term.onWriteParsed(() => {
+          setGuidedOutput(guidedTerminalSnapshot(term));
+        });
+      }
     })();
 
     term.focus();
@@ -1147,6 +1227,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       syncMetricsRef.current = null;
       onDataDisposable?.dispose();
       onResizeDisposable?.dispose();
+      guidedWriteDisposable?.dispose();
       mobileInputCleanup?.();
       host.removeEventListener("paste", handleBrowserPaste, true);
       host.removeEventListener("dragover", handleBrowserDragOver, true);
@@ -1190,7 +1271,14 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     resumeParam,
     scopedProfile,
     reconnectNonce,
+    guided,
+    workspaceParam,
   ]);
+
+  useEffect(() => {
+    if (!guidedOutputRef.current) return;
+    guidedOutputRef.current.scrollTop = guidedOutputRef.current.scrollHeight;
+  }, [guidedOutput]);
 
   // When the user returns to the chat tab (isActive: false → true), the
   // terminal host just transitioned from display:none to display:flex.
@@ -1416,7 +1504,86 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1 flex-col gap-2 lg:flex-row lg:gap-3">
+      {guided && (
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-current/15 bg-background-base shadow-xl">
+          <div className="flex items-center justify-between gap-3 border-b border-current/10 px-4 py-3 sm:px-5">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-sm font-semibold text-midground">
+                <FolderOpen className="h-4 w-4" />
+                <span className="truncate">{projectName}</span>
+              </div>
+              <div className="mt-1 truncate text-xs text-text-secondary">
+                {workspaceParam || "Guided project chat"}
+              </div>
+            </div>
+            <Button
+              ghost
+              size="sm"
+              onClick={() => {
+                window.location.href = "/ultimate-builder";
+              }}
+            >
+              Change project
+            </Button>
+          </div>
+
+          <div
+            ref={guidedOutputRef}
+            className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-7 sm:py-7"
+            aria-live="polite"
+          >
+            <div className="mx-auto max-w-3xl whitespace-pre-wrap text-[15px] leading-7 text-text-primary">
+              {guidedOutput || (
+                <div className="rounded-xl border border-current/10 bg-midground/5 p-5 text-text-secondary">
+                  {ptyState === "open"
+                    ? "Your project is ready. Tell Idrak IT what you would like to do."
+                    : "Idrak IT is preparing your project conversation…"}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="border-t border-current/10 bg-background-base p-3 sm:p-4">
+            <div className="mx-auto flex max-w-3xl items-end gap-2 rounded-xl border border-current/20 bg-midground/5 p-2 focus-within:border-midground/50">
+              <textarea
+                value={guidedInput}
+                onChange={(event) => setGuidedInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    sendGuidedMessage();
+                  }
+                }}
+                rows={2}
+                placeholder="Tell Idrak IT what you want to do…"
+                className="min-h-12 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-text-primary outline-none placeholder:text-text-secondary"
+                aria-label="Message Idrak IT"
+              />
+              <Button
+                size="icon"
+                onClick={sendGuidedMessage}
+                disabled={
+                  !guidedInput.trim() || ptyState !== "open"
+                }
+                aria-label="Send message"
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="mx-auto mt-2 max-w-3xl px-2 text-xs text-text-secondary">
+              Idrak IT can plan, review, test, or build using only the skills you selected.
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className={cn(
+        "min-h-0 flex-1 flex-col gap-2 lg:flex-row lg:gap-3",
+        guided
+          ? "pointer-events-none fixed -left-[2400px] top-0 flex h-[720px] w-[1100px] opacity-0"
+          : "flex",
+      )}
+      aria-hidden={guided}>
         <div
           className={cn(
             "relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg",
@@ -1497,7 +1664,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           </Button>
         </div>
 
-        {!narrow && (
+        {!narrow && !guided && (
           <div
             id="chat-side-panel"
             role="complementary"

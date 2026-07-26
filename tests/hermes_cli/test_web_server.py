@@ -9184,6 +9184,47 @@ class TestPtyWebSocket:
         assert env["HERMES_PYTHON"] == sys.executable
         assert env["HERMES_CWD"] == os.getcwd()
 
+    def test_resolve_chat_argv_uses_selected_project_workspace(
+        self, monkeypatch, tmp_path
+    ):
+        """Guided chat runs tools inside the project selected in the launcher."""
+        import hermes_cli.main as main_mod
+
+        project = tmp_path / "customer-project"
+        project.mkdir()
+        monkeypatch.setattr(
+            main_mod,
+            "_make_tui_argv",
+            lambda project_root, tui_dev=False: (["node", "dist/entry.js"], "/tmp/ui-tui"),
+        )
+
+        _argv, cwd, env = self.ws_module._resolve_chat_argv(workspace=str(project))
+
+        resolved_project = str(project.resolve())
+        assert cwd == resolved_project
+        assert env is not None
+        assert env["TERMINAL_CWD"] == resolved_project
+        assert env["HERMES_CWD"] == resolved_project
+
+    def test_resolve_chat_argv_rejects_missing_project_workspace(
+        self, monkeypatch, tmp_path
+    ):
+        """A stale project shortcut cannot silently run from another folder."""
+        import hermes_cli.main as main_mod
+
+        monkeypatch.setattr(
+            main_mod,
+            "_make_tui_argv",
+            lambda project_root, tui_dev=False: (["node", "dist/entry.js"], "/tmp/ui-tui"),
+        )
+
+        with pytest.raises(self.ws_module.HTTPException) as exc_info:
+            self.ws_module._resolve_chat_argv(
+                workspace=str(tmp_path / "missing-project")
+            )
+
+        assert exc_info.value.status_code == 404
+
     def test_resolve_chat_argv_replaces_invalid_tui_python_environment(self, monkeypatch):
         """Dashboard chat does not preserve unusable inherited TUI Python env."""
         import hermes_cli.main as main_mod

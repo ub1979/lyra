@@ -100,7 +100,7 @@ import { api } from "@/lib/api";
 import type { StatusResponse } from "@/lib/api";
 
 function RootRedirect() {
-  return <Navigate to="/sessions" replace />;
+  return <Navigate to="/ultimate-builder" replace />;
 }
 
 function UnknownRouteFallback({ pluginsLoading }: { pluginsLoading: boolean }) {
@@ -338,7 +338,7 @@ const SIDEBAR_COLLAPSED_KEY = "hermes-sidebar-collapsed";
 
 export default function App() {
   const { t } = useI18n();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const { manifests, loading: pluginsLoading } = usePlugins();
   const { theme } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -366,6 +366,10 @@ export default function App() {
   const sidebarStatus = useSidebarStatus();
   const normalizedPath = pathname.replace(/\/$/, "") || "/";
   const isChatRoute = normalizedPath === "/chat";
+  const isBuilderRoute = normalizedPath === "/ultimate-builder";
+  const isGuidedChat =
+    isChatRoute && new URLSearchParams(search).get("guided") === "1";
+  const isSimpleExperience = isBuilderRoute || isGuidedChat;
   const embeddedChat = isDashboardEmbeddedChatEnabled();
 
   // `dashboard.show_token_analytics` gates the Analytics nav item.  The
@@ -474,7 +478,7 @@ export default function App() {
       data-layout-variant={layoutVariant}
       className="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden bg-background-base text-text-primary antialiased"
     >
-      <SelectionSwitcher />
+      {!isSimpleExperience && <SelectionSwitcher />}
 
       <div
         aria-hidden
@@ -483,7 +487,7 @@ export default function App() {
         <PluginSlot name="backdrop" />
       </div>
 
-      <header
+      {!isSimpleExperience && <header
         className={cn(
           "lg:hidden fixed top-0 left-0 right-0 z-40 min-h-14",
           "flex items-center gap-2 px-4 py-2",
@@ -511,9 +515,9 @@ export default function App() {
         <Typography className="font-bold text-[0.95rem] leading-[0.95] tracking-[0.05em] text-midground">
           {t.app.brand}
         </Typography>
-      </header>
+      </header>}
 
-      {mobileOpen && (
+      {!isSimpleExperience && mobileOpen && (
         <Button
           ghost
           aria-label={t.app.closeNavigation}
@@ -525,12 +529,15 @@ export default function App() {
         />
       )}
 
-      <PluginSlot name="header-banner" />
-      <ProfileScopeBanner />
+      {!isSimpleExperience && <PluginSlot name="header-banner" />}
+      {!isSimpleExperience && <ProfileScopeBanner />}
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden pt-14 lg:pt-0">
+      <div className={cn(
+        "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+        !isSimpleExperience && "pt-14 lg:pt-0",
+      )}>
         <div className="flex min-h-0 min-w-0 flex-1">
-          <aside
+          {!isSimpleExperience && <aside
             id="app-sidebar"
             aria-label={t.app.navigation}
             className={cn(
@@ -702,14 +709,19 @@ export default function App() {
               <AuthWidget />
               <SidebarFooter status={sidebarStatus} />
             </div>
-          </aside>
+          </aside>}
 
-          <PageHeaderProvider pluginTabs={pluginTabMeta}>
+          <PageHeaderProvider
+            pluginTabs={pluginTabMeta}
+            hideHeader={isSimpleExperience}
+          >
             <div
               className={cn(
                 "relative z-2 flex min-w-0 min-h-0 flex-1 flex-col",
-                "px-3 sm:px-6",
-                isChatRoute
+                isSimpleExperience ? "px-0" : "px-3 sm:px-6",
+                isSimpleExperience
+                  ? "p-0"
+                  : isChatRoute
                   ? "pb-0 pt-1 sm:pt-2 lg:pt-4"
                   : "pt-2 sm:pt-4 lg:pt-6",
               )}
@@ -718,7 +730,7 @@ export default function App() {
               <div
                 className={cn(
                   "w-full min-w-0",
-                  !isChatRoute &&
+                  !isChatRoute && !isSimpleExperience &&
                     "pb-[calc(2rem+env(safe-area-inset-bottom,0px))] lg:pb-8",
                   isChatRoute && "min-h-0 flex flex-1 flex-col",
                 )}

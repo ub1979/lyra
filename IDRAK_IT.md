@@ -27,28 +27,27 @@ To use another port or prevent automatic browser opening:
 IDRAK_IT_PORT=9120 ./start.sh --no-open
 ```
 
-The **App Builder** tab is a read-only control surface for SDLC progress,
-artifacts, findings, and learning candidates. Actual application work runs
-through the dashboard's **Chat** tab using the normal Idrak IT runtime. That
-means terminal tools, browser tools, MCP tools, memory, scheduled work,
-`delegate_task`, isolated subagents, and parallel execution remain available.
+The browser opens on a friendly project launcher:
 
-In Chat, use:
+1. Choose **New project** or **Open project**.
+2. Pick Full SDLC, MVP, Plan only, Review & QA, or one of your saved templates.
+3. Select or clear individual skills.
+4. Choose the project folder and describe what you want.
+5. Select **Start conversation**.
 
-```text
-/ultimate-build a customer support portal with email login
-```
+The project then opens in a simple chat. The terminal rendering is hidden from
+the user, while the normal Idrak IT runtime continues underneath it. Terminal
+tools, browser tools, MCP tools, memory, scheduled work, `delegate_task`,
+isolated subagents, and parallel execution therefore remain available.
 
-You can also ask normally:
+Custom templates and recent projects are stored in that browser. A template can
+be as small as requirements and architecture, or as broad as the complete SDLC.
+Unselected phases are excluded from the workflow. In particular, **Plan only**
+may inspect the project and write planning artifacts, but does not change
+application code.
 
-```text
-Use ultimate-builder:ultimate-app-builder to build a production-ready API.
-```
-
-Choose **App Builder** to inspect any project’s `.sdlc` state, artifacts,
-findings ledger, and quarantined learning candidates.
-The dashboard is deliberately read-only; implementation runs in Idrak IT Chat so
-there is one agent runtime and no capability loss.
+The original terminal-oriented Chat page remains available for advanced users,
+but normal users do not need it.
 
 ## Controlled improvement
 

@@ -101,6 +101,17 @@ Update the ledger after every delegate finishes or blocks.
 
 ## Step 1: choose the delivery profile
 
+When the launcher prompt includes enabled and disabled specialists, that
+selection is authoritative:
+
+- run only the enabled specialist phases;
+- do not silently add a disabled phase because it normally appears in a
+  delivery profile;
+- a planning-only selection may inspect files and write requested planning
+  artifacts, but must not modify application code;
+- ask before adding a specialist that becomes necessary for safety or a
+  user-requested outcome.
+
 Use the smallest profile that matches the request:
 
 - **Prototype:** requirements brief → architecture sketch → implementation →

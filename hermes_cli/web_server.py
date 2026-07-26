@@ -17379,6 +17379,7 @@ def _resolve_chat_argv(
     sidecar_url: Optional[str] = None,
     profile: Optional[str] = None,
     active_session_file: Optional[str] = None,
+    workspace: Optional[str] = None,
 ) -> tuple[list[str], Optional[str], Optional[dict]]:
     """Resolve the argv + cwd + env for the chat PTY.
 
@@ -17422,6 +17423,13 @@ def _resolve_chat_argv(
     if requested and requested.lower() != "current":
         profile_dir = _resolve_profile_dir(requested)
 
+    workspace_path: Optional[Path] = None
+    requested_workspace = (workspace or "").strip()
+    if requested_workspace:
+        workspace_path = Path(requested_workspace).expanduser().resolve()
+        if not workspace_path.is_dir():
+            raise HTTPException(status_code=404, detail="Project directory not found")
+
     argv, cwd = _make_tui_argv(PROJECT_ROOT / "ui-tui", tui_dev=False)
     env = os.environ.copy()
     try:
@@ -17451,6 +17459,11 @@ def _resolve_chat_argv(
     # setdefault so an explicit operator value still wins.
     env.setdefault("COLORTERM", "truecolor")
     env["HERMES_TUI_DASHBOARD"] = "1"
+
+    if workspace_path is not None:
+        cwd = str(workspace_path)
+        env["TERMINAL_CWD"] = str(workspace_path)
+        env["HERMES_CWD"] = str(workspace_path)
 
     if profile_dir is not None:
         env["HERMES_HOME"] = str(profile_dir)
@@ -17560,6 +17573,7 @@ async def _resolve_chat_argv_async(
     sidecar_url: Optional[str] = None,
     profile: Optional[str] = None,
     active_session_file: Optional[str] = None,
+    workspace: Optional[str] = None,
 ) -> tuple[list[str], Optional[str], Optional[dict]]:
     """Resolve chat argv without blocking the dashboard event loop.
 
@@ -17575,6 +17589,7 @@ async def _resolve_chat_argv_async(
         "resume": resume,
         "sidecar_url": sidecar_url,
         "profile": profile,
+        "workspace": workspace,
     }
     if active_session_file is not None:
         kwargs["active_session_file"] = active_session_file
@@ -18309,6 +18324,7 @@ async def pty_ws(ws: WebSocket) -> None:
     raw_resume = ws.query_params.get("resume") or None
     resume = raw_resume
     profile = ws.query_params.get("profile") or None
+    workspace = ws.query_params.get("workspace") or None
     channel = _channel_or_close_code(ws)
     sidecar_url = _build_sidecar_url(channel) if channel else None
     force_fresh = (ws.query_params.get("fresh") or "").strip().lower() in {
@@ -18331,6 +18347,7 @@ async def pty_ws(ws: WebSocket) -> None:
         "resume": resume,
         "sidecar_url": sidecar_url,
         "profile": profile,
+        "workspace": workspace,
     }
     if active_session_file is not None:
         resolve_kwargs["active_session_file"] = str(active_session_file)
@@ -18353,9 +18370,12 @@ async def pty_ws(ws: WebSocket) -> None:
     registry_resume = raw_resume
     if raw_resume and env:
         registry_resume = env.get("HERMES_TUI_RESUME") or raw_resume
-    if attach_token is not None and (registry_resume or profile):
+    if attach_token is not None and (registry_resume or profile or workspace):
         # Key explicit resumes on their canonical target, never the active-session fallback.
-        attach_token = f"{attach_token}\0{profile or ''}\0{registry_resume or ''}"
+        attach_token = (
+            f"{attach_token}\0{profile or ''}\0{registry_resume or ''}"
+            f"\0{workspace or ''}"
+        )
 
     def _spawn():
         return PtyBridge.spawn(argv, cwd=cwd, env=env)

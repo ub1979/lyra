@@ -8,9 +8,11 @@ import { useI18n } from "@/i18n";
 export function PageHeaderProvider({
   children,
   pluginTabs,
+  hideHeader = false,
 }: {
   children: ReactNode;
   pluginTabs: { path: string; label: string }[];
+  hideHeader?: boolean;
 }) {
   const { pathname } = useLocation();
   const { t } = useI18n();
@@ -51,7 +53,7 @@ export function PageHeaderProvider({
   return (
     <PageHeaderContext.Provider value={value}>
       <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden">
-        <header
+        {!hideHeader && <header
           className={cn(
             "z-1 w-full shrink-0",
             "box-border border-b border-current/20",
@@ -118,7 +120,7 @@ export function PageHeaderProvider({
               </div>
             ) : null}
           </div>
-        </header>
+        </header>}
 
         <main
           className={cn(

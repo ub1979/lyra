@@ -4,157 +4,454 @@
   const SDK = window.__IDRAK_IT_PLUGIN_SDK__;
   if (!SDK || !window.__IDRAK_IT_PLUGINS__) return;
 
-  const { React, fetchJSON } = SDK;
+  const { React, api } = SDK;
   const h = React.createElement;
   const { useCallback, useEffect, useMemo, useState } = SDK.hooks;
-  const { Button, Card, CardContent, CardHeader, CardTitle, Badge, Input } =
-    SDK.components;
+  const { Button, Card, CardContent, Input, Badge } = SDK.components;
 
-  const PHASES = [
-    ["requirements.md", "Requirements"],
-    ["plan.md", "Architecture"],
-    ["task-graph.md", "Plan"],
-    ["README.md", "Build"],
-    ["review-report.md", "Review"],
-    ["bug-report.md", "QA"],
-    ["security-report.md", "Security"],
-    ["DEPLOYMENT.md", "Ship"],
+  const SKILLS = [
+    ["req-engineer", "Requirements", "Clarify goals, users, scope, and acceptance criteria."],
+    ["spec", "Technical specification", "Turn the request into detailed, testable behavior."],
+    ["sw-architect", "Architecture", "Design the system, data, APIs, and boundaries."],
+    ["task-planner", "Task planning", "Create an ordered implementation graph."],
+    ["proj-manager", "Project planning", "Build milestones, checkpoints, and delivery plans."],
+    ["sw-developer", "Development", "Write and integrate working application code."],
+    ["oop-restructurer", "Code restructuring", "Improve modules, classes, and maintainability."],
+    ["debugger", "Debugging", "Find root causes and add regression coverage."],
+    ["code-reviewer", "Code review", "Review correctness, quality, and maintainability."],
+    ["qa-engineer", "Quality assurance", "Test real user journeys and report reproducible bugs."],
+    ["security-auditor", "Security", "Audit authentication, data, dependencies, and secrets."],
+    ["devops-engineer", "Deployment", "Prepare CI/CD, containers, operations, and rollback."],
+    ["tech-writer", "Documentation", "Write user, developer, and API documentation."],
+    ["benchmark", "Benchmarks", "Measure speed, reliability, and resource usage."],
+    ["health", "Health checks", "Record operational health and stability baselines."],
+    ["context-save", "Context preservation", "Keep decisions and progress available between sessions."],
+    ["learn", "Controlled learning", "Record evidence-backed improvement candidates."],
+    ["idk_it", "Workflow coordination", "Coordinate the selected specialists and their evidence."],
   ];
 
-  function App() {
-    const [path, setPath] = useState(
-      function () {
-        try { return localStorage.getItem("ultimate-builder-project") || ""; }
-        catch (_) { return ""; }
-      },
-    );
-    const [state, setState] = useState(null);
-    const [error, setError] = useState("");
-    const [loading, setLoading] = useState(false);
+  const ALL_SKILL_IDS = SKILLS.map((skill) => skill[0]);
+  const BUILTIN_TEMPLATES = [
+    {
+      id: "sdlc",
+      name: "Full SDLC",
+      description: "Complete product delivery from requirements through security, deployment, and learning.",
+      skills: ALL_SKILL_IDS,
+      accent: "lime",
+    },
+    {
+      id: "mvp",
+      name: "MVP",
+      description: "A focused path to a useful, tested first release.",
+      skills: ["req-engineer", "sw-architect", "task-planner", "sw-developer", "qa-engineer", "tech-writer", "idk_it"],
+      accent: "coral",
+    },
+    {
+      id: "planning",
+      name: "Plan only",
+      description: "Requirements, specification, architecture, and project planning—no coding.",
+      skills: ["req-engineer", "spec", "sw-architect", "task-planner", "proj-manager", "context-save", "idk_it"],
+      accent: "blue",
+    },
+    {
+      id: "review",
+      name: "Review & QA",
+      description: "Open an existing folder for independent review, testing, debugging, and security.",
+      skills: ["code-reviewer", "qa-engineer", "debugger", "security-auditor", "tech-writer", "idk_it"],
+      accent: "violet",
+    },
+  ];
 
-    const refresh = useCallback(async function () {
-      if (!path.trim()) {
-        setError("Choose an existing project directory.");
-        return;
-      }
+  const CUSTOM_TEMPLATES_KEY = "idrak-it.builder.templates.v1";
+  const RECENT_PROJECTS_KEY = "idrak-it.builder.projects.v1";
+
+  function readStored(key, fallback) {
+    try {
+      const value = JSON.parse(localStorage.getItem(key) || "null");
+      return Array.isArray(value) ? value : fallback;
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  function writeStored(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (_) {}
+  }
+
+  function joinPath(parent, name) {
+    const separator = parent && parent.includes("\\") && !parent.includes("/") ? "\\" : "/";
+    return String(parent || "").replace(/[\\/]+$/, "") + separator + name;
+  }
+
+  function defaultBrief(templateId, existing) {
+    if (templateId === "planning") return "Understand this project and create a clear requirements, architecture, and project plan. Do not implement code.";
+    if (templateId === "review") return "Review this existing project, run appropriate QA checks, identify important defects, and recommend verified fixes.";
+    if (existing) return "Improve this existing project using the selected specialists. Inspect it first, preserve unrelated work, and confirm the plan before broad changes.";
+    return "Help me turn my idea into a useful application. Ask concise questions when an important product decision is missing.";
+  }
+
+  function DirectoryPicker({ initialPath, onCancel, onSelect }) {
+    const [listing, setListing] = useState(null);
+    const [path, setPath] = useState(initialPath || "");
+    const [error, setError] = useState("");
+    const [loading, setLoading] = useState(true);
+
+    const load = useCallback(async function (nextPath) {
       setLoading(true);
       setError("");
       try {
-        const value = await fetchJSON(
-          "/api/plugins/ultimate-builder/state?path=" +
-            encodeURIComponent(path.trim()),
-        );
-        setState(value);
-        try { localStorage.setItem("ultimate-builder-project", path.trim()); }
-        catch (_) {}
+        const value = await api.listFiles(nextPath || undefined);
+        setListing(value);
+        setPath(value.path);
       } catch (err) {
         setError(err && err.message ? err.message : String(err));
       } finally {
         setLoading(false);
       }
-    }, [path]);
-
-    useEffect(function () {
-      if (path) refresh();
     }, []);
 
-    const artifactMap = useMemo(function () {
-      const map = {};
-      for (const item of (state && state.artifacts) || []) map[item.name] = item;
-      return map;
-    }, [state]);
+    useEffect(function () { load(initialPath); }, []);
 
-    const completed = PHASES.filter(function (phase) {
-      return artifactMap[phase[0]] && artifactMap[phase[0]].exists;
-    }).length;
-    const nextPhase = PHASES.find(function (phase) {
-      return !(artifactMap[phase[0]] && artifactMap[phase[0]].exists);
-    });
+    const directories = (listing && listing.entries || []).filter((entry) => entry.is_directory);
 
-    return h("div", { className: "ub-page" },
-      h("section", { className: "ub-hero" },
+    return h("div", { className: "ub-picker", role: "dialog", "aria-label": "Choose project folder" },
+      h("div", { className: "ub-picker-head" },
         h("div", null,
-          h("p", { className: "ub-kicker" }, "IDRAK IT · DELIVERY SYSTEM"),
-          h("h1", null, "Build software with evidence."),
-          h("p", { className: "ub-subtitle" },
-            "One agent runtime. Specialist delegates. Visible gates from idea to production."),
+          h("strong", null, "Choose a folder"),
+          h("span", null, "Only folders are shown."),
         ),
-        h("div", { className: "ub-score", "aria-label": completed + " of 8 phases complete" },
-          h("strong", null, String(completed).padStart(2, "0")),
-          h("span", null, "/ 08 phases"),
-        ),
+        h(Button, { ghost: true, onClick: onCancel }, "Close"),
       ),
-      h(Card, { className: "ub-project-card" },
-        h(CardContent, { className: "ub-project-row" },
-          h("div", { className: "ub-input-wrap" },
-            h("label", { htmlFor: "ub-project" }, "Project directory"),
-            h(Input, {
-              id: "ub-project",
-              value: path,
-              placeholder: "/path/to/your/application",
-              onChange: function (event) { setPath(event.target.value); },
-              onKeyDown: function (event) { if (event.key === "Enter") refresh(); },
-            }),
-          ),
-          h(Button, { onClick: refresh, disabled: loading },
-            loading ? "Inspecting…" : "Inspect project"),
-        ),
+      h("div", { className: "ub-path-row" },
+        h(Input, {
+          value: path,
+          onChange: (event) => setPath(event.target.value),
+          onKeyDown: (event) => { if (event.key === "Enter") load(path); },
+          "aria-label": "Folder path",
+        }),
+        h(Button, { outlined: true, onClick: () => load(path) }, "Go"),
       ),
       error && h("div", { className: "ub-error", role: "alert" }, error),
-      h("section", { className: "ub-pipeline", "aria-label": "Delivery pipeline" },
-        PHASES.map(function (phase, index) {
-          const done = artifactMap[phase[0]] && artifactMap[phase[0]].exists;
-          return h("div", {
-            className: "ub-phase " + (done ? "is-done" : "is-pending"),
-            key: phase[0],
+      h("div", { className: "ub-folder-list" },
+        listing && listing.parent && h("button", {
+          className: "ub-folder",
+          type: "button",
+          onClick: () => load(listing.parent),
+        }, h("span", { className: "ub-folder-icon" }, "↑"), h("span", null, "Parent folder")),
+        loading
+          ? h("div", { className: "ub-picker-empty" }, "Loading folders…")
+          : directories.length
+            ? directories.map((entry) => h("button", {
+                className: "ub-folder",
+                key: entry.path,
+                type: "button",
+                onClick: () => load(entry.path),
+              }, h("span", { className: "ub-folder-icon" }, "⌑"), h("span", null, entry.name)))
+            : h("div", { className: "ub-picker-empty" }, "No folders inside this location."),
+      ),
+      h("div", { className: "ub-picker-actions" },
+        h("span", null, listing ? listing.path : ""),
+        h(Button, { onClick: () => listing && onSelect(listing.path), disabled: !listing }, "Choose this folder"),
+      ),
+    );
+  }
+
+  function App() {
+    const [screen, setScreen] = useState("home");
+    const [mode, setMode] = useState("new");
+    const [templateId, setTemplateId] = useState("mvp");
+    const [selected, setSelected] = useState(new Set(BUILTIN_TEMPLATES[1].skills));
+    const [projectPath, setProjectPath] = useState("");
+    const [parentPath, setParentPath] = useState("");
+    const [projectName, setProjectName] = useState("");
+    const [brief, setBrief] = useState("");
+    const [error, setError] = useState("");
+    const [starting, setStarting] = useState(false);
+    const [pickerTarget, setPickerTarget] = useState("");
+    const [customTemplates, setCustomTemplates] = useState(() => readStored(CUSTOM_TEMPLATES_KEY, []));
+    const [recentProjects, setRecentProjects] = useState(() => readStored(RECENT_PROJECTS_KEY, []));
+    const [templateName, setTemplateName] = useState("");
+
+    const templates = useMemo(
+      () => BUILTIN_TEMPLATES.concat(customTemplates.map((template) => ({ ...template, accent: "custom" }))),
+      [customTemplates],
+    );
+    const activeTemplate = templates.find((template) => template.id === templateId) || templates[0];
+
+    const applyTemplate = function (template) {
+      setTemplateId(template.id);
+      setSelected(new Set(template.skills));
+    };
+
+    const begin = function (nextMode, template) {
+      setMode(nextMode);
+      applyTemplate(template || BUILTIN_TEMPLATES[nextMode === "new" ? 1 : 3]);
+      setBrief("");
+      setError("");
+      setScreen("configure");
+    };
+
+    const toggleSkill = function (id) {
+      setSelected((current) => {
+        const next = new Set(current);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      });
+    };
+
+    const saveTemplate = function () {
+      const name = templateName.trim();
+      if (!name || !selected.size) return;
+      const value = {
+        id: "custom-" + Date.now().toString(36),
+        name,
+        description: selected.size + " selected skills",
+        skills: Array.from(selected),
+      };
+      const next = customTemplates.concat(value);
+      setCustomTemplates(next);
+      writeStored(CUSTOM_TEMPLATES_KEY, next);
+      setTemplateName("");
+      applyTemplate(value);
+    };
+
+    const deleteTemplate = function (id) {
+      const next = customTemplates.filter((template) => template.id !== id);
+      setCustomTemplates(next);
+      writeStored(CUSTOM_TEMPLATES_KEY, next);
+      if (templateId === id) applyTemplate(BUILTIN_TEMPLATES[1]);
+    };
+
+    const openRecent = function (item) {
+      setMode("existing");
+      setProjectPath(item.path);
+      const template = templates.find((candidate) => candidate.id === item.templateId) || BUILTIN_TEMPLATES[3];
+      applyTemplate(template);
+      setBrief("");
+      setScreen("configure");
+    };
+
+    const startChat = async function () {
+      setStarting(true);
+      setError("");
+      try {
+        let workspace = projectPath.trim();
+        if (mode === "new") {
+          const name = projectName.trim();
+          if (!parentPath.trim() || !name) throw new Error("Choose where to save the project and give it a name.");
+          if (!/^[^/\\\\]+$/.test(name) || name === "." || name === "..") {
+            throw new Error("Use a simple project name without slashes.");
+          }
+          workspace = joinPath(parentPath.trim(), name);
+          await api.createDirectory(workspace);
+        } else {
+          if (!workspace) throw new Error("Choose the existing project folder.");
+          await api.listFiles(workspace);
+        }
+        if (!selected.size) throw new Error("Select at least one skill.");
+
+        const enabled = SKILLS.filter((skill) => selected.has(skill[0])).map((skill) => skill[1]);
+        const disabled = SKILLS.filter((skill) => !selected.has(skill[0])).map((skill) => skill[1]);
+        const codeChangesAllowed = ["sw-developer", "oop-restructurer", "debugger"]
+          .some((skill) => selected.has(skill));
+        const request = brief.trim() || defaultBrief(templateId, mode === "existing");
+        const prompt = [
+          "Use the skill `ultimate-builder:ultimate-app-builder` for this project.",
+          "Project workspace: " + workspace,
+          "Workflow template: " + activeTemplate.name,
+          "Enabled specialists: " + enabled.join(", "),
+          "Disabled specialists: " + (disabled.length ? disabled.join(", ") : "none"),
+          "Run only the enabled specialist phases. Do not silently add disabled phases.",
+          !codeChangesAllowed ? "This selection is planning/advisory only: do not modify application code." : "",
+          "Start by understanding the request and current folder. Ask only concise, important questions.",
+          "",
+          "User request:",
+          request,
+        ].filter(Boolean).join("\\n");
+
+        const recent = [{ path: workspace, templateId, name: projectName.trim() || workspace.split(/[\\\\/]/).filter(Boolean).pop() || "Project" }]
+          .concat(recentProjects.filter((item) => item.path !== workspace))
+          .slice(0, 8);
+        setRecentProjects(recent);
+        writeStored(RECENT_PROJECTS_KEY, recent);
+
+        const params = new URLSearchParams({
+          guided: "1",
+          workspace,
+          builder: prompt,
+        });
+        window.location.href = "/chat?" + params.toString();
+      } catch (err) {
+        setError(err && err.message ? err.message : String(err));
+        setStarting(false);
+      }
+    };
+
+    if (pickerTarget) {
+      return h("div", { className: "ub-page ub-page-picker" },
+        h(DirectoryPicker, {
+          initialPath: pickerTarget === "parent" ? parentPath : projectPath,
+          onCancel: () => setPickerTarget(""),
+          onSelect: (value) => {
+            if (pickerTarget === "parent") setParentPath(value);
+            else setProjectPath(value);
+            setPickerTarget("");
           },
-            h("span", { className: "ub-phase-index" }, String(index + 1).padStart(2, "0")),
-            h("strong", null, phase[1]),
-            h("span", null, done ? "Verified artifact" : "Waiting"),
-          );
         }),
+      );
+    }
+
+    if (screen === "home") {
+      return h("div", { className: "ub-page" },
+        h("section", { className: "ub-welcome" },
+          h("p", { className: "ub-kicker" }, "IDRAK IT · APP BUILDER"),
+          h("h1", null, "What would you like to work on?"),
+          h("p", { className: "ub-subtitle" }, "Start something new or bring an existing folder. You choose the experts; Idrak IT keeps everything in one simple conversation."),
+        ),
+        h("section", { className: "ub-start-grid", "aria-label": "Choose project action" },
+          h("button", { className: "ub-start-card ub-start-new", type: "button", onClick: () => begin("new", BUILTIN_TEMPLATES[1]) },
+            h("span", { className: "ub-start-symbol" }, "+"),
+            h("strong", null, "New project"),
+            h("span", null, "Create a folder, choose a workflow, and start chatting."),
+          ),
+          h("button", { className: "ub-start-card", type: "button", onClick: () => begin("existing", BUILTIN_TEMPLATES[3]) },
+            h("span", { className: "ub-start-symbol" }, "⌑"),
+            h("strong", null, "Open a project"),
+            h("span", null, "Select an existing folder for planning, review, QA, or development."),
+          ),
+        ),
+        h("section", { className: "ub-template-preview" },
+          h("div", { className: "ub-section-heading" },
+            h("div", null, h("h2", null, "Ready-made workflows"), h("p", null, "Every skill can be switched on or off before you start.")),
+          ),
+          h("div", { className: "ub-template-grid" },
+            BUILTIN_TEMPLATES.map((template) => h("button", {
+              className: "ub-template-card ub-accent-" + template.accent,
+              key: template.id,
+              type: "button",
+              onClick: () => begin(template.id === "review" ? "existing" : "new", template),
+            },
+              h("div", { className: "ub-template-top" }, h("strong", null, template.name), h(Badge, null, template.skills.length + " skills")),
+              h("p", null, template.description),
+            )),
+          ),
+        ),
+        recentProjects.length > 0 && h("section", { className: "ub-recents" },
+          h("div", { className: "ub-section-heading" }, h("div", null, h("h2", null, "Recent projects"), h("p", null, "Continue with a previous folder."))),
+          h("div", { className: "ub-recent-list" },
+            recentProjects.map((item) => h("button", { key: item.path, type: "button", onClick: () => openRecent(item) },
+              h("strong", null, item.name), h("span", null, item.path),
+            )),
+          ),
+        ),
+      );
+    }
+
+    return h("div", { className: "ub-page" },
+      h("div", { className: "ub-config-head" },
+        h(Button, { ghost: true, onClick: () => setScreen("home") }, "← Back"),
+        h("div", null,
+          h("p", { className: "ub-kicker" }, mode === "new" ? "NEW PROJECT" : "EXISTING PROJECT"),
+          h("h1", null, "Set up your conversation"),
+          h("p", null, "Choose a workflow, adjust its skills, then describe what you need."),
+        ),
       ),
-      h("div", { className: "ub-grid" },
-        h(Card, null,
-          h(CardHeader, null, h(CardTitle, null, "Current state")),
-          h(CardContent, null,
-            state
-              ? h(React.Fragment, null,
-                  h("div", { className: "ub-state-line" },
-                    h(Badge, null, state.has_sdlc ? "Tracked" : "Not started"),
-                    h("span", null, nextPhase ? "Next: " + nextPhase[1] : "Release gates complete"),
+      h("div", { className: "ub-config-layout" },
+        h("div", { className: "ub-config-main" },
+          h(Card, { className: "ub-form-card" },
+            h(CardContent, null,
+              h("h2", null, mode === "new" ? "Project folder" : "Open project"),
+              mode === "new"
+                ? h("div", { className: "ub-new-project-fields" },
+                    h("label", null, h("span", null, "Save inside"),
+                      h("div", { className: "ub-inline-field" },
+                        h(Input, { value: parentPath, readOnly: true, placeholder: "Choose a folder…" }),
+                        h(Button, { outlined: true, onClick: () => setPickerTarget("parent") }, "Browse"),
+                      ),
+                    ),
+                    h("label", null, h("span", null, "Project name"),
+                      h(Input, { value: projectName, onChange: (event) => setProjectName(event.target.value), placeholder: "My new app" }),
+                    ),
+                  )
+                : h("label", null, h("span", null, "Project folder"),
+                    h("div", { className: "ub-inline-field" },
+                      h(Input, { value: projectPath, readOnly: true, placeholder: "Choose an existing folder…" }),
+                      h(Button, { outlined: true, onClick: () => setPickerTarget("project") }, "Browse"),
+                    ),
                   ),
-                  h("pre", { className: "ub-ledger" },
-                    state.progress || "No .sdlc/progress.md yet. Start in Chat with /ultimate-build <brief>."),
-                )
-              : h("p", { className: "ub-empty" },
-                  "Enter a project directory to see its live SDLC ledger."),
+            ),
           ),
-        ),
-        h(Card, null,
-          h(CardHeader, null, h(CardTitle, null, "Controlled learning")),
-          h(CardContent, null,
-            h("p", { className: "ub-copy" },
-              "Lessons stay quarantined until evidence, regression checks, and human approval agree."),
-            state && state.learning_candidates.length
-              ? h("div", { className: "ub-candidates" },
-                  state.learning_candidates.map(function (item) {
-                    return h("div", { className: "ub-candidate", key: item.file },
-                      h("div", null, h("strong", null, item.title), h("span", null, item.file)),
-                      h(Badge, null, item.status + " · " + item.risk),
-                    );
-                  }),
-                )
-              : h("div", { className: "ub-learning-empty" },
-                  h("span", null, "0"),
-                  h("p", null, "No candidate changes awaiting evaluation."),
+          h(Card, { className: "ub-form-card" },
+            h(CardContent, null,
+              h("div", { className: "ub-section-heading" },
+                h("div", null, h("h2", null, "Skills"), h("p", null, selected.size + " of " + SKILLS.length + " selected")),
+                h("div", { className: "ub-select-actions" },
+                  h("button", { type: "button", onClick: () => setSelected(new Set(ALL_SKILL_IDS)) }, "Select all"),
+                  h("button", { type: "button", onClick: () => setSelected(new Set()) }, "Clear"),
                 ),
+              ),
+              h("div", { className: "ub-skill-list" },
+                SKILLS.map((skill) => h("label", { className: "ub-skill", key: skill[0] },
+                  h("input", { type: "checkbox", checked: selected.has(skill[0]), onChange: () => toggleSkill(skill[0]) }),
+                  h("span", { className: "ub-skill-check" }, selected.has(skill[0]) ? "✓" : ""),
+                  h("span", { className: "ub-skill-copy" }, h("strong", null, skill[1]), h("small", null, skill[2])),
+                )),
+              ),
+              h("div", { className: "ub-save-template" },
+                h(Input, { value: templateName, onChange: (event) => setTemplateName(event.target.value), placeholder: "Name this skill set…" }),
+                h(Button, { outlined: true, disabled: !templateName.trim() || !selected.size, onClick: saveTemplate }, "Save template"),
+              ),
+            ),
+          ),
+          h(Card, { className: "ub-form-card" },
+            h(CardContent, null,
+              h("h2", null, "What should Idrak IT help with?"),
+              h("textarea", {
+                value: brief,
+                onChange: (event) => setBrief(event.target.value),
+                placeholder: defaultBrief(templateId, mode === "existing"),
+                rows: 5,
+                className: "ub-brief",
+              }),
+            ),
           ),
         ),
-      ),
-      h("footer", { className: "ub-footer" },
-        h("p", null, "Implementation runs in Idrak IT Chat—no duplicate agent, no reduced tool access."),
-        h("a", { href: "/chat" }, "Open Chat →"),
+        h("aside", { className: "ub-config-side" },
+          h("h2", null, "Workflow template"),
+          h("div", { className: "ub-template-stack" },
+            templates.map((template) => h("div", {
+              className: "ub-template-option " + (template.id === templateId ? "is-selected" : ""),
+              key: template.id,
+            },
+              h("button", { type: "button", onClick: () => applyTemplate(template) },
+                h("span", { className: "ub-radio" }, template.id === templateId ? "●" : "○"),
+                h("span", null, h("strong", null, template.name), h("small", null, template.description)),
+              ),
+              template.id.startsWith("custom-") && h("button", {
+                className: "ub-delete-template",
+                type: "button",
+                onClick: () => deleteTemplate(template.id),
+                "aria-label": "Delete " + template.name,
+              }, "×"),
+            )),
+          ),
+          h("div", { className: "ub-summary" },
+            h("span", null, "Selected"), h("strong", null, selected.size + " skills"),
+            h("p", null,
+              ["sw-developer", "oop-restructurer", "debugger"].some((skill) => selected.has(skill))
+                ? "You can change the selection at any time before starting."
+                : "Planning/advisory only—code changes are disabled.",
+            ),
+          ),
+          error && h("div", { className: "ub-error", role: "alert" }, error),
+          h(Button, { className: "ub-start-chat", onClick: startChat, disabled: starting || !selected.size },
+            starting ? "Opening conversation…" : "Start conversation →",
+          ),
+          h("p", { className: "ub-chat-note" }, "The project opens in a simple chat. Idrak IT handles tools and terminal work quietly in the background."),
+        ),
       ),
     );
   }

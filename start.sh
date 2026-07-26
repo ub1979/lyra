@@ -22,8 +22,8 @@ uv run hermes plugins enable ultimate-builder >/dev/null
 
 echo
 echo "Starting Idrak IT at http://127.0.0.1:${PORT}"
-echo "Use the App Builder tab to inspect projects."
-echo "Use Chat and enter: /ultimate-build <what you want to build>"
+echo "Choose New project or Open project in the browser, then start chatting."
+echo "Idrak IT keeps technical terminal output behind the guided chat."
 echo "Press Ctrl+C here to stop the web application."
 echo
 

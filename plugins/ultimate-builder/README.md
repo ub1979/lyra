@@ -27,28 +27,17 @@ To use another port or prevent automatic browser opening:
 IDRAK_IT_PORT=9120 ./start.sh --no-open
 ```
 
-The **App Builder** tab is a read-only control surface for SDLC progress,
-artifacts, findings, and learning candidates. Actual application work runs
-through the dashboard's **Chat** tab using the normal Idrak IT runtime. That
-means terminal tools, browser tools, MCP tools, memory, scheduled work,
+The browser opens with **New project** and **Open project** choices. Users pick a
+built-in or custom workflow template, toggle individual skills, choose a folder,
+and start a normal conversation. Built-in templates cover Full SDLC, MVP, Plan
+only, and Review & QA.
+
+The guided conversation hides terminal rendering without replacing the agent
+runtime. Terminal tools, browser tools, MCP tools, memory, scheduled work,
 `delegate_task`, isolated subagents, and parallel execution remain available.
-
-In Chat, use:
-
-```text
-/ultimate-build a customer support portal with email login
-```
-
-You can also ask normally:
-
-```text
-Use ultimate-builder:ultimate-app-builder to build a production-ready API.
-```
-
-Choose **App Builder** to inspect any project’s `.sdlc` state, artifacts,
-findings ledger, and quarantined learning candidates.
-The dashboard is deliberately read-only; implementation runs in Idrak IT Chat so
-there is one agent runtime and no capability loss.
+The selected project folder becomes the runtime working directory, and the
+selected skill list constrains the workflow. A planning-only conversation does
+not modify application code.
 
 ## Controlled improvement
 
