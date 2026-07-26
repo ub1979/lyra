@@ -112,12 +112,23 @@ function guidedTerminalSnapshot(term: Terminal): string {
   const buffer = term.buffer.active;
   const lines: string[] = [];
   const start = Math.max(0, buffer.length - 160);
+  let insideInternalSetup = false;
   const technicalChrome =
     /(?:nous research|hermes|available tools|available skills|toolsets|\/help for commands|commits behind|run .* update|session:|voice off|try ["“]|browser:|clarify:|code_execution:|cronjob:|delegation:|file:|memory:|project:)/i;
 
   for (let index = start; index < buffer.length; index += 1) {
     const line = buffer.getLine(index)?.translateToString(true).trimEnd() ?? "";
     const trimmed = line.trim();
+    if (trimmed.includes("IDRAK_INTERNAL_SETUP_BEGIN")) {
+      insideInternalSetup = !trimmed.includes("IDRAK_INTERNAL_SETUP_END");
+      continue;
+    }
+    if (insideInternalSetup) {
+      if (trimmed.includes("IDRAK_INTERNAL_SETUP_END")) {
+        insideInternalSetup = false;
+      }
+      continue;
+    }
     if (!trimmed) {
       if (lines.length && lines[lines.length - 1] !== "") lines.push("");
       continue;

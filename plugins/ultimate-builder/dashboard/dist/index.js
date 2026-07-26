@@ -10,24 +10,24 @@
   const { Button, Card, CardContent, Input, Badge } = SDK.components;
 
   const SKILLS = [
-    ["req-engineer", "Requirements", "Clarify goals, users, scope, and acceptance criteria."],
-    ["spec", "Technical specification", "Turn the request into detailed, testable behavior."],
-    ["sw-architect", "Architecture", "Design the system, data, APIs, and boundaries."],
-    ["task-planner", "Task planning", "Create an ordered implementation graph."],
-    ["proj-manager", "Project planning", "Build milestones, checkpoints, and delivery plans."],
-    ["sw-developer", "Development", "Write and integrate working application code."],
-    ["oop-restructurer", "Code restructuring", "Improve modules, classes, and maintainability."],
-    ["debugger", "Debugging", "Find root causes and add regression coverage."],
-    ["code-reviewer", "Code review", "Review correctness, quality, and maintainability."],
-    ["qa-engineer", "Quality assurance", "Test real user journeys and report reproducible bugs."],
-    ["security-auditor", "Security", "Audit authentication, data, dependencies, and secrets."],
-    ["devops-engineer", "Deployment", "Prepare CI/CD, containers, operations, and rollback."],
-    ["tech-writer", "Documentation", "Write user, developer, and API documentation."],
-    ["benchmark", "Benchmarks", "Measure speed, reliability, and resource usage."],
-    ["health", "Health checks", "Record operational health and stability baselines."],
-    ["context-save", "Context preservation", "Keep decisions and progress available between sessions."],
-    ["learn", "Controlled learning", "Record evidence-backed improvement candidates."],
-    ["idk_it", "Workflow coordination", "Coordinate the selected specialists and their evidence."],
+    ["req-engineer", "Requirements", "Clarify goals, users, scope, and acceptance criteria.", "ʕ•ᴥ•ʔ", "ʕ·ᴥ·ʔ"],
+    ["spec", "Technical specification", "Turn the request into detailed, testable behavior.", "(•̀ᴗ•́)و", "(•́︿•̀)"],
+    ["sw-architect", "Architecture", "Design the system, data, APIs, and boundaries.", "⌐■‿■", "⌐■︿■"],
+    ["task-planner", "Task planning", "Create an ordered implementation graph.", "ᕕ( ᐛ )ᕗ", "ᕙ(⇀‸↼)ᕗ"],
+    ["proj-manager", "Project planning", "Build milestones, checkpoints, and delivery plans.", "(•‿•)✎", "(╥﹏╥)✎"],
+    ["sw-developer", "Development", "Write and integrate working application code.", "(⌨•̀ᴗ•́)", "(⌨•́︿•̀)"],
+    ["oop-restructurer", "Code restructuring", "Improve modules, classes, and maintainability.", "└(＾＾)┐", "└(︶︿︶)┐"],
+    ["debugger", "Debugging", "Find root causes and add regression coverage.", "ᕦ(ò_óˇ)ᕤ", "(×_×)"],
+    ["code-reviewer", "Code review", "Review correctness, quality, and maintainability.", "(¬‿¬)✓", "(¬_¬)"],
+    ["qa-engineer", "Quality assurance", "Test real user journeys and report reproducible bugs.", "(•̀ᴗ•́)و✓", "(ಥ﹏ಥ)"],
+    ["security-auditor", "Security", "Audit authentication, data, dependencies, and secrets.", "ᕙ(⇀‸↼)ᕗ", "(⊙﹏⊙)"],
+    ["devops-engineer", "Deployment", "Prepare CI/CD, containers, operations, and rollback.", "ヽ(•‿•)ノ", "ヽ(ಠ_ಠ)ノ"],
+    ["tech-writer", "Documentation", "Write user, developer, and API documentation.", "φ(•ᴗ•)", "φ(._.)"],
+    ["benchmark", "Benchmarks", "Measure speed, reliability, and resource usage.", "(ง •̀_•́)ง", "(ง′︿‵)ง"],
+    ["health", "Health checks", "Record operational health and stability baselines.", "♥(ˆ⌣ˆ)", "♡(︶︹︺)"],
+    ["context-save", "Context preservation", "Keep decisions and progress available between sessions.", "(づ｡◕‿‿◕｡)づ", "(づಥ﹏ಥ)づ"],
+    ["learn", "Controlled learning", "Record evidence-backed improvement candidates.", "٩(◕‿◕)۶", "٩(×̯×)۶"],
+    ["idk_it", "Workflow coordination", "Act as team lead: sequence the selected specialists and verify their evidence.", "(☞ﾟヮﾟ)☞", "☜(ಥ﹏ಥ)"],
   ];
 
   const ALL_SKILL_IDS = SKILLS.map((skill) => skill[0]);
@@ -258,19 +258,15 @@
         const codeChangesAllowed = ["sw-developer", "oop-restructurer", "debugger"]
           .some((skill) => selected.has(skill));
         const request = brief.trim() || defaultBrief(templateId, mode === "existing");
-        const prompt = [
-          "Use the skill `ultimate-builder:ultimate-app-builder` for this project.",
-          "Project workspace: " + workspace,
-          "Workflow template: " + activeTemplate.name,
-          "Enabled specialists: " + enabled.join(", "),
-          "Disabled specialists: " + (disabled.length ? disabled.join(", ") : "none"),
-          "Run only the enabled specialist phases. Do not silently add disabled phases.",
-          !codeChangesAllowed ? "This selection is planning/advisory only: do not modify application code." : "",
-          "Start by understanding the request and current folder. Ask only concise, important questions.",
-          "",
-          "User request:",
-          request,
-        ].filter(Boolean).join("\\n");
+        const prompt = "IDRAK_INTERNAL_SETUP_BEGIN " + JSON.stringify({
+          instruction: "Use ultimate-builder:ultimate-app-builder. Work only in the selected workspace, run only enabled specialist phases, and ask only concise questions when an important decision is missing.",
+          workspace,
+          template: activeTemplate.name,
+          enabled_specialists: enabled,
+          disabled_specialists: disabled,
+          code_changes_allowed: codeChangesAllowed,
+          user_request: request,
+        }) + " IDRAK_INTERNAL_SETUP_END";
 
         const recent = [{ path: workspace, templateId, name: projectName.trim() || workspace.split(/[\\\\/]/).filter(Boolean).pop() || "Project" }]
           .concat(recentProjects.filter((item) => item.path !== workspace))
@@ -310,6 +306,11 @@
           h("p", { className: "ub-kicker" }, "IDRAK IT · APP BUILDER"),
           h("h1", null, "What would you like to work on?"),
           h("p", { className: "ub-subtitle" }, "Start something new or bring an existing folder. You choose the experts; Idrak IT keeps everything in one simple conversation."),
+          h("button", {
+            className: "ub-model-settings",
+            type: "button",
+            onClick: () => { window.location.href = "/models"; },
+          }, "⚙ AI model settings"),
         ),
         h("section", { className: "ub-start-grid", "aria-label": "Choose project action" },
           h("button", { className: "ub-start-card ub-start-new", type: "button", onClick: () => begin("new", BUILTIN_TEMPLATES[1]) },
@@ -397,6 +398,11 @@
                 SKILLS.map((skill) => h("label", { className: "ub-skill", key: skill[0] },
                   h("input", { type: "checkbox", checked: selected.has(skill[0]), onChange: () => toggleSkill(skill[0]) }),
                   h("span", { className: "ub-skill-check" }, selected.has(skill[0]) ? "✓" : ""),
+                  h("span", {
+                    className: "ub-skill-avatar",
+                    "aria-hidden": "true",
+                    title: selected.has(skill[0]) ? "Happy and ready" : "Sad and waiting",
+                  }, selected.has(skill[0]) ? skill[3] : skill[4]),
                   h("span", { className: "ub-skill-copy" }, h("strong", null, skill[1]), h("small", null, skill[2])),
                 )),
               ),

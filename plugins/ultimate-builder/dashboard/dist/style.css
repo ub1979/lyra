@@ -36,6 +36,20 @@
   font-size: 17px;
   line-height: 1.6;
 }
+.ub-model-settings {
+  margin-top: 20px;
+  padding: 9px 13px;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  background: var(--color-card);
+  color: var(--color-text-secondary);
+  font: 12px/1.2 var(--font-mono);
+  cursor: pointer;
+}
+.ub-model-settings:hover {
+  border-color: var(--ub-lime);
+  color: var(--ub-lime);
+}
 
 .ub-start-grid {
   display: grid;
@@ -181,9 +195,9 @@
 }
 .ub-skill {
   display: grid;
-  grid-template-columns: 20px 28px 1fr;
+  grid-template-columns: 22px 72px minmax(0, 1fr);
   align-items: start;
-  gap: 8px;
+  gap: 10px;
   min-height: 86px;
   padding: 13px;
   border: 1px solid var(--color-border);
@@ -207,10 +221,39 @@
   font-size: 13px;
 }
 .ub-skill:has(input:checked) .ub-skill-check { border-color: var(--ub-lime); background: var(--ub-lime); }
+.ub-skill-avatar {
+  display: grid;
+  min-height: 28px;
+  place-items: center;
+  color: var(--color-text-tertiary);
+  font: 12px/1 var(--font-mono);
+  white-space: nowrap;
+  opacity: .62;
+  transform: translateY(4px) scale(.96);
+  transition: color 160ms ease, opacity 160ms ease, transform 160ms ease;
+}
+.ub-skill:has(input:checked) .ub-skill-avatar {
+  color: var(--ub-lime);
+  opacity: 1;
+  transform: translateY(2px) scale(1.04);
+  animation: ub-happy-pop 260ms ease-out;
+}
+.ub-skill-copy { min-width: 0; }
 .ub-skill-copy strong,
 .ub-skill-copy small { display: block; }
 .ub-skill-copy strong { margin-bottom: 5px; font-size: 13px; }
-.ub-skill-copy small { color: var(--color-text-secondary); font-size: 11px; line-height: 1.4; }
+.ub-skill-copy small {
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  line-height: 1.4;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+@keyframes ub-happy-pop {
+  0% { transform: translateY(4px) scale(.9) rotate(-4deg); }
+  70% { transform: translateY(0) scale(1.1) rotate(3deg); }
+  100% { transform: translateY(2px) scale(1.04) rotate(0); }
+}
 .ub-save-template { display: flex; gap: 8px; margin-top: 14px; padding-top: 16px; border-top: 1px solid var(--color-border); }
 .ub-save-template > :first-child { flex: 1; }
 .ub-brief {
