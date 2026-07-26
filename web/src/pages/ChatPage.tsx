@@ -1566,7 +1566,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 ghost
                 size="sm"
                 onClick={() => {
-                  window.location.href = "/models";
+                  const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+                  window.location.href = `/models?returnTo=${encodeURIComponent(returnTo)}`;
                 }}
               >
                 AI model
@@ -1606,7 +1607,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                     className="mt-4"
                     size="sm"
                     onClick={() => {
-                      window.location.href = "/models";
+                      const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+                      window.location.href = `/models?returnTo=${encodeURIComponent(returnTo)}`;
                     }}
                   >
                     Open AI model settings

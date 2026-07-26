@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Brain,
+  ArrowLeft,
   ChevronDown,
   Cpu,
   DollarSign,
@@ -14,6 +15,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import type {
   AuxiliaryModelsResponse,
@@ -1238,6 +1240,8 @@ function LocalOllamaCard({ onActivated }: { onActivated(): void }) {
 /* ──────────────────────────────────────────────────────────────────── */
 
 export default function ModelsPage() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [days, setDays] = useState(30);
   const [data, setData] = useState<ModelsAnalyticsResponse | null>(null);
   const [aux, setAux] = useState<AuxiliaryModelsResponse | null>(null);
@@ -1250,6 +1254,11 @@ export default function ModelsPage() {
   const [showTokens, setShowTokens] = useState(false);
   const { t } = useI18n();
   const { setAfterTitle, setEnd } = usePageHeader();
+  const requestedReturnTo = searchParams.get("returnTo") ?? "";
+  const safeReturnTo =
+    requestedReturnTo.startsWith("/") && !requestedReturnTo.startsWith("//")
+      ? requestedReturnTo
+      : "/ultimate-builder";
 
   useEffect(() => {
     api
@@ -1355,6 +1364,13 @@ export default function ModelsPage() {
 
   return (
     <div className="flex min-w-0 max-w-full flex-col gap-6">
+      <div>
+        <Button outlined onClick={() => navigate(safeReturnTo)}>
+          <ArrowLeft className="h-4 w-4" />
+          {requestedReturnTo ? "Back to project" : "Back to projects"}
+        </Button>
+      </div>
+
       <PluginSlot name="models:top" />
 
       <div className="grid min-w-0 gap-6 xl:grid-cols-2">
