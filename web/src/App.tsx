@@ -111,13 +111,6 @@ function UnknownRouteFallback({ pluginsLoading }: { pluginsLoading: boolean }) {
   return <Navigate to="/sessions" replace />;
 }
 
-const CHAT_NAV_ITEM: NavItem = {
-  path: "/chat",
-  labelKey: "chat",
-  label: "Chat",
-  icon: Terminal,
-};
-
 /**
  * Built-in routes except /chat.  Chat is rendered persistently (outside
  * <Routes>) when embedded — see the persistent chat host block rendered
@@ -153,6 +146,10 @@ const BUILTIN_ROUTES_CORE: Record<string, ComponentType> = {
 // element just claims the path so the `*` catch-all redirect doesn't
 // fire when the user navigates to /chat.
 function ChatRouteSink() {
+  const { search } = useLocation();
+  if (new URLSearchParams(search).get("guided") !== "1") {
+    return <Navigate to="/ultimate-builder" replace />;
+  }
   return null;
 }
 
@@ -420,13 +417,11 @@ export default function App() {
   );
 
   const builtinNav = useMemo(() => {
-    const base = embeddedChat
-      ? [CHAT_NAV_ITEM, ...BUILTIN_NAV_REST]
-      : BUILTIN_NAV_REST;
+    const base = BUILTIN_NAV_REST;
     return showTokenAnalytics
       ? base
       : base.filter((n) => n.path !== "/analytics");
-  }, [embeddedChat, showTokenAnalytics]);
+  }, [showTokenAnalytics]);
 
   const sidebarNav = useMemo(
     () => partitionSidebarNav(builtinNav, manifests),
@@ -752,7 +747,7 @@ export default function App() {
                 {embeddedChat &&
                   !chatOverriddenByPlugin &&
                   (pluginsLoading ? (
-                    isChatRoute ? (
+                    isGuidedChat ? (
                       <div
                         className="flex min-h-0 min-w-0 flex-1 items-center justify-center"
                         aria-busy="true"
@@ -766,14 +761,14 @@ export default function App() {
                     ) : null
                   ) : (
                     <div
-                      data-chat-active={isChatRoute ? "true" : "false"}
+                      data-chat-active={isGuidedChat ? "true" : "false"}
                       className={cn(
                         "min-h-0 min-w-0",
-                        isChatRoute ? "flex flex-1 flex-col" : "hidden",
+                        isGuidedChat ? "flex flex-1 flex-col" : "hidden",
                       )}
-                      aria-hidden={!isChatRoute}
+                      aria-hidden={!isGuidedChat}
                     >
-                      <ChatPage isActive={isChatRoute} />
+                      <ChatPage isActive={isGuidedChat} />
                     </div>
                   ))}
               </div>

@@ -147,6 +147,9 @@ function guidedTerminalSnapshot(term: Terminal): string {
     }
     if (
       technicalChrome.test(trimmed) ||
+      /^(?:skills|tools)\s*:\s*\d+\b/i.test(trimmed) ||
+      /^\/Users\/[^/]+\/\.hermes(?:\/|$)/i.test(trimmed) ||
+      /^~\/\.hermes(?:\/|$)/i.test(trimmed) ||
       /^[❯▸▾⚕!]/.test(trimmed) ||
       /[█▀▄▐▌▔▁▂▃▅▆▇]/.test(trimmed) ||
       /[⠀-⣿]/u.test(trimmed) ||
