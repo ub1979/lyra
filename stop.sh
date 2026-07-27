@@ -2,17 +2,17 @@
 set -Eeuo pipefail
 
 PROJECT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-PORT="${IDRAK_IT_PORT:-9119}"
+PORT="${APPIT_PORT:-9119}"
 
 if ! command -v lsof >/dev/null 2>&1; then
-  echo "Error: stop.sh needs lsof to identify Idrak IT safely."
+  echo "Error: stop.sh needs lsof to identify AppIT safely."
   exit 1
 fi
 
 RUNNING_PID="$(lsof -tiTCP:"$PORT" -sTCP:LISTEN 2>/dev/null | head -n 1 || true)"
 
 if [[ -z "$RUNNING_PID" ]]; then
-  echo "Idrak IT is not running on port ${PORT}."
+  echo "AppIT is not running on port ${PORT}."
   exit 0
 fi
 
@@ -24,12 +24,12 @@ RUNNING_CWD="$(
 RUNNING_COMMAND="$(ps -p "$RUNNING_PID" -o command= 2>/dev/null || true)"
 
 if [[ "$RUNNING_CWD" != "$PROJECT_DIR" || "$RUNNING_COMMAND" != *"hermes dashboard"* ]]; then
-  echo "Refusing to stop process ${RUNNING_PID}: it is not this Idrak IT application."
+  echo "Refusing to stop process ${RUNNING_PID}: it is not this AppIT application."
   echo "Port ${PORT} belongs to: ${RUNNING_COMMAND:-unknown process}"
   exit 1
 fi
 
-echo "Stopping Idrak IT..."
+echo "Stopping AppIT..."
 
 # The dashboard starts a PTY/TUI child in its own process group, so stopping
 # only the listening Python process can leave both it and the launcher alive.
@@ -82,13 +82,13 @@ for _attempt in {1..50}; do
     fi
   done
   if [[ "${#STILL_RUNNING[@]}" -eq 0 ]]; then
-    echo "Idrak IT stopped."
+    echo "AppIT stopped."
     exit 0
   fi
   sleep 0.1
 done
 
-echo "Idrak IT did not stop cleanly; force-stopping its remaining processes..."
+echo "AppIT did not stop cleanly; force-stopping its remaining processes..."
 for target_pid in "${STILL_RUNNING[@]}"; do
   kill -KILL "$target_pid" 2>/dev/null || true
 done
@@ -102,11 +102,11 @@ for _attempt in {1..20}; do
     fi
   done
   if [[ "$ANY_RUNNING" == false ]]; then
-    echo "Idrak IT stopped."
+    echo "AppIT stopped."
     exit 0
   fi
   sleep 0.1
 done
 
-echo "Error: Idrak IT could not be stopped. Remaining process IDs: ${STILL_RUNNING[*]}"
+echo "Error: AppIT could not be stopped. Remaining process IDs: ${STILL_RUNNING[*]}"
 exit 1

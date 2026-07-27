@@ -21,7 +21,7 @@ function desktopApi<T>(path: string, body?: Record<string, unknown>): Promise<T>
   const desktop = window.hermesDesktop
 
   if (!desktop) {
-    throw new Error('Idrak IT desktop bridge is unavailable')
+    throw new Error('AppIT desktop bridge is unavailable')
   }
 
   return desktop.api<T>(

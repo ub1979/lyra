@@ -62,18 +62,18 @@ export const ja = defineLocale({
   },
 
   boot: {
-    ready: 'Idrak IT の準備ができました',
+    ready: 'AppIT の準備ができました',
     desktopBootFailedWithMessage: message => `デスクトップの起動に失敗しました: ${message}`,
     steps: {
       connectingGateway: 'ライブデスクトップゲートウェイに接続中',
-      loadingSettings: 'Idrak IT の設定を読み込み中',
+      loadingSettings: 'AppIT の設定を読み込み中',
       loadingSessions: '最近のセッションを読み込み中',
       startingDesktopConnection: 'デスクトップ接続を開始中',
-      startingHermesDesktop: 'Idrak IT を起動中…'
+      startingHermesDesktop: 'AppIT を起動中…'
     },
     errors: {
-      backgroundExited: 'Idrak IT バックグラウンドプロセスが終了しました。',
-      backgroundExitedDuringStartup: '起動中に Idrak IT バックグラウンドプロセスが終了しました。',
+      backgroundExited: 'AppIT バックグラウンドプロセスが終了しました。',
+      backgroundExitedDuringStartup: '起動中に AppIT バックグラウンドプロセスが終了しました。',
       backendStopped: 'バックエンドが停止しました',
       desktopBootFailed: 'デスクトップの起動に失敗しました',
       gatewayConnectionLost: 'ゲートウェイへの接続が切断されました',
@@ -81,7 +81,7 @@ export const ja = defineLocale({
       ipcBridgeUnavailable: 'デスクトップ IPC ブリッジが利用できません。'
     },
     failure: {
-      title: 'Idrak IT を起動できませんでした',
+      title: 'AppIT を起動できませんでした',
       description:
         'バックグラウンドゲートウェイが起動しませんでした。以下の回復手順をお試しください。チャットや設定は削除されません。',
       remoteTitle: 'リモートゲートウェイへのサインインが必要です',
@@ -124,9 +124,9 @@ export const ja = defineLocale({
     copyDetailFailed: '通知の詳細をコピーできませんでした',
     backendOutOfDateTitle: 'バックエンドが古いです',
     backendOutOfDateMessage:
-      'Idrak IT バックエンドがこのデスクトップビルドより古く、正常に動作しない場合があります。更新して揃えてください。',
+      'AppIT バックエンドがこのデスクトップビルドより古く、正常に動作しない場合があります。更新して揃えてください。',
     installMethodUnsupportedTitle: 'サポート対象外のインストール方法',
-    updateHermes: 'Idrak IT を更新',
+    updateHermes: 'AppIT を更新',
     updateReadyTitle: '更新の準備ができました',
     updateReadyMessage: count => `${count} 件の新しい変更が利用可能です。`,
     seeWhatsNew: '新機能を見る',
@@ -135,7 +135,7 @@ export const ja = defineLocale({
       elevenLabsRejectedKey: 'ElevenLabs が API キーを拒否しました (401)。',
       gatewayAuthFailed: 'ゲートウェイ認証に失敗しました — API_SERVER_KEY を確認してください。',
       methodNotAllowed:
-        'デスクトップバックエンドがそのリクエストを拒否しました (405 Method Not Allowed)。Idrak IT を再起動してください。',
+        'デスクトップバックエンドがそのリクエストを拒否しました (405 Method Not Allowed)。AppIT を再起動してください。',
       microphonePermission: 'マイクのアクセス許可が拒否されました。',
       openaiRejectedApiKey: 'OpenAI が API キーを拒否しました。',
       openaiRejectedApiKeyWithStatus: status => `OpenAI が API キーを拒否しました (${status} invalid_api_key)。`,
@@ -165,8 +165,8 @@ export const ja = defineLocale({
       approveAction: '承認',
       rejectAction: '拒否',
       inputTitle: '入力が必要です',
-      inputBody: 'Idrak IT が応答を待っています。',
-      turnDoneTitle: 'Idrak IT が完了しました',
+      inputBody: 'AppIT が応答を待っています。',
+      turnDoneTitle: 'AppIT が完了しました',
       turnDoneBody: '応答の準備ができました。',
       turnErrorTitle: 'ターンが失敗しました',
       backgroundDoneTitle: 'バックグラウンドタスクが完了しました',
@@ -219,7 +219,7 @@ export const ja = defineLocale({
     exportConfig: '設定を書き出す',
     importConfig: '設定を読み込む',
     resetToDefaults: 'デフォルトに戻す',
-    resetConfirm: 'すべての設定を Idrak IT のデフォルトに戻しますか？',
+    resetConfirm: 'すべての設定を AppIT のデフォルトに戻しますか？',
     exportFailed: '書き出しに失敗しました',
     resetFailed: 'リセットに失敗しました',
     nav: {
@@ -243,7 +243,7 @@ export const ja = defineLocale({
       intro: 'アプリ内トーストとは別の、ネイティブのデスクトップ通知です。設定は端末ごとに保存されます。',
       enableAll: '通知を有効にする',
       enableAllDesc: 'マスタースイッチ。オフにすると以下のすべての通知を無効にします。',
-      focusedHint: '完了通知は Idrak IT がバックグラウンドにあるときのみ表示されます。',
+      focusedHint: '完了通知は AppIT がバックグラウンドにあるときのみ表示されます。',
       kinds: {
         approval: {
           label: '承認が必要',
@@ -251,11 +251,11 @@ export const ja = defineLocale({
         },
         input: {
           label: '入力が必要',
-          description: 'Idrak IT が質問したか、パスワードやシークレットを必要としています。'
+          description: 'AppIT が質問したか、パスワードやシークレットを必要としています。'
         },
         turnDone: {
           label: '応答完了',
-          description: 'Idrak IT がバックグラウンドのときにターンが完了しました。'
+          description: 'AppIT がバックグラウンドのときにターンが完了しました。'
         },
         turnError: {
           label: 'ターン失敗',
@@ -271,7 +271,7 @@ export const ja = defineLocale({
         }
       },
       test: 'テスト通知を送信',
-      testTitle: 'Idrak IT',
+      testTitle: 'AppIT',
       testBody: '通知は正常に動作しています。',
       testSent:
         'テストを送信しました。表示されない場合は、OS の通知許可と集中モード／おやすみモードを確認してください。',
@@ -291,7 +291,7 @@ export const ja = defineLocale({
       advanced: '詳細'
     },
     searchPlaceholder: {
-      about: 'Idrak IT について',
+      about: 'AppIT について',
       config: '設定を検索…',
       gateway: 'ゲートウェイ接続…',
       keys: 'API キーを検索…',
@@ -308,7 +308,7 @@ export const ja = defineLocale({
       intro:
         'デスクトップ専用の表示設定です。モードは明るさ、テーマはアクセントカラーとチャット面のスタイルを制御します。',
       colorMode: 'カラーモード',
-      colorModeDesc: '固定モードを選ぶか、Idrak IT をシステム設定に合わせます。',
+      colorModeDesc: '固定モードを選ぶか、AppIT をシステム設定に合わせます。',
       toolViewTitle: 'ツール呼び出しの表示',
       toolViewDesc: 'プロダクト表示は生のツールペイロードを隠し、テクニカル表示は入出力をすべて表示します。',
       uiScaleTitle: 'UI スケール',
@@ -346,9 +346,9 @@ export const ja = defineLocale({
       pet: {
         title: 'ペット',
         intro:
-          'アプリ上に浮かぶ petdex のアニメーションマスコットを採用しましょう。ツール実行中は走り、成功すると喜び、エラーでしょんぼりと、Idrak IT の状態に反応します。',
+          'アプリ上に浮かぶ petdex のアニメーションマスコットを採用しましょう。ツール実行中は走り、成功すると喜び、エラーでしょんぼりと、AppIT の状態に反応します。',
         restartHint:
-          'ペット機能には再起動が必要です。この機能が追加される前に起動したアプリが動作中です。Idrak IT を終了して再度開き、このページに戻ってください。',
+          'ペット機能には再起動が必要です。この機能が追加される前に起動したアプリが動作中です。AppIT を終了して再度開き、このページに戻ってください。',
         scaleTitle: 'サイズ',
         scaleDesc: '浮遊マスコットの大きさを変更します。すべての画面に即時反映されます。',
         roamTitle: '散歩',
@@ -559,10 +559,10 @@ export const ja = defineLocale({
         repoScanExcludePaths: 'リポジトリ検出時に除外するフォルダとその配下です。'
       },
       timezone:
-        'Idrak IT がローカル時刻のコンテキストを必要とするときに使用します。空欄ならシステムのタイムゾーンを使います。',
+        'AppIT がローカル時刻のコンテキストを必要とするときに使用します。空欄ならシステムのタイムゾーンを使います。',
       agent: {
         imageInputMode: '画像添付をモデルへ送る方法を制御します。',
-        maxTurns: 'Idrak IT が 1 回の実行を停止するまでのツール呼び出しターン上限です。'
+        maxTurns: 'AppIT が 1 回の実行を停止するまでのツール呼び出しターン上限です。'
       },
       terminal: {
         cwd: 'ツールとターミナル作業のデフォルトプロジェクトフォルダーです。',
@@ -572,9 +572,9 @@ export const ja = defineLocale({
       codeExecution: {
         mode: 'コード実行を現在のプロジェクトにどれだけ厳密に制限するかを設定します。'
       },
-      fileReadMaxChars: 'Idrak IT が 1 回のファイル読み取りで取得できる最大文字数です。',
+      fileReadMaxChars: 'AppIT が 1 回のファイル読み取りで取得できる最大文字数です。',
       approvals: {
-        mode: '明示的な承認が必要なコマンドを Idrak IT がどう扱うかを設定します。',
+        mode: '明示的な承認が必要なコマンドを AppIT がどう扱うかを設定します。',
         timeout: '承認プロンプトがタイムアウトするまで待つ時間です。'
       },
       security: {
@@ -604,11 +604,11 @@ export const ja = defineLocale({
       },
       updates: {
         nonInteractiveLocalChanges:
-          'アプリから Idrak IT 自身を更新するとき、ローカルのソース変更を保持するか破棄するかを選びます。ターミナル更新では常に確認されます。'
+          'アプリから AppIT 自身を更新するとき、ローカルのソース変更を保持するか破棄するかを選びます。ターミナル更新では常に確認されます。'
       }
     }),
     about: {
-      heading: 'Idrak IT',
+      heading: 'AppIT',
       version: value => `バージョン ${value}`,
       versionUnavailable: 'バージョンを取得できません',
       updates: '更新',
@@ -626,7 +626,7 @@ export const ja = defineLocale({
       lastChecked: age => `前回確認: ${age}`,
       justNowSuffix: ' · たった今',
       automaticUpdates: '自動更新',
-      automaticUpdatesDesc: 'Idrak IT はバックグラウンドで自動的に更新を確認し、利用可能になったら通知します。',
+      automaticUpdatesDesc: 'AppIT はバックグラウンドで自動的に更新を確認し、利用可能になったら通知します。',
       branchCommit: (branch, commit) => `ブランチ ${branch} · コミット ${commit}`,
       never: '未確認',
       justNow: 'たった今',
@@ -640,7 +640,7 @@ export const ja = defineLocale({
       builtinOnly: '内蔵のみ',
       notSet: '未設定',
       commaSeparated: 'カンマ区切りの値',
-      loading: 'Idrak IT の設定を読み込み中...',
+      loading: 'AppIT の設定を読み込み中...',
       emptyTitle: '設定項目がありません',
       emptyDesc: 'このセクションには調整できる設定がありません。',
       failedLoad: '設定の読み込みに失敗しました',
@@ -678,7 +678,7 @@ export const ja = defineLocale({
       title: 'ゲートウェイ接続',
       envOverride: 'env オーバーライド',
       intro:
-        'Idrak IT はデフォルトで独自のローカルゲートウェイを起動します。別のマシンや信頼できるプロキシの背後で既に動作している Idrak IT バックエンドをこのアプリで制御する場合は、リモートゲートウェイを使用してください。以下でプロファイルを選択して、それぞれのリモートホストを設定します。',
+        'AppIT はデフォルトで独自のローカルゲートウェイを起動します。別のマシンや信頼できるプロキシの背後で既に動作している AppIT バックエンドをこのアプリで制御する場合は、リモートゲートウェイを使用してください。以下でプロファイルを選択して、それぞれのリモートホストを設定します。',
       appliesTo: '適用対象',
       allProfiles: 'すべてのプロファイル',
       defaultConnection: '独自のオーバーライドがないすべてのプロファイルのデフォルト接続。',
@@ -689,10 +689,10 @@ export const ja = defineLocale({
         '保存された設定を使用するには HERMES_DESKTOP_REMOTE_URL と HERMES_DESKTOP_REMOTE_TOKEN の設定を解除してください。',
       localTitle: 'ローカルゲートウェイ',
       localDesc:
-        'ローカルホストでプライベートな Idrak IT バックエンドを起動します。これがデフォルトで、オフラインでも動作します。',
+        'ローカルホストでプライベートな AppIT バックエンドを起動します。これがデフォルトで、オフラインでも動作します。',
       remoteTitle: 'リモートゲートウェイ',
       remoteDesc:
-        'このデスクトップシェルをリモートの Idrak IT バックエンドに接続します。ホスト型ゲートウェイは OAuth またはユーザー名とパスワードを使用します。自己ホスト型はセッショントークンを使用する場合があります。',
+        'このデスクトップシェルをリモートの AppIT バックエンドに接続します。ホスト型ゲートウェイは OAuth またはユーザー名とパスワードを使用します。自己ホスト型はセッショントークンを使用する場合があります。',
       remoteUrlTitle: 'リモート URL',
       remoteUrlDesc:
         'リモートダッシュボードバックエンドのベース URL。/hermes などのパスプレフィックスもサポートしています。',
@@ -731,9 +731,9 @@ export const ja = defineLocale({
       enterUrlFirst: '最初にリモート URL を入力してください。',
       restartingTitle: 'ゲートウェイ接続を再起動中',
       savedTitle: 'ゲートウェイ設定を保存しました',
-      restartingMessage: 'Idrak IT は保存された設定を使用して再接続します。',
+      restartingMessage: 'AppIT は保存された設定を使用して再接続します。',
       savedMessage: '次回起動時に保存されます。',
-      connectedTo: (baseUrl, version) => `${baseUrl}${version ? ` · Idrak IT ${version}` : ''} に接続しました`,
+      connectedTo: (baseUrl, version) => `${baseUrl}${version ? ` · AppIT ${version}` : ''} に接続しました`,
       reachableTitle: 'リモートゲートウェイに到達可能',
       signedOutTitle: 'サインアウトしました',
       signedOutMessage: 'リモートゲートウェイセッションをクリアしました。',
@@ -745,7 +745,7 @@ export const ja = defineLocale({
       saveFailed: 'ゲートウェイ設定を保存できませんでした',
       sshTitle: 'SSH で接続',
       sshDesc:
-        'Idrak IT は SSH 経由でリモート上に起動され、このアプリにトンネルされます。リモート側で何かを起動・公開する必要はありません。ホストへの鍵ベースの SSH アクセスが前提です。',
+        'AppIT は SSH 経由でリモート上に起動され、このアプリにトンネルされます。リモート側で何かを起動・公開する必要はありません。ホストへの鍵ベースの SSH アクセスが前提です。',
       sshTrustHint: '初回に提示されたホスト鍵を信頼して固定し、以後の変更は拒否します。',
       sshHostTitle: 'ホスト',
       sshHostDesc: 'user@host、または ~/.ssh/config の Host エイリアス。',
@@ -760,25 +760,25 @@ export const ja = defineLocale({
       sshPortDesc: '空欄 = 22 または ~/.ssh/config のポート。',
       sshKeyTitle: '鍵ファイル',
       sshKeyDesc: '秘密鍵のパス。空欄 = ssh-agent または ~/.ssh/config。',
-      sshHermesPathTitle: 'Idrak IT パス（任意）',
+      sshHermesPathTitle: 'AppIT パス（任意）',
       sshHermesPathDesc: 'リモートの hermes バイナリへのフルパス。空欄 = 自動検出。',
       sshHermesPathPlaceholder: '自動検出',
       sshTestConnection: 'SSH をテスト',
       sshConnect: '接続',
       sshButtonsHint: '「保存」は次回起動時に適用され、「接続」は今すぐ再接続します。',
-      sshReachable: (host, platform) => `接続可能: ${host}（${platform}）— Idrak IT を検出`,
+      sshReachable: (host, platform) => `接続可能: ${host}（${platform}）— AppIT を検出`,
       sshIncompleteHost: '接続する前に SSH ホストを入力してください。',
       sshErrUnreachable: 'SSH でそのホストに到達できませんでした。ホスト、ポート、ネットワークを確認してください。',
       sshErrAuth:
-        'SSH 認証に失敗しました。鍵を ssh-agent に読み込む（ssh-add）か、~/.ssh/config に IdentityFile を設定してください。Idrak IT は非対話的に ssh を実行します。',
+        'SSH 認証に失敗しました。鍵を ssh-agent に読み込む（ssh-add）か、~/.ssh/config に IdentityFile を設定してください。AppIT は非対話的に ssh を実行します。',
       sshErrHostKey:
         '前回の接続以降、ホスト鍵が変更されています。想定どおりか確認し、ssh-keygen -R <host> を実行してから再接続してください。',
       sshErrNotInstalled:
-        'リモートホストに Idrak IT がインストールされていません。リモートでインストールする（curl -fsSL https://hermes-agent.idrakit.com/install.sh | sh）か、Idrak IT パスを設定してください。',
+        'リモートホストに AppIT がインストールされていません。リモートでインストールする（curl -fsSL https://hermes-agent.idrakit.com/install.sh | sh）か、AppIT パスを設定してください。',
       sshErrPlatform:
-        'サポートされていないリモートプラットフォームです。Idrak IT の SSH モードは Linux、macOS、Windows のリモートホストに対応しています。',
+        'サポートされていないリモートプラットフォームです。AppIT の SSH モードは Linux、macOS、Windows のリモートホストに対応しています。',
       sshErrTimeout: 'SSH 接続がタイムアウトしました。ホストが到達不能、またはスリープ中の可能性があります。',
-      sshErrUpdateRequired: 'Desktop SSH で接続する前に、リモートホストの Idrak IT を更新してください。',
+      sshErrUpdateRequired: 'Desktop SSH で接続する前に、リモートホストの AppIT を更新してください。',
       sshErrUnknown: 'SSH 接続に失敗しました。'
     },
     keys: {
@@ -859,7 +859,7 @@ export const ja = defineLocale({
       connectAccount: 'アカウントを接続',
       haveApiKey: 'API キーをお持ちですか？',
       intro:
-        'サブスクリプションでサインインします。API キーのコピーは不要です。Idrak IT がアプリ内でブラウザーサインインを代行します。',
+        'サブスクリプションでサインインします。API キーのコピーは不要です。AppIT がアプリ内でブラウザーサインインを代行します。',
       connected: '接続済み',
       collapse: '折りたたむ',
       connectAnother: '別のプロバイダーを接続',
@@ -1051,7 +1051,7 @@ export const ja = defineLocale({
     loadFailed: 'メモリグラフを読み込めませんでした',
     loading: '読み込み中…',
     emptyTitle: 'まだ学習はありません',
-    emptyDesc: 'Idrak IT がスキルやメモリを蓄積すると、ここに表示されます。'
+    emptyDesc: 'AppIT がスキルやメモリを蓄積すると、ここに表示されます。'
   },
   agents: {
     close: 'エージェントを閉じる',
@@ -1103,7 +1103,7 @@ export const ja = defineLocale({
       placeholder: 'ペットを検索…',
       loading: 'petdex ギャラリーを読み込み中…',
       error: 'petdex ギャラリーに接続できません。',
-      staleBackend: 'ペット機能を使うには Idrak IT を再起動してください。',
+      staleBackend: 'ペット機能を使うには AppIT を再起動してください。',
       empty: '一致するペットがありません。',
       turnOff: 'オフ',
       turnOn: 'オン',
@@ -1130,8 +1130,8 @@ export const ja = defineLocale({
       hatchComposing: 'まとめています…',
       hatchSaving: 'もうすぐです…',
       namePlaceholder: 'ペットに名前を付ける',
-      staleBackend: 'ペットを生成するには Idrak IT を更新してください。',
-      backgroundHint: 'このウィンドウは閉じても大丈夫です。完了したら Idrak IT が通知します。',
+      staleBackend: 'ペットを生成するには AppIT を更新してください。',
+      backgroundHint: 'このウィンドウは閉じても大丈夫です。完了したら AppIT が通知します。',
       slowProviderHint: '数分かかることがあります',
       remix: 'リミックス',
       remixConfirmTitle: 'この見た目でリミックスしますか？',
@@ -1165,7 +1165,7 @@ export const ja = defineLocale({
     },
     nav: {
       newChat: { title: '新しいセッション', detail: '新しいセッションを開始' },
-      settings: { title: '設定', detail: 'Idrak IT デスクトップを設定' },
+      settings: { title: '設定', detail: 'AppIT デスクトップを設定' },
       skills: { title: 'スキルとツール', detail: 'スキル、ツールセット、プロバイダーを有効化' },
       messaging: { title: 'メッセージング', detail: 'Telegram、Slack、Discord などを設定' },
       artifacts: { title: 'アーティファクト', detail: '生成された出力を閲覧' }
@@ -1187,10 +1187,10 @@ export const ja = defineLocale({
     noSessions: 'セッションはまだありません。',
     gatewayRunning: 'メッセージングゲートウェイが実行中',
     gatewayStopped: 'メッセージングゲートウェイが停止中',
-    hermesActiveSessions: (version, count) => `Idrak IT ${version} · アクティブセッション ${count}`,
+    hermesActiveSessions: (version, count) => `AppIT ${version} · アクティブセッション ${count}`,
     restartGateway: 'ゲートウェイを再起動',
     gatewayRestartFailed: 'ゲートウェイの再起動に失敗しました。',
-    updateHermes: 'Idrak IT を更新',
+    updateHermes: 'AppIT を更新',
     actionRunning: '実行中',
     actionDone: '完了',
     actionFailed: '失敗',
@@ -1407,7 +1407,7 @@ export const ja = defineLocale({
     deleteDescMid: ' が削除され、その ',
     deleteDescSuffix: ' ディレクトリが削除されます。この操作は元に戻せません。',
     deleting: '削除中...',
-    createDesc: 'プロファイルは独立した Idrak IT 環境です：設定、スキル、SOUL.md が別々になります。',
+    createDesc: 'プロファイルは独立した AppIT 環境です：設定、スキル、SOUL.md が別々になります。',
     nameLabel: '名前',
     cloneFrom: '複製元',
     cloneFromNone: 'なし（空）',
@@ -1496,7 +1496,7 @@ export const ja = defineLocale({
     everyHourAt: minute => `毎時 :${minute} に`,
     newCron: '新しい Cron',
     emptyDescNew:
-      'Cron 式でプロンプトを実行するスケジュールを設定します。Idrak IT が実行して、選択した宛先に結果を送信します。',
+      'Cron 式でプロンプトを実行するスケジュールを設定します。AppIT が実行して、選択した宛先に結果を送信します。',
     emptyDescSearch: '検索キーワードを広げてください。',
     emptyTitleNew: 'スケジュールされたジョブがまだありません',
     emptyTitleSearch: '一致なし',
@@ -1667,9 +1667,9 @@ export const ja = defineLocale({
       removeFromSidebar: 'サイドバーから削除',
       createFailed: 'プロジェクトを作成できませんでした',
       staleBackend:
-        'プロジェクトを作成するには Idrak IT バックエンドを更新してください。バックエンドがこのデスクトップアプリより古いです（設定 → 更新 → バックエンド）。',
+        'プロジェクトを作成するには AppIT バックエンドを更新してください。バックエンドがこのデスクトップアプリより古いです（設定 → 更新 → バックエンド）。',
       deleteConfirm:
-        'Idrak IT から保存済みプロジェクトを削除します。ファイル・git リポジトリ・ワークツリーはそのまま残ります。',
+        'AppIT から保存済みプロジェクトを削除します。ファイル・git リポジトリ・ワークツリーはそのまま残ります。',
       startWork: '新しいワークツリー',
       newWorktreeTitle: '新しいワークツリー',
       newWorktreeDesc: 'このワークツリーのブランチ名を入力してください。',
@@ -1744,12 +1744,12 @@ export const ja = defineLocale({
   composer: {
     message: 'メッセージ',
     wakingProfile: profile => `${profile} を起動中…`,
-    placeholderStarting: 'Idrak IT を起動中...',
-    placeholderReconnecting: 'Idrak IT に再接続中…',
+    placeholderStarting: 'AppIT を起動中...',
+    placeholderReconnecting: 'AppIT に再接続中…',
     placeholderFollowUp: 'フォローアップを送信',
     newSessionPlaceholders: [
       '何を作りますか？',
-      'Idrak IT にタスクを与える',
+      'AppIT にタスクを与える',
       '何か考えていることはありますか？',
       '必要なことを説明してください',
       '何に取り組みますか？',
@@ -1811,7 +1811,7 @@ export const ja = defineLocale({
       'composer.history': 'ポップオーバー / 履歴を切り替え'
     },
     attachUrlTitle: 'URL を添付',
-    attachUrlDesc: 'Idrak IT がページを取得し、このターンのコンテキストとして含めます。',
+    attachUrlDesc: 'AppIT がページを取得し、このターンのコンテキストとして含めます。',
     urlPlaceholder: 'https://example.com/post',
     urlHintPre: '完全な URL を入力してください。例: ',
     attach: '添付',
@@ -1920,7 +1920,7 @@ export const ja = defineLocale({
       createPr: 'PR を作成',
       openPr: 'PR を開く',
       ghMissing: 'PR を開くには GitHub CLI (gh) をインストールしてサインインしてください',
-      agentShip: 'Idrak IT にコミットと PR を任せる',
+      agentShip: 'AppIT にコミットと PR を任せる',
       agentShipPrompt:
         '現在の変更を確認し、分かりやすい Conventional Commits 形式でコミットし、ブランチをプッシュして、プルリクエストを作成してください。',
       newBranch: '新しいブランチ',
@@ -1938,9 +1938,9 @@ export const ja = defineLocale({
       fetch: 'ダウンロード中…',
       pull: 'もうすぐ完了…',
       pydeps: '仕上げ中…',
-      update: 'Idrak IT を更新中…',
+      update: 'AppIT を更新中…',
       rebuild: 'デスクトップアプリを再ビルド中…',
-      restart: 'Idrak IT を再起動中…',
+      restart: 'AppIT を再起動中…',
       done: '更新が完了しました',
       manual: 'ターミナルから更新',
       guiSkew: 'デスクトップアプリを更新してください',
@@ -1950,15 +1950,15 @@ export const ja = defineLocale({
     checkFailedTitle: '更新を確認できませんでした',
     tryAgain: '再試行',
     notAvailableTitle: '更新は利用できません',
-    unsupportedMessage: 'このバージョンの Idrak IT はアプリ内から自分を更新できません。',
+    unsupportedMessage: 'このバージョンの AppIT はアプリ内から自分を更新できません。',
     connectionRetry: '接続を確認してもう一度試してください。',
     latestBody: '最新バージョンを実行しています。',
     latestBodyBackend: 'バックエンドは最新バージョンを実行しています。',
     allSetTitle: '準備完了',
     availableTitle: '新しい更新が利用可能',
-    availableBody: '新しいバージョンの Idrak IT をインストールする準備ができています。',
+    availableBody: '新しいバージョンの AppIT をインストールする準備ができています。',
     availableTitleBackend: 'バックエンドの更新があります',
-    availableBodyBackend: '接続中の Idrak IT バックエンドの新しいバージョンをインストールできます。',
+    availableBodyBackend: '接続中の AppIT バックエンドの新しいバージョンをインストールできます。',
     availableBodyNoChangelog:
       '新しいバージョンを利用できます。このインストール形式ではリリースノートは表示できません。',
     updateNow: '今すぐ更新',
@@ -1966,18 +1966,18 @@ export const ja = defineLocale({
     moreChanges: count => `さらに ${count} 件の変更が含まれています。`,
     manualTitle: 'ターミナルから更新',
     manualBody:
-      'Idrak IT をコマンドラインからインストールしたため、更新もそこで実行されます。これをターミナルに貼り付けてください:',
-    manualPickedUp: 'Idrak IT は次回起動時に新しいバージョンを読み込みます。',
+      'AppIT をコマンドラインからインストールしたため、更新もそこで実行されます。これをターミナルに貼り付けてください:',
+    manualPickedUp: 'AppIT は次回起動時に新しいバージョンを読み込みます。',
     guiSkewTitle: 'デスクトップアプリを更新してください',
     guiSkewBody:
-      'バックエンドは更新されましたが、このデスクトップアプリのパッケージは変更されていません。一致させるために Idrak IT デスクトップアプリ（AppImage / .deb / .rpm）を更新または再インストールしてください。',
+      'バックエンドは更新されましたが、このデスクトップアプリのパッケージは変更されていません。一致させるために AppIT デスクトップアプリ（AppImage / .deb / .rpm）を更新または再インストールしてください。',
     copy: 'コピー',
     copied: 'コピーしました',
     done: '完了',
     applyingBody:
-      'Idrak IT アップデーターが独自のウィンドウで引き継ぎ、完了後に自動的に Idrak IT を再度開きます。更新中はご自分で Idrak IT を開き直さないでください。',
-    applyingBodyBackend: 'リモートバックエンドが更新を適用して再起動します。復帰すると Idrak IT が自動的に再接続します。',
-    applyingClose: 'このウィンドウは更新中に閉じ、その後 Idrak IT が自動的に再度開きます。',
+      'AppIT アップデーターが独自のウィンドウで引き継ぎ、完了後に自動的に AppIT を再度開きます。更新中はご自分で AppIT を開き直さないでください。',
+    applyingBodyBackend: 'リモートバックエンドが更新を適用して再起動します。復帰すると AppIT が自動的に再接続します。',
+    applyingClose: 'このウィンドウは更新中に閉じ、その後 AppIT が自動的に再度開きます。',
     errorTitle: '更新が完了しませんでした',
     errorBody: 'ご安心ください。何も失われていません。今すぐ再試行できます。',
     notNow: '今は後で',
@@ -2000,7 +2000,7 @@ export const ja = defineLocale({
       skipped: 'スキップ',
       failed: '失敗'
     },
-    oneTimeTitle: 'Idrak IT には一度限りのインストールが必要です',
+    oneTimeTitle: 'AppIT には一度限りのインストールが必要です',
     unsupportedDesc: platform =>
       `${platform} では自動の初回インストールはまだ利用できません。ターミナルを開いて以下のコマンドを実行し、このアプリを再起動してください。以降の起動ではこの手順はスキップされます。`,
     installCommand: 'インストールコマンド',
@@ -2008,25 +2008,25 @@ export const ja = defineLocale({
     viewDocs: 'インストールドキュメントを見る',
     installTo: 'インストール先',
     retryAfterRun: '実行しました — 再試行',
-    setupChoiceTitle: 'Idrak IT をセットアップ',
+    setupChoiceTitle: 'AppIT をセットアップ',
     setupChoiceDesc:
-      'すでに実行している Idrak IT ゲートウェイに接続するか、このコンピューターに Idrak IT をローカルインストールします。',
-    connectExistingTitle: '既存の Idrak IT に接続',
+      'すでに実行している AppIT ゲートウェイに接続するか、このコンピューターに AppIT をローカルインストールします。',
+    connectExistingTitle: '既存の AppIT に接続',
     connectExistingShort: '既存環境に接続',
     connectExistingDesc:
       'セッショントークンまたはブラウザーサインインでリモートバックエンドを使用します。ローカルインストールは開始されません。',
-    installLocalTitle: 'Idrak IT をローカルにインストール',
-    installLocalDesc: 'Idrak IT をダウンロードし、Python 環境を作成して、このコンピューターでバックエンドを実行します。',
+    installLocalTitle: 'AppIT をローカルにインストール',
+    installLocalDesc: 'AppIT をダウンロードし、Python 環境を作成して、このコンピューターでバックエンドを実行します。',
     localStartUnavailable:
-      'ローカルインストールを開始できません。Idrak IT を再起動して、もう一度お試しください。',
-    remoteSetupTitle: '既存の Idrak IT に接続',
+      'ローカルインストールを開始できません。AppIT を再起動して、もう一度お試しください。',
+    remoteSetupTitle: '既存の AppIT に接続',
     remoteSetupDesc:
-      'ゲートウェイ URL を入力してください。Idrak IT がトークンとブラウザーサインインのどちらが必要かを検出します。',
+      'ゲートウェイ URL を入力してください。AppIT がトークンとブラウザーサインインのどちらが必要かを検出します。',
     remoteUrlTitle: 'ゲートウェイ URL',
-    remoteUrlDesc: 'Idrak IT ゲートウェイのベース URL を使用します。リモートの場合は https:// を含めてください。',
+    remoteUrlDesc: 'AppIT ゲートウェイのベース URL を使用します。リモートの場合は https:// を含めてください。',
     remoteUrlPlaceholder: 'https://gateway.example.com/hermes',
     probing: 'ゲートウェイ認証方式を検出中...',
-    probeError: 'その Idrak IT ゲートウェイに到達できませんでした。',
+    probeError: 'その AppIT ゲートウェイに到達できませんでした。',
     identityProvider: 'ID プロバイダー',
     authTitle: '認証',
     authNeedsOauth: provider => `このゲートウェイをテストする前に ${provider} でサインインしてください。`,
@@ -2046,12 +2046,12 @@ export const ja = defineLocale({
     applyRemote: '適用して再接続',
     backToSetup: '戻る',
     failedTitle: 'インストールに失敗しました',
-    settingUpTitle: 'Idrak IT を設定中',
+    settingUpTitle: 'AppIT を設定中',
     finishingTitle: '仕上げ中',
     failedDesc:
-      'インストール手順のいずれかが失敗しました。Windows では、別の Idrak IT CLI またはデスクトップインスタンスが実行中の場合に発生することがあります。実行中の Idrak IT インスタンスをすべて停止してから再試行してください。詳細は以下またはデスクトップログで確認できます。',
+      'インストール手順のいずれかが失敗しました。Windows では、別の AppIT CLI またはデスクトップインスタンスが実行中の場合に発生することがあります。実行中の AppIT インスタンスをすべて停止してから再試行してください。詳細は以下またはデスクトップログで確認できます。',
     activeDesc:
-      'これは一回限りのセットアップです。Idrak IT インストーラーが依存関係をダウンロードしてマシンを設定しています。以降の起動ではこの手順はスキップされます。',
+      'これは一回限りのセットアップです。AppIT インストーラーが依存関係をダウンロードしてマシンを設定しています。以降の起動ではこの手順はスキップされます。',
     progress: (completed, total) => `${total} ステップ中 ${completed} 完了`,
     currentStage: stage => ` — 現在: ${stage}`,
     fetchingManifest: 'インストーラーマニフェストを取得中...',
@@ -2069,10 +2069,10 @@ export const ja = defineLocale({
   },
 
   onboarding: {
-    headerTitle: 'Idrak IT のセットアップをしましょう',
+    headerTitle: 'AppIT のセットアップをしましょう',
     headerDesc: 'チャットを始めるにはモデルプロバイダーを接続してください。ほとんどのオプションはワンクリックです。',
-    preparingInstall: 'Idrak IT はインストールを完了中です。初回実行では通常 1 分以内に完了します。',
-    starting: 'Idrak IT を起動中…',
+    preparingInstall: 'AppIT はインストールを完了中です。初回実行では通常 1 分以内に完了します。',
+    starting: 'AppIT を起動中…',
     lookingUpProviders: 'プロバイダーを検索中...',
     collapse: '折りたたむ',
     otherProviders: 'その他のプロバイダー',
@@ -2080,7 +2080,7 @@ export const ja = defineLocale({
     chooseLater: '後でプロバイダーを選択します',
     recommended: '推奨',
     connected: '接続済み',
-    featuredPitch: '1 つのサブスクリプションで 300 以上の最先端モデル — Idrak IT を実行するための推奨方法',
+    featuredPitch: '1 つのサブスクリプションで 300 以上の最先端モデル — AppIT を実行するための推奨方法',
     fireworksPitch: '直接モデル API — Fireworks がホストする最先端モデル',
     openRouterPitch: '1 つのキーで数百のモデル — 堅実なデフォルト',
     apiKeyOptions: {
@@ -2098,7 +2098,7 @@ export const ja = defineLocale({
       local: {
         short: 'セルフホスト',
         description:
-          'ローカルまたはセルフホストの OpenAI 互換エンドポイント（vLLM、llama.cpp、Ollama など）に Idrak IT を接続。'
+          'ローカルまたはセルフホストの OpenAI 互換エンドポイント（vLLM、llama.cpp、Ollama など）に AppIT を接続。'
       }
     },
     backToSignIn: 'サインインに戻る',
@@ -2110,7 +2110,7 @@ export const ja = defineLocale({
     update: '更新',
     flowSubtitles: {
       pkce: 'ブラウザーを開いてサインインし、ここに戻ります',
-      device_code: 'ブラウザーで確認ページを開きます — Idrak IT が自動接続します',
+      device_code: 'ブラウザーで確認ページを開きます — AppIT が自動接続します',
       external: 'ターミナルで一度サインインして、チャットに戻ります'
     },
     startingSignIn: provider => `${provider} のサインインを開始中...`,
@@ -2121,12 +2121,12 @@ export const ja = defineLocale({
     pickDifferentProvider: '別のプロバイダーを選択',
     signInWith: provider => `${provider} でサインイン`,
     openedBrowser: provider => `${provider} をブラウザーで開きました。`,
-    authorizeThere: 'そこで Idrak IT を承認してください。',
+    authorizeThere: 'そこで AppIT を承認してください。',
     copyAuthCode: '認証コードをコピーして以下に貼り付けてください。',
     pasteAuthCode: '認証コードを貼り付け',
     reopenAuthPage: '認証ページを再度開く',
     autoBrowser: provider =>
-      `${provider} をブラウザーで開きました。Idrak IT をそこで承認すれば自動接続されます。コピーや貼り付けは不要です。`,
+      `${provider} をブラウザーで開きました。AppIT をそこで承認すれば自動接続されます。コピーや貼り付けは不要です。`,
     reopenSignInPage: 'サインインページを再度開く',
     waitingAuthorize: '承認を待っています...',
     externalPending: provider =>
@@ -2228,13 +2228,13 @@ export const ja = defineLocale({
       update: '更新',
       updateInProgress: '更新中',
       commitsBehind: (count, branch) => `${branch} より ${count} コミット遅れています`,
-      desktopVersion: version => `Idrak IT v${version}`,
+      desktopVersion: version => `AppIT v${version}`,
       backendVersion: version => `バックエンド v${version}`,
       clientLabel: version => `クライアント v${version}`,
       connectionSsh: host => `SSH: ${host}`,
       connectionRemote: host => `リモート: ${host}`,
       connectionCloud: host => `クラウド: ${host}`,
-      connectionCloudTooltip: host => `Idrak IT Cloud ${host} に接続中 · クリックして管理`,
+      connectionCloudTooltip: host => `AppIT Cloud ${host} に接続中 · クリックして管理`,
       connectionSshTooltip: host => `SSH 経由で ${host} に接続中 · クリックして管理`,
       connectionRemoteTooltip: host => `リモートバックエンド ${host} に接続中 · クリックして管理`,
       backendLabel: version => `バックエンド v${version}`,
@@ -2251,7 +2251,7 @@ export const ja = defineLocale({
       gatewayConnecting: '接続中',
       gatewayOffline: 'オフライン',
       gatewayRestarting: '再起動中…',
-      gatewayTitle: 'Idrak IT 推論ゲートウェイのステータス',
+      gatewayTitle: 'AppIT 推論ゲートウェイのステータス',
       agents: 'エージェント',
       closeAgents: 'エージェントを閉じる',
       openAgents: 'エージェントを開く',
@@ -2356,7 +2356,7 @@ export const ja = defineLocale({
     binaryTitle: 'これはバイナリファイルのようです',
     binaryBody: label => `${label} をプレビューすると読み取り不能なテキストが表示される場合があります。`,
     largeTitle: 'このファイルは大きいです',
-    largeBody: (label, size) => `${label} は ${size} です。Idrak IT は最初の 512 KB のみを表示します。`,
+    largeBody: (label, size) => `${label} は ${size} です。AppIT は最初の 512 KB のみを表示します。`,
     previewAnyway: 'とにかくプレビュー',
     truncated: '最初の 512 KB を表示しています。',
     noInlineTitle: 'インラインプレビューなし',
@@ -2395,11 +2395,11 @@ export const ja = defineLocale({
       serverNotFound: 'サーバーが見つかりません',
       failedToLoad: 'プレビューの読み込みに失敗しました',
       tryAgain: '再試行',
-      restarting: 'Idrak IT を再起動中...',
-      askRestart: 'Idrak IT にサーバーの再起動を依頼',
-      lookingRestart: taskId => `Idrak IT は再起動するプレビューサーバーを検索中です (${taskId})`,
+      restarting: 'AppIT を再起動中...',
+      askRestart: 'AppIT にサーバーの再起動を依頼',
+      lookingRestart: taskId => `AppIT は再起動するプレビューサーバーを検索中です (${taskId})`,
       restartingTitle: 'プレビューサーバーを再起動中',
-      restartingMessage: 'Idrak IT はバックグラウンドで作業中です。進捗はプレビューコンソールで確認してください。',
+      restartingMessage: 'AppIT はバックグラウンドで作業中です。進捗はプレビューコンソールで確認してください。',
       startRestartFailed: message => `サーバー再起動を開始できませんでした: ${message}`,
       restartFailed: 'サーバーの再起動に失敗しました',
       hideConsole: 'プレビューコンソールを非表示',
@@ -2407,15 +2407,15 @@ export const ja = defineLocale({
       hideDevTools: 'プレビュー DevTools を非表示',
       openDevTools: 'プレビュー DevTools を開く',
       finishedRestarting: message =>
-        `Idrak IT がプレビューサーバーの再起動を完了しました${message ? `: ${message}` : ''}`,
+        `AppIT がプレビューサーバーの再起動を完了しました${message ? `: ${message}` : ''}`,
       failedRestarting: message => `サーバーの再起動に失敗しました: ${message}`,
       unknownError: '不明なエラー',
       restartedTitle: 'プレビューサーバーが再起動しました',
       reloadingNow: 'プレビューを再読み込み中です。',
       restartFailedTitle: 'プレビューの再起動に失敗しました',
-      restartFailedMessage: 'Idrak IT がサーバーを再起動できませんでした。',
+      restartFailedMessage: 'AppIT がサーバーを再起動できませんでした。',
       stillWorking:
-        'Idrak IT はまだ作業中ですが、再起動の結果がまだ届いていません。サーバーコマンドがフォアグラウンドで実行されている可能性があります。',
+        'AppIT はまだ作業中ですが、再起動の結果がまだ届いていません。サーバーコマンドがフォアグラウンドで実行されている可能性があります。',
       workspaceReloading: 'ワークスペースが変更され、プレビューを再読み込み中',
       fileChanged: url => `ファイルが変更され、プレビューを再読み込み中: ${url}`,
       filesChanged: (count, url) => `${count} 件のファイルが変更され、プレビューを再読み込み中: ${url}`,
@@ -2476,7 +2476,7 @@ export const ja = defineLocale({
     thread: {
       loadingSession: 'セッションを読み込み中',
       showEarlier: '以前のメッセージを表示',
-      loadingResponse: 'Idrak IT が応答を読み込み中',
+      loadingResponse: 'AppIT が応答を読み込み中',
       resumeWhenBackgroundDone: count =>
         count === 1
           ? 'バックグラウンドタスクの完了後に再開します'
@@ -2507,7 +2507,7 @@ export const ja = defineLocale({
       attachingFile: '添付中…'
     },
     approval: {
-      gatewayDisconnected: 'Idrak IT ゲートウェイが接続されていません',
+      gatewayDisconnected: 'AppIT ゲートウェイが接続されていません',
       sendFailed: '承認応答を送信できませんでした',
       run: '実行',
       command: 'コマンド',
@@ -2518,12 +2518,12 @@ export const ja = defineLocale({
       reject: '拒否',
       alwaysTitle: 'このコマンドを常に許可しますか？',
       alwaysDescription: pattern =>
-        `これにより "${pattern}" パターンが永続的な許可リスト (~/.hermes/config.yaml) に追加されます。Idrak IT はこのセッションや将来のセッションで、このようなコマンドについて再度尋ねません。`,
+        `これにより "${pattern}" パターンが永続的な許可リスト (~/.hermes/config.yaml) に追加されます。AppIT はこのセッションや将来のセッションで、このようなコマンドについて再度尋ねません。`,
       alwaysAllow: '常に許可'
     },
     clarify: {
       notReady: '明確化リクエストはまだ準備できていません',
-      gatewayDisconnected: 'Idrak IT ゲートウェイが接続されていません',
+      gatewayDisconnected: 'AppIT ゲートウェイが接続されていません',
       sendFailed: '明確化応答を送信できませんでした',
       loadingQuestion: '質問を読み込み中…',
       other: 'その他（回答を入力）',
@@ -2639,15 +2639,15 @@ export const ja = defineLocale({
   },
 
   prompts: {
-    gatewayDisconnected: 'Idrak IT ゲートウェイが接続されていません',
+    gatewayDisconnected: 'AppIT ゲートウェイが接続されていません',
     sudoSendFailed: 'sudo パスワードを送信できませんでした',
     secretSendFailed: 'シークレットを送信できませんでした',
     sudoTitle: '管理者パスワード',
     sudoDesc:
-      'Idrak IT は特権コマンドを実行するために sudo パスワードが必要です。ローカルエージェントにのみ送信されます。',
+      'AppIT は特権コマンドを実行するために sudo パスワードが必要です。ローカルエージェントにのみ送信されます。',
     sudoPlaceholder: 'sudo パスワード',
     secretTitle: 'シークレットが必要です',
-    secretDesc: 'Idrak IT は続行するための認証情報が必要です。',
+    secretDesc: 'AppIT は続行するための認証情報が必要です。',
     secretPlaceholder: 'シークレット値'
   },
 
@@ -2700,8 +2700,8 @@ export const ja = defineLocale({
     sessionExportFailed: 'セッションをエクスポートできませんでした',
     imageSaved: '画像を保存しました',
     downloadStarted: 'ダウンロードを開始しました',
-    restartToUseSaveImage: '画像を保存するには Idrak IT を再起動してください。',
-    restartToSaveImages: '画像を保存するには Idrak IT を再起動してください',
+    restartToUseSaveImage: '画像を保存するには AppIT を再起動してください。',
+    restartToSaveImages: '画像を保存するには AppIT を再起動してください',
     imageDownloadFailed: '画像のダウンロードに失敗しました',
     openImage: '画像を開く',
     downloadImage: '画像をダウンロード',

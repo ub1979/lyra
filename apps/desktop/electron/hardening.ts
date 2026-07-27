@@ -40,7 +40,7 @@ function encryptDesktopSecret(value, safeStorageApi) {
 
   if (!encryptionAvailable) {
     throw new Error(
-      'Secure token storage is unavailable, so Idrak IT cannot save remote gateway tokens. ' +
+      'Secure token storage is unavailable, so AppIT cannot save remote gateway tokens. ' +
         'Set HERMES_DESKTOP_REMOTE_URL and HERMES_DESKTOP_REMOTE_TOKEN in your environment, or enable OS keychain access and try again.'
     )
   }

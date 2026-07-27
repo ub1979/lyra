@@ -1,10 +1,10 @@
 {
   "name": "hermes",
-  "productName": "Idrak IT",
+  "productName": "AppIT",
   "private": true,
   "version": "0.17.0",
-  "description": "Private desktop application for Idrak IT.",
-  "author": "Idrak IT",
+  "description": "Private desktop application for AppIT.",
+  "author": "AppIT",
   "type": "module",
   "main": "dist/electron-main.mjs",
   "engines": {
@@ -170,17 +170,17 @@
   "build": {
     "electronVersion": "40.10.2",
     "appId": "com.idrakit.desktop",
-    "productName": "Idrak IT",
-    "executableName": "Idrak IT",
+    "productName": "AppIT",
+    "executableName": "AppIT",
     "protocols": [
       {
-        "name": "Idrak IT Protocol",
+        "name": "AppIT Protocol",
         "schemes": [
           "hermes"
         ]
       }
     ],
-    "artifactName": "Idrak-IT-${version}-${os}-${arch}.${ext}",
+    "artifactName": "AppIT-${version}-${os}-${arch}.${ext}",
     "icon": "assets/icon",
     "directories": {
       "output": "release"
@@ -216,11 +216,11 @@
       "entitlements": "electron/entitlements.mac.plist",
       "entitlementsInherit": "electron/entitlements.mac.inherit.plist",
       "extendInfo": {
-        "CFBundleDisplayName": "Idrak IT",
-        "CFBundleExecutable": "Idrak IT",
-        "CFBundleName": "Idrak IT",
-        "NSAudioCaptureUsageDescription": "Idrak IT uses audio capture for voice conversations.",
-        "NSMicrophoneUsageDescription": "Idrak IT uses the microphone for voice input and voice conversations."
+        "CFBundleDisplayName": "AppIT",
+        "CFBundleExecutable": "AppIT",
+        "CFBundleName": "AppIT",
+        "NSAudioCaptureUsageDescription": "AppIT uses audio capture for voice conversations.",
+        "NSMicrophoneUsageDescription": "AppIT uses the microphone for voice input and voice conversations."
       },
       "gatekeeperAssess": false,
       "hardenedRuntime": true,
@@ -230,7 +230,7 @@
       ]
     },
     "dmg": {
-      "title": "Install Idrak IT",
+      "title": "Install AppIT",
       "backgroundColor": "#f5f5f7",
       "iconSize": 96,
       "window": {
@@ -252,7 +252,7 @@
       ]
     },
     "win": {
-      "legalTrademarks": "Idrak IT",
+      "legalTrademarks": "AppIT",
       "target": [
         "nsis",
         "msi"
@@ -261,8 +261,8 @@
     },
     "linux": {
       "category": "Development",
-      "maintainer": "Idrak IT",
-      "synopsis": "Private desktop application for Idrak IT.",
+      "maintainer": "AppIT",
+      "synopsis": "Private desktop application for AppIT.",
       "target": [
         "AppImage",
         "deb",
@@ -273,8 +273,8 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "perMachine": false,
-      "shortcutName": "Idrak IT",
-      "uninstallDisplayName": "Idrak IT",
+      "shortcutName": "AppIT",
+      "uninstallDisplayName": "AppIT",
       "warningsAsErrors": false
     }
   }

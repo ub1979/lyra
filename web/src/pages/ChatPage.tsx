@@ -31,6 +31,7 @@ import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 
 import { ChatSidebar } from "@/components/ChatSidebar";
+import { Markdown } from "@/components/Markdown";
 import { ChatSessionList } from "@/components/ChatSessionList";
 import { usePageHeader } from "@/contexts/usePageHeader";
 import { useI18n } from "@/i18n";
@@ -732,7 +733,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     typeof window !== "undefined" &&
     !window.__IDRAK_IT_SESSION_TOKEN__ &&
     !window.__IDRAK_IT_AUTH_REQUIRED__
-      ? "Session token unavailable. Open this page through the Idrak IT launcher."
+      ? "Session token unavailable. Open this page through the AppIT launcher."
       : null,
   );
   const [copyState, setCopyState] = useState<"idle" | "copied">("idle");
@@ -2382,7 +2383,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         // The visible error is still useful if the transport already closed.
       }
       appendGuidedError(
-        "Idrak IT did not receive a response from the AI model within 75 seconds. The turn was stopped; check the AI model or select Stop & retry.",
+        "AppIT did not receive a response from the AI model within 75 seconds. The turn was stopped; check the AI model or select Stop & retry.",
       );
       guidedTurnSettledRef.current = true;
       setGuidedActivity({ phase: "idle", text: "", specialist: null });
@@ -2714,11 +2715,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                   >
                     <div
                       className={cn(
-                        "max-w-[88%] whitespace-pre-wrap rounded-2xl px-4 py-3 shadow-sm sm:max-w-[78%]",
+                        "max-w-[88%] rounded-2xl px-4 py-3 shadow-sm sm:max-w-[78%]",
                         message.role === "user"
-                          ? "rounded-br-md bg-midground text-background-base"
+                          ? "whitespace-pre-wrap rounded-br-md bg-midground text-background-base"
                           : message.role === "error"
-                          ? "rounded-bl-md border border-warning/40 bg-warning/10 text-warning"
+                          ? "whitespace-pre-wrap rounded-bl-md border border-warning/40 bg-warning/10 text-warning"
                           : "rounded-bl-md border border-current/10 bg-midground/5 text-text-primary",
                       )}
                     >
@@ -2727,9 +2728,13 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                           ? "You"
                           : message.role === "error"
                           ? "Problem"
-                          : "Idrak IT"}
+                          : "AppIT"}
                       </div>
-                      {message.content}
+                      {message.role === "assistant" ? (
+                        <Markdown content={message.content} />
+                      ) : (
+                        message.content
+                      )}
                       {showRequirementsApproval &&
                         message.id === latestGuidedMessage?.id && (
                           <div className="mt-3 flex flex-wrap gap-2 border-t border-current/10 pt-3">
@@ -2827,7 +2832,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                     <div className="rounded-xl border border-current/10 bg-midground/5 p-5 text-text-secondary">
                       {ptyState === "open"
                         ? "Let’s start building. What’s the cool idea?"
-                        : "Idrak IT is preparing your project conversation…"}
+                        : "AppIT is preparing your project conversation…"}
                     </div>
                   )}
               </div>
@@ -2852,10 +2857,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                     ? "Project paused"
                     : !guidedAgentReady
                     ? "Preparing the project conversation…"
-                    : "Describe your idea or ask Idrak IT what to do next…"
+                    : "Describe your idea or ask AppIT what to do next…"
                 }
                 className="min-h-12 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-text-primary outline-none placeholder:text-text-secondary"
-                aria-label="Message Idrak IT"
+                aria-label="Message AppIT"
               />
               <Button
                 size="icon"
@@ -2872,7 +2877,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               </Button>
             </div>
             <p className="mx-auto mt-2 max-w-3xl px-2 text-xs text-text-secondary">
-              Idrak IT can plan, review, test, or build using only the skills you selected.
+              AppIT can plan, review, test, or build using only the skills you selected.
             </p>
           </div>
         </div>

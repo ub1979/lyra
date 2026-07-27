@@ -40,8 +40,8 @@ const DEFAULT_LAYOUT: ThemeLayout = {
 
 export const defaultTheme: DashboardTheme = {
   name: "default",
-  label: "Idrak Teal",
-  description: "Classic dark teal — the signature Idrak IT look",
+  label: "AppIT Teal",
+  description: "Classic dark teal — the signature AppIT look",
   palette: {
     background: { hex: "#041c1c", alpha: 1 },
     midground: { hex: "#ffe6cb", alpha: 1 },
@@ -184,6 +184,122 @@ export const roseTheme: DashboardTheme = {
   },
 };
 
+export const oceanTheme: DashboardTheme = {
+  name: "ocean",
+  label: "Ocean",
+  description: "Cool blue-gray — calm and focused",
+  palette: {
+    background: { hex: "#0c1520", alpha: 1 },
+    midground: { hex: "#7db4e0", alpha: 1 },
+    foreground: { hex: "#ffffff", alpha: 0 },
+    warmGlow: "rgba(125, 180, 224, 0.18)",
+    noiseOpacity: 0.7,
+  },
+  typography: {
+    ...DEFAULT_TYPOGRAPHY,
+    fontSans: `"Inter", ${SYSTEM_SANS}`,
+    fontMono: `"JetBrains Mono", ${SYSTEM_MONO}`,
+    fontUrl:
+      "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap",
+    letterSpacing: "-0.01em",
+  },
+  layout: {
+    ...DEFAULT_LAYOUT,
+    radius: "0.625rem",
+  },
+  colorOverrides: {
+    success: "#34d399",
+    warning: "#fbbf24",
+  },
+};
+
+export const forestTheme: DashboardTheme = {
+  name: "forest",
+  label: "Forest",
+  description: "Deep emerald green — earthy and grounded",
+  palette: {
+    background: { hex: "#0a150e", alpha: 1 },
+    midground: { hex: "#8fcfa0", alpha: 1 },
+    foreground: { hex: "#ffffff", alpha: 0 },
+    warmGlow: "rgba(143, 207, 160, 0.2)",
+    noiseOpacity: 0.9,
+  },
+  typography: {
+    ...DEFAULT_TYPOGRAPHY,
+    fontSans: `"DM Sans", ${SYSTEM_SANS}`,
+    fontMono: `"IBM Plex Mono", ${SYSTEM_MONO}`,
+    fontUrl:
+      "https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=IBM+Plex+Mono:wght@400;500;700&display=swap",
+  },
+  layout: {
+    ...DEFAULT_LAYOUT,
+    radius: "0.5rem",
+  },
+  colorOverrides: {
+    success: "#4ade80",
+    warning: "#fcd34d",
+  },
+};
+
+export const onyxTheme: DashboardTheme = {
+  name: "onyx",
+  label: "Onyx",
+  description: "Pure dark with indigo accents — like Linear",
+  palette: {
+    background: { hex: "#111111", alpha: 1 },
+    midground: { hex: "#a5b4fc", alpha: 1 },
+    foreground: { hex: "#ffffff", alpha: 0 },
+    warmGlow: "rgba(99, 102, 241, 0.18)",
+    noiseOpacity: 0.5,
+  },
+  typography: {
+    ...DEFAULT_TYPOGRAPHY,
+    fontSans: `"Inter", ${SYSTEM_SANS}`,
+    fontMono: `"JetBrains Mono", ${SYSTEM_MONO}`,
+    fontUrl:
+      "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap",
+    letterSpacing: "-0.01em",
+  },
+  layout: {
+    ...DEFAULT_LAYOUT,
+    radius: "0.625rem",
+  },
+  colorOverrides: {
+    success: "#34d399",
+    warning: "#fbbf24",
+    destructive: "#ef4444",
+  },
+};
+
+export const arcticTheme: DashboardTheme = {
+  name: "arctic",
+  label: "Arctic",
+  description: "Light mode — clean gray with teal accents",
+  palette: {
+    background: { hex: "#f5f7fa", alpha: 1 },
+    midground: { hex: "#0d9488", alpha: 1 },
+    foreground: { hex: "#1a1a2e", alpha: 0 },
+    warmGlow: "rgba(13, 148, 136, 0.1)",
+    noiseOpacity: 0,
+  },
+  typography: {
+    ...DEFAULT_TYPOGRAPHY,
+    fontSans: `"Inter", ${SYSTEM_SANS}`,
+    fontMono: `"JetBrains Mono", ${SYSTEM_MONO}`,
+    fontUrl:
+      "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap",
+    letterSpacing: "-0.005em",
+  },
+  layout: DEFAULT_LAYOUT,
+  terminalBackground: "#f0f2f5",
+  terminalForeground: "#1a1a2e",
+  seriesColors: {
+    inputTokenAccent: "#1a1a2e",
+    outputTokenAccent: "#0d9488",
+  },
+  swatchColors: ["#1a1a2e", "#0d9488", "#f5f7fa"],
+};
+
 /** Light mode — vivid Nous-blue accents on a cream canvas. */
 export const nousBlueTheme: DashboardTheme = {
   name: "nous-blue",
@@ -214,8 +330,8 @@ export const nousBlueTheme: DashboardTheme = {
  */
 export const defaultLargeTheme: DashboardTheme = {
   name: "default-large",
-  label: "Idrak Teal (Large)",
-  description: "Idrak Teal with bigger fonts and roomier spacing",
+  label: "AppIT Teal (Large)",
+  description: "AppIT Teal with bigger fonts and roomier spacing",
   palette: defaultTheme.palette,
   typography: {
     ...DEFAULT_TYPOGRAPHY,
@@ -232,7 +348,11 @@ export const BUILTIN_THEMES: Record<string, DashboardTheme> = {
   default: defaultTheme,
   "default-large": defaultLargeTheme,
   "nous-blue": nousBlueTheme,
+  arctic: arcticTheme,
   midnight: midnightTheme,
+  ocean: oceanTheme,
+  forest: forestTheme,
+  onyx: onyxTheme,
   ember: emberTheme,
   mono: monoTheme,
   cyberpunk: cyberpunkTheme,

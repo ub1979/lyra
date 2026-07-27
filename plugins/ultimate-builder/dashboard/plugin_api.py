@@ -12,6 +12,7 @@ from fastapi import APIRouter, HTTPException, Query
 router = APIRouter()
 _ARTIFACTS = (
     "requirements.md",
+    "mvp-brief.md",
     "plan.md",
     "task-graph.md",
     "project-plan.md",
@@ -21,6 +22,8 @@ _ARTIFACTS = (
     "benchmark-report.md",
     "DEPLOYMENT.md",
     "README.md",
+    ".sdlc/debt.md",
+    ".sdlc/preview/index.html",
 )
 
 

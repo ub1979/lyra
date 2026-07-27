@@ -222,10 +222,10 @@ export type {
 export class HermesGateway extends JsonRpcGatewayClient {
   constructor() {
     super({
-      closedErrorMessage: 'Idrak IT gateway connection closed',
-      connectErrorMessage: 'Could not connect to Idrak IT gateway',
+      closedErrorMessage: 'AppIT gateway connection closed',
+      connectErrorMessage: 'Could not connect to AppIT gateway',
       createRequestId: nextId => nextId,
-      notConnectedErrorMessage: 'Idrak IT gateway is not connected',
+      notConnectedErrorMessage: 'AppIT gateway is not connected',
       requestTimeoutMs: DEFAULT_GATEWAY_REQUEST_TIMEOUT_MS
     })
   }
@@ -281,7 +281,7 @@ function pluginPathSuffix(caller: string, path: string): string {
  *  declared-capability seam; today the namespace IS the boundary. */
 export async function pluginRest<T>(pluginId: string, path: string, opts: PluginRestOptions = {}): Promise<T> {
   if (!window.hermesDesktop?.api) {
-    throw new Error('Idrak IT desktop bridge unavailable')
+    throw new Error('AppIT desktop bridge unavailable')
   }
 
   const suffix = pluginPathSuffix('pluginRest', path)

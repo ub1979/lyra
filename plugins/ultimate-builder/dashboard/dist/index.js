@@ -268,7 +268,7 @@
             ? "Coordinate the enabled phases in order and verify each phase's evidence. In this guided session, specialist delegates return their result before you continue: immediately advance to the next enabled phase after each result, without asking the user to wake or resume the workflow. Keep tool calls, terminal output, diffs, reasoning, and internal workflow details out of user-facing messages."
             : "Complete only the selected specialist work and report concise user-facing results.",
           delivery_rule: templateId === "mvp"
-            ? "This is the MVP fast path. Keep artifacts and research proportional to the requested app. After requirements approval, move directly to development, smoke QA, and concise run documentation; do not invent architecture or task-planning phases when they are disabled."
+            ? "This is the MVP fast path. Keep artifacts and research proportional to the requested app. After requirements approval: if the project has a UI, generate a quick visual preview (1-3 static HTML/CSS mockups in .sdlc/preview/) and get user approval before coding. Then move to development, smoke QA, and concise run documentation; do not invent architecture or task-planning phases when they are disabled."
             : "Use the selected specialist phases at appropriate depth for the project.",
           workspace,
           template: activeTemplate.name,
@@ -315,9 +315,9 @@
     if (screen === "home") {
       return h("div", { className: "ub-page" },
         h("section", { className: "ub-welcome" },
-          h("p", { className: "ub-kicker" }, "IDRAK IT · APP BUILDER"),
+          h("p", { className: "ub-kicker" }, "APPIT · APP BUILDER"),
           h("h1", null, "What would you like to work on?"),
-          h("p", { className: "ub-subtitle" }, "Start something new or bring an existing folder. You choose the experts; Idrak IT keeps everything in one simple conversation."),
+          h("p", { className: "ub-subtitle" }, "Start something new or bring an existing folder. You choose the experts; AppIT keeps everything in one simple conversation."),
           h("button", {
             className: "ub-model-settings",
             type: "button",
@@ -426,7 +426,7 @@
           ),
           h(Card, { className: "ub-form-card" },
             h(CardContent, null,
-              h("h2", null, "What should Idrak IT help with?"),
+              h("h2", null, "What should AppIT help with?"),
               h("textarea", {
                 value: brief,
                 onChange: (event) => setBrief(event.target.value),
@@ -468,7 +468,7 @@
           h(Button, { className: "ub-start-chat", onClick: startChat, disabled: starting || !selected.size },
             starting ? "Starting project…" : "Start Project →",
           ),
-          h("p", { className: "ub-chat-note" }, "The project opens in a simple chat. Idrak IT handles tools and terminal work quietly in the background."),
+          h("p", { className: "ub-chat-note" }, "The project opens in a simple chat. AppIT handles tools and terminal work quietly in the background."),
         ),
       ),
     );

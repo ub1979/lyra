@@ -1,4 +1,4 @@
-"""Idrak IT integration for the Ultimate Application Builder."""
+"""AppIT integration for the Ultimate Application Builder."""
 
 from __future__ import annotations
 
@@ -61,7 +61,7 @@ def register(ctx) -> None:
         if prompt.startswith("Usage:"):
             return prompt
         if ctx.inject_message(prompt):
-            return "Ultimate Builder started in the current Idrak IT conversation."
+            return "Ultimate Builder started in the current AppIT conversation."
         return (
             "This remote session cannot inject a follow-up turn automatically. "
             "Send the following as a normal Chat message:\n\n" + prompt
@@ -81,7 +81,7 @@ def register(ctx) -> None:
         _ROOT / "skills" / "ultimate-app-builder" / "SKILL.md",
         description=(
             "Build, fix, review, test, secure, document, and ship applications "
-            "through an evidence-backed SDLC with isolated Idrak IT delegates."
+            "through an evidence-backed SDLC with isolated AppIT delegates."
         ),
     )
     workflow_root = (
