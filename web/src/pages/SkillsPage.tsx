@@ -675,7 +675,7 @@ export default function SkillsPage() {
           <DialogHeader>
             <DialogTitle>Learn a skill</DialogTitle>
             <DialogDescription>
-              Point Idrak IT at anything and it will distill a reusable skill —
+              Point AppIT at anything and it will distill a reusable skill —
               following the house authoring standards. Fill in any combination
               below; the agent gathers the sources and writes the skill in chat.
             </DialogDescription>

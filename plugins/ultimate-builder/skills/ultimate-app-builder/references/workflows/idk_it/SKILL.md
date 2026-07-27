@@ -143,7 +143,7 @@ Before any interview, scan, or agent spawn, ask what the user actually wants out
 >
 > | Profile | Best for | What happens |
 > |---------|----------|--------------|
-> | **MVP** (fastest) | prove the idea NOW, make it proper later | **MVP Fast Path**: quick scope (one round, ≤5 questions) → build → smoke QA. No Grill, no plan.md, no task-graph.md. Built to the Evolvability Contract so `promote` can upgrade it to proper software later |
+> | **MVP** (fastest) | prove the idea NOW, make it proper later | **MVP Fast Path**: quick scope (one round, ≤5 questions) → quick visual preview (UI projects) → build → smoke QA. No Grill, no plan.md, no task-graph.md. Built to the Evolvability Contract so `promote` can upgrade it to proper software later |
 > | **Small project** | internal tools, side projects | full core pipeline + full e2e tests, docs; skips load test, DAST, accessibility, devops, security audit |
 > | **Standard** (default) | real products | + accessibility, devops, docs; skips load test, DAST, security audit |
 > | **Production** (most thorough) | launches, paid/regulated | everything incl. load test + DAST + **full security audit** |
@@ -154,7 +154,7 @@ Record which of these run: `code_review`, `qa`, `e2e_tests`, `load_test`, `dast`
 
 **⛔ For Small / Standard / Production, these are mandatory regardless of toggles:** requirements interview + The Grill + requirements checkpoint; architecture; planning; development; the integration pass after parallel dev. The profile only governs the optional phases and QA sub-tests. When a phase is disabled, skip spawning that agent and say so in the status line; when a QA sub-test is disabled, tell qa-engineer to skip it in its prompt.
 
-**⛔ For MVP, the Fast Path replaces the core pipeline entirely** (see "MVP Fast Path" below). Its own mandatory minimum: Quick Scope + brief confirmation; the Evolvability Contract in every dev prompt; smoke QA; Redaction Guard; `.sdlc/debt.md` maintained. Do NOT run the full requirements interview, The Grill, sw-architect, or task-planner in MVP mode — that is the point of the profile, not a violation of Rule 2.
+**⛔ For MVP, the Fast Path replaces the core pipeline entirely** (see "MVP Fast Path" below). Its own mandatory minimum: Quick Scope + brief confirmation; quick visual preview for UI projects; the Evolvability Contract in every dev prompt; smoke QA; Redaction Guard; `.sdlc/debt.md` maintained. Do NOT run the full requirements interview, The Grill, sw-architect, or task-planner in MVP mode — that is the point of the profile, not a violation of Rule 2.
 
 Skip this step for `fix` / `review` / `test` / `deploy` / `docs` / `audit` — the user already chose the phase.
 
@@ -166,14 +166,15 @@ Goal: a working product in the user's hands as fast as possible — but built so
 
 ### Pipeline
 
-1. **Quick Scope (orchestrator, conversational).** Ask up to 5 questions, exactly ONE per message: what does it do (core value path), who uses it, stack preference (default: whatever ships fastest that the user could realistically keep), what's explicitly OUT of scope, and how they want to run it (local/web/CLI). Honor Skip, Decide for me, and Use smart defaults as defined by req-engineer's Conversation Contract. No Grill, no multi-round interview, no prototype walkthrough.
-2. **`mvp-brief.md` (~1 page, orchestrator writes it).** Goal, core path, stack, out-of-scope list, and a 10-20 line build sketch: modules, data shape, the seams (where proper auth/validation/persistence would slot in later). One confirmation: "This is what I'll build — anything wrong?" — then go; do not loop on polish.
-3. **Build — spawn `sw-developer`** (one agent; sequential slices if big). Input: mvp-brief.md + the Evolvability Contract below, verbatim, in the prompt. Foundation + happy path first so there's something runnable early.
-4. **Smoke QA — spawn `qa-engineer`** (smoke playbook only): boot the real app, walk the core path with real tools (curl/Playwright), confirm it doesn't fall over on obvious empty/wrong input. CRITICAL bugs → sw-developer fix → re-smoke. HIGH and below → log to `.sdlc/debt.md`, don't block. Under the MVP profile, logging a finding to debt.md constitutes the user-acceptance Rule 5 requires — the user accepted deferred rigor by choosing MVP; `promote` is where each item gets fixed or explicitly re-accepted. CRITICAL findings are never debt-loggable.
-5. **Redaction Guard** (Phase 9, unchanged — secrets never ship, even in an MVP).
-6. **Done.** Deliver run instructions + what's intentionally rough (read from debt.md) + one line: "When you want this made production-proper, say **'promote it'** — the debt ledger is the roadmap."
+1. **Quick Scope (orchestrator, conversational).** Ask up to 5 questions, exactly ONE per message: what does it do (core value path), who uses it, stack preference (default: whatever ships fastest that the user could realistically keep), what's explicitly OUT of scope, and how they want to run it (local/web/CLI). Honor Skip, Decide for me, and Use smart defaults as defined by req-engineer's Conversation Contract. No Grill, no multi-round interview.
+2. **`mvp-brief.md` (~1 page, orchestrator writes it).** Goal, core path, stack, out-of-scope list, and a 10-20 line build sketch: modules, data shape, the seams (where proper auth/validation/persistence would slot in later). Include a section listing key screens/views if the project has a UI. One confirmation: "This is what I'll build — anything wrong?" — then go; do not loop on polish.
+3. **MVP Quick Preview (MANDATORY for UI projects; auto-skip for pure API/CLI/library — note in ledger).** Spawn `sw-developer` in preview mode. Input: mvp-brief.md. Task: generate 1-3 static HTML/CSS mockups in `.sdlc/preview/` showing the key screens — layout, navigation, colors, and realistic placeholder data. Include `index.html` linking to each screen. NOT functional code, just visual reference. Present: "Quick preview ready — open `.sdlc/preview/index.html`. Does this look like what you want? **Approve** / **Change** (tell me what's wrong) / **Skip**." On change: re-spawn once with feedback. On skip or approve: continue. This is lighter than the full Phase 2.5 (no design system, no design tokens, no `nav.html`) but ensures the user sees the planned UI before any code is written.
+4. **Build — spawn `sw-developer`** (one agent; sequential slices if big). Input: mvp-brief.md + approved preview (if generated) + the Evolvability Contract below, verbatim, in the prompt. Foundation + happy path first so there's something runnable early.
+5. **Smoke QA — spawn `qa-engineer`** (smoke playbook only): boot the real app, walk the core path with real tools (curl/Playwright), confirm it doesn't fall over on obvious empty/wrong input. CRITICAL bugs → sw-developer fix → re-smoke. HIGH and below → log to `.sdlc/debt.md`, don't block. Under the MVP profile, logging a finding to debt.md constitutes the user-acceptance Rule 5 requires — the user accepted deferred rigor by choosing MVP; `promote` is where each item gets fixed or explicitly re-accepted. CRITICAL findings are never debt-loggable.
+6. **Redaction Guard** (Phase 9, unchanged — secrets never ship, even in an MVP).
+7. **Done.** Deliver run instructions + what's intentionally rough (read from debt.md) + one line: "When you want this made production-proper, say **'promote it'** — the debt ledger is the roadmap."
 
-No code-reviewer, no security-auditor, no devops, no docs, no plan.md, no task-graph.md — unless the user toggled one back on. Ledger entries still written for every step (Rule 6 applies in full).
+No code-reviewer, no security-auditor, no devops, no docs, no plan.md, no task-graph.md — unless the user toggled one back on. The quick preview is lighter than the full Phase 2.5 but ensures UI projects get visual approval. Ledger entries still written for every step (Rule 6 applies in full).
 
 ### ⛔ Evolvability Contract (paste into every MVP dev prompt)
 

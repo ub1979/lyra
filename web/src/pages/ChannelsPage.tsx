@@ -440,7 +440,7 @@ export default function ChannelsPage() {
                     </a>
                   </div>
                   <p className="text-xs">
-                    You can leave allowed users blank. Idrak IT will then send new DM
+                    You can leave allowed users blank. AppIT will then send new DM
                     users a code that you approve from the Pairing page.
                   </p>
                 </div>
@@ -847,7 +847,7 @@ function WhatsAppOnboardingPanel({
         : "waiting";
   const setupHelp =
     phase === "connected" || phase === "applying"
-      ? "WhatsApp is linked but Idrak IT is not listening yet. Save and restart the gateway to finish setup."
+      ? "WhatsApp is linked but AppIT is not listening yet. Save and restart the gateway to finish setup."
       : setup?.status === "installing"
         ? "Preparing the WhatsApp bridge. The QR code will appear here when it is ready."
         : setup?.status === "starting"
@@ -858,24 +858,24 @@ function WhatsAppOnboardingPanel({
     : setup?.account_name || setup?.account_id || "";
   const linkedAccountDetail =
     setup?.account_phone || setup?.account_id
-      ? "This is the WhatsApp account Idrak IT is now logged into."
-      : "Idrak IT is logged into the WhatsApp account that scanned the QR code.";
+      ? "This is the WhatsApp account AppIT is now logged into."
+      : "AppIT is logged into the WhatsApp account that scanned the QR code.";
   const linkedAccountChatUrl = setup?.account_phone
     ? `https://wa.me/${setup.account_phone}`
     : "";
   const messageInstruction =
     mode === "self-chat"
-      ? "After the restart, open Message Yourself on the linked account and send Idrak IT a message."
-      : "After the restart, start a chat from another WhatsApp account with the linked account and send Idrak IT a message.";
+      ? "After the restart, open Message Yourself on the linked account and send AppIT a message."
+      : "After the restart, start a chat from another WhatsApp account with the linked account and send AppIT a message.";
   const hasSavedAllowedUsers = Boolean(platform.whatsapp_setup?.allowed_users_set);
   const pairingInstruction =
     mode === "self-chat" && !allowedUsers.trim()
       ? hasSavedAllowedUsers
-        ? "Idrak IT will keep the saved WhatsApp allowlist."
+        ? "AppIT will keep the saved WhatsApp allowlist."
         : "Self-chat mode will allow the linked account automatically when you save."
       : !allowedUsers.trim() && hasSavedAllowedUsers
-        ? "Idrak IT will keep the saved WhatsApp allowlist."
-        : "If no allowed numbers were entered, Idrak IT replies with a pairing code. Approve it from the dashboard Pairing page.";
+        ? "AppIT will keep the saved WhatsApp allowlist."
+        : "If no allowed numbers were entered, AppIT replies with a pairing code. Approve it from the dashboard Pairing page.";
 
   return (
     <div className="rounded-sm border border-border bg-background/35 p-4">
@@ -957,7 +957,7 @@ function WhatsAppOnboardingPanel({
 
               {phase === "waiting" && (
                 <div className="text-xs text-muted-foreground">
-                  After saving, unknown DMs use Idrak IT pairing codes unless their
+                  After saving, unknown DMs use AppIT pairing codes unless their
                   number is already allowed.
                 </div>
               )}
@@ -1148,7 +1148,7 @@ function TelegramOnboardingPanel({
     setDetectedOwnerId(null);
     setNewAllowedId("");
     try {
-      const res = await api.startTelegramOnboarding({ bot_name: "Idrak IT" });
+      const res = await api.startTelegramOnboarding({ bot_name: "AppIT" });
       const dataUrl = await QRCode.toDataURL(res.qr_payload, {
         errorCorrectionLevel: "M",
         margin: 1,
@@ -1266,7 +1266,7 @@ function TelegramOnboardingPanel({
         </span>
         <span className="text-xs text-muted-foreground">
           Both options connect a bot you control and save its credentials only to
-          this Idrak IT installation.
+          this AppIT installation.
         </span>
       </div>
 
@@ -1279,7 +1279,7 @@ function TelegramOnboardingPanel({
             <Badge tone="success">recommended</Badge>
           </div>
           <p className="text-xs text-muted-foreground">
-            Scan a QR code and confirm in Telegram. Idrak IT creates the bot and
+            Scan a QR code and confirm in Telegram. AppIT creates the bot and
             detects your Telegram user ID automatically.
           </p>
           <Button

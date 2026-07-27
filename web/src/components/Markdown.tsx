@@ -2,7 +2,8 @@ import { useMemo, type ReactNode } from "react";
 
 /**
  * Lightweight markdown renderer for LLM output.
- * Handles: code blocks, inline code, bold, italic, headers, links, lists, horizontal rules.
+ * Handles: code blocks, inline code, bold, italic, headers, links, lists,
+ * tables, horizontal rules, and blockquotes.
  * NOT a full CommonMark parser — optimized for typical assistant message patterns.
  *
  * `streaming` renders a blinking caret at the tail of the last block so it
@@ -22,7 +23,7 @@ export function Markdown({
   const caret = streaming ? <StreamingCaret /> : null;
 
   return (
-    <div className="text-sm text-foreground leading-relaxed space-y-2">
+    <div className="text-sm text-foreground leading-relaxed space-y-2.5">
       {blocks.map((block, i) => (
         <Block
           key={i}
@@ -54,6 +55,8 @@ type BlockNode =
   | { type: "heading"; level: number; content: string }
   | { type: "hr" }
   | { type: "list"; ordered: boolean; items: string[] }
+  | { type: "table"; headers: string[]; rows: string[][] }
+  | { type: "blockquote"; content: string }
   | { type: "paragraph"; content: string };
 
 /* ------------------------------------------------------------------ */
@@ -102,6 +105,34 @@ function parseBlocks(text: string): BlockNode[] {
       continue;
     }
 
+    // Table: header row | separator row | data rows
+    if (
+      line.includes("|") &&
+      i + 1 < lines.length &&
+      /^\|?\s*[-:]+[-|\s:]*$/.test(lines[i + 1])
+    ) {
+      const headers = parseTableRow(line);
+      i += 2; // skip header + separator
+      const rows: string[][] = [];
+      while (i < lines.length && lines[i].includes("|")) {
+        rows.push(parseTableRow(lines[i]));
+        i++;
+      }
+      blocks.push({ type: "table", headers, rows });
+      continue;
+    }
+
+    // Blockquote
+    if (/^>\s?/.test(line)) {
+      const quoteLines: string[] = [];
+      while (i < lines.length && /^>\s?/.test(lines[i])) {
+        quoteLines.push(lines[i].replace(/^>\s?/, ""));
+        i++;
+      }
+      blocks.push({ type: "blockquote", content: quoteLines.join("\n") });
+      continue;
+    }
+
     // Unordered list
     if (/^[-*+]\s/.test(line)) {
       const items: string[] = [];
@@ -139,7 +170,8 @@ function parseBlocks(text: string): BlockNode[] {
       !lines[i].match(/^#{1,4}\s/) &&
       !lines[i].match(/^[-*+]\s/) &&
       !lines[i].match(/^\d+[.)]\s/) &&
-      !lines[i].match(/^[-*_]{3,}\s*$/)
+      !lines[i].match(/^[-*_]{3,}\s*$/) &&
+      !lines[i].match(/^>\s?/)
     ) {
       paraLines.push(lines[i]);
       i++;
@@ -150,6 +182,14 @@ function parseBlocks(text: string): BlockNode[] {
   }
 
   return blocks;
+}
+
+function parseTableRow(line: string): string[] {
+  return line
+    .replace(/^\|/, "")
+    .replace(/\|$/, "")
+    .split("|")
+    .map((cell) => cell.trim());
 }
 
 /* ------------------------------------------------------------------ */
@@ -168,7 +208,7 @@ function Block({
   switch (block.type) {
     case "code":
       return (
-        <pre className="bg-secondary/60 border border-border px-3 py-2.5 text-xs font-mono leading-relaxed overflow-x-auto">
+        <pre className="rounded-lg bg-secondary/60 border border-border px-3.5 py-3 text-xs font-mono leading-relaxed overflow-x-auto">
           <code>
             {block.content}
             {caret}
@@ -179,10 +219,10 @@ function Block({
     case "heading": {
       const Tag = `h${Math.min(block.level, 4)}` as "h1" | "h2" | "h3" | "h4";
       const sizes: Record<string, string> = {
-        h1: "text-base font-bold",
-        h2: "text-sm font-bold",
-        h3: "text-sm font-semibold",
-        h4: "text-sm font-medium",
+        h1: "text-base font-bold mt-1 mb-0.5 text-midground",
+        h2: "text-[0.9375rem] font-bold mt-0.5 text-midground/90",
+        h3: "text-sm font-semibold text-midground/80",
+        h4: "text-sm font-medium text-midground/70",
       };
       return (
         <Tag className={sizes[Tag]}>
@@ -195,9 +235,63 @@ function Block({
     case "hr":
       return (
         <>
-          <hr className="border-border" />
+          <hr className="border-border my-1" />
           {caret}
         </>
+      );
+
+    case "table": {
+      const last = block.rows.length - 1;
+      return (
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-border bg-secondary/40">
+                {block.headers.map((h, ci) => (
+                  <th
+                    key={ci}
+                    className="px-3 py-1.5 text-left font-semibold text-midground/80"
+                  >
+                    <InlineContent
+                      text={h}
+                      highlightTerms={highlightTerms}
+                    />
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {block.rows.map((row, ri) => (
+                <tr
+                  key={ri}
+                  className="border-b border-border/50 last:border-0"
+                >
+                  {row.map((cell, ci) => (
+                    <td key={ci} className="px-3 py-1.5">
+                      <InlineContent
+                        text={cell}
+                        highlightTerms={highlightTerms}
+                      />
+                      {ri === last && ci === row.length - 1 ? caret : null}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+
+    case "blockquote":
+      return (
+        <blockquote className="border-l-2 border-midground/30 pl-3 text-sm text-foreground/80 italic">
+          <InlineContent
+            text={block.content}
+            highlightTerms={highlightTerms}
+          />
+          {caret}
+        </blockquote>
       );
 
     case "list": {
@@ -307,7 +401,7 @@ function InlineContent({
             return (
               <code
                 key={i}
-                className="bg-secondary/60 px-1.5 py-0.5 text-xs font-mono text-primary/90"
+                className="rounded bg-secondary/60 px-1.5 py-0.5 text-xs font-mono text-primary/90"
               >
                 {node.content}
               </code>

@@ -59,7 +59,7 @@ def test_build_command_injects_normal_idrak_turn():
     module.register(ctx)
     handler = next(row[1] for row in ctx.commands if row[0] == "ultimate-build")
     response = handler("a task manager")
-    assert response == "Ultimate Builder started in the current Idrak IT conversation."
+    assert response == "Ultimate Builder started in the current AppIT conversation."
     assert len(ctx.injected) == 1
     assert "skill_view(name='ultimate-builder:ultimate-app-builder')" in ctx.injected[0]
 

@@ -53,12 +53,12 @@ export const en: Translations = {
   },
 
   app: {
-    brand: "Idrak IT",
+    brand: "AppIT",
     brandShort: "II",
     closeNavigation: "Close navigation",
     closeModelTools: "Close model and tools",
     footer: {
-      org: "Idrak IT",
+      org: "AppIT",
     },
     activeSessionsLabel: "Active Sessions:",
     gatewayStatusLabel: "Gateway Status:",
@@ -122,7 +122,7 @@ export const en: Translations = {
     recentSessions: "Recent Sessions",
     restartGateway: "Restart Gateway",
     restartGatewayConfirmMessage:
-      "This restarts the Idrak IT gateway process. Connected channels and active sessions will reconnect afterward.",
+      "This restarts the AppIT gateway process. Connected channels and active sessions will reconnect afterward.",
     restartGatewayConfirmTitle: "Restart gateway?",
     restartingGateway: "Restarting gateway…",
     running: "Running",
@@ -131,12 +131,12 @@ export const en: Translations = {
     starting: "Starting",
     startedInBackground: "Started in background — check logs for progress",
     stopped: "Stopped",
-    updateHermes: "Update Idrak IT",
+    updateHermes: "Update AppIT",
     updateHermesConfirmMessage:
       "Self-update is disabled for this private distribution.",
     updateHermesConfirmNow: "Update now",
-    updateHermesConfirmTitle: "Update Idrak IT?",
-    updatingHermes: "Updating Idrak IT…",
+    updateHermesConfirmTitle: "Update AppIT?",
+    updatingHermes: "Updating AppIT…",
     waitingForOutput: "Waiting for output…",
   },
 
@@ -371,7 +371,7 @@ export const en: Translations = {
     enableRuntime: "Enable",
     forceReinstall: "Force reinstall (delete existing folder first)",
     headline:
-      "Discover, install, enable, and update Idrak IT plugins (`hermes plugins` parity).",
+      "Discover, install, enable, and update AppIT plugins (`hermes plugins` parity).",
     identifierLabel: "Git URL or owner/repo",
     inactive: "inactive",
     installBtn: "Install",
@@ -489,7 +489,7 @@ export const en: Translations = {
     showValue: "Show real value",
     hideValue: "Hide value",
     customTitle: "Custom Keys",
-    customHint: "Arbitrary environment variables stored in your .env that Idrak IT doesn't recognise. Use these to inject env vars for skills, MCP servers, or your own tooling.",
+    customHint: "Arbitrary environment variables stored in your .env that AppIT doesn't recognise. Use these to inject env vars for skills, MCP servers, or your own tooling.",
     customConfigured: "{count} custom key{s} set",
     addCustomKey: "Add a custom key",
     customKeyName: "Variable name",
@@ -558,11 +558,11 @@ export const en: Translations = {
   achievements: {
     hero: {
       kicker: "Agentic Gamerscore",
-      title: "Idrak IT Achievements",
+      title: "AppIT Achievements",
       subtitle:
-        "Collectible Idrak IT badges earned from real session history. Known unfinished achievements are shown as Discovered; Secret achievements stay hidden until the first matching behavior appears.",
+        "Collectible AppIT badges earned from real session history. Known unfinished achievements are shown as Discovered; Secret achievements stay hidden until the first matching behavior appears.",
       scan_subtitle:
-        "Scanning Idrak IT session history. First scan can take 5–10 seconds on large histories.",
+        "Scanning AppIT session history. First scan can take 5–10 seconds on large histories.",
     },
     actions: {
       rescan: "Rescan",
@@ -577,7 +577,7 @@ export const en: Translations = {
       highest_tier: "Highest tier",
       highest_tier_hint: "Copper → Silver → Gold → Diamond → Olympian",
       latest: "Latest",
-      latest_hint_empty: "run Idrak IT more",
+      latest_hint_empty: "run AppIT more",
       none_yet: "None yet",
     },
     state: {
@@ -608,10 +608,10 @@ export const en: Translations = {
       tiers_header: "Tiers",
       secret_header: "Secret achievements",
       secret_body:
-        "Secrets hide their exact trigger. Once Idrak IT sees a related signal, the card becomes Discovered and shows its requirement.",
+        "Secrets hide their exact trigger. Once AppIT sees a related signal, the card becomes Discovered and shows its requirement.",
       scan_status_header: "Scan status",
       scan_status_body:
-        "Idrak IT is scanning local history once, then cards will appear automatically. Nothing is stuck if this takes a few seconds.",
+        "AppIT is scanning local history once, then cards will appear automatically. Nothing is stuck if this takes a few seconds.",
       what_scanned_header: "What is scanned",
       what_scanned_body:
         "Sessions, tool calls, model metadata, errors, achievements, and local unlock state.",
@@ -658,7 +658,7 @@ export const en: Translations = {
         "Share on X opens a pre-filled post in a new tab. Click Copy image first if you want the 1200×630 badge attached — X lets you paste it right into the tweet composer. Download PNG saves the file for use anywhere.",
       clipboard_unsupported:
         "Clipboard image copy not supported in this browser — use Download instead.",
-      tweet_text: "Just unlocked {tier_part}\"{name}\" in Idrak IT ☤",
+      tweet_text: "Just unlocked {tier_part}\"{name}\" in AppIT ☤",
     },
   },
 

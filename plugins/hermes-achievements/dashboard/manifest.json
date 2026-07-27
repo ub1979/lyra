@@ -1,7 +1,7 @@
 {
   "name": "hermes-achievements",
   "label": "Achievements",
-  "description": "Achievement badges for vibe coding and autonomous Idrak IT workflows.",
+  "description": "Achievement badges for vibe coding and autonomous AppIT workflows.",
   "icon": "Star",
   "version": "0.4.0",
   "tab": { "path": "/achievements", "position": "after:analytics" },
