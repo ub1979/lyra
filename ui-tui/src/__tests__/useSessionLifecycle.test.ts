@@ -12,8 +12,23 @@ import {
   liveSessionInflightMessages,
   scheduleResumeScrollToBottom,
   signalFreshSessionBoundary,
+  startupSkillsFromEnv,
   writeActiveSessionFile
 } from '../app/useSessionLifecycle.js'
+
+describe('guided startup skills', () => {
+  it('parses and deduplicates the selected skill identifiers', () => {
+    expect(
+      startupSkillsFromEnv(
+        'ultimate-builder:ultimate-app-builder, ultimate-builder:req-engineer,ultimate-builder:req-engineer'
+      )
+    ).toEqual(['ultimate-builder:ultimate-app-builder', 'ultimate-builder:req-engineer'])
+  })
+
+  it('returns no startup skills when the setting is empty', () => {
+    expect(startupSkillsFromEnv('')).toEqual([])
+  })
+})
 
 describe('fresh session boundary', () => {
   it('signals only when a live session is replaced by a different session', () => {

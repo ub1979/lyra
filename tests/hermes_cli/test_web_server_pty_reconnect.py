@@ -74,6 +74,71 @@ def test_resolve_chat_argv_sets_active_session_file_env(monkeypatch):
     assert env["HERMES_TUI_ACTIVE_SESSION_FILE"] == "/tmp/hermes-active-session.json"
 
 
+def test_resolve_chat_argv_preloads_requested_skills(monkeypatch):
+    """Guided chat skills must reach the gateway as session-wide guidance."""
+    import hermes_cli.main as main_mod
+    import hermes_cli.web_server as ws
+
+    monkeypatch.setattr(
+        main_mod,
+        "_make_tui_argv",
+        lambda project_root, tui_dev=False: (["node", "dist/entry.js"], "/tmp/ui-tui"),
+    )
+
+    _argv, _cwd, env = ws._resolve_chat_argv(
+        skills="ultimate-builder:ultimate-app-builder"
+    )
+
+    assert (
+        env["HERMES_TUI_SKILLS"]
+        == "ultimate-builder:ultimate-app-builder"
+    )
+
+
+def test_pty_ws_passes_valid_skill_selection_to_resolver(pty_client, monkeypatch):
+    """The browser query must survive validation and reach PTY startup."""
+    ws, client, token = pty_client
+    captured = {}
+
+    def fake_resolve(
+        resume=None,
+        sidecar_url=None,
+        profile=None,
+        active_session_file=None,
+        workspace=None,
+        skills=None,
+    ):
+        captured["skills"] = skills
+        return (["fake-hermes-tui"], None, None)
+
+    monkeypatch.setattr(ws, "_resolve_chat_argv", fake_resolve)
+
+    with client.websocket_connect(
+        _url(
+            token,
+            skills="ultimate-builder:ultimate-app-builder",
+        )
+    ) as conn:
+        assert conn.receive_bytes() == b"ready"
+
+    assert captured["skills"] == "ultimate-builder:ultimate-app-builder"
+
+
+def test_pty_ws_rejects_invalid_skill_selection(pty_client):
+    """Skill query values are identifiers, never arbitrary environment text."""
+    from starlette.websockets import WebSocketDisconnect
+
+    _ws, client, token = pty_client
+    with client.websocket_connect(
+        _url(token, skills="ultimate-builder:../../escape")
+    ) as conn:
+        assert "invalid skill selection" in conn.receive_text()
+        with pytest.raises(WebSocketDisconnect) as exc:
+            conn.receive_text()
+
+    assert exc.value.code == 1008
+
+
 def test_channel_reconnect_resumes_active_session_file(pty_client, monkeypatch):
     """A new /api/pty socket on the same channel resumes the last TUI sid."""
     ws, client, token = pty_client

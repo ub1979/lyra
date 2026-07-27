@@ -259,9 +259,9 @@
           .some((skill) => selected.has(skill));
         const request = brief.trim() || defaultBrief(templateId, mode === "existing");
         const prompt = "IDRAK_INTERNAL_SETUP_BEGIN " + JSON.stringify({
-          instruction: "The selected workflow below is authoritative and self-contained. Do not search for, test, or discuss skill availability. Work only in the selected workspace. Run only enabled specialist phases and never silently add a disabled phase.",
+          instruction: "The preloaded Ultimate Application Builder and first selected specialist skills are authoritative. Load every later enabled phase with skill_view(name='ultimate-builder:<specialist-id>') before running it. Work only in the selected workspace. Run only enabled specialist phases, never silently add a disabled phase, and never claim a registered skill ran unless its playbook was actually loaded.",
           first_turn_gate: mode === "new" && selected.has("req-engineer")
-            ? "Before inspecting files, using tools, or writing code, ask 2 to 5 concise requirements questions in the chat and wait for the user's answers. Then summarize the agreed MVP scope for confirmation before development. This gate is mandatory even for a simple app."
+            ? "Run the complete Requirements Engineer playbook in the main chat before using development tools or writing code: 2 to 3 structured interview rounds, the separate mandatory 5 to 8 question Grill, design-space exploration, prototype walkthrough, requirements.md, and explicit user approval. Never compress this into one quick question batch, even for an MVP or simple app."
             : "Inspect the selected existing workspace first, then ask only concise questions whose answers materially change the requested work.",
           coordination_rule: selected.has("idk_it")
             ? "Coordinate the enabled phases in order, verify each phase's evidence, and keep tool calls, terminal output, diffs, and internal workflow details out of user-facing messages."

@@ -34,25 +34,27 @@ large evidence on disk.
 
 ## Progressive workflow loading
 
-Detailed playbooks live under `references/workflows/`. Before delegating a
-phase, read its complete playbook:
+Each detailed playbook is a registered plugin skill. Before starting or
+delegating a phase, load its complete playbook with
+`skill_view(name="ultimate-builder:<playbook>")`. Reading only this umbrella
+skill does not count as running a specialist.
 
 | Phase | Playbook | Required artifact |
 |---|---|---|
-| Requirements | `req-engineer/SKILL.md` | `requirements.md` |
-| Architecture | `sw-architect/SKILL.md` | `plan.md` |
-| Agent task graph | `task-planner/SKILL.md` | `task-graph.md` |
-| Human project plan | `proj-manager/SKILL.md` | `project-plan.md` |
-| Development | `sw-developer/SKILL.md` | working code + task evidence |
-| Debugging | `debugger/SKILL.md` | root-cause evidence + regression test |
-| Review | `code-reviewer/SKILL.md` | `review-report.md` |
-| QA | `qa-engineer/SKILL.md` | `bug-report.md` |
-| Security | `security-auditor/SKILL.md` | `security-report.md` |
-| DevOps | `devops-engineer/SKILL.md` | `DEPLOYMENT.md` |
-| Documentation | `tech-writer/SKILL.md` | `README.md`, `docs/` |
-| Benchmark | `benchmark/SKILL.md` | `benchmark-report.md` |
-| Health | `health/SKILL.md` | `.sdlc/health-history.jsonl` |
-| Context | `context-save/SKILL.md` | `.sdlc/context.md` |
+| Requirements | `req-engineer` | `requirements.md` |
+| Architecture | `sw-architect` | `plan.md` |
+| Agent task graph | `task-planner` | `task-graph.md` |
+| Human project plan | `proj-manager` | `project-plan.md` |
+| Development | `sw-developer` | working code + task evidence |
+| Debugging | `debugger` | root-cause evidence + regression test |
+| Review | `code-reviewer` | `review-report.md` |
+| QA | `qa-engineer` | `bug-report.md` |
+| Security | `security-auditor` | `security-report.md` |
+| DevOps | `devops-engineer` | `DEPLOYMENT.md` |
+| Documentation | `tech-writer` | `README.md`, `docs/` |
+| Benchmark | `benchmark` | `benchmark-report.md` |
+| Health | `health` | `.sdlc/health-history.jsonl` |
+| Context | `context-save` | `.sdlc/context.md` |
 
 The imported playbooks originated in another agent environment. Interpret these
 terms using Idrak IT-native equivalents:
@@ -111,6 +113,12 @@ selection is authoritative:
   artifacts, but must not modify application code;
 - ask before adding a specialist that becomes necessary for safety or a
   user-requested outcome.
+
+If Requirements is enabled, load
+`skill_view(name="ultimate-builder:req-engineer")` before the first
+user-facing response. Its multi-round interview, separate Grill, design-space
+exploration, prototype walkthrough, and approval gate are mandatory. Do not
+inspect or write project files before completing that interactive gate.
 
 Use the smallest profile that matches the request:
 

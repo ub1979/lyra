@@ -12754,6 +12754,36 @@ def test_session_create_records_ui_model_as_session_override(monkeypatch):
         server._sessions.clear()
 
 
+def test_session_create_records_validated_startup_skills(monkeypatch):
+    monkeypatch.setattr(server, "_enable_gateway_prompts", lambda: None)
+    monkeypatch.setattr(server, "_start_agent_build", lambda *a, **k: None)
+    try:
+        resp = server._methods["session.create"](
+            "skills",
+            {
+                "cols": 80,
+                "skills": [
+                    "ultimate-builder:ultimate-app-builder",
+                    "ultimate-builder:req-engineer",
+                    "ultimate-builder:req-engineer",
+                ],
+            },
+        )
+        sid = resp["result"]["session_id"]
+        assert server._sessions[sid]["create_skills"] == [
+            "ultimate-builder:ultimate-app-builder",
+            "ultimate-builder:req-engineer",
+        ]
+
+        rejected = server._methods["session.create"](
+            "invalid-skills",
+            {"cols": 80, "skills": ["../../not-a-skill"]},
+        )
+        assert rejected["error"]["code"] == 4008
+    finally:
+        server._sessions.clear()
+
+
 @pytest.mark.parametrize("service_tier_override", ["priority", ""])
 def test_start_agent_build_passes_session_model_override(
     monkeypatch, service_tier_override
@@ -12796,6 +12826,10 @@ def test_start_agent_build_passes_session_model_override(
         "session_key": "k1",
         "profile_home": None,
         "model_override": override,
+        "create_skills": [
+            "ultimate-builder:ultimate-app-builder",
+            "ultimate-builder:req-engineer",
+        ],
         "create_reasoning_override": reasoning,
         "create_service_tier_override": service_tier_override,
     }
@@ -12804,6 +12838,7 @@ def test_start_agent_build_passes_session_model_override(
         server._start_agent_build(sid, session)
         assert session["agent_ready"].wait(timeout=3), "agent build did not finish"
         assert captured.get("model_override") == override
+        assert captured.get("skills_override") == session["create_skills"]
         assert captured.get("reasoning_config_override") == reasoning
         assert captured.get("service_tier_override") == service_tier_override
         assert session["agent"].model == "claude-sonnet-4.6"

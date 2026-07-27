@@ -17490,6 +17490,7 @@ def _resolve_chat_argv(
     profile: Optional[str] = None,
     active_session_file: Optional[str] = None,
     workspace: Optional[str] = None,
+    skills: Optional[str] = None,
 ) -> tuple[list[str], Optional[str], Optional[dict]]:
     """Resolve the argv + cwd + env for the chat PTY.
 
@@ -17525,6 +17526,11 @@ def _resolve_chat_argv(
     ``HERMES_TUI_GATEWAY_URL`` attach is SKIPPED for scoped chats: the
     dashboard's in-memory gateway runs under the dashboard's own profile,
     so a profile-scoped chat must spawn its own gateway subprocess.
+
+    `skills` (when set) is forwarded through ``HERMES_TUI_SKILLS`` so the
+    gateway preloads the requested registered skills into the agent's system
+    prompt before its first turn. This is materially different from merely
+    mentioning a skill in the user's message.
     """
     from hermes_cli.main import PROJECT_ROOT, _apply_tui_python_env, _make_tui_argv
 
@@ -17569,6 +17575,8 @@ def _resolve_chat_argv(
     # setdefault so an explicit operator value still wins.
     env.setdefault("COLORTERM", "truecolor")
     env["HERMES_TUI_DASHBOARD"] = "1"
+    if skills:
+        env["HERMES_TUI_SKILLS"] = skills
 
     if workspace_path is not None:
         cwd = str(workspace_path)
@@ -17684,6 +17692,7 @@ async def _resolve_chat_argv_async(
     profile: Optional[str] = None,
     active_session_file: Optional[str] = None,
     workspace: Optional[str] = None,
+    skills: Optional[str] = None,
 ) -> tuple[list[str], Optional[str], Optional[dict]]:
     """Resolve chat argv without blocking the dashboard event loop.
 
@@ -17701,6 +17710,8 @@ async def _resolve_chat_argv_async(
         "profile": profile,
         "workspace": workspace,
     }
+    if skills is not None:
+        kwargs["skills"] = skills
     if active_session_file is not None:
         kwargs["active_session_file"] = active_session_file
 
@@ -18435,6 +18446,26 @@ async def pty_ws(ws: WebSocket) -> None:
     resume = raw_resume
     profile = ws.query_params.get("profile") or None
     workspace = ws.query_params.get("workspace") or None
+    raw_skills = (ws.query_params.get("skills") or "").strip()
+    skills: Optional[str] = None
+    if raw_skills:
+        requested_skills = [
+            item.strip() for item in raw_skills.split(",") if item.strip()
+        ]
+        valid_skill_name = re.compile(
+            r"^[A-Za-z0-9_-]+(?::[A-Za-z0-9_-]+)?$"
+        )
+        if (
+            len(raw_skills) > 1024
+            or len(requested_skills) > 5
+            or any(not valid_skill_name.fullmatch(item) for item in requested_skills)
+        ):
+            await ws.send_text(
+                "\r\n\x1b[31mChat unavailable: invalid skill selection.\x1b[0m\r\n"
+            )
+            await ws.close(code=1008)
+            return
+        skills = ",".join(dict.fromkeys(requested_skills))
     channel = _channel_or_close_code(ws)
     sidecar_url = _build_sidecar_url(channel) if channel else None
     force_fresh = (ws.query_params.get("fresh") or "").strip().lower() in {
@@ -18459,6 +18490,8 @@ async def pty_ws(ws: WebSocket) -> None:
         "profile": profile,
         "workspace": workspace,
     }
+    if skills is not None:
+        resolve_kwargs["skills"] = skills
     if active_session_file is not None:
         resolve_kwargs["active_session_file"] = str(active_session_file)
 
@@ -18480,11 +18513,13 @@ async def pty_ws(ws: WebSocket) -> None:
     registry_resume = raw_resume
     if raw_resume and env:
         registry_resume = env.get("HERMES_TUI_RESUME") or raw_resume
-    if attach_token is not None and (registry_resume or profile or workspace):
+    if attach_token is not None and (
+        registry_resume or profile or workspace or skills
+    ):
         # Key explicit resumes on their canonical target, never the active-session fallback.
         attach_token = (
             f"{attach_token}\0{profile or ''}\0{registry_resume or ''}"
-            f"\0{workspace or ''}"
+            f"\0{workspace or ''}\0{skills or ''}"
         )
 
     def _spawn():

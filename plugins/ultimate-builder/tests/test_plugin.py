@@ -36,8 +36,11 @@ def test_registers_skill_and_commands():
     module = load_plugin()
     ctx = Context()
     module.register(ctx)
-    assert [row[0] for row in ctx.skills] == ["ultimate-app-builder"]
-    assert ctx.skills[0][1].is_file()
+    skill_names = [row[0] for row in ctx.skills]
+    assert skill_names[0] == "ultimate-app-builder"
+    assert set(skill_names[1:]) == set(module._SPECIALIST_SKILLS)
+    assert len(skill_names) == 19
+    assert all(row[1].is_file() for row in ctx.skills)
     assert {row[0] for row in ctx.commands} == {"ultimate-build", "ultimate-status"}
 
 
@@ -45,8 +48,8 @@ def test_build_command_requires_brief():
     module = load_plugin()
     assert "Usage:" in module._command_prompt("")
     prompt = module._command_prompt("a task manager")
-    assert "qualified skill name" in prompt
-    assert "requirements questions" in prompt
+    assert "skill_view(name='ultimate-builder:ultimate-app-builder')" in prompt
+    assert "registered specialist skill" in prompt
     assert "a task manager" in prompt
 
 
@@ -58,12 +61,14 @@ def test_build_command_injects_normal_idrak_turn():
     response = handler("a task manager")
     assert response == "Ultimate Builder started in the current Idrak IT conversation."
     assert len(ctx.injected) == 1
-    assert "qualified skill name" in ctx.injected[0]
+    assert "skill_view(name='ultimate-builder:ultimate-app-builder')" in ctx.injected[0]
 
 
-def test_dashboard_enforces_requirements_gate_without_skill_lookup():
+def test_dashboard_enforces_requirements_gate_with_real_skill_loading():
     dashboard = (ROOT / "dashboard" / "dist" / "index.js").read_text()
     assert "first_turn_gate" in dashboard
-    assert "ask 2 to 5 concise requirements questions" in dashboard
-    assert "Do not search for, test, or discuss skill availability" in dashboard
+    assert "2 to 3 structured interview rounds" in dashboard
+    assert "mandatory 5 to 8 question Grill" in dashboard
+    assert "explicit user approval" in dashboard
+    assert "skill_view(name='ultimate-builder:<specialist-id>')" in dashboard
     assert "Use ultimate-builder:ultimate-app-builder" not in dashboard

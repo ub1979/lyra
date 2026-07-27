@@ -141,7 +141,14 @@ const GUIDED_SPECIALIST_LABELS: Record<string, string> = {
   idk_it: "Workflow coordination",
 };
 
-function specialistFromBuilderSeed(seed: string | null): GuidedSpecialist {
+function guidedSpecialistStorageKey(workspace: string): string {
+  return `idrak-it.guided-specialists.v1:${workspace || "default"}`;
+}
+
+function specialistIdsFromBuilderSeed(
+  seed: string | null,
+  workspace: string,
+): string[] {
   if (seed) {
     const match = seed.match(/IDRAK_INTERNAL_SETUP_BEGIN\s+(.+?)\s+IDRAK_INTERNAL_SETUP_END/);
     if (match) {
@@ -150,12 +157,16 @@ function specialistFromBuilderSeed(seed: string | null): GuidedSpecialist {
           enabled_specialists?: unknown;
         };
         if (Array.isArray(setup.enabled_specialists)) {
-          const first = setup.enabled_specialists.find(
+          const selected = setup.enabled_specialists.filter(
             (id): id is string =>
               typeof id === "string" && id in GUIDED_SPECIALIST_LABELS,
           );
-          if (first) {
-            return { id: first, label: GUIDED_SPECIALIST_LABELS[first] };
+          if (selected.length) {
+            window.localStorage.setItem(
+              guidedSpecialistStorageKey(workspace),
+              JSON.stringify(selected),
+            );
+            return selected;
           }
         }
       } catch {
@@ -163,7 +174,31 @@ function specialistFromBuilderSeed(seed: string | null): GuidedSpecialist {
       }
     }
   }
-  return { id: "idk_it", label: "Workflow coordination" };
+  try {
+    const stored = JSON.parse(
+      window.localStorage.getItem(guidedSpecialistStorageKey(workspace)) ?? "[]",
+    ) as unknown;
+    if (Array.isArray(stored)) {
+      return stored.filter(
+        (id): id is string =>
+          typeof id === "string" && id in GUIDED_SPECIALIST_LABELS,
+      );
+    }
+  } catch {
+    // Fall through to workflow coordination.
+  }
+  // Older guided URLs (created before specialist persistence was added) do
+  // not carry the original launcher seed after refresh. Requirements is the
+  // safest first phase for an unknown guided build; it prevents a legacy
+  // session from jumping directly into code.
+  return ["req-engineer"];
+}
+
+function specialistFromId(id: string): GuidedSpecialist {
+  return {
+    id,
+    label: GUIDED_SPECIALIST_LABELS[id] ?? "Workflow coordination",
+  };
 }
 
 function guidedMessageStorageKey(workspace: string): string {
@@ -465,8 +500,27 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const [guidedMessages, setGuidedMessages] = useState<GuidedMessage[]>(() =>
     typeof window === "undefined" ? [] : readGuidedMessages(workspaceParam),
   );
+  const [guidedSelectedSpecialistIds] = useState(() =>
+    typeof window === "undefined"
+      ? ["idk_it"]
+      : specialistIdsFromBuilderSeed(
+          searchParams.get("builder"),
+          workspaceParam,
+        ),
+  );
+  const guidedDefaultSpecialist = specialistFromId(
+    guidedSelectedSpecialistIds[0] ?? "idk_it",
+  );
   const guidedDefaultSpecialistRef = useRef<GuidedSpecialist>(
-    specialistFromBuilderSeed(searchParams.get("builder")),
+    guidedDefaultSpecialist,
+  );
+  const guidedSessionSkillsRef = useRef(
+    [
+      "ultimate-builder:ultimate-app-builder",
+      guidedSelectedSpecialistIds[0]
+        ? `ultimate-builder:${guidedSelectedSpecialistIds[0]}`
+        : "",
+    ].filter(Boolean),
   );
   const guidedTurnStartLineRef = useRef(0);
   const lastGuidedResponseRef = useRef("");
@@ -476,6 +530,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const hasModelConnectionError = guidedOutput.includes(
     MODEL_CONNECTION_ERROR_MARKER,
   );
+  const guidedWorkingSpecialist =
+    guidedActivity.specialist ?? guidedDefaultSpecialist;
   // Lazy-init: the missing-token check happens at construction so the effect
   // body doesn't have to setState (React 19's set-state-in-effect rule).
   // In gated (OAuth) mode the server intentionally omits the session token —
@@ -1317,6 +1373,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       // skills, memory, and sessions (see web_server._resolve_chat_argv).
       if (scopedProfile) params.profile = scopedProfile;
       if (workspaceParam) params.workspace = workspaceParam;
+      if (guided) {
+        params.skills = guidedSessionSkillsRef.current.join(",");
+      }
       const url = await api.buildWsUrl("/api/pty", params);
       const ws = new WebSocket(url);
       ws.binaryType = "arraybuffer";
@@ -1979,21 +2038,15 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 ))}
 
                 {!hasModelConnectionError &&
-                  guidedActivity.phase === "working" &&
-                  (() => {
-                    const specialist =
-                      guidedActivity.specialist ??
-                      guidedDefaultSpecialistRef.current;
-                    return (
-                      <GuidedSpecialistActivity
-                        key={specialist.id}
-                        activity={guidedActivity}
-                        lastSignalAt={guidedLastSignalAt}
-                        onRetry={retryLastGuidedMessage}
-                        specialist={specialist}
-                      />
-                    );
-                  })()}
+                  guidedActivity.phase === "working" && (
+                    <GuidedSpecialistActivity
+                      key={guidedWorkingSpecialist.id}
+                      activity={guidedActivity}
+                      lastSignalAt={guidedLastSignalAt}
+                      onRetry={retryLastGuidedMessage}
+                      specialist={guidedWorkingSpecialist}
+                    />
+                  )}
 
                 {!hasModelConnectionError &&
                   guidedMessages.length === 0 &&

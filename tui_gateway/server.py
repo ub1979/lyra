@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import queue
+import re
 import subprocess
 import sys
 import threading
@@ -1875,6 +1876,8 @@ def _start_agent_build(sid: str, session: dict) -> None:
                         kw["reasoning_config_override"] = reasoning
                     if (tier := current.get("create_service_tier_override")) is not None:
                         kw["service_tier_override"] = tier
+                if current.get("create_skills") is not None:
+                    kw["skills_override"] = list(current["create_skills"])
                 agent = _make_agent(sid, key, **kw)
             finally:
                 _clear_session_context(tokens)
@@ -5132,16 +5135,33 @@ def _cfg_max_turns(cfg: dict, default: int) -> int:
     return int(agent_cfg.get("max_turns") or cfg.get("max_turns") or default)
 
 
-def _parse_tui_skills_env() -> list[str]:
-    raw = os.environ.get("HERMES_TUI_SKILLS", "")
+_TUI_SKILL_IDENTIFIER_RE = re.compile(
+    r"^[A-Za-z0-9_-]+(?::[A-Za-z0-9_-]+)?$"
+)
+
+
+def _normalize_tui_skills(value) -> list[str]:
+    raw_items = (
+        value
+        if isinstance(value, (list, tuple))
+        else str(value or "").replace("\n", ",").split(",")
+    )
     skills: list[str] = []
     seen: set[str] = set()
-    for part in raw.replace("\n", ",").split(","):
-        item = part.strip()
+    for part in raw_items:
+        item = str(part).strip()
         if item and item not in seen:
+            if not _TUI_SKILL_IDENTIFIER_RE.fullmatch(item):
+                raise ValueError(f"Invalid startup skill identifier: {item}")
             seen.add(item)
             skills.append(item)
+    if len(skills) > 5:
+        raise ValueError("At most 5 startup skills may be selected")
     return skills
+
+
+def _parse_tui_skills_env() -> list[str]:
+    return _normalize_tui_skills(os.environ.get("HERMES_TUI_SKILLS", ""))
 
 
 def _load_fallback_model():
@@ -5518,6 +5538,7 @@ def _make_agent(
     reasoning_config_override: dict | None = None,
     service_tier_override: str | None = None,
     platform_override: str | None = None,
+    skills_override: list[str] | None = None,
 ):
     # AC-4 test seam: dead unless explicitly armed by the isolated certify
     # harness. Both inline and compute-host paths construct through _make_agent,
@@ -5552,7 +5573,11 @@ def _make_agent(
     cfg = _load_cfg()
     agent_cfg = cfg.get("agent") or {}
     system_prompt = _prompt_text(agent_cfg.get("system_prompt", ""))
-    startup_skills = _parse_tui_skills_env()
+    startup_skills = (
+        list(skills_override)
+        if skills_override is not None
+        else _parse_tui_skills_env()
+    )
     if startup_skills:
         from agent.skill_commands import build_preloaded_skills_prompt
 
@@ -6682,6 +6707,14 @@ def _(rid, params: dict) -> dict:
     cols = int(params.get("cols", 80))
     history = _coerce_seed_history(params.get("messages"))
     title = str(params.get("title") or "").strip()
+    try:
+        create_skills = (
+            _normalize_tui_skills(params.get("skills"))
+            if "skills" in params
+            else None
+        )
+    except ValueError as exc:
+        return _err(rid, 4008, str(exc))
     # When set, this is a branch: the new chat copies an existing conversation's
     # history and links back to it so list_sessions_rich keeps it visible and the
     # sidebar can nest it under its parent. Mirrors the TUI /branch marker.
@@ -6762,6 +6795,7 @@ def _(rid, params: dict) -> dict:
             "inflight_turn": None,
             "last_active": now,
             "model_override": session_model_override,
+            "create_skills": create_skills,
             "create_reasoning_override": create_reasoning_override,
             "create_service_tier_override": create_service_tier_override,
             "parent_session_id": parent_session_id,
