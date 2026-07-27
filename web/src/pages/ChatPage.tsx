@@ -1477,6 +1477,16 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       if (unmounting) {
         return;
       }
+      if (guided) {
+        // Never leave a friendly specialist animation claiming work is still
+        // happening after its transport has closed. A reconnect or reload
+        // will establish a fresh, truthful activity state.
+        setGuidedActivity({
+          phase: "idle",
+          text: "",
+          specialist: null,
+        });
+      }
       // Surface the real cause to the browser console on every close so a
       // "chat won't connect" report can be diagnosed without server access.
       // The server sends a machine-parseable reason on every rejection (see
@@ -1644,7 +1654,25 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           }
         });
       }
-    })();
+    })().catch((error: unknown) => {
+      connectInFlightRef.current = false;
+      clearConnectingTimer();
+      if (unmounting) return;
+      console.warn("[chat] PTY WebSocket setup failed", error);
+      setPtyState("closed");
+      setBanner(
+        error instanceof Error
+          ? `Chat connection failed: ${error.message}`
+          : "Chat connection failed. Reload and try again.",
+      );
+      if (guided) {
+        setGuidedActivity({
+          phase: "idle",
+          text: "",
+          specialist: null,
+        });
+      }
+    });
 
     term.focus();
 

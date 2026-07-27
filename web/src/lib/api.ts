@@ -229,6 +229,14 @@ export async function buildWsAuthParam(): Promise<[string, string]> {
     const { ticket } = await getWsTicket();
     return ["ticket", ticket];
   }
+  // A browser tab can survive a local dashboard restart while the server's
+  // ephemeral token rotates. WebSocket upgrade failures that happen before
+  // ``accept()`` are commonly exposed by browsers as an opaque code 1006, so
+  // the chat cannot reliably distinguish a stale token from a network drop
+  // and otherwise retries forever. Probe one protected HTTP endpoint first:
+  // fetchJSON's existing loopback-401 path reloads the no-cache SPA exactly
+  // once, obtaining the newly injected token before a socket is opened.
+  await fetchJSON<unknown>("/api/status");
   const token = window.__IDRAK_IT_SESSION_TOKEN__ ?? "";
   return ["token", token];
 }

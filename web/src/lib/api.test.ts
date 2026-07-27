@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { api } from "./api";
+import { api, buildWsAuthParam } from "./api";
 
 const SESSION_HEADER = "X-Hermes-Session-Token";
 
@@ -102,5 +102,27 @@ describe("api OAuth helpers", () => {
       expect(init.credentials).toBe("include");
       expect((init.headers as Headers).has(SESSION_HEADER)).toBe(false);
     }
+  });
+});
+
+describe("WebSocket authentication", () => {
+  it("validates the loopback session token before opening a socket", async () => {
+    vi.stubGlobal("window", {
+      __IDRAK_IT_AUTH_REQUIRED__: false,
+      __IDRAK_IT_SESSION_TOKEN__: "fresh-token",
+    });
+    const fetchMock = jsonFetchMock({ ok: true });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(buildWsAuthParam()).resolves.toEqual([
+      "token",
+      "fresh-token",
+    ]);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/status",
+      expect.objectContaining({ credentials: "include" }),
+    );
+    const headers = fetchMock.mock.calls[0][1]?.headers as Headers;
+    expect(headers.get(SESSION_HEADER)).toBe("fresh-token");
   });
 });
