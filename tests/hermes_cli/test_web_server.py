@@ -9701,6 +9701,52 @@ class TestPtyWebSocket:
         # A subscriber on a different channel got nothing.
         assert sub_other.sent == []
 
+    def test_pub_broadcasts_to_reattached_channel_alias(self):
+        """A refreshed browser may subscribe on a new channel while its
+        keep-alive PTY still publishes on the original channel."""
+        import asyncio
+        from hermes_cli import web_server as ws_mod
+
+        class _FakeSub:
+            def __init__(self):
+                self.sent: list[str] = []
+
+            async def send_text(self, payload: str) -> None:
+                self.sent.append(payload)
+
+        app = ws_mod.app
+
+        async def _run():
+            refreshed_sub = _FakeSub()
+            unrelated_sub = _FakeSub()
+            frame = (
+                '{"jsonrpc":"2.0","method":"event","params":'
+                '{"type":"message.complete","payload":{"text":"done"}}}'
+            )
+            event_channels, event_lock = ws_mod._get_event_state(app)
+            aliases = ws_mod._get_event_channel_aliases(app)
+            async with event_lock:
+                event_channels.setdefault("browser-refresh", set()).add(
+                    refreshed_sub
+                )
+                event_channels.setdefault("unrelated", set()).add(
+                    unrelated_sub
+                )
+                aliases["browser-refresh"] = "pty-original"
+            try:
+                await ws_mod._broadcast_event(app, "pty-original", frame)
+            finally:
+                async with event_lock:
+                    event_channels.pop("browser-refresh", None)
+                    event_channels.pop("unrelated", None)
+                    aliases.pop("browser-refresh", None)
+
+            return refreshed_sub, unrelated_sub, frame
+
+        refreshed_sub, unrelated_sub, frame = asyncio.run(_run())
+        assert refreshed_sub.sent == [frame]
+        assert unrelated_sub.sent == []
+
     def test_events_rejects_missing_channel(self):
         from starlette.websockets import WebSocketDisconnect
 

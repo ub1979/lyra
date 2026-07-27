@@ -186,6 +186,7 @@ def _resolve_restart_drain_timeout() -> float:
 @asynccontextmanager
 async def _lifespan(app: "FastAPI"):
     app.state.event_channels = {}  # dict[str, set]
+    app.state.event_channel_aliases = {}  # browser channel -> PTY publisher channel
     app.state.event_lock = asyncio.Lock()
     app.state.pty_active_session_files = {}  # dict[str, Path]
     # Serializes chat-argv resolution so concurrent /api/pty connections
@@ -254,6 +255,15 @@ def _get_event_state(app: "FastAPI"):
         app.state.event_channels = {}
         app.state.event_lock = asyncio.Lock()
         return app.state.event_channels, app.state.event_lock
+
+
+def _get_event_channel_aliases(app: "FastAPI") -> dict[str, str]:
+    """Return browser-channel aliases for reattached keep-alive PTYs."""
+    try:
+        return app.state.event_channel_aliases
+    except AttributeError:
+        app.state.event_channel_aliases = {}
+        return app.state.event_channel_aliases
 
 
 def _get_chat_argv_lock(app: "FastAPI") -> asyncio.Lock:
@@ -17234,7 +17244,13 @@ async def _legacy_pump(ws: "WebSocket", bridge) -> None:
             if match and match.end() == len(raw):
                 bridge.resize(cols=int(match.group(1)), rows=int(match.group(2)))
                 continue
-            bridge.write(raw)
+            # A large guided-project seed can exceed the PTY input buffer
+            # while the TUI is still attaching to /api/ws. ``os.write`` then
+            # blocks until the child starts reading. Never perform that write
+            # on uvicorn's event loop: the child needs this same loop to accept
+            # its gateway socket, otherwise both sides deadlock and every
+            # dashboard request hangs.
+            await asyncio.to_thread(bridge.write, raw)
     except WebSocketDisconnect:
         pass
     finally:
@@ -17762,7 +17778,29 @@ async def _broadcast_event(app: Any, channel: str, payload: str) -> None:
     """Fan out one publisher frame to every subscriber on `channel`."""
     event_channels, event_lock = _get_event_state(app)
     async with event_lock:
-        subs = list(event_channels.get(channel, ()))
+        aliases = _get_event_channel_aliases(app)
+        destinations = {
+            channel,
+            *(
+                browser_channel
+                for browser_channel, publisher_channel in aliases.items()
+                if publisher_channel == channel
+            ),
+        }
+        subs = list(
+            {
+                subscriber
+                for destination in destinations
+                for subscriber in event_channels.get(destination, ())
+            }
+        )
+
+    if '"type":"message.complete"' in payload or '"type": "message.complete"' in payload:
+        _log.info(
+            "guided response complete channel=%s subscribers=%d",
+            channel,
+            len(subs),
+        )
 
     for sub in subs:
         try:
@@ -18554,6 +18592,18 @@ async def pty_ws(ws: WebSocket) -> None:
         await ws.close(code=1011)
         return
 
+    # A keep-alive PTY retains the publisher URL/channel from the process that
+    # originally spawned it. A refreshed browser creates a new subscriber
+    # channel, so bridge that new channel back to the PTY's original publisher
+    # instead of silently dropping message.complete events after reattach.
+    publisher_channel = getattr(session, "event_channel", None)
+    if _created:
+        session.event_channel = channel
+    elif channel and publisher_channel and channel != publisher_channel:
+        _event_channels, event_lock = _get_event_state(ws.app)
+        async with event_lock:
+            _get_event_channel_aliases(ws.app)[channel] = publisher_channel
+
     await session.attach(ws)
 
     # --- writer loop: WebSocket → PTY master ----------------------------
@@ -18585,7 +18635,10 @@ async def pty_ws(ws: WebSocket) -> None:
                 session.bridge.resize(cols=int(match.group(1)), rows=int(match.group(2)))
                 continue
 
-            session.bridge.write(raw)
+            # Keep potentially blocking PTY input off the dashboard event
+            # loop. Guided setup payloads are intentionally detailed and may
+            # fill the kernel PTY buffer before Ink has finished booting.
+            await asyncio.to_thread(session.bridge.write, raw)
     except WebSocketDisconnect:
         pass
     finally:
@@ -18656,6 +18709,7 @@ async def pub_ws(ws: WebSocket) -> None:
         return
 
     await ws.accept()
+    _log.info("agent event publisher connected channel=%s", channel)
 
     try:
         while True:
@@ -18684,6 +18738,7 @@ async def events_ws(ws: WebSocket) -> None:
         return
 
     await ws.accept()
+    _log.info("guided event subscriber connected channel=%s", channel)
 
     event_channels, event_lock = _get_event_state(ws.app)
     async with event_lock:
@@ -18706,6 +18761,7 @@ async def events_ws(ws: WebSocket) -> None:
 
                 if not subs:
                     event_channels.pop(channel, None)
+                    _get_event_channel_aliases(ws.app).pop(channel, None)
 
 
 def _normalise_prefix(raw: Optional[str]) -> str:

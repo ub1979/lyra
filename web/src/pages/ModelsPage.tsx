@@ -1377,7 +1377,7 @@ export default function ModelsPage() {
         backLabel={requestedReturnTo ? "Back to project" : "Back to projects"}
       />
 
-      <PluginSlot name="models:top" />
+      {!requestedReturnTo && <PluginSlot name="models:top" />}
 
       {error && (
         <div className="border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
@@ -1409,24 +1409,27 @@ export default function ModelsPage() {
         </div>
       </CollapsiblePanel>
 
-      <CollapsiblePanel
-        title="Advanced model routing"
-        description="Helper models and Mixture of Agents. Most people can leave these on Auto."
-      >
-        <ModelSettingsPanel
-          aux={aux}
-          refreshKey={saveKey}
-          onSaved={onAssigned}
-        />
-      </CollapsiblePanel>
+      {!requestedReturnTo && (
+        <CollapsiblePanel
+          title="Advanced model routing"
+          description="Helper models and Mixture of Agents. Most people can leave these on Auto."
+        >
+          <ModelSettingsPanel
+            aux={aux}
+            refreshKey={saveKey}
+            onSaved={onAssigned}
+          />
+        </CollapsiblePanel>
+      )}
 
-      <CollapsiblePanel
-        title="Usage and model history"
-        description="Session totals, model activity, and optional token estimates."
-        onOpen={() => {
-          if (!data && !loading) load();
-        }}
-      >
+      {!requestedReturnTo && (
+        <CollapsiblePanel
+          title="Usage and model history"
+          description="Session totals, model activity, and optional token estimates."
+          onOpen={() => {
+            if (!data && !loading) load();
+          }}
+        >
         <div className="mb-5 flex flex-wrap items-center gap-2">
           <span className="mr-1 text-xs text-text-secondary">Period</span>
           {PERIODS.map((period) => (
@@ -1547,9 +1550,10 @@ export default function ModelsPage() {
             )}
           </div>
         )}
-      </CollapsiblePanel>
+        </CollapsiblePanel>
+      )}
 
-      <PluginSlot name="models:bottom" />
+      {!requestedReturnTo && <PluginSlot name="models:bottom" />}
     </div>
   );
 }

@@ -25,7 +25,7 @@ import "@xterm/xterm/css/xterm.css";
 import { Button } from "@nous-research/ui/ui/components/button";
 import { Typography } from "@nous-research/ui/ui/components/typography/index";
 import { cn } from "@/lib/utils";
-import { Copy, FolderOpen, PanelRight, RotateCcw, Send, X } from "lucide-react";
+import { Copy, FolderOpen, PanelRight, RotateCcw, Send, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
@@ -116,8 +116,21 @@ const MODEL_CONNECTION_ERROR_MARKER = "[[IDRAK_MODEL_CONNECTION_ERROR]]";
 
 interface GuidedMessage {
   id: string;
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "error";
   content: string;
+}
+
+interface GuidedAgentEventEnvelope {
+  method?: string;
+  params?: {
+    type?: string;
+    payload?: {
+      failure_reason?: string;
+      message?: string;
+      rendered?: string;
+      text?: string;
+    };
+  };
 }
 
 const GUIDED_SPECIALIST_LABELS: Record<string, string> = {
@@ -179,10 +192,11 @@ function specialistIdsFromBuilderSeed(
       window.localStorage.getItem(guidedSpecialistStorageKey(workspace)) ?? "[]",
     ) as unknown;
     if (Array.isArray(stored)) {
-      return stored.filter(
+      const selected = stored.filter(
         (id): id is string =>
           typeof id === "string" && id in GUIDED_SPECIALIST_LABELS,
       );
+      if (selected.length) return selected;
     }
   } catch {
     // Fall through to workflow coordination.
@@ -211,15 +225,26 @@ function readGuidedMessages(workspace: string): GuidedMessage[] {
       window.localStorage.getItem(guidedMessageStorageKey(workspace)) ?? "[]",
     ) as unknown;
     if (!Array.isArray(value)) return [];
-    return value.filter(
+    const messages = value.filter(
       (item): item is GuidedMessage =>
         typeof item === "object" &&
         item !== null &&
         typeof (item as GuidedMessage).id === "string" &&
         ((item as GuidedMessage).role === "user" ||
-          (item as GuidedMessage).role === "assistant") &&
+          (item as GuidedMessage).role === "assistant" ||
+          (item as GuidedMessage).role === "error") &&
         typeof (item as GuidedMessage).content === "string",
     );
+    const last = messages[messages.length - 1];
+    if (last?.role === "user") {
+      messages.push({
+        id: `recovered-error-${last.id}`,
+        role: "error",
+        content:
+          "The previous attempt ended without a response. You can retry it when ready.",
+      });
+    }
+    return messages;
   } catch {
     return [];
   }
@@ -231,6 +256,82 @@ const GUIDED_WORK_PHRASES = [
   "Putting the pieces together…",
   "A little more magic is happening in the background…",
   "Still working—your project is on the stove…",
+  "Sketching the next move…",
+  "Turning your idea into something concrete…",
+  "Checking the map before we move…",
+  "Lining up the building blocks…",
+  "Giving the details a careful look…",
+  "Making sure the pieces fit…",
+  "Warming up the creative engines…",
+  "Following the clues through your project…",
+  "Polishing the plan as it takes shape…",
+  "Connecting a few important dots…",
+  "Looking around the corners for surprises…",
+  "Measuring twice before building once…",
+  "Sorting the must-haves from the nice-to-haves…",
+  "Giving your idea a sturdy backbone…",
+  "Finding the simplest useful path…",
+  "Keeping the tiny gremlins out of the plan…",
+  "Making room for a smooth user journey…",
+  "Checking that the foundations feel solid…",
+  "Turning rough notes into clear decisions…",
+  "Finding the friendly route through the complexity…",
+  "Preparing the next piece for you…",
+  "Making the experience feel natural…",
+  "Testing a couple of possibilities…",
+  "Choosing sensible defaults where they help…",
+  "Keeping an eye on the important details…",
+  "Giving the project a quick health check…",
+  "Working through the tricky bits…",
+  "Making the next answer easier to use…",
+  "Tucking the loose ends into place…",
+  "Checking the project compass…",
+  "Shaping the idea into a useful flow…",
+  "Making sure nothing important was forgotten…",
+  "Looking for a cleaner way through…",
+  "Balancing speed, quality, and simplicity…",
+  "Preparing a neat little serving of progress…",
+  "Giving the logic a gentle shake test…",
+  "Mapping what happens next…",
+  "Keeping the project train on its track…",
+  "Putting names to the fuzzy parts…",
+  "Making the plan friendlier for real people…",
+  "Double-checking the path from idea to app…",
+  "Finding the sharp edges before users do…",
+  "Arranging the pieces into a clear story…",
+  "Making a small leap from vague to specific…",
+  "Checking the doors, windows, and escape routes…",
+  "Keeping future-you out of unnecessary trouble…",
+  "Turning choices into a practical next step…",
+  "Making sure the clever bits stay understandable…",
+  "Listening for anything that sounds off…",
+  "Getting the next milestone ready…",
+  "Giving the user journey a quick rehearsal…",
+  "Checking that the plan can survive real life…",
+  "Tidying the workbench as I go…",
+  "Finding the best place to begin…",
+  "Making progress one thoughtful step at a time…",
+  "Checking assumptions before they become bugs…",
+  "Keeping the solution useful, not fussy…",
+  "Working out what matters most right now…",
+  "Preparing something you can react to…",
+  "Taking the scenic route around future problems…",
+  "Turning the next corner carefully…",
+  "Making sure the project has a clear heartbeat…",
+  "Giving the next step a final polish…",
+  "Keeping things moving behind the curtain…",
+  "Checking the recipe against the ingredients…",
+  "Making the complicated parts behave…",
+  "Building a bridge to the next decision…",
+  "Looking for the most helpful answer…",
+  "Making this easier for the person who will use it…",
+  "Packing the next update with useful detail…",
+  "Almost ready to bring the next piece to the table…",
+  "Keeping the wheels turning smoothly…",
+  "Giving the project one more thoughtful pass…",
+  "Making sure the result earns its place…",
+  "Following the thread to a clear conclusion…",
+  "Getting the next useful thing ready for you…",
 ];
 
 const GUIDED_SPECIALIST_ETA_SECONDS: Record<string, [number, number]> = {
@@ -351,6 +452,7 @@ function guidedTerminalSnapshot(
   term: Terminal,
   turnStartLine = 0,
 ): {
+  errorMessage: string | null;
   output: string;
   presentation: GuidedChatPresentation;
 } {
@@ -359,6 +461,7 @@ function guidedTerminalSnapshot(
   const start = Math.max(turnStartLine, buffer.length - 220, 0);
   let insideInternalSetup = false;
   let modelConnectionError = false;
+  let errorMessage: string | null = null;
   const technicalChrome =
     /(?:nous research|hermes|available tools|available skills|toolsets|system prompt|starting a fresh dashboard chat|\/help for commands|commits behind|run .* update|session:|voice off|try ["“]|browser:|clarify:|code_execution:|cronjob:|delegation:|file:|memory:|project:|api call failed after)/i;
 
@@ -370,6 +473,17 @@ function guidedTerminalSnapshot(
       /security token included in the request is invalid/i.test(trimmed)
     ) {
       modelConnectionError = true;
+      errorMessage =
+        "The selected AI model could not connect because its credentials were rejected. Choose another model or reconnect its account.";
+      continue;
+    }
+    if (/API call failed after \d+ retr/i.test(trimmed)) {
+      const detail = trimmed
+        .replace(/^.*?API call failed after \d+ retr(?:y|ies):?\s*/i, "")
+        .trim();
+      errorMessage = detail
+        ? `The AI model returned an error: ${detail.slice(0, 360)}`
+        : "The AI model could not complete this request. Check the selected model and retry.";
       continue;
     }
     if (trimmed.includes("IDRAK_INTERNAL_SETUP_BEGIN")) {
@@ -418,7 +532,7 @@ function guidedTerminalSnapshot(
   ]
     .filter(Boolean)
     .join("\n\n");
-  return { output, presentation };
+  return { errorMessage, output, presentation };
 }
 
 function buildTerminalTheme(background: string, foreground: string) {
@@ -465,6 +579,22 @@ function terminalLineHeightForWidth(layoutWidthPx: number): number {
   return layoutWidthPx < 1024 ? 1.02 : 1.15;
 }
 
+function terminalComposerIsReady(term: Terminal): boolean {
+  const buffer = term.buffer.active;
+  const start = Math.max(0, buffer.length - 40);
+  for (let index = start; index < buffer.length; index += 1) {
+    const line =
+      buffer.getLine(index)?.translateToString(true).trim() ?? "";
+    if (
+      /^[\s│┃┊┋]*❯/.test(line) ||
+      /\/help for commands/i.test(line)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const termRef = useRef<Terminal | null>(null);
@@ -500,7 +630,13 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const [guidedMessages, setGuidedMessages] = useState<GuidedMessage[]>(() =>
     typeof window === "undefined" ? [] : readGuidedMessages(workspaceParam),
   );
-  const [guidedSelectedSpecialistIds] = useState(() =>
+  const [guidedMessageWorkspace, setGuidedMessageWorkspace] = useState(
+    workspaceParam,
+  );
+  const [
+    guidedSelectedSpecialistIds,
+    setGuidedSelectedSpecialistIds,
+  ] = useState(() =>
     typeof window === "undefined"
       ? ["idk_it"]
       : specialistIdsFromBuilderSeed(
@@ -524,14 +660,25 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   );
   const guidedTurnStartLineRef = useRef(0);
   const lastGuidedResponseRef = useRef("");
+  const guidedTurnSettledRef = useRef(true);
   const [guidedInput, setGuidedInput] = useState("");
   const [guidedPaused, setGuidedPaused] = useState(false);
+  const [guidedAgentReady, setGuidedAgentReady] = useState(false);
+  const guidedAgentReadyRef = useRef(false);
   const guidedOutputRef = useRef<HTMLDivElement | null>(null);
+  const guidedAutoScrollRef = useRef(true);
   const hasModelConnectionError = guidedOutput.includes(
     MODEL_CONNECTION_ERROR_MARKER,
   );
   const guidedWorkingSpecialist =
     guidedActivity.specialist ?? guidedDefaultSpecialist;
+  const latestGuidedMessage =
+    guidedMessages[guidedMessages.length - 1] ?? null;
+  const showRequirementChoices =
+    guidedActivity.phase === "idle" &&
+    latestGuidedMessage?.role === "assistant" &&
+    guidedSelectedSpecialistIds.includes("req-engineer") &&
+    /[?？]/.test(latestGuidedMessage.content);
   // Lazy-init: the missing-token check happens at construction so the effect
   // body doesn't have to setState (React 19's set-state-in-effect rule).
   // In gated (OAuth) mode the server intentionally omits the session token —
@@ -551,6 +698,75 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const forceFreshPtyRef = useRef(false);
   const blockedInputNoticeRef = useRef(false);
   const lastResumeReconnectAtRef = useRef(0);
+  const appendGuidedError = useCallback((content: string) => {
+    setGuidedMessages((messages) => {
+      const last = messages[messages.length - 1];
+      if (last?.role === "error" && last.content === content) return messages;
+      return [
+        ...messages,
+        {
+          id: `error-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          role: "error",
+          content,
+        },
+      ];
+    });
+  }, []);
+
+  // ChatPage stays mounted while the user visits model settings. When they
+  // return, reload the newly selected project's own transcript instead of
+  // retaining the empty settings-route scope (or another project's history).
+  useEffect(() => {
+    if (!guided || guidedMessageWorkspace === workspaceParam) return;
+    setGuidedMessages(readGuidedMessages(workspaceParam));
+    setGuidedMessageWorkspace(workspaceParam);
+    lastGuidedResponseRef.current = "";
+    guidedTurnSettledRef.current = true;
+    setGuidedActivity({ phase: "idle", text: "", specialist: null });
+  }, [guided, guidedMessageWorkspace, workspaceParam]);
+
+  // Keep the preloaded skill set aligned with the project URL as the
+  // persistent ChatPage moves between the launcher, model settings, and chat.
+  useEffect(() => {
+    if (!guided) return;
+    const selected = specialistIdsFromBuilderSeed(
+      searchParams.get("builder"),
+      workspaceParam,
+    );
+    const first = specialistFromId(selected[0] ?? "req-engineer");
+    setGuidedSelectedSpecialistIds(selected);
+    guidedDefaultSpecialistRef.current = first;
+    guidedSessionSkillsRef.current = [
+      "ultimate-builder:ultimate-app-builder",
+      selected[0] ? `ultimate-builder:${selected[0]}` : "",
+    ].filter(Boolean);
+  }, [guided, searchParams, workspaceParam]);
+  const finishGuidedResponse = useCallback((content: string) => {
+    const response = content.trim();
+    if (!response || response === lastGuidedResponseRef.current) return;
+    guidedTurnSettledRef.current = true;
+    lastGuidedResponseRef.current = response;
+    setGuidedLastSignalAt(Date.now());
+    setGuidedOutput(response);
+    setGuidedActivity({ phase: "idle", text: "", specialist: null });
+    setGuidedMessages((messages) => {
+      const last = messages[messages.length - 1];
+      if (last?.role === "assistant") {
+        return [
+          ...messages.slice(0, -1),
+          { ...last, content: response },
+        ];
+      }
+      return [
+        ...messages,
+        {
+          id: `assistant-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          role: "assistant",
+          content: response,
+        },
+      ];
+    });
+  }, []);
   // True from the moment the connect effect begins until the socket resolves
   // (open or close). Guards the page-resume reconnect against firing during
   // the async ticket/URL await gap where wsRef.current is not yet assigned.
@@ -619,6 +835,33 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     setPtyState("connecting");
     setReconnectNonce((n) => n + 1);
   }, [clearReconnectTimer, searchParams, setSearchParams]);
+  const clearGuidedHistory = useCallback(() => {
+    if (
+      !window.confirm(
+        "Clear this project’s chat history and start a fresh conversation?",
+      )
+    ) {
+      return;
+    }
+    try {
+      wsRef.current?.send("\x03");
+    } catch {
+      // The fresh-session reconnect below is sufficient if the socket closed.
+    }
+    try {
+      window.localStorage.removeItem(guidedMessageStorageKey(workspaceParam));
+    } catch {
+      // State still clears when browser storage is unavailable.
+    }
+    setGuidedMessages([]);
+    setGuidedOutput("");
+    setGuidedInput("");
+    setGuidedPaused(false);
+    setGuidedActivity({ phase: "idle", text: "", specialist: null });
+    lastGuidedResponseRef.current = "";
+    guidedTurnSettledRef.current = true;
+    startFreshDashboardChat();
+  }, [startFreshDashboardChat, workspaceParam]);
   // Raw state for the mobile side-sheet + a derived value that force-
   // closes whenever the chat tab isn't active.  The *derived* value is
   // what side-effects (body-scroll lock, keydown listener, portal render)
@@ -679,6 +922,106 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     (title: string | null) => setSessionTitleState({ scope: titleScope, title }),
     [titleScope],
   );
+
+  // Guided chat is intentionally terminal-free, so consume the PTY agent's
+  // structured event stream directly. `message.complete` is the authoritative
+  // turn-settled signal; terminal scraping remains only a compatibility
+  // fallback for older servers. This prevents a completed turn from looking
+  // stuck merely because terminal wrapping hid the visual "Response" marker.
+  useEffect(() => {
+    if (!guided || !channel || !hasActivated) return;
+
+    let unmounting = false;
+    let ws: WebSocket | null = null;
+    let streamedText = "";
+
+    void (async () => {
+      const url = await api.buildWsUrl("/api/events", { channel });
+      if (unmounting) return;
+      ws = new WebSocket(url);
+
+      ws.addEventListener("message", (event) => {
+        let frame: GuidedAgentEventEnvelope;
+        try {
+          frame = JSON.parse(event.data);
+        } catch {
+          return;
+        }
+        if (frame.method !== "event" || !frame.params?.type) return;
+
+        const { type, payload } = frame.params;
+        if (type === "message.start") {
+          guidedTurnSettledRef.current = false;
+          streamedText = "";
+          setGuidedLastSignalAt(Date.now());
+          return;
+        }
+        if (type === "message.delta") {
+          if (typeof payload?.text === "string") {
+            streamedText += payload.text;
+          }
+          setGuidedLastSignalAt(Date.now());
+          return;
+        }
+        if (type === "message.complete") {
+          const response =
+            (typeof payload?.text === "string" && payload.text.trim()
+              ? payload.text
+              : streamedText
+            ).trim();
+          streamedText = "";
+          if (response) {
+            finishGuidedResponse(response);
+          } else if (payload?.failure_reason) {
+            guidedTurnSettledRef.current = true;
+            appendGuidedError(
+              `The AI model could not finish this response: ${payload.failure_reason}`,
+            );
+            setGuidedActivity({
+              phase: "idle",
+              text: "",
+              specialist: null,
+            });
+          } else {
+            guidedTurnSettledRef.current = true;
+            setGuidedActivity({
+              phase: "idle",
+              text: "",
+              specialist: null,
+            });
+          }
+          return;
+        }
+        if (type === "error" && payload?.message) {
+          guidedTurnSettledRef.current = true;
+          appendGuidedError(payload.message);
+          setGuidedActivity({
+            phase: "idle",
+            text: "",
+            specialist: null,
+          });
+        }
+      });
+    })().catch((error: unknown) => {
+      if (unmounting) return;
+      appendGuidedError(
+        error instanceof Error
+          ? `The project response feed could not connect: ${error.message}`
+          : "The project response feed could not connect.",
+      );
+    });
+
+    return () => {
+      unmounting = true;
+      ws?.close();
+    };
+  }, [
+    appendGuidedError,
+    channel,
+    finishGuidedResponse,
+    guided,
+    hasActivated,
+  ]);
 
   useEffect(() => {
     if (!isActive) {
@@ -798,14 +1141,24 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     return () => setEnd(null);
   }, [guided, isActive, narrow, mobilePanelOpen, modelToolsLabel, setEnd]);
 
-  const sendGuidedMessage = useCallback(() => {
-    const text = guidedInput.trim();
+  const submitGuidedText = useCallback((value: string) => {
+    const text = value.trim();
     const ws = wsRef.current;
-    if (guidedPaused || !text || !ws || ws.readyState !== WebSocket.OPEN) return;
+    if (
+      guidedPaused ||
+      !guidedAgentReadyRef.current ||
+      !text ||
+      !ws ||
+      ws.readyState !== WebSocket.OPEN
+    ) {
+      return;
+    }
     guidedTurnStartLineRef.current = Math.max(
       0,
       (termRef.current?.buffer.active.length ?? 1) - 1,
     );
+    guidedAutoScrollRef.current = true;
+    guidedTurnSettledRef.current = false;
     lastGuidedResponseRef.current = "";
     setGuidedLastSignalAt(Date.now());
     setGuidedMessages((messages) => [
@@ -829,7 +1182,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       }
     }, 80);
     setGuidedInput("");
-  }, [guidedInput, guidedPaused]);
+  }, [guidedPaused]);
+
+  const sendGuidedMessage = useCallback(() => {
+    submitGuidedText(guidedInput);
+  }, [guidedInput, submitGuidedText]);
 
   const toggleGuidedPause = useCallback(() => {
     if (!guidedPaused && wsRef.current?.readyState === WebSocket.OPEN) {
@@ -855,6 +1212,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
 
     ws.send("\x03");
     setGuidedPaused(false);
+    guidedAutoScrollRef.current = true;
+    guidedTurnSettledRef.current = false;
     guidedTurnStartLineRef.current = Math.max(
       0,
       (termRef.current?.buffer.active.length ?? 1) - 1,
@@ -1332,6 +1691,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     let onDataDisposable: { dispose(): void } | null = null;
     let onResizeDisposable: { dispose(): void } | null = null;
     let guidedWriteDisposable: { dispose(): void } | null = null;
+    let builderSeedTimer: number | null = null;
+    guidedAgentReadyRef.current = false;
+    setGuidedAgentReady(false);
     const forceFresh = forceFreshPtyRef.current;
     forceFreshPtyRef.current = false;
     // A connect attempt is now in flight — set synchronously (before the async
@@ -1436,16 +1798,36 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       }
       const builderSeed = searchParams.get("builder");
       if (builderSeed) {
-        const next = new URLSearchParams(searchParams);
-        next.delete("builder");
-        setSearchParams(next, { replace: true });
-        window.setTimeout(() => {
+        const readyDeadline = Date.now() + 15_000;
+        const sendWhenReady = () => {
           const active = wsRef.current;
           if (!active || active.readyState !== WebSocket.OPEN) return;
+          if (!terminalComposerIsReady(term)) {
+            if (Date.now() < readyDeadline) {
+              builderSeedTimer = window.setTimeout(sendWhenReady, 250);
+            } else {
+              appendGuidedError(
+                "The project conversation did not finish preparing. Reconnect the chat and try again.",
+              );
+              guidedTurnSettledRef.current = true;
+              setGuidedActivity({
+                phase: "idle",
+                text: "",
+                specialist: null,
+              });
+            }
+            return;
+          }
+          guidedAgentReadyRef.current = true;
+          setGuidedAgentReady(true);
+          const next = new URLSearchParams(searchParams);
+          next.delete("builder");
+          setSearchParams(next, { replace: true });
           guidedTurnStartLineRef.current = Math.max(
             0,
             term.buffer.active.length - 1,
           );
+          guidedTurnSettledRef.current = false;
           setGuidedActivity({
             phase: "working",
             text: "Let me think…",
@@ -1458,7 +1840,27 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               wsRef.current.send("\r");
             }
           }, 100);
-        }, 900);
+        };
+        builderSeedTimer = window.setTimeout(sendWhenReady, 100);
+      } else {
+        const readyDeadline = Date.now() + 15_000;
+        const markReady = () => {
+          if (
+            wsRef.current?.readyState !== WebSocket.OPEN ||
+            unmounting
+          ) {
+            return;
+          }
+          if (terminalComposerIsReady(term)) {
+            guidedAgentReadyRef.current = true;
+            setGuidedAgentReady(true);
+            return;
+          }
+          if (Date.now() < readyDeadline) {
+            builderSeedTimer = window.setTimeout(markReady, 250);
+          }
+        };
+        builderSeedTimer = window.setTimeout(markReady, 100);
       }
     };
 
@@ -1486,6 +1888,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           text: "",
           specialist: null,
         });
+        guidedTurnSettledRef.current = true;
       }
       // Surface the real cause to the browser console on every close so a
       // "chat won't connect" report can be diagnosed without server access.
@@ -1627,30 +2030,23 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           );
           setGuidedLastSignalAt(Date.now());
           setGuidedOutput(snapshot.output);
-          setGuidedActivity(snapshot.presentation);
+          if (snapshot.errorMessage) {
+            guidedTurnSettledRef.current = true;
+            appendGuidedError(snapshot.errorMessage);
+            setGuidedActivity({
+              phase: "idle",
+              text: "",
+              specialist: null,
+            });
+          } else if (!guidedTurnSettledRef.current) {
+            setGuidedActivity(snapshot.presentation);
+          }
           if (
             snapshot.presentation.phase === "response" &&
             snapshot.presentation.text &&
             snapshot.presentation.text !== lastGuidedResponseRef.current
           ) {
-            lastGuidedResponseRef.current = snapshot.presentation.text;
-            setGuidedMessages((messages) => {
-              const last = messages[messages.length - 1];
-              if (last?.role === "assistant") {
-                return [
-                  ...messages.slice(0, -1),
-                  { ...last, content: snapshot.presentation.text },
-                ];
-              }
-              return [
-                ...messages,
-                {
-                  id: `assistant-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-                  role: "assistant",
-                  content: snapshot.presentation.text,
-                },
-              ];
-            });
+            finishGuidedResponse(snapshot.presentation.text);
           }
         });
       }
@@ -1666,6 +2062,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           : "Chat connection failed. Reload and try again.",
       );
       if (guided) {
+        appendGuidedError(
+          error instanceof Error
+            ? `The project chat could not connect: ${error.message}`
+            : "The project chat could not connect. Reload and try again.",
+        );
         setGuidedActivity({
           phase: "idle",
           text: "",
@@ -1718,6 +2119,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         clearTimeout(reconnectTimerRef.current);
         reconnectTimerRef.current = null;
       }
+      if (builderSeedTimer !== null) {
+        window.clearTimeout(builderSeedTimer);
+        builderSeedTimer = null;
+      }
     };
   }, [
     hasActivated,
@@ -1728,15 +2133,24 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     reconnectNonce,
     guided,
     workspaceParam,
+    appendGuidedError,
+    finishGuidedResponse,
   ]);
 
   useEffect(() => {
-    if (!guidedOutputRef.current) return;
-    guidedOutputRef.current.scrollTop = guidedOutputRef.current.scrollHeight;
-  }, [guidedActivity, guidedMessages, guidedOutput]);
+    const output = guidedOutputRef.current;
+    if (!output || !guidedAutoScrollRef.current) return;
+    output.scrollTop = output.scrollHeight;
+  }, [guidedMessages.length]);
 
   useEffect(() => {
-    if (!guided || typeof window === "undefined") return;
+    if (
+      !guided ||
+      typeof window === "undefined" ||
+      guidedMessageWorkspace !== workspaceParam
+    ) {
+      return;
+    }
     try {
       window.localStorage.setItem(
         guidedMessageStorageKey(workspaceParam),
@@ -1745,7 +2159,38 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     } catch {
       // Private browsing/storage limits should not break the live conversation.
     }
-  }, [guided, guidedMessages, workspaceParam]);
+  }, [
+    guided,
+    guidedMessageWorkspace,
+    guidedMessages,
+    workspaceParam,
+  ]);
+
+  useEffect(() => {
+    if (!guided || guidedActivity.phase !== "working") return;
+    const remainingMs = Math.max(
+      0,
+      75_000 - (Date.now() - guidedLastSignalAt),
+    );
+    const timeout = window.setTimeout(() => {
+      try {
+        wsRef.current?.send("\x03");
+      } catch {
+        // The visible error is still useful if the transport already closed.
+      }
+      appendGuidedError(
+        "Idrak IT did not receive a response from the AI model within 75 seconds. The turn was stopped; check the AI model or select Stop & retry.",
+      );
+      guidedTurnSettledRef.current = true;
+      setGuidedActivity({ phase: "idle", text: "", specialist: null });
+    }, remainingMs);
+    return () => window.clearTimeout(timeout);
+  }, [
+    appendGuidedError,
+    guided,
+    guidedActivity.phase,
+    guidedLastSignalAt,
+  ]);
 
   // When the user returns to the chat tab (isActive: false → true), the
   // terminal host just transitioned from display:none to display:flex.
@@ -1990,6 +2435,15 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               <Button
                 ghost
                 size="sm"
+                onClick={clearGuidedHistory}
+                title="Clear chat history and start fresh"
+              >
+                <Trash2 className="mr-1 h-3.5 w-3.5" />
+                Clear
+              </Button>
+              <Button
+                ghost
+                size="sm"
                 onClick={() => {
                   const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
                   window.location.href = `/models?returnTo=${encodeURIComponent(returnTo)}`;
@@ -2011,6 +2465,12 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
 
           <div
             ref={guidedOutputRef}
+            onScroll={(event) => {
+              const element = event.currentTarget;
+              guidedAutoScrollRef.current =
+                element.scrollHeight - element.scrollTop - element.clientHeight <
+                80;
+            }}
             className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-7 sm:py-7"
             aria-live="polite"
           >
@@ -2054,13 +2514,67 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                         "max-w-[88%] whitespace-pre-wrap rounded-2xl px-4 py-3 shadow-sm sm:max-w-[78%]",
                         message.role === "user"
                           ? "rounded-br-md bg-midground text-background-base"
+                          : message.role === "error"
+                          ? "rounded-bl-md border border-warning/40 bg-warning/10 text-warning"
                           : "rounded-bl-md border border-current/10 bg-midground/5 text-text-primary",
                       )}
                     >
                       <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider opacity-65">
-                        {message.role === "user" ? "You" : "Idrak IT"}
+                        {message.role === "user"
+                          ? "You"
+                          : message.role === "error"
+                          ? "Problem"
+                          : "Idrak IT"}
                       </div>
                       {message.content}
+                      {showRequirementChoices &&
+                        message.id === latestGuidedMessage?.id && (
+                          <div className="mt-3 flex flex-wrap gap-2 border-t border-current/10 pt-3">
+                            <Button
+                              ghost
+                              size="sm"
+                              onClick={() =>
+                                submitGuidedText(
+                                  "Skip this question. Record it as an open decision and ask the next single question.",
+                                )
+                              }
+                            >
+                              Skip this question
+                            </Button>
+                            <Button
+                              ghost
+                              size="sm"
+                              onClick={() =>
+                                submitGuidedText(
+                                  "Decide this question for me using the safest sensible default. Briefly state the default, then ask the next single question.",
+                                )
+                              }
+                            >
+                              Decide for me
+                            </Button>
+                            <Button
+                              ghost
+                              size="sm"
+                              onClick={() =>
+                                submitGuidedText(
+                                  "Use sensible defaults for all remaining requirements questions. Summarize the complete requirements and choices for my approval before any coding.",
+                                )
+                              }
+                            >
+                              Use smart defaults
+                            </Button>
+                          </div>
+                        )}
+                      {message.role === "error" && (
+                        <Button
+                          className="mt-3"
+                          ghost
+                          size="sm"
+                          onClick={retryLastGuidedMessage}
+                        >
+                          Stop & retry
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -2105,6 +2619,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 placeholder={
                   guidedPaused
                     ? "Project paused"
+                    : !guidedAgentReady
+                    ? "Preparing the project conversation…"
                     : "Describe your idea or ask Idrak IT what to do next…"
                 }
                 className="min-h-12 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-text-primary outline-none placeholder:text-text-secondary"
@@ -2114,7 +2630,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 size="icon"
                 onClick={sendGuidedMessage}
                 disabled={
-                  guidedPaused || !guidedInput.trim() || ptyState !== "open"
+                  guidedPaused ||
+                  !guidedAgentReady ||
+                  !guidedInput.trim() ||
+                  ptyState !== "open"
                 }
                 aria-label="Send message"
               >

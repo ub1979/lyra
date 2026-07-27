@@ -364,9 +364,18 @@ export default function App() {
   const normalizedPath = pathname.replace(/\/$/, "") || "/";
   const isChatRoute = normalizedPath === "/chat";
   const isBuilderRoute = normalizedPath === "/ultimate-builder";
+  const routeParams = new URLSearchParams(search);
   const isGuidedChat =
-    isChatRoute && new URLSearchParams(search).get("guided") === "1";
-  const isSimpleExperience = isBuilderRoute || isGuidedChat;
+    isChatRoute && routeParams.get("guided") === "1";
+  const projectSettingsReturnTo = routeParams.get("returnTo") ?? "";
+  const isProjectModelSettings =
+    normalizedPath === "/models" &&
+    projectSettingsReturnTo.startsWith("/chat?") &&
+    new URLSearchParams(projectSettingsReturnTo.split("?")[1] ?? "").get(
+      "guided",
+    ) === "1";
+  const isSimpleExperience =
+    isBuilderRoute || isGuidedChat || isProjectModelSettings;
   const embeddedChat = isDashboardEmbeddedChatEnabled();
 
   // `dashboard.show_token_analytics` gates the Analytics nav item.  The

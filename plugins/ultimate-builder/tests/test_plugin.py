@@ -67,8 +67,8 @@ def test_build_command_injects_normal_idrak_turn():
 def test_dashboard_enforces_requirements_gate_with_real_skill_loading():
     dashboard = (ROOT / "dashboard" / "dist" / "index.js").read_text()
     assert "first_turn_gate" in dashboard
-    assert "2 to 3 structured interview rounds" in dashboard
-    assert "mandatory 5 to 8 question Grill" in dashboard
-    assert "explicit user approval" in dashboard
+    assert "Ask exactly ONE focused question" in dashboard
+    assert "use smart defaults" in dashboard
+    assert "explicit user approval before coding" in dashboard
     assert "skill_view(name='ultimate-builder:<specialist-id>')" in dashboard
     assert "Use ultimate-builder:ultimate-app-builder" not in dashboard

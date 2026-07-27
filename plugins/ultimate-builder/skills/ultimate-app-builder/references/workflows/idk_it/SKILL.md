@@ -1,6 +1,6 @@
 ---
 name: idk_it
-description: Single entry point that orchestrates the full software development lifecycle by dispatching 9 specialized agents in the right order. Use when the user mentions: build, create, new project, MVP, prototype, add feature, fix bug, deploy, test, review code, refactor, security audit, write docs, plan, ship it, debug, promote, productionize.
+description: "Single entry point that orchestrates the full software development lifecycle by dispatching specialized agents in the right order. Use for building, creating, prototyping, adding features, fixing bugs, deploying, testing, reviewing, refactoring, security auditing, documenting, planning, debugging, promoting, or productionizing software."
 ---
 
 # IDK — Software Development Lifecycle Orchestrator
@@ -166,7 +166,7 @@ Goal: a working product in the user's hands as fast as possible — but built so
 
 ### Pipeline
 
-1. **Quick Scope (orchestrator, one round).** Ask ≤5 questions in ONE message: what does it do (core value path), who uses it, stack preference (default: whatever ships fastest that the user could realistically keep), what's explicitly OUT of scope, how do they want to run it (local/web/CLI). No Grill, no multi-round interview, no prototype walkthrough.
+1. **Quick Scope (orchestrator, conversational).** Ask up to 5 questions, exactly ONE per message: what does it do (core value path), who uses it, stack preference (default: whatever ships fastest that the user could realistically keep), what's explicitly OUT of scope, and how they want to run it (local/web/CLI). Honor Skip, Decide for me, and Use smart defaults as defined by req-engineer's Conversation Contract. No Grill, no multi-round interview, no prototype walkthrough.
 2. **`mvp-brief.md` (~1 page, orchestrator writes it).** Goal, core path, stack, out-of-scope list, and a 10-20 line build sketch: modules, data shape, the seams (where proper auth/validation/persistence would slot in later). One confirmation: "This is what I'll build — anything wrong?" — then go; do not loop on polish.
 3. **Build — spawn `sw-developer`** (one agent; sequential slices if big). Input: mvp-brief.md + the Evolvability Contract below, verbatim, in the prompt. Foundation + happy path first so there's something runnable early.
 4. **Smoke QA — spawn `qa-engineer`** (smoke playbook only): boot the real app, walk the core path with real tools (curl/Playwright), confirm it doesn't fall over on obvious empty/wrong input. CRITICAL bugs → sw-developer fix → re-smoke. HIGH and below → log to `.sdlc/debt.md`, don't block. Under the MVP profile, logging a finding to debt.md constitutes the user-acceptance Rule 5 requires — the user accepted deferred rigor by choosing MVP; `promote` is where each item gets fixed or explicitly re-accepted. CRITICAL findings are never debt-loggable.
@@ -229,9 +229,9 @@ Briefly (5-8 lines) tell the user which agents will run and what each does, then
 Follow the `req-engineer` skill in the main conversation. Four NON-NEGOTIABLE sub-steps:
 
 1. **Interview rounds (2-3)** — vision, deep dive, clarifications
-2. **⛔ THE GRILL (MANDATORY — NEVER SKIP)** — run req-engineer Step 3.5: 5-8 adversarial stress-test questions exposing gaps, contradictions, false assumptions. User MUST answer ALL. Do NOT auto-answer, merge with interviews, or skip even if the user says "just build it" — reply: "The stress test is mandatory — it catches gaps that save days of rework. 5-8 questions, 2 minutes."
+2. **Risk check** — run req-engineer Step 3.5 conversationally: ask up to 5 relevant adversarial questions, exactly one per message. Honor Skip, Decide for me, and Use smart defaults; record skipped/defaulted decisions as assumptions or risks.
 3. **Generate `requirements.md` with prototypes** — only AFTER the grill and all contradictions resolved
-4. **⛔ PROTOTYPE WALKTHROUGH CHOICE (MANDATORY — ALWAYS ASK)** — ask: "**Visual prototype walkthrough** (HTML files in browser) or **text-based walkthrough** (narrated here)?" Wait for the answer, deliver that format.
+4. **Prototype walkthrough choice** — ask: "**Visual prototype walkthrough** (HTML files in browser) or **text-based walkthrough** (narrated here)?" Honor Skip with the text-based default, or choose the best fit when the user says Decide for me / Use smart defaults.
 
 MANDATORY CHECKPOINT: "Here's the requirements doc with prototypes. Review it — this is the cheapest time to change anything. Say 'looks good' to continue."
 
@@ -578,7 +578,7 @@ Fix these specific findings:
 
 Detect from language: detailed instructions = Guided; "handle it" = Autonomous.
 
-**⛔ Autonomy does NOT override mandatory steps.** Even in Autonomous mode, these always require user interaction: the Build Profile question (Step 0.5) and, on Small/Standard/Production, The Grill (req-engineer Step 3.5), Prototype Walkthrough Choice (Step 6.5), and the requirements checkpoint. On the MVP Fast Path the mandatory interactions are the Quick Scope answers and the mvp-brief confirmation. "Just build it" means fewer checkpoints during development, NOT skipping requirements validation — if the user says "just build it" before Step 0.5 was asked, that's a signal to suggest the MVP profile, not to skip the question.
+**Autonomy still requires requirements validation.** In Autonomous mode, ask one question at a time unless the user says Skip, Decide for me, or Use smart defaults. Those choices let the workflow resolve gaps without further interview messages, but it must still present the resulting requirements or MVP brief for one final approval before coding.
 
 **⛔ Continuous execution in autonomous/semi-autonomous mode.** Between non-checkpoint phases: no "Ready to proceed?", no waiting for confirmation, no summarize-and-ask. Spawn the next agent immediately, update the ledger, give a one-line status, keep going.
 
@@ -591,7 +591,7 @@ Detect from language: detailed instructions = Guided; "handle it" = Autonomous.
 | Agent fails | Retry once. If still fails, tell user. |
 | User rejects checkpoint | Append feedback, re-spawn ONLY that agent. |
 | Requirements change mid-pipeline | Re-run from affected agent forward. Ledger: "Requirements changed" entry. |
-| User wants to skip a step | Warn consequences. Allow if they insist — **EXCEPT The Grill and Prototype Walkthrough Choice, which are never skippable on Small/Standard/Production. If the user keeps pushing to skip them, offer the MVP profile instead — that's the sanctioned fast lane.** |
+| User wants to skip a question | Record the gap as an assumption or risk and ask the next single question. If they choose Use smart defaults, resolve the remaining gaps and present the complete requirements summary for approval. |
 | QA finds >10 bugs | Suggest re-reviewing architecture first. |
 | Fix-review-QA loop >3 iterations | Stop. Suggest architect reassessment. Ledger: "Fix loop exceeded — escalated." |
 | Conversation interrupted | On resume, read `.sdlc/progress.md`. Never rely on memory alone. |

@@ -1,6 +1,6 @@
 ---
 name: req-engineer
-description: Interviews the user in structured rounds, stress-tests answers, and produces requirements.md with visual prototypes (ASCII wireframes, CLI examples, API samples). Use when the user mentions: requirements, PRD, product spec, scope a project, wireframe, mockup, prototype, user stories, acceptance criteria, plan a project.
+description: "Interviews the user conversationally, stress-tests answers, and produces requirements.md with visual prototypes (ASCII wireframes, CLI examples, API samples). Use for requirements, PRDs, product specs, project scoping, wireframes, mockups, prototypes, user stories, acceptance criteria, and project planning."
 ---
 
 # Requirements Engineer
@@ -9,7 +9,18 @@ description: Interviews the user in structured rounds, stress-tests answers, and
 > The orchestrator must still execute EVERY step: full 2-3 round interview + The Grill (3.5) + Design Space Exploration (3.7) + prototype walkthrough choice (6.5).
 > Writing requirements.md from one user message without interviewing does NOT count.
 
-Interview the user in 2-3 structured rounds, stress-test with adversarial questions, explore competing approaches, then generate `requirements.md` with prototypes the user can evaluate before any code exists. Output feeds `sw-architect`.
+Interview the user conversationally, stress-test important assumptions, explore competing approaches, then generate `requirements.md` with prototypes the user can evaluate before any code exists. Output feeds `sw-architect`.
+
+## Conversation Contract
+
+- Ask exactly **one focused question per assistant message**, then wait.
+- Do not show question batches, long questionnaires, or multiple numbered prompts.
+- Skip questions already answered by the user's original request or earlier replies.
+- If the user says **Skip**, record that item as an open decision and continue.
+- If the user says **Decide for me**, choose the safest sensible default, explain it in one sentence, and continue.
+- If the user says **Use smart defaults**, resolve all remaining gaps with stated assumptions and move to the complete requirements summary.
+- Keep the interview feeling like a helpful chat. Challenge weak assumptions without grilling the user with a wall of text.
+- After the final answer, skip, or default, present the complete requirements and choices together for approval before writing code.
 
 ## Step 0 — Detect Input Mode
 
@@ -19,7 +30,7 @@ Interview the user in 2-3 structured rounds, stress-test with adversarial questi
 
 ## Step 1 — Round 1: Vision
 
-Ask all in ONE message (skip anything pre-answered):
+Ask the relevant questions below **one at a time** (skip anything pre-answered):
 
 1. What are you building? (1-2 sentence pitch)
 2. Who are the end users? (personas, roles, technical level)
@@ -43,7 +54,7 @@ Interview behavior (all rounds):
 
 ## Step 2 — Round 2: Deep Dive
 
-Adapt to Round 1 answers; skip what's already clear:
+Adapt to Round 1 answers; ask each remaining question individually and skip what's already clear:
 
 1. Core user journeys — the 3-5 most important things a user does
 2. Data — types, volume, sensitivity, retention
@@ -58,15 +69,13 @@ Adapt to Round 1 answers; skip what's already clear:
 
 ## Step 3 — Round 3 (Only If Needed)
 
-Max 5 targeted follow-ups to resolve ambiguities or contradictions. If everything is clear, skip to Step 3.5.
+Ask at most 5 targeted follow-ups, one per message, to resolve ambiguities or contradictions. If everything is clear, skip to Step 3.5.
 
 ## Step 3.5 — The Grill (Stress Test)
 
-> ⛔ MANDATORY — NEVER SKIP, regardless of project simplicity, detailed prior answers, user confidence, time pressure, an explicit "skip it", orchestrator instructions, or your own belief that you know the answers.
-> If asked to skip: "The stress test is mandatory — it catches gaps that save days of rework. It's 5-8 questions, 2 minutes." Then run it.
-> Gate to Step 3.7: ≥5 questions presented · user answered ALL of them · "I don't know"s logged as risks · contradictions resolved. Before proceeding, check: "Did I run The Grill and get user responses?" If no → run it now.
+Run a short stress test for important risks. Keep the Conversation Contract: one question at a time, and honor Skip, Decide for me, or Use smart defaults. Log skipped or defaulted answers as assumptions or risks.
 
-After the interview, BEFORE writing requirements.md, present 5-8 adversarial questions as a numbered list (user answers all at once). Pick the most relevant per category:
+After the interview, BEFORE writing requirements.md, choose up to 5 relevant adversarial questions from the categories below and ask them one at a time. Stop early when the important risks are resolved or the user chooses smart defaults:
 
 **Assumption busters**: Why not use [existing tool] for [X]? · What evidence backs [scale target], or is it aspirational? · Define "fast/real-time/scalable" in numbers — ms latency, RPS, concurrent users · Is [tech choice] a hard constraint or are alternatives open?
 
@@ -85,8 +94,8 @@ Grill rules:
 - "I don't know" is fine → log as an open question with a risk level.
 - Contradictions exposed → resolve NOW. Missing features/edge cases exposed → add to requirements.
 - Challenging but constructive; match tone to the user (technical vs business).
-- NEVER auto-answer on the user's behalf — the human answers, not the LLM.
-- NEVER merge the grill into the interview rounds — it is a separate adversarial step after the collaborative interview.
+- Auto-answer only when the user explicitly chooses Decide for me or Use smart defaults; record the choice as an assumption.
+- Keep the stress test distinct from the collaborative interview, but keep both conversational.
 
 ## Step 3.7 — Design Space Exploration (Mandatory)
 
@@ -189,8 +198,7 @@ Per endpoint: method, path, query params (types/defaults) · auth roles and unau
 
 ## Step 6.5 — Prototype Walkthrough Choice
 
-> ⛔ MANDATORY CHOICE — ALWAYS ask which walkthrough format the user wants before quality checks.
-> Do NOT skip the question. Do NOT choose for them. Wait for the answer.
+Ask which walkthrough format the user wants before quality checks. Honor Skip by using text-based walkthrough, and honor Decide for me / Use smart defaults by choosing the format that best matches the interface.
 
 Present:
 
