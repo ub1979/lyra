@@ -11649,6 +11649,24 @@ def test_make_agent_defaults_to_90(monkeypatch):
     assert mock_agent.call_args.kwargs["max_iterations"] == 90
 
 
+def test_make_agent_marks_guided_builder_for_continuous_delegation(monkeypatch):
+    _setup_make_agent_mocks(monkeypatch, {})
+    monkeypatch.setattr(
+        "agent.skill_commands.build_preloaded_skills_prompt",
+        lambda *_a, **_k: ("builder prompt", ["ultimate-builder:ultimate-app-builder"], []),
+    )
+
+    with patch("run_agent.AIAgent") as mock_agent:
+        built = server._make_agent(
+            "sid1",
+            "key1",
+            skills_override=["ultimate-builder:ultimate-app-builder"],
+        )
+
+    assert built is mock_agent.return_value
+    assert built._force_synchronous_delegation is True
+
+
 def test_make_agent_uses_session_runtime_overrides(monkeypatch):
     _setup_make_agent_mocks(monkeypatch, {})
     resolved = {}

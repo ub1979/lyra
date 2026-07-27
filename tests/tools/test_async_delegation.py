@@ -792,6 +792,11 @@ def test_model_dispatch_forces_background():
         {"tasks": [{"goal": "a"}, {"goal": "b"}]}, sub
     ) is False
 
+    guided = MagicMock()
+    guided._delegate_depth = 0
+    guided._force_synchronous_delegation = True
+    assert dt._model_background_value({"goal": "x"}, guided) is False
+
 
 def test_run_agent_dispatch_forces_background():
     """run_agent._dispatch_delegate_task — the live model path — forces
@@ -822,6 +827,11 @@ def test_run_agent_dispatch_forces_background():
         sub = _FakeAgent()
         sub._delegate_depth = 1
         run_agent.AIAgent._dispatch_delegate_task(sub, {"goal": "x"})
+        assert captured["background"] is False
+
+        guided = _FakeAgent()
+        guided._force_synchronous_delegation = True
+        run_agent.AIAgent._dispatch_delegate_task(guided, {"goal": "x"})
         assert captured["background"] is False
 
 
@@ -1014,4 +1024,3 @@ def test_gateway_cli_origin_event_left_unrouted():
     evt = _make_async_evt(session_key="")
     runner._enrich_async_delegation_routing(evt)
     assert "platform" not in evt
-

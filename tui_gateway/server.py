@@ -5671,7 +5671,7 @@ def _make_agent(
                 raise RuntimeError("Auth fallback resolved without a model")
             model = resolution.selected_model
     _pr = _load_provider_routing()
-    return AIAgent(
+    agent = AIAgent(
         model=model,
         max_iterations=_cfg_max_turns(cfg, 90),
         provider=runtime.get("provider"),
@@ -5718,6 +5718,14 @@ def _make_agent(
         fallback_model=_load_fallback_model(),
         **_agent_cbs(sid),
     )
+    # Guided application-builder sessions need a single continuous turn:
+    # specialist delegates still run as real child agents, but the parent must
+    # wait for each result so it can advance to the next selected phase without
+    # asking a non-technical user to manually wake the workflow.
+    agent._force_synchronous_delegation = (
+        "ultimate-builder:ultimate-app-builder" in startup_skills
+    )
+    return agent
 
 
 def _init_session(

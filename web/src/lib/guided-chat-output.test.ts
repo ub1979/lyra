@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   analyzeGuidedChatOutput,
+  guidedResponseNeedsContinuation,
   presentGuidedChatOutput,
+  sanitizeGuidedResponse,
 } from "./guided-chat-output";
 
 describe("presentGuidedChatOutput", () => {
@@ -61,6 +63,73 @@ a//Users/u/funcoding/todo/index.html → b//Users/u/funcoding/todo/index.html
     expect(presentation.specialist).toEqual({
       id: "req-engineer",
       label: "Requirements",
+    });
+  });
+
+  it("removes inline reasoning and tool transcripts from structured responses", () => {
+    const response = sanitizeGuidedResponse(
+      "I’m preparing the architecture. " +
+        "├─ ▾ Thinking ~152 tokens └─ Internal chain of thought. " +
+        "├─ ▾ Tool calls (1) └─ ● Delegate Task(\"Build plan.md\") (0.1s) " +
+        "└─ Σ ~253 total Architecture is now underway.",
+    );
+
+    expect(response).toBe(
+      "I’m preparing the architecture. Architecture is now underway.",
+    );
+    expect(response).not.toContain("Thinking");
+    expect(response).not.toContain("Tool calls");
+    expect(response).not.toContain("Delegate Task");
+  });
+
+  it("presents only one complete question at a time", () => {
+    const response = sanitizeGuidedResponse(
+      "Great idea. **Who are the main users?** Is this for yourself or a team, and how many people will use it?",
+    );
+
+    expect(response).toBe("Great idea. **Who are the main users?**");
+  });
+
+  it("does not truncate reports that contain questions", () => {
+    const response = sanitizeGuidedResponse(
+      "## Review\n\nDoes the release meet the requirements?\n\nYes. All smoke checks passed and the evidence is recorded below.",
+    );
+
+    expect(response).toContain("All smoke checks passed");
+  });
+
+  it("does not mistake casual mentions of coding for a phase change", () => {
+    const presentation = analyzeGuidedChatOutput(
+      "Summarize the requirements for approval before any coding.",
+    );
+
+    expect(presentation.specialist).toBeNull();
+  });
+
+  it("continues narrated specialist handoffs without crossing approvals", () => {
+    expect(
+      guidedResponseNeedsContinuation(
+        "Architecture playbook loaded. Delegating to a specialist subagent to produce plan.md.",
+      ),
+    ).toBe(true);
+    expect(
+      guidedResponseNeedsContinuation(
+        "The plan is ready. Does this look right? Reply approve to continue.",
+      ),
+    ).toBe(false);
+    expect(
+      guidedResponseNeedsContinuation("Your application is ready to use."),
+    ).toBe(false);
+  });
+
+  it("prefers the delegated role over later artifact mentions", () => {
+    const presentation = analyzeGuidedChatOutput(
+      "You are the Task Planner. Produce task-graph.md with development and QA assignments.",
+    );
+
+    expect(presentation.specialist).toEqual({
+      id: "task-planner",
+      label: "Task planning",
     });
   });
 });

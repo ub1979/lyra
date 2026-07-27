@@ -38,6 +38,8 @@ import { api } from "@/lib/api";
 import { latchChatActivation } from "@/lib/chat-activation";
 import {
   analyzeGuidedChatOutput,
+  guidedResponseNeedsContinuation,
+  sanitizeGuidedResponse,
   type GuidedChatPresentation,
   type GuidedSpecialist,
 } from "@/lib/guided-chat-output";
@@ -125,9 +127,16 @@ interface GuidedAgentEventEnvelope {
   params?: {
     type?: string;
     payload?: {
+      args_text?: string;
+      context?: string;
       failure_reason?: string;
+      goal?: string;
       message?: string;
+      name?: string;
+      preview?: string;
       rendered?: string;
+      result_text?: string;
+      summary?: string;
       text?: string;
     };
   };
@@ -225,16 +234,26 @@ function readGuidedMessages(workspace: string): GuidedMessage[] {
       window.localStorage.getItem(guidedMessageStorageKey(workspace)) ?? "[]",
     ) as unknown;
     if (!Array.isArray(value)) return [];
-    const messages = value.filter(
-      (item): item is GuidedMessage =>
-        typeof item === "object" &&
-        item !== null &&
-        typeof (item as GuidedMessage).id === "string" &&
-        ((item as GuidedMessage).role === "user" ||
-          (item as GuidedMessage).role === "assistant" ||
-          (item as GuidedMessage).role === "error") &&
-        typeof (item as GuidedMessage).content === "string",
-    );
+    const messages = value
+      .filter(
+        (item): item is GuidedMessage =>
+          typeof item === "object" &&
+          item !== null &&
+          typeof (item as GuidedMessage).id === "string" &&
+          ((item as GuidedMessage).role === "user" ||
+            (item as GuidedMessage).role === "assistant" ||
+            (item as GuidedMessage).role === "error") &&
+          typeof (item as GuidedMessage).content === "string",
+      )
+      .map((message) =>
+        message.role === "assistant"
+          ? {
+              ...message,
+              content: sanitizeGuidedResponse(message.content),
+            }
+          : message,
+      )
+      .filter((message) => message.role !== "assistant" || message.content);
     const last = messages[messages.length - 1];
     if (last?.role === "user") {
       messages.push({
@@ -650,6 +669,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const guidedDefaultSpecialistRef = useRef<GuidedSpecialist>(
     guidedDefaultSpecialist,
   );
+  const guidedSelectedSpecialistIdsRef = useRef(
+    guidedSelectedSpecialistIds,
+  );
   const guidedSessionSkillsRef = useRef(
     [
       "ultimate-builder:ultimate-app-builder",
@@ -661,6 +683,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const guidedTurnStartLineRef = useRef(0);
   const lastGuidedResponseRef = useRef("");
   const guidedTurnSettledRef = useRef(true);
+  const guidedStructuredFeedConnectedRef = useRef(false);
+  const guidedActiveSubagentRef = useRef(false);
+  const guidedAutoContinueCountRef = useRef(0);
   const [guidedInput, setGuidedInput] = useState("");
   const [guidedPaused, setGuidedPaused] = useState(false);
   const [guidedAgentReady, setGuidedAgentReady] = useState(false);
@@ -674,7 +699,26 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     guidedActivity.specialist ?? guidedDefaultSpecialist;
   const latestGuidedMessage =
     guidedMessages[guidedMessages.length - 1] ?? null;
+  const showRequirementsApproval =
+    guidedActivity.phase === "idle" &&
+    latestGuidedMessage?.role === "assistant" &&
+    guidedSelectedSpecialistIds.includes("req-engineer") &&
+    /requirements? (?:summary|are ready)|approve requirements?/i.test(
+      latestGuidedMessage.content,
+    ) &&
+    /(?:reply\s+\**approve|does this match|for (?:your )?approval)/i.test(
+      latestGuidedMessage.content,
+    );
+  const showWorkflowApproval =
+    !showRequirementsApproval &&
+    guidedActivity.phase === "idle" &&
+    latestGuidedMessage?.role === "assistant" &&
+    /\b(?:reply\s+\**approve|approve to continue|approval before)\b/i.test(
+      latestGuidedMessage.content,
+    );
   const showRequirementChoices =
+    !showRequirementsApproval &&
+    !showWorkflowApproval &&
     guidedActivity.phase === "idle" &&
     latestGuidedMessage?.role === "assistant" &&
     guidedSelectedSpecialistIds.includes("req-engineer") &&
@@ -735,6 +779,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     );
     const first = specialistFromId(selected[0] ?? "req-engineer");
     setGuidedSelectedSpecialistIds(selected);
+    guidedSelectedSpecialistIdsRef.current = selected;
     guidedDefaultSpecialistRef.current = first;
     guidedSessionSkillsRef.current = [
       "ultimate-builder:ultimate-app-builder",
@@ -742,7 +787,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     ].filter(Boolean);
   }, [guided, searchParams, workspaceParam]);
   const finishGuidedResponse = useCallback((content: string) => {
-    const response = content.trim();
+    const response = sanitizeGuidedResponse(content);
     if (!response || response === lastGuidedResponseRef.current) return;
     guidedTurnSettledRef.current = true;
     lastGuidedResponseRef.current = response;
@@ -857,6 +902,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     setGuidedOutput("");
     setGuidedInput("");
     setGuidedPaused(false);
+    guidedActiveSubagentRef.current = false;
     setGuidedActivity({ phase: "idle", text: "", specialist: null });
     lastGuidedResponseRef.current = "";
     guidedTurnSettledRef.current = true;
@@ -939,6 +985,12 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       const url = await api.buildWsUrl("/api/events", { channel });
       if (unmounting) return;
       ws = new WebSocket(url);
+      ws.addEventListener("open", () => {
+        guidedStructuredFeedConnectedRef.current = true;
+      });
+      ws.addEventListener("close", () => {
+        guidedStructuredFeedConnectedRef.current = false;
+      });
 
       ws.addEventListener("message", (event) => {
         let frame: GuidedAgentEventEnvelope;
@@ -954,6 +1006,12 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           guidedTurnSettledRef.current = false;
           streamedText = "";
           setGuidedLastSignalAt(Date.now());
+          setGuidedActivity((current) => ({
+            phase: "working",
+            text: "Continuing with the next step…",
+            specialist:
+              current.specialist ?? guidedDefaultSpecialistRef.current,
+          }));
           return;
         }
         if (type === "message.delta") {
@@ -963,7 +1021,64 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           setGuidedLastSignalAt(Date.now());
           return;
         }
+        if (
+          type === "tool.start" ||
+          type === "tool.progress" ||
+          type === "tool.generating" ||
+          type === "subagent.spawn_requested" ||
+          type === "subagent.start" ||
+          type === "subagent.thinking" ||
+          type === "subagent.tool" ||
+          type === "subagent.progress"
+        ) {
+          const signal = [
+            payload?.name,
+            payload?.args_text,
+            payload?.goal,
+            payload?.context,
+            payload?.preview,
+            payload?.summary,
+            payload?.text,
+          ]
+            .filter((value): value is string => typeof value === "string")
+            .join(" ");
+          const detected = analyzeGuidedChatOutput(signal).specialist;
+          const selected =
+            detected &&
+            guidedSelectedSpecialistIdsRef.current.includes(detected.id)
+              ? detected
+              : null;
+          if (type.startsWith("subagent.")) {
+            guidedActiveSubagentRef.current = true;
+          }
+          guidedTurnSettledRef.current = false;
+          setGuidedLastSignalAt(Date.now());
+          setGuidedActivity((current) => ({
+            phase: "working",
+            text:
+              type.startsWith("subagent.")
+                ? "A specialist is working on this phase…"
+                : "Preparing the next useful step…",
+            specialist:
+              selected ??
+              current.specialist ??
+              guidedDefaultSpecialistRef.current,
+          }));
+          return;
+        }
+        if (type === "subagent.complete") {
+          guidedActiveSubagentRef.current = false;
+          setGuidedLastSignalAt(Date.now());
+          return;
+        }
+        if (type === "tool.complete") {
+          setGuidedLastSignalAt(Date.now());
+          return;
+        }
         if (type === "message.complete") {
+          // A completed parent message is also a definitive boundary for any
+          // child phase, even when a provider omitted subagent.complete.
+          guidedActiveSubagentRef.current = false;
           const response =
             (typeof payload?.text === "string" && payload.text.trim()
               ? payload.text
@@ -972,6 +1087,41 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           streamedText = "";
           if (response) {
             finishGuidedResponse(response);
+            if (guidedResponseNeedsContinuation(response)) {
+              const nextAttempt = guidedAutoContinueCountRef.current + 1;
+              guidedAutoContinueCountRef.current = nextAttempt;
+              if (nextAttempt > 24) {
+                appendGuidedError(
+                  "The workflow paused after too many automatic handoffs. Send “continue” to resume from the current phase.",
+                );
+                return;
+              }
+              guidedTurnSettledRef.current = false;
+              setGuidedLastSignalAt(Date.now());
+              setGuidedActivity((current) => ({
+                phase: "working",
+                text: "Moving to the promised specialist…",
+                specialist:
+                  current.specialist ?? guidedDefaultSpecialistRef.current,
+              }));
+              window.setTimeout(() => {
+                const active = wsRef.current;
+                if (!active || active.readyState !== WebSocket.OPEN) return;
+                guidedTurnStartLineRef.current = Math.max(
+                  0,
+                  (termRef.current?.buffer.active.length ?? 1) - 1,
+                );
+                lastGuidedResponseRef.current = "";
+                active.send(
+                  "IDRAK_INTERNAL_CONTINUE: Continue the selected workflow now. Perform the promised tool call or specialist delegation, verify its artifact, and then advance through later enabled phases. Do not merely describe the next action. Stop only for a real user decision, approval, permission, blocker, or final completion.",
+                );
+                window.setTimeout(() => {
+                  if (wsRef.current?.readyState === WebSocket.OPEN) {
+                    wsRef.current.send("\r");
+                  }
+                }, 80);
+              }, 350);
+            }
           } else if (payload?.failure_reason) {
             guidedTurnSettledRef.current = true;
             appendGuidedError(
@@ -993,6 +1143,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           return;
         }
         if (type === "error" && payload?.message) {
+          guidedActiveSubagentRef.current = false;
           guidedTurnSettledRef.current = true;
           appendGuidedError(payload.message);
           setGuidedActivity({
@@ -1013,6 +1164,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
 
     return () => {
       unmounting = true;
+      guidedStructuredFeedConnectedRef.current = false;
       ws?.close();
     };
   }, [
@@ -1159,6 +1311,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     );
     guidedAutoScrollRef.current = true;
     guidedTurnSettledRef.current = false;
+    guidedActiveSubagentRef.current = false;
+    guidedAutoContinueCountRef.current = 0;
     lastGuidedResponseRef.current = "";
     setGuidedLastSignalAt(Date.now());
     setGuidedMessages((messages) => [
@@ -1193,6 +1347,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       // Interrupt the current response but keep the PTY/session alive so the
       // user can resume the conversation without losing project context.
       wsRef.current.send("\x03");
+      guidedActiveSubagentRef.current = false;
     }
     setGuidedPaused((value) => !value);
   }, [guidedPaused]);
@@ -1202,6 +1357,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     const lastUserMessage = [...guidedMessages]
       .reverse()
       .find((message) => message.role === "user");
+    const lastAssistantMessage = [...guidedMessages]
+      .reverse()
+      .find((message) => message.role === "assistant");
     if (
       !lastUserMessage ||
       !ws ||
@@ -1221,10 +1379,22 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     lastGuidedResponseRef.current = "";
     setGuidedOutput("");
     setGuidedLastSignalAt(Date.now());
+    setGuidedMessages((messages) =>
+      messages[messages.length - 1]?.role === "error"
+        ? messages.slice(0, -1)
+        : messages,
+    );
+    const inferred = lastAssistantMessage
+      ? analyzeGuidedChatOutput(lastAssistantMessage.content).specialist
+      : null;
     setGuidedActivity({
       phase: "working",
       text: "Trying that again…",
-      specialist: guidedDefaultSpecialistRef.current,
+      specialist:
+        inferred &&
+        guidedSelectedSpecialistIdsRef.current.includes(inferred.id)
+          ? inferred
+          : guidedDefaultSpecialistRef.current,
     });
 
     window.setTimeout(() => {
@@ -2039,9 +2209,34 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               specialist: null,
             });
           } else if (!guidedTurnSettledRef.current) {
-            setGuidedActivity(snapshot.presentation);
+            const detected = snapshot.presentation.specialist;
+            const selected =
+              detected &&
+              guidedSelectedSpecialistIdsRef.current.includes(detected.id)
+                ? detected
+                : null;
+            setGuidedActivity((current) => ({
+              phase:
+                guidedStructuredFeedConnectedRef.current &&
+                snapshot.presentation.phase === "response"
+                  ? "working"
+                  : snapshot.presentation.phase,
+              // The PTY may briefly contain a provider's narrated handoff,
+              // tool chrome, or model statistics before the structured
+              // message.complete event arrives. Structured events are the
+              // authoritative guided feed, so never copy that raw terminal
+              // text into the friendly live-status card.
+              text: guidedStructuredFeedConnectedRef.current
+                ? current.text || "Continuing with the next step…"
+                : snapshot.presentation.text,
+              specialist:
+                selected ??
+                current.specialist ??
+                guidedDefaultSpecialistRef.current,
+            }));
           }
           if (
+            !guidedStructuredFeedConnectedRef.current &&
             snapshot.presentation.phase === "response" &&
             snapshot.presentation.text &&
             snapshot.presentation.text !== lastGuidedResponseRef.current
@@ -2173,6 +2368,14 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       75_000 - (Date.now() - guidedLastSignalAt),
     );
     const timeout = window.setTimeout(() => {
+      if (guidedActiveSubagentRef.current) {
+        // Specialist phases routinely take longer than a single model reply.
+        // Their live subagent events are the truthful heartbeat; do not
+        // interrupt real work merely because the top-level assistant has not
+        // produced its final prose yet.
+        setGuidedLastSignalAt(Date.now());
+        return;
+      }
       try {
         wsRef.current?.send("\x03");
       } catch {
@@ -2527,6 +2730,34 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                           : "Idrak IT"}
                       </div>
                       {message.content}
+                      {showRequirementsApproval &&
+                        message.id === latestGuidedMessage?.id && (
+                          <div className="mt-3 flex flex-wrap gap-2 border-t border-current/10 pt-3">
+                            <Button
+                              size="sm"
+                              onClick={() => submitGuidedText("approve")}
+                            >
+                              Approve requirements
+                            </Button>
+                            <span className="self-center text-xs text-text-secondary">
+                              Or type what you would like changed.
+                            </span>
+                          </div>
+                        )}
+                      {showWorkflowApproval &&
+                        message.id === latestGuidedMessage?.id && (
+                          <div className="mt-3 flex flex-wrap gap-2 border-t border-current/10 pt-3">
+                            <Button
+                              size="sm"
+                              onClick={() => submitGuidedText("approve")}
+                            >
+                              Approve and continue
+                            </Button>
+                            <span className="self-center text-xs text-text-secondary">
+                              Or type what you would like changed.
+                            </span>
+                          </div>
+                        )}
                       {showRequirementChoices &&
                         message.id === latestGuidedMessage?.id && (
                           <div className="mt-3 flex flex-wrap gap-2 border-t border-current/10 pt-3">

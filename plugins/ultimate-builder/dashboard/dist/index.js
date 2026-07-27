@@ -42,8 +42,8 @@
     {
       id: "mvp",
       name: "MVP",
-      description: "A focused path to a useful, tested first release.",
-      skills: ["req-engineer", "sw-architect", "task-planner", "sw-developer", "qa-engineer", "tech-writer", "idk_it"],
+      description: "A fast path from clear requirements to a useful, tested, documented first release.",
+      skills: ["req-engineer", "sw-developer", "qa-engineer", "tech-writer", "idk_it"],
       accent: "coral",
     },
     {
@@ -226,12 +226,11 @@
     };
 
     const openRecent = function (item) {
-      setMode("existing");
-      setProjectPath(item.path);
-      const template = templates.find((candidate) => candidate.id === item.templateId) || BUILTIN_TEMPLATES[3];
-      applyTemplate(template);
-      setBrief("");
-      setScreen("configure");
+      const params = new URLSearchParams({
+        guided: "1",
+        workspace: item.path,
+      });
+      window.location.href = "/chat?" + params.toString();
     };
 
     const startChat = async function () {
@@ -253,23 +252,30 @@
         }
         if (!selected.size) throw new Error("Select at least one skill.");
 
-        const enabled = SKILLS.filter((skill) => selected.has(skill[0])).map((skill) => skill[1]);
-        const disabled = SKILLS.filter((skill) => !selected.has(skill[0])).map((skill) => skill[1]);
+        const enabled = SKILLS.filter((skill) => selected.has(skill[0])).map((skill) => skill[0]);
+        const enabledLabels = SKILLS.filter((skill) => selected.has(skill[0])).map((skill) => skill[1]);
+        const disabled = SKILLS.filter((skill) => !selected.has(skill[0])).map((skill) => skill[0]);
+        const disabledLabels = SKILLS.filter((skill) => !selected.has(skill[0])).map((skill) => skill[1]);
         const codeChangesAllowed = ["sw-developer", "oop-restructurer", "debugger"]
           .some((skill) => selected.has(skill));
         const request = brief.trim() || defaultBrief(templateId, mode === "existing");
         const prompt = "IDRAK_INTERNAL_SETUP_BEGIN " + JSON.stringify({
           instruction: "The preloaded Ultimate Application Builder and first selected specialist skills are authoritative. Load every later enabled phase with skill_view(name='ultimate-builder:<specialist-id>') before running it. Work only in the selected workspace. Run only enabled specialist phases, never silently add a disabled phase, and never claim a registered skill ran unless its playbook was actually loaded.",
           first_turn_gate: mode === "new" && selected.has("req-engineer")
-            ? "Run the Requirements Engineer playbook conversationally before using development tools or writing code. Ask exactly ONE focused question per assistant message and wait for the answer. Never send a numbered batch of questions. Accept 'skip this question'; accept 'decide for me' by choosing and briefly explaining a safe default; accept 'use smart defaults' by resolving all remaining gaps yourself. Once the interview is answered, skipped, or defaulted, present one complete requirements summary for explicit user approval before coding."
+            ? "Run the Requirements Engineer playbook conversationally before using development tools or writing code. Ask exactly ONE focused decision per assistant message and wait for the answer. The message must contain at most one question mark: do not add a conditional follow-up, a second clause asking another decision, or a numbered batch. Accept 'skip this question'; accept 'decide for me' by choosing and briefly explaining a safe default; accept 'use smart defaults' by resolving all remaining gaps yourself. Once the interview is answered, skipped, or defaulted, present one complete requirements summary for explicit user approval before coding."
             : "Inspect the selected existing workspace first, then ask only concise questions whose answers materially change the requested work.",
           coordination_rule: selected.has("idk_it")
-            ? "Coordinate the enabled phases in order, verify each phase's evidence, and keep tool calls, terminal output, diffs, and internal workflow details out of user-facing messages."
+            ? "Coordinate the enabled phases in order and verify each phase's evidence. In this guided session, specialist delegates return their result before you continue: immediately advance to the next enabled phase after each result, without asking the user to wake or resume the workflow. Keep tool calls, terminal output, diffs, reasoning, and internal workflow details out of user-facing messages."
             : "Complete only the selected specialist work and report concise user-facing results.",
+          delivery_rule: templateId === "mvp"
+            ? "This is the MVP fast path. Keep artifacts and research proportional to the requested app. After requirements approval, move directly to development, smoke QA, and concise run documentation; do not invent architecture or task-planning phases when they are disabled."
+            : "Use the selected specialist phases at appropriate depth for the project.",
           workspace,
           template: activeTemplate.name,
           enabled_specialists: enabled,
+          enabled_specialist_labels: enabledLabels,
           disabled_specialists: disabled,
+          disabled_specialist_labels: disabledLabels,
           code_changes_allowed: codeChangesAllowed,
           user_request: request,
         }) + " IDRAK_INTERNAL_SETUP_END";

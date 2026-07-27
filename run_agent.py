@@ -6574,13 +6574,16 @@ class AIAgent:
         #     gateway session the async result would route back to.
         # The schema-level `background` param is intentionally ignored here.
         _is_subagent = getattr(self, "_delegate_depth", 0) > 0
+        _force_sync = (
+            getattr(self, "_force_synchronous_delegation", False) is True
+        )
         return _delegate_task(
             goal=function_args.get("goal"),
             context=function_args.get("context"),
             tasks=_strip_model_hidden_task_fields(function_args.get("tasks")),
             max_iterations=function_args.get("max_iterations"),
             role=function_args.get("role"),
-            background=(not _is_subagent),
+            background=(not _is_subagent and not _force_sync),
             parent_agent=self,
         )
 

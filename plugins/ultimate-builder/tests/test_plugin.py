@@ -67,8 +67,12 @@ def test_build_command_injects_normal_idrak_turn():
 def test_dashboard_enforces_requirements_gate_with_real_skill_loading():
     dashboard = (ROOT / "dashboard" / "dist" / "index.js").read_text()
     assert "first_turn_gate" in dashboard
-    assert "Ask exactly ONE focused question" in dashboard
+    assert "Ask exactly ONE focused decision" in dashboard
     assert "use smart defaults" in dashboard
     assert "explicit user approval before coding" in dashboard
     assert "skill_view(name='ultimate-builder:<specialist-id>')" in dashboard
+    assert "enabled_specialist_labels: enabledLabels" in dashboard
+    assert "disabled_specialist_labels: disabledLabels" in dashboard
+    assert 'workspace: item.path' in dashboard
+    assert 'window.location.href = "/chat?" + params.toString()' in dashboard
     assert "Use ultimate-builder:ultimate-app-builder" not in dashboard

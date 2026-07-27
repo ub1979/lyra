@@ -34,6 +34,11 @@ export const startupSkillsFromEnv = (raw = process.env.HERMES_TUI_SKILLS): strin
     .map(skill => skill.trim())
     .filter((skill, index, skills) => Boolean(skill) && skills.indexOf(skill) === index)
 
+export const startupCwdFromEnv = (
+  raw = process.env.HERMES_CWD || process.env.TERMINAL_CWD,
+  fallback = process.cwd()
+): string => String(raw || fallback || '').trim()
+
 const statusFromLiveSession = (status?: string, running = false) => {
   if (status === 'waiting') {
     return 'waiting for input…'
@@ -234,6 +239,7 @@ export function useSessionLifecycle(opts: UseSessionLifecycleOptions) {
 
       const r = await rpc<SessionCreateResponse>('session.create', {
         cols: colsRef.current,
+        cwd: startupCwdFromEnv(),
         skills: startupSkillsFromEnv()
       })
 

@@ -14,6 +14,8 @@ Interview the user conversationally, stress-test important assumptions, explore 
 ## Conversation Contract
 
 - Ask exactly **one focused question per assistant message**, then wait.
+- Ask for one decision only. Do not attach a conditional follow-up or join a
+  second decision with “and”; use at most one question mark in the message.
 - Do not show question batches, long questionnaires, or multiple numbered prompts.
 - Skip questions already answered by the user's original request or earlier replies.
 - If the user says **Skip**, record that item as an open decision and continue.

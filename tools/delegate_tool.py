@@ -3621,10 +3621,11 @@ DELEGATE_TASK_SCHEMA = {
                 "type": "boolean",
                 "description": (
                     "DEPRECATED / IGNORED. Top-level single and batch "
-                    "delegations run in the background automatically — you do "
-                    "not need to (and cannot) opt in or out. A single result or "
-                    "consolidated batch result re-enters the conversation when "
-                    "the work finishes; just continue working in the meantime. "
+                    "delegations normally run in the background automatically. "
+                    "Guided builder sessions keep the parent turn open and wait "
+                    "for the specialist result so their workflow can continue "
+                    "without another user message. You do not need to opt in or "
+                    "out; continue as soon as a result is returned. "
                     "Setting this has no effect; the parameter remains only for "
                     "backward compatibility."
                 ),
@@ -3653,7 +3654,10 @@ def _model_background_value(args: dict, parent_agent=None) -> bool:
     keep the historical synchronous default.
     """
     is_subagent = getattr(parent_agent, "_delegate_depth", 0) > 0
-    return not is_subagent
+    force_sync = (
+        getattr(parent_agent, "_force_synchronous_delegation", False) is True
+    )
+    return not is_subagent and not force_sync
 
 
 _MODEL_HIDDEN_TASK_FIELDS = {"acp_command", "acp_args"}

@@ -12,6 +12,7 @@ import {
   liveSessionInflightMessages,
   scheduleResumeScrollToBottom,
   signalFreshSessionBoundary,
+  startupCwdFromEnv,
   startupSkillsFromEnv,
   writeActiveSessionFile
 } from '../app/useSessionLifecycle.js'
@@ -27,6 +28,11 @@ describe('guided startup skills', () => {
 
   it('returns no startup skills when the setting is empty', () => {
     expect(startupSkillsFromEnv('')).toEqual([])
+  })
+
+  it('passes the selected guided workspace into a fresh gateway session', () => {
+    expect(startupCwdFromEnv('/Users/test/my-project', '/fallback')).toBe('/Users/test/my-project')
+    expect(startupCwdFromEnv('', '/fallback')).toBe('/fallback')
   })
 })
 
