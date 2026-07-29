@@ -72,18 +72,7 @@ Talk to Lyra from anywhere: **CLI** | **Web Dashboard** | **Desktop App** | **Te
 - Node.js 20+
 - [uv](https://docs.astral.sh/uv/) (Python package manager)
 
-### 1. Install Hermes (the runtime Lyra is built on)
-
-```bash
-# Linux, macOS, WSL2
-curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
-source ~/.bashrc
-
-# Windows (PowerShell)
-iex (irm https://hermes-agent.nousresearch.com/install.ps1)
-```
-
-### 2. Clone Lyra
+### 1. Clone and configure
 
 ```bash
 git clone https://github.com/ub1979/lyra.git
@@ -92,31 +81,30 @@ cp .env.example .env
 # Edit .env — add at least one LLM provider API key (e.g. OPENROUTER_API_KEY)
 ```
 
-### 3. Set up a provider
+### 2. Start Lyra
 
 ```bash
-hermes setup          # guided setup — picks a provider and model
-# or switch later:
-hermes model          # change models anytime
+./start.sh
 ```
 
-### 4. Start the dashboard
+That's it. On first run it installs dependencies, enables the builder plugin, and opens the dashboard at **http://localhost:9119**.
+
+Click **New Project**, describe your app, and Lyra handles the rest.
+
+### Using the CLI instead
 
 ```bash
-cd web && npm install   # install frontend dependencies (first time only)
-hermes gateway          # starts the web dashboard at localhost:3000
-```
-
-Open the dashboard, click **New Project**, describe your app, and Lyra handles the rest.
-
-### 5. Or use the CLI directly
-
-```bash
-hermes
+uv sync                          # install dependencies (first time only)
+uv run hermes setup              # pick a provider and model
+uv run hermes                    # start the CLI
 > Build me a todo app with categories and due dates
 ```
 
-Lyra will interview you for requirements, show you a preview, and build it.
+### Stopping
+
+```bash
+./stop.sh
+```
 
 ---
 

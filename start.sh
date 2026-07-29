@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 PROJECT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-PORT="${APPIT_PORT:-9119}"
+PORT="${LYRA_PORT:-9119}"
 
 cd "$PROJECT_DIR"
 
@@ -17,13 +17,13 @@ if command -v lsof >/dev/null 2>&1; then
     RUNNING_COMMAND="$(ps -p "$RUNNING_PID" -o command= 2>/dev/null || true)"
 
     if [[ "$RUNNING_CWD" == "$PROJECT_DIR" && "$RUNNING_COMMAND" == *"hermes dashboard"* ]]; then
-      echo "AppIT is already running at http://127.0.0.1:${PORT}"
+      echo "Lyra is already running at http://127.0.0.1:${PORT}"
       echo "Open that address, or run ./stop.sh before restarting it."
       exit 0
     fi
 
     echo "Error: port ${PORT} is already being used by another application."
-    echo "Choose another port with APPIT_PORT=9120 ./start.sh"
+    echo "Choose another port with LYRA_PORT=9120 ./start.sh"
     exit 1
   fi
 fi
@@ -35,7 +35,7 @@ if ! command -v uv >/dev/null 2>&1; then
 fi
 
 if [[ ! -x ".venv/bin/hermes" ]]; then
-  echo "Preparing AppIT for the first run..."
+  echo "Preparing Lyra for the first run..."
   uv sync --extra dev
 fi
 
@@ -43,9 +43,9 @@ echo "Enabling the Ultimate Builder plugin..."
 uv run hermes plugins enable ultimate-builder >/dev/null
 
 echo
-echo "Starting AppIT at http://127.0.0.1:${PORT}"
+echo "Starting Lyra at http://127.0.0.1:${PORT}"
 echo "Choose New project or Open project in the browser, then start chatting."
-echo "AppIT keeps technical terminal output behind the guided chat."
+echo "Lyra keeps technical terminal output behind the guided chat."
 echo "Press Ctrl+C here to stop the web application."
 echo
 
