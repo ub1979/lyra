@@ -1,14 +1,8 @@
-<p align="center">
-  <img src="assets/banner.png" alt="Lyra" width="100%">
-</p>
-
 # Lyra
 
 > **Describe it. Approve the design. Get a working app.**
 
 Lyra is an AI agent that builds full-stack applications through conversation. It runs an autonomous SDLC pipeline — from requirements gathering to deployment — using 18 specialist agents that coordinate, learn, and improve with every project.
-
-Built on [Hermes Agent](https://github.com/NousResearch/hermes-agent) by [Nous Research](https://nousresearch.com). MIT licensed.
 
 <p align="center">
   <a href="#quick-start"><img src="https://img.shields.io/badge/Get_Started-5_min_setup-2ea44f?style=for-the-badge" alt="Get Started"></a>
@@ -42,7 +36,7 @@ Deployed ◄── DevOps ◄── Security ◄── Code Review ◄── QA 
               Engineer    Auditor      Reviewer       Engineer
 ```
 
-Each specialist has deep domain knowledge. The coordinator (`idk_it`) orchestrates the pipeline, verifies each phase's output, and advances automatically — stopping only at approval checkpoints where your input matters.
+Each specialist has deep domain knowledge. The coordinator orchestrates the pipeline, verifies each phase's output, and advances automatically — stopping only at approval checkpoints where your input matters.
 
 ### Self-Learning Loop
 
@@ -54,14 +48,15 @@ Use whatever model fits your budget and needs:
 
 | Provider | Models |
 |---|---|
-| **Nous Portal** | Hermes models |
 | **OpenRouter** | Claude, GPT, Gemini, Llama, + hundreds more |
 | **Google AI Studio** | Gemini 3 Flash/Pro |
 | **Ollama** | Any local model (Llama, Qwen, Mistral, etc.) |
 | **Fireworks AI** | Fast inference for open models |
-| **+ 15 more** | Kimi, GLM, MiniMax, Arcee, DeepInfra, HuggingFace, Upstage... |
+| **DeepInfra** | 100+ open models, pay-per-use |
+| **HuggingFace** | 20+ open models via unified endpoint |
+| **+ 12 more** | Kimi, GLM, MiniMax, Arcee, Upstage, NovitaAI... |
 
-Switch providers with `hermes model` — no code changes, no lock-in.
+Switch providers anytime — no code changes, no lock-in.
 
 Talk to Lyra from anywhere: **CLI** | **Web Dashboard** | **Desktop App** | **Telegram** | **Discord** | **Slack** | **WhatsApp** | **Signal** | **Teams** | **Google Chat** | **Email**
 
@@ -72,39 +67,36 @@ Talk to Lyra from anywhere: **CLI** | **Web Dashboard** | **Desktop App** | **Te
 ### Install (Linux, macOS, WSL2)
 
 ```bash
-curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
-source ~/.bashrc
-hermes
+git clone https://github.com/ub1979/lyra.git
+cd lyra
+cp .env.example .env
+# Edit .env — add at least one LLM provider API key (e.g. OPENROUTER_API_KEY)
 ```
 
-### Install (Windows PowerShell)
-
-```powershell
-iex (irm https://hermes-agent.nousresearch.com/install.ps1)
-```
-
-### Set up a provider
+### Backend
 
 ```bash
-hermes setup          # guided setup — picks a provider and model
-# or manually:
-hermes model          # switch models anytime
+uv sync                # install Python dependencies
+lyra setup             # guided setup — picks a provider and model
+lyra                   # start the CLI
 ```
+
+### Dashboard
+
+```bash
+cd web && npm install   # install frontend dependencies
+lyra gateway            # starts the web dashboard at localhost:3000
+```
+
+Open the dashboard, click **New Project**, describe your app, and Lyra handles the rest.
 
 ### Build your first app
 
-Open the dashboard and click **New Project**:
-
-```bash
-hermes gateway        # starts the web dashboard at localhost:3000
 ```
-
-Or from the CLI:
-
-```bash
-hermes
 > Build me a todo app with categories and due dates
 ```
+
+Lyra will interview you for requirements, show you a preview, and build it.
 
 ---
 
@@ -113,7 +105,6 @@ hermes
 ```
 lyra/
 ├── agent/              # Core agent loop, tool execution, display
-├── hermes_cli/         # CLI entry point, config, voice, gateway
 ├── tools/              # Built-in tools (terminal, browser, files, skills, memory)
 ├── plugins/
 │   ├── ultimate-builder/   # Guided app builder with dashboard UI
@@ -130,7 +121,7 @@ lyra/
 ### Key Concepts
 
 - **Specialist Agents**: 18 domain-specific agents (requirements, architecture, development, QA, security, DevOps, etc.) each with deep playbooks
-- **SDLC Coordinator** (`idk_it`): Orchestrates specialists in sequence, verifies phase outputs, stops at approval gates
+- **SDLC Coordinator**: Orchestrates specialists in sequence, verifies phase outputs, stops at approval gates
 - **Guided Builder**: Dashboard plugin that turns the SDLC pipeline into a chat-driven experience with visual previews
 - **Skill System**: Agents create, store, and improve reusable skills from experience
 - **Terminal Backends**: Run commands locally, in Docker, via SSH, on Modal (serverless), Singularity, or Daytona
@@ -149,10 +140,6 @@ lyra/
 | **Singularity** | HPC clusters |
 | **Daytona** | Serverless dev environments |
 
-```bash
-hermes config set terminal.backend docker   # switch backend
-```
-
 ---
 
 ## Dashboard
@@ -165,10 +152,6 @@ The web dashboard provides a clean, progressive-disclosure interface:
 - **Analytics**: Token usage and cost tracking
 - **Plugins**: Enable/disable capabilities
 - **Cron**: Schedule autonomous tasks in natural language
-
-```bash
-hermes gateway    # opens at localhost:3000
-```
 
 ---
 
@@ -197,7 +180,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full process, coding standards, a
 
 ## Acknowledgments
 
-Lyra is built on top of [Hermes Agent](https://github.com/NousResearch/hermes-agent) by [Nous Research](https://nousresearch.com). The upstream project provides the core agent framework, TUI, gateway, and tool system. Lyra adds the guided builder experience, progressive-disclosure dashboard, UI/UX improvements, and enhanced SDLC workflow.
+Lyra builds on the open-source [Hermes Agent](https://github.com/NousResearch/hermes-agent) framework by Nous Research. Lyra adds the guided builder, progressive-disclosure dashboard, and enhanced SDLC workflow on top of that foundation.
 
 ---
 
