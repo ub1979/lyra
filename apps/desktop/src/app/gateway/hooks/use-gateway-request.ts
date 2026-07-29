@@ -99,7 +99,7 @@ export function useGatewayRequest() {
       const gateway = gatewayRef.current
 
       if (!gateway) {
-        throw new Error('AppIT gateway unavailable')
+        throw new Error('Lyra gateway unavailable')
       }
 
       try {

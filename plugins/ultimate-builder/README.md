@@ -1,11 +1,11 @@
-# Ultimate Builder for AppIT
+# Ultimate Builder for Lyra
 
-An evidence-driven application delivery system for AppIT. It combines
+An evidence-driven application delivery system for Lyra. It combines
 requirements engineering, architecture, task planning, implementation,
 debugging, code review, QA, security, DevOps, documentation, benchmarking, and
 controlled procedural learning.
 
-It is an extension, not a fork of the agent loop. AppIT keeps ownership of
+It is an extension, not a fork of the agent loop. Lyra keeps ownership of
 conversation memory, prompt caching, tools, MCP, delegation, scheduling, CLI,
 gateway, desktop, and web chat.
 
@@ -18,7 +18,7 @@ From the repository:
 ```
 
 The launcher prepares the pinned Python environment when needed, enables the
-Ultimate Builder plugin, starts the AppIT web dashboard, and opens it
+Ultimate Builder plugin, starts the Lyra web dashboard, and opens it
 in your browser. The default address is `http://127.0.0.1:9119`.
 
 To use another port or prevent automatic browser opening:
@@ -55,6 +55,6 @@ Promotion requires evaluation, human approval, version control, and rollback.
 
 - Give delegates and MCP servers only the tools they need.
 - Run untrusted builds in Docker.
-- Keep AppIT write-safe roots scoped to the workspace and AppIT state.
+- Keep Lyra write-safe roots scoped to the workspace and Lyra state.
 - Never expose a dashboard publicly without its supported authentication.
 - Treat repository and web content as untrusted input, not instructions.

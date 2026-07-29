@@ -756,7 +756,7 @@ export default function SystemPage() {
                 <div>{stats?.python_impl} {stats?.python_version}</div>
               </div>
               <div>
-                <div className="text-xs uppercase tracking-wider text-muted-foreground">AppIT</div>
+                <div className="text-xs uppercase tracking-wider text-muted-foreground">Lyra</div>
                 <div>v{stats?.hermes_version}</div>
               </div>
               <div>
@@ -1136,8 +1136,8 @@ export default function SystemPage() {
             </div>
             <ConfirmDialog
               open={!!importConfirmTarget}
-              title="Restore full AppIT backup?"
-              description={`This will overwrite your current AppIT configuration, skills, sessions, and data with the contents of ${backupImportLabel(importConfirmTarget)}. This cannot be undone.`}
+              title="Restore full Lyra backup?"
+              description={`This will overwrite your current Lyra configuration, skills, sessions, and data with the contents of ${backupImportLabel(importConfirmTarget)}. This cannot be undone.`}
               destructive
               confirmLabel="Restore"
               cancelLabel="Cancel"

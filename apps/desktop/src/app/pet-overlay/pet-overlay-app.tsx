@@ -444,7 +444,7 @@ export function PetOverlayApp() {
               stopPropagation keeps a click from starting a window drag. */}
           {unread && (
             <button
-              aria-label="Open in AppIT"
+              aria-label="Open in Lyra"
               onClick={openApp}
               onPointerDown={e => e.stopPropagation()}
               onPointerUp={e => e.stopPropagation()}
@@ -465,7 +465,7 @@ export function PetOverlayApp() {
                 top: 0,
                 width: 24
               }}
-              title="Open in AppIT"
+              title="Open in Lyra"
               type="button"
             >
               <Mail style={{ height: 13, width: 13 }} />

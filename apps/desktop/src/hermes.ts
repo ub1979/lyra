@@ -222,10 +222,10 @@ export type {
 export class HermesGateway extends JsonRpcGatewayClient {
   constructor() {
     super({
-      closedErrorMessage: 'AppIT gateway connection closed',
-      connectErrorMessage: 'Could not connect to AppIT gateway',
+      closedErrorMessage: 'Lyra gateway connection closed',
+      connectErrorMessage: 'Could not connect to Lyra gateway',
       createRequestId: nextId => nextId,
-      notConnectedErrorMessage: 'AppIT gateway is not connected',
+      notConnectedErrorMessage: 'Lyra gateway is not connected',
       requestTimeoutMs: DEFAULT_GATEWAY_REQUEST_TIMEOUT_MS
     })
   }
@@ -281,7 +281,7 @@ function pluginPathSuffix(caller: string, path: string): string {
  *  declared-capability seam; today the namespace IS the boundary. */
 export async function pluginRest<T>(pluginId: string, path: string, opts: PluginRestOptions = {}): Promise<T> {
   if (!window.hermesDesktop?.api) {
-    throw new Error('AppIT desktop bridge unavailable')
+    throw new Error('Lyra desktop bridge unavailable')
   }
 
   const suffix = pluginPathSuffix('pluginRest', path)

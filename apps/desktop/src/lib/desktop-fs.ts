@@ -51,7 +51,7 @@ function bridge() {
   const desktop = window.hermesDesktop
 
   if (!desktop) {
-    throw new Error('AppIT desktop bridge is unavailable')
+    throw new Error('Lyra desktop bridge is unavailable')
   }
 
   return desktop

@@ -317,7 +317,7 @@
         h("section", { className: "ub-welcome" },
           h("p", { className: "ub-kicker" }, "APPIT · APP BUILDER"),
           h("h1", null, "What would you like to work on?"),
-          h("p", { className: "ub-subtitle" }, "Start something new or bring an existing folder. You choose the experts; AppIT keeps everything in one simple conversation."),
+          h("p", { className: "ub-subtitle" }, "Start something new or bring an existing folder. You choose the experts; Lyra keeps everything in one simple conversation."),
           h("button", {
             className: "ub-model-settings",
             type: "button",
@@ -426,7 +426,7 @@
           ),
           h(Card, { className: "ub-form-card" },
             h(CardContent, null,
-              h("h2", null, "What should AppIT help with?"),
+              h("h2", null, "What should Lyra help with?"),
               h("textarea", {
                 value: brief,
                 onChange: (event) => setBrief(event.target.value),
@@ -468,7 +468,7 @@
           h(Button, { className: "ub-start-chat", onClick: startChat, disabled: starting || !selected.size },
             starting ? "Starting project…" : "Start Project →",
           ),
-          h("p", { className: "ub-chat-note" }, "The project opens in a simple chat. AppIT handles tools and terminal work quietly in the background."),
+          h("p", { className: "ub-chat-note" }, "The project opens in a simple chat. Lyra handles tools and terminal work quietly in the background."),
         ),
       ),
     );

@@ -104,7 +104,7 @@ export const host = {
     const gateway = $gateway.get()
 
     if (!gateway) {
-      throw new Error('AppIT gateway unavailable')
+      throw new Error('Lyra gateway unavailable')
     }
 
     return gateway.request<T>(method, params)

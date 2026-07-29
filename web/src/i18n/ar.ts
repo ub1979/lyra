@@ -50,12 +50,12 @@ export const ar = defineLocale({
   },
 
   app: {
-    brand: "AppIT",
+    brand: "Lyra",
     brandShort: "II",
     closeNavigation: "إغلاق التنقل",
     closeModelTools: "إغلاق النموذج والأدوات",
     footer: {
-      org: "AppIT",
+      org: "Lyra",
     },
     activeSessionsLabel: "الجلسات النشطة:",
     gatewayStatusLabel: "حالة البوابة:",
@@ -120,8 +120,8 @@ export const ar = defineLocale({
     starting: "قيد البدء",
     startedInBackground: "بدء في الخلفية — تحقق من السجلات للتقدم",
     stopped: "متوقف",
-    updateHermes: "تحديث AppIT",
-    updatingHermes: "جاري تحديث AppIT…",
+    updateHermes: "تحديث Lyra",
+    updatingHermes: "جاري تحديث Lyra…",
     waitingForOutput: "في انتظار الناتج…",
   },
 
@@ -265,7 +265,7 @@ export const ar = defineLocale({
     enableRuntime: "تفعيل",
     forceReinstall: "إعادة تثبيت إجباري (حذف المجلد الموجود أولاً)",
     headline:
-      "اكتشف وثبِّت وفعِّل وحدِّث مكوِّنات AppIT الإضافية (مطابقة `hermes plugins`).",
+      "اكتشف وثبِّت وفعِّل وحدِّث مكوِّنات Lyra الإضافية (مطابقة `hermes plugins`).",
     identifierLabel: "رابط Git أو owner/repo",
     inactive: "غير نشط",
     installBtn: "تثبيت من Git",
@@ -431,11 +431,11 @@ export const ar = defineLocale({
   achievements: {
     hero: {
       kicker: "Agentic Gamerscore",
-      title: "إنجازات AppIT",
+      title: "إنجازات Lyra",
       subtitle:
-        "شارات AppIT قابلة للجمع مكتسبة من سجل الجلسات الفعلي. الإنجازات غير المكتملة المعروفة تُعرض كـ Discovered؛ تبقى الإنجازات السرية مخفية حتى يظهر السلوك المطابق لأول مرة.",
+        "شارات Lyra قابلة للجمع مكتسبة من سجل الجلسات الفعلي. الإنجازات غير المكتملة المعروفة تُعرض كـ Discovered؛ تبقى الإنجازات السرية مخفية حتى يظهر السلوك المطابق لأول مرة.",
       scan_subtitle:
-        "فحص سجل جلسات AppIT. يمكن أن يستغرق الفحص الأول 5–10 ثوانٍ على السجلات الكبيرة.",
+        "فحص سجل جلسات Lyra. يمكن أن يستغرق الفحص الأول 5–10 ثوانٍ على السجلات الكبيرة.",
     },
     actions: {
       rescan: "إعادة الفحص",
@@ -450,7 +450,7 @@ export const ar = defineLocale({
       highest_tier: "أعلى مستوى",
       highest_tier_hint: "نحاس → فضة → ذهب ← ماس → أوليمبي",
       latest: "الأحدث",
-      latest_hint_empty: "شغِّل AppIT أكثر",
+      latest_hint_empty: "شغِّل Lyra أكثر",
       none_yet: "لا توجد بعد",
     },
     state: {
@@ -481,10 +481,10 @@ export const ar = defineLocale({
       tiers_header: "المستويات",
       secret_header: "الإنجازات السرية",
       secret_body:
-        "تخفى الأسرار محددها الدقيق. بمجرد أن ترى AppIT إشارة ذات صلة، تصبح البطاقة مكتشفة وتعرض متطلباتها.",
+        "تخفى الأسرار محددها الدقيق. بمجرد أن ترى Lyra إشارة ذات صلة، تصبح البطاقة مكتشفة وتعرض متطلباتها.",
       scan_status_header: "حالة الفحص",
       scan_status_body:
-        "تُفحص AppIT السجل المحلي مرة واحدة، ثم تظهر البطاقات تلقائيًا. لا يوجد توقف إذا استغرق هذا بضع ثوانٍ.",
+        "تُفحص Lyra السجل المحلي مرة واحدة، ثم تظهر البطاقات تلقائيًا. لا يوجد توقف إذا استغرق هذا بضع ثوانٍ.",
       what_scanned_header: "ما يتم فحصه",
       what_scanned_body:
         "الجلسات، استدعاءات الأدوات، بيانات تعريف النموذج، الأخطاء، الإنجازات، وحالة الفتح المحلية.",
@@ -531,7 +531,7 @@ export const ar = defineLocale({
         "المشاركة على X تفتح منشورًا معدَّلاً مسبقًا في تبويب جديد. انقر نسخ الصورة أولاً إذا أردت شارة الإنجاز 1200×630 مرفقة — يسمح X باللصق مباشرة في مؤلف التغريد. تنزيل PNG يحفظ الملف للاستخدام anywhere.",
       clipboard_unsupported:
         "نسخ صورة الحافظة غير مدعوم في هذا المتصفح — استخدم التنزيل بدلاً من ذلك.",
-      tweet_text: "فتحت للتو {tier_part}\"{name}\" في AppIT ☤"
+      tweet_text: "فتحت للتو {tier_part}\"{name}\" في Lyra ☤"
     },
   },
 
