@@ -4,6 +4,8 @@
 
 Lyra is an AI agent that builds full-stack applications through conversation. It runs an autonomous SDLC pipeline — from requirements gathering to deployment — using 18 specialist agents that coordinate, learn, and improve with every project.
 
+Built on top of [Hermes Agent](https://github.com/NousResearch/hermes-agent) — uses the `hermes` CLI under the hood.
+
 <p align="center">
   <a href="#quick-start"><img src="https://img.shields.io/badge/Get_Started-5_min_setup-2ea44f?style=for-the-badge" alt="Get Started"></a>
   <a href="https://github.com/ub1979/lyra/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
@@ -64,7 +66,24 @@ Talk to Lyra from anywhere: **CLI** | **Web Dashboard** | **Desktop App** | **Te
 
 ## Quick Start
 
-### Install (Linux, macOS, WSL2)
+### Prerequisites
+
+- Python 3.11+
+- Node.js 20+
+- [uv](https://docs.astral.sh/uv/) (Python package manager)
+
+### 1. Install Hermes (the runtime Lyra is built on)
+
+```bash
+# Linux, macOS, WSL2
+curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
+source ~/.bashrc
+
+# Windows (PowerShell)
+iex (irm https://hermes-agent.nousresearch.com/install.ps1)
+```
+
+### 2. Clone Lyra
 
 ```bash
 git clone https://github.com/ub1979/lyra.git
@@ -73,26 +92,27 @@ cp .env.example .env
 # Edit .env — add at least one LLM provider API key (e.g. OPENROUTER_API_KEY)
 ```
 
-### Backend
+### 3. Set up a provider
 
 ```bash
-uv sync                # install Python dependencies
-lyra setup             # guided setup — picks a provider and model
-lyra                   # start the CLI
+hermes setup          # guided setup — picks a provider and model
+# or switch later:
+hermes model          # change models anytime
 ```
 
-### Dashboard
+### 4. Start the dashboard
 
 ```bash
-cd web && npm install   # install frontend dependencies
-lyra gateway            # starts the web dashboard at localhost:3000
+cd web && npm install   # install frontend dependencies (first time only)
+hermes gateway          # starts the web dashboard at localhost:3000
 ```
 
 Open the dashboard, click **New Project**, describe your app, and Lyra handles the rest.
 
-### Build your first app
+### 5. Or use the CLI directly
 
-```
+```bash
+hermes
 > Build me a todo app with categories and due dates
 ```
 
