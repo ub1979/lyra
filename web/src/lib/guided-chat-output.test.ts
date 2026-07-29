@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   analyzeGuidedChatOutput,
+  friendlyActivityLabel,
   guidedResponseNeedsContinuation,
   presentGuidedChatOutput,
   sanitizeGuidedResponse,
@@ -120,6 +121,11 @@ a//Users/u/funcoding/todo/index.html → b//Users/u/funcoding/todo/index.html
     expect(
       guidedResponseNeedsContinuation("Your application is ready to use."),
     ).toBe(false);
+    expect(
+      guidedResponseNeedsContinuation(
+        "Quick preview ready — open .sdlc/preview/index.html. Does this look like what you want?",
+      ),
+    ).toBe(false);
   });
 
   it("prefers the delegated role over later artifact mentions", () => {
@@ -131,5 +137,69 @@ a//Users/u/funcoding/todo/index.html → b//Users/u/funcoding/todo/index.html
       id: "task-planner",
       label: "Task planning",
     });
+  });
+
+});
+
+describe("friendlyActivityLabel", () => {
+  it("extracts a label from a tool.start payload with context", () => {
+    const label = friendlyActivityLabel(
+      { name: "Write", context: "Writing /Users/u/funcoding/project/src/App.tsx", args_text: '{"path":"src/App.tsx"}' },
+      false,
+    );
+    expect(label).toBe("Writing src/App.tsx");
+    expect(label).not.toContain("/Users/");
+  });
+
+  it("extracts a label from a tool.start with only a name", () => {
+    const label = friendlyActivityLabel({ name: "Bash" }, false);
+    expect(label).toBe("Running a command");
+  });
+
+  it("extracts a label from a subagent event with a goal", () => {
+    const label = friendlyActivityLabel(
+      { goal: "Build the login page component" },
+      true,
+    );
+    expect(label).toBe("Build the login page component");
+  });
+
+  it("extracts a label from a subagent tool event", () => {
+    const label = friendlyActivityLabel(
+      { tool_name: "Write", tool_preview: "/Users/u/project/src/App.tsx" },
+      true,
+    );
+    expect(label).toBe("Writing: App.tsx");
+  });
+
+  it("truncates long text to 80 chars", () => {
+    const label = friendlyActivityLabel(
+      { context: "A".repeat(100) },
+      false,
+    );
+    expect(label!.length).toBeLessThanOrEqual(80);
+    expect(label).toMatch(/…$/);
+  });
+
+  it("strips newlines from payload text", () => {
+    const label = friendlyActivityLabel(
+      { context: "Writing file\nwith many details\nand more" },
+      false,
+    );
+    expect(label).toBe("Writing file");
+  });
+
+  it("returns null when payload has no useful fields", () => {
+    expect(friendlyActivityLabel({}, false)).toBeNull();
+    expect(friendlyActivityLabel(null, false)).toBeNull();
+    expect(friendlyActivityLabel(undefined, true)).toBeNull();
+  });
+
+  it("prefers summary over goal for subagent events", () => {
+    const label = friendlyActivityLabel(
+      { goal: "implement auth", summary: "Finished login page" },
+      true,
+    );
+    expect(label).toBe("Finished login page");
   });
 });

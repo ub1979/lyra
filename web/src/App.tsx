@@ -21,6 +21,7 @@ import {
 import {
   Activity,
   BarChart3,
+  ChevronDown,
   Clock,
   Code,
   Cpu,
@@ -153,25 +154,30 @@ function ChatRouteSink() {
   return null;
 }
 
-const BUILTIN_NAV_REST: NavItem[] = [
+const BUILTIN_NAV_CORE: NavItem[] = [
   {
     path: "/sessions",
     labelKey: "sessions",
     label: "Sessions",
     icon: MessageSquare,
   },
+  {
+    path: "/models",
+    labelKey: "models",
+    label: "Models",
+    icon: Cpu,
+  },
+  { path: "/config", labelKey: "config", label: "Settings", icon: Settings },
+  { path: "/env", labelKey: "keys", label: "Keys", icon: KeyRound },
+];
+
+const BUILTIN_NAV_ADVANCED: NavItem[] = [
   { path: "/files", label: "Files", icon: FolderOpen },
   {
     path: "/analytics",
     labelKey: "analytics",
     label: "Analytics",
     icon: BarChart3,
-  },
-  {
-    path: "/models",
-    labelKey: "models",
-    label: "Models",
-    icon: Cpu,
   },
   { path: "/logs", labelKey: "logs", label: "Logs", icon: FileText },
   { path: "/cron", labelKey: "cron", label: "Cron", icon: Clock },
@@ -182,10 +188,12 @@ const BUILTIN_NAV_REST: NavItem[] = [
   { path: "/webhooks", label: "Webhooks", icon: Webhook },
   { path: "/pairing", label: "Pairing", icon: ShieldCheck },
   { path: "/profiles", labelKey: "profiles", label: "Profiles", icon: Users },
-  { path: "/config", labelKey: "config", label: "Config", icon: Settings },
-  { path: "/env", labelKey: "keys", label: "Keys", icon: KeyRound },
   { path: "/system", label: "System", icon: Wrench },
 ];
+
+const BUILTIN_NAV_REST: NavItem[] = [...BUILTIN_NAV_CORE, ...BUILTIN_NAV_ADVANCED];
+
+const ADVANCED_PATHS = new Set(BUILTIN_NAV_ADVANCED.map((i) => i.path));
 
 const ICON_MAP: Record<string, ComponentType<{ className?: string }>> = {
   Activity,
@@ -252,20 +260,22 @@ function buildNavItems(
   return items;
 }
 
-/** Split merged nav into built-in sidebar entries vs plugin tabs, preserving plugin order hints. */
+/** Split merged nav into core / advanced / plugin groups. */
 function partitionSidebarNav(
   builtIn: NavItem[],
   manifests: PluginManifest[],
-): { coreItems: NavItem[]; pluginItems: NavItem[] } {
+): { coreItems: NavItem[]; advancedItems: NavItem[]; pluginItems: NavItem[] } {
   const merged = buildNavItems(builtIn, manifests);
   const builtinPaths = new Set(builtIn.map((i) => i.path));
   const coreItems: NavItem[] = [];
+  const advancedItems: NavItem[] = [];
   const pluginItems: NavItem[] = [];
   for (const item of merged) {
-    if (builtinPaths.has(item.path)) coreItems.push(item);
-    else pluginItems.push(item);
+    if (!builtinPaths.has(item.path)) pluginItems.push(item);
+    else if (ADVANCED_PATHS.has(item.path)) advancedItems.push(item);
+    else coreItems.push(item);
   }
-  return { coreItems, pluginItems };
+  return { coreItems, advancedItems, pluginItems };
 }
 
 function buildRoutes(
@@ -332,6 +342,7 @@ function buildRoutes(
 }
 
 const SIDEBAR_COLLAPSED_KEY = "hermes-sidebar-collapsed";
+const SIDEBAR_ADVANCED_KEY = "idrak-it.sidebar-advanced-open";
 
 export default function App() {
   const { t } = useI18n();
@@ -357,6 +368,23 @@ export default function App() {
       return next;
     });
   }, []);
+  const [advancedOpen, setAdvancedOpen] = useState(() => {
+    try {
+      return localStorage.getItem(SIDEBAR_ADVANCED_KEY) === "true";
+    } catch {
+      return false;
+    }
+  });
+  const toggleAdvanced = useCallback(() => {
+    setAdvancedOpen((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(SIDEBAR_ADVANCED_KEY, String(next));
+      } catch { /* ignore */ }
+      return next;
+    });
+  }, []);
+
   const isMobile = useBelowBreakpoint(1024);
   const isDesktopCollapsed = collapsed && !isMobile;
   const tooltipWarmRef = useRef(0);
@@ -377,6 +405,12 @@ export default function App() {
   const isSimpleExperience =
     isBuilderRoute || isGuidedChat || isProjectModelSettings;
   const embeddedChat = isDashboardEmbeddedChatEnabled();
+
+  useEffect(() => {
+    if (ADVANCED_PATHS.has(normalizedPath) && !advancedOpen) {
+      setAdvancedOpen(true);
+    }
+  }, [normalizedPath, advancedOpen]);
 
   // `dashboard.show_token_analytics` gates the Analytics nav item.  The
   // page itself remains reachable by URL (it renders an explanation when
@@ -615,6 +649,21 @@ export default function App() {
               className="min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden border-t border-current/10 py-2"
               aria-label={t.app.navigation}
             >
+              {sidebarNav.pluginItems.length > 0 && (
+                <ul className="flex flex-col pb-1">
+                  {sidebarNav.pluginItems.map((item) => (
+                    <SidebarNavLink
+                      closeMobile={closeMobile}
+                      collapsed={isDesktopCollapsed}
+                      item={item}
+                      key={item.path}
+                      t={t}
+                      tooltipWarmRef={tooltipWarmRef}
+                    />
+                  ))}
+                </ul>
+              )}
+
               <ul className="flex flex-col">
                 {sidebarNav.coreItems.map((item) => (
                   <SidebarNavLink
@@ -628,35 +677,49 @@ export default function App() {
                 ))}
               </ul>
 
-              {sidebarNav.pluginItems.length > 0 && (
+              {sidebarNav.advancedItems.length > 0 && (
                 <div
-                  aria-labelledby="hermes-sidebar-plugin-nav-heading"
-                  className="flex flex-col border-t border-current/10 pb-2"
+                  className="flex flex-col border-t border-current/10 pt-1"
                   role="group"
+                  aria-labelledby="hermes-sidebar-advanced-heading"
                 >
-                  <span
-                    className={cn(
-                      "px-5 pt-2.5 pb-1",
-                      "font-sans text-display text-xs tracking-[0.12em] text-text-tertiary",
-                      isDesktopCollapsed && "lg:hidden",
-                    )}
-                    id="hermes-sidebar-plugin-nav-heading"
-                  >
-                    {t.app.pluginNavSection}
-                  </span>
-
-                  <ul className="flex flex-col">
-                    {sidebarNav.pluginItems.map((item) => (
-                      <SidebarNavLink
-                        closeMobile={closeMobile}
-                        collapsed={isDesktopCollapsed}
-                        item={item}
-                        key={item.path}
-                        t={t}
-                        tooltipWarmRef={tooltipWarmRef}
+                  {!isDesktopCollapsed && (
+                    <button
+                      id="hermes-sidebar-advanced-heading"
+                      type="button"
+                      onClick={toggleAdvanced}
+                      aria-expanded={advancedOpen}
+                      className={cn(
+                        "flex w-full items-center gap-1 cursor-pointer",
+                        "px-5 pt-1.5 pb-1",
+                        "font-sans text-xs tracking-[0.05em] text-text-tertiary",
+                        "hover:text-midground transition-colors",
+                      )}
+                    >
+                      <ChevronDown
+                        className={cn(
+                          "h-3 w-3 shrink-0 transition-transform duration-200",
+                          !advancedOpen && "-rotate-90",
+                        )}
                       />
-                    ))}
-                  </ul>
+                      <span>Advanced</span>
+                    </button>
+                  )}
+
+                  {(isDesktopCollapsed || advancedOpen) && (
+                    <ul className="flex flex-col">
+                      {sidebarNav.advancedItems.map((item) => (
+                        <SidebarNavLink
+                          closeMobile={closeMobile}
+                          collapsed={isDesktopCollapsed}
+                          item={item}
+                          key={item.path}
+                          t={t}
+                          tooltipWarmRef={tooltipWarmRef}
+                        />
+                      ))}
+                    </ul>
+                  )}
                 </div>
               )}
             </nav>
@@ -846,8 +909,8 @@ function SidebarNavLink({
         className={({ isActive }) =>
           cn(
             "group/nav relative flex items-center gap-3",
-            "px-5 py-2.5",
-            "font-sans text-display uppercase text-sm tracking-[0.12em]",
+            "px-5 py-2",
+            "font-sans text-[0.8125rem] tracking-[0.01em]",
             "whitespace-nowrap transition-colors cursor-pointer",
             "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-midground",
             isActive

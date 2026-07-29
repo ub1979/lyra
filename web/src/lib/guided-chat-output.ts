@@ -167,7 +167,7 @@ export function sanitizeGuidedResponse(raw: string): string {
  */
 export function guidedResponseNeedsContinuation(raw: string): boolean {
   const text = sanitizeGuidedResponse(raw);
-  if (!text || /[?？]|\bapprov(?:e|al)\b/i.test(text)) return false;
+  if (!text || /[?？]|\bapprov(?:e|al)\b|\bpreview ready\b|\bdoes this look\b/i.test(text)) return false;
   return (
     /\b(?:delegat(?:e|ing)|hand(?:ing)? off)\b[\s\S]{0,180}\b(?:specialist|subagent|agent|phase|plan\.md|task-graph\.md)\b/i.test(
       text,
@@ -231,4 +231,92 @@ export function analyzeGuidedChatOutput(raw: string): GuidedChatPresentation {
 
 export function presentGuidedChatOutput(raw: string): string {
   return analyzeGuidedChatOutput(raw).text;
+}
+
+const FRIENDLY_TOOL_LABELS: Record<string, string> = {
+  Write: "Writing",
+  Edit: "Editing",
+  Read: "Reading",
+  Bash: "Running a command",
+  Terminal: "Running a command",
+  WebSearch: "Searching the web",
+  web_search: "Searching the web",
+  web_extract: "Fetching a web page",
+  WebFetch: "Fetching a web page",
+  Apply: "Applying changes",
+  "Apply Patch": "Applying changes",
+  "Write File": "Writing",
+  "Edit File": "Editing",
+  "Read File": "Reading",
+  Grep: "Searching code",
+  GlobTool: "Finding files",
+  Agent: "Delegating to a specialist",
+};
+
+/**
+ * Derives a short, user-friendly activity label from a structured event payload.
+ * Returns `null` when no useful label can be derived — the caller falls back to
+ * a generic phrase.
+ *
+ * The returned label is capped at 80 characters, contains no newlines, and never
+ * exposes raw file contents or full paths — only the basename.
+ */
+export function friendlyActivityLabel(
+  payload: Record<string, unknown> | null | undefined,
+  isSubagent: boolean,
+): string | null {
+  if (!payload) return null;
+
+  if (isSubagent) {
+    const goal = typeof payload.goal === "string" ? payload.goal.trim() : "";
+    const summary = typeof payload.summary === "string" ? payload.summary.trim() : "";
+    const toolPreview = typeof payload.tool_preview === "string" ? payload.tool_preview.trim() : "";
+    const toolName = typeof payload.tool_name === "string" ? payload.tool_name.trim() : "";
+
+    if (summary) return _cap(summary);
+    if (toolName && toolPreview) {
+      const verb = FRIENDLY_TOOL_LABELS[toolName] ?? toolName;
+      return _cap(`${verb}: ${_basename(toolPreview)}`);
+    }
+    if (toolName) {
+      const verb = FRIENDLY_TOOL_LABELS[toolName];
+      return verb ? _cap(verb) : null;
+    }
+    if (goal) return _cap(goal);
+    return null;
+  }
+
+  const context = typeof payload.context === "string" ? payload.context.trim() : "";
+  const name = typeof payload.name === "string" ? payload.name.trim() : "";
+  const preview = typeof payload.preview === "string" ? payload.preview.trim() : "";
+  const summary = typeof payload.summary === "string" ? payload.summary.trim() : "";
+
+  if (context) return _cap(_shortenPaths(context));
+  if (summary) return _cap(summary);
+
+  const verb = name ? (FRIENDLY_TOOL_LABELS[name] ?? name) : "";
+  if (verb && preview) return _cap(`${verb}: ${_basename(preview)}`);
+  if (verb) return _cap(verb);
+  return null;
+}
+
+function _shortenPaths(text: string): string {
+  return text.replace(/(?:\/[A-Za-z][A-Za-z0-9._-]*){3,}/g, (match) => {
+    const parts = match.split("/").filter(Boolean);
+    return parts.length > 2
+      ? parts.slice(-2).join("/")
+      : parts.join("/");
+  });
+}
+
+function _basename(text: string): string {
+  const clean = text.replace(/\n[\s\S]*/, "").trim();
+  const match = clean.match(/[/\\]([^/\\]+)$/);
+  return match ? match[1] : clean;
+}
+
+function _cap(text: string): string {
+  const oneLine = text.replace(/\n[\s\S]*/, "").trim();
+  if (oneLine.length <= 80) return oneLine;
+  return oneLine.slice(0, 77) + "…";
 }
