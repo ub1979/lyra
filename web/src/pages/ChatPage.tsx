@@ -39,6 +39,7 @@ import { api } from "@/lib/api";
 import { latchChatActivation } from "@/lib/chat-activation";
 import {
   analyzeGuidedChatOutput,
+  friendlyActivityLabel,
   guidedResponseNeedsContinuation,
   sanitizeGuidedResponse,
   type GuidedChatPresentation,
@@ -414,10 +415,9 @@ function GuidedSpecialistActivity({
     GUIDED_SPECIALIST_ETA_SECONDS[specialist.id] ??
     GUIDED_SPECIALIST_ETA_SECONDS.idk_it;
   const phraseIndex = Math.floor(elapsedSeconds / 5) % GUIDED_WORK_PHRASES.length;
-  const phrase =
-    elapsedSeconds < 5 && activity.text
-      ? activity.text
-      : GUIDED_WORK_PHRASES[phraseIndex];
+  const phrase = activity.text
+    ? activity.text
+    : GUIDED_WORK_PHRASES[phraseIndex];
   const silentSeconds = Math.max(
     0,
     Math.floor((clock - lastSignalAt) / 1000),
@@ -1049,17 +1049,23 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             guidedSelectedSpecialistIdsRef.current.includes(detected.id)
               ? detected
               : null;
-          if (type.startsWith("subagent.")) {
+          const isSubagent = type.startsWith("subagent.");
+          if (isSubagent) {
             guidedActiveSubagentRef.current = true;
           }
+          const label = friendlyActivityLabel(
+            payload as Record<string, unknown> | undefined,
+            isSubagent,
+          );
           guidedTurnSettledRef.current = false;
           setGuidedLastSignalAt(Date.now());
           setGuidedActivity((current) => ({
             phase: "working",
             text:
-              type.startsWith("subagent.")
+              label ??
+              (isSubagent
                 ? "A specialist is working on this phase…"
-                : "Preparing the next useful step…",
+                : "Preparing the next step…"),
             specialist:
               selected ??
               current.specialist ??
@@ -1114,7 +1120,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 );
                 lastGuidedResponseRef.current = "";
                 active.send(
-                  "IDRAK_INTERNAL_CONTINUE: Continue the selected workflow now. Perform the promised tool call or specialist delegation, verify its artifact, and then advance through later enabled phases. Do not merely describe the next action. Stop only for a real user decision, approval, permission, blocker, or final completion.",
+                  "IDRAK_INTERNAL_CONTINUE: Continue the selected workflow now. Perform the promised tool call or specialist delegation, verify its artifact, and then advance through later enabled phases. Do not merely describe the next action. Stop for: any approval checkpoint (requirements summary, visual preview, final delivery), a real user decision, permission request, blocker, or final completion. At approval checkpoints, present options (Approve / Change / Skip) and wait.",
                 );
                 window.setTimeout(() => {
                   if (wsRef.current?.readyState === WebSocket.OPEN) {

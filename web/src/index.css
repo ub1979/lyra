@@ -269,6 +269,25 @@ code { font-size: 0.875rem; }
   font-family: var(--theme-font-mono);
 }
 
+/* ------------------------------------------------------------------ */
+/* Button style overrides — Progressive Disclosure redesign            */
+/* Targets the @nous-research/ui Button (renders as <button> with      */
+/* text-display class). Moves from monospace/UPPERCASE/beveled to      */
+/* sans-serif, sentence case, rounded, flat.                           */
+/* ------------------------------------------------------------------ */
+
+button.text-display {
+  font-family: var(--theme-font-sans);
+  text-transform: none;
+  letter-spacing: 0.01em;
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+button.text-display .arc-border {
+  border-radius: 6px;
+}
+
 /* Subtle grain overlay for badges. */
 .grain {
   position: relative;
