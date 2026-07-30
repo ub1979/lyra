@@ -137,6 +137,9 @@ LAZY_DEPS: dict[str, tuple[str, ...]] = {
         "numpy==2.4.3",
     ),
 
+    # ─── Voice chat (LiveKit real-time transport) ─────────────────────────
+    "voice.livekit": ("livekit==1.1.13", "livekit-api==1.2.0"),
+
     # ─── Image generation backends ─────────────────────────────────────────
     "image.fal": ("fal-client==0.13.1",),
 

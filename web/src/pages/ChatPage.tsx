@@ -26,6 +26,8 @@ import { Button } from "@nous-research/ui/ui/components/button";
 import { Typography } from "@nous-research/ui/ui/components/typography/index";
 import { cn } from "@/lib/utils";
 import { Copy, FolderOpen, PanelRight, RotateCcw, Send, Trash2, X } from "lucide-react";
+import { useLiveKitVoice } from "../hooks/useLiveKitVoice";
+import { VoiceButton } from "../components/VoiceButton";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
@@ -1348,6 +1350,12 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const sendGuidedMessage = useCallback(() => {
     submitGuidedText(guidedInput);
   }, [guidedInput, submitGuidedText]);
+
+  // Voice chat via LiveKit
+  const voice = useLiveKitVoice({
+    channelId: channel,
+    onTranscript: submitGuidedText,
+  });
 
   const toggleGuidedPause = useCallback(() => {
     if (!guidedPaused && wsRef.current?.readyState === WebSocket.OPEN) {
@@ -2867,6 +2875,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 }
                 className="min-h-12 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-text-primary outline-none placeholder:text-text-secondary"
                 aria-label="Message Lyra"
+              />
+              <VoiceButton
+                state={voice.state}
+                onToggle={voice.toggle}
+                disabled={guidedPaused || ptyState !== "open"}
               />
               <Button
                 size="icon"

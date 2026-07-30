@@ -175,6 +175,7 @@ voice = [
   "sounddevice==0.5.5",
   "numpy==2.4.3",
 ]
+livekit = ["livekit==1.1.13", "livekit-api==1.2.0"]
 honcho = ["honcho-ai==2.2.0"]
 # Cloud memory providers — opt-in, lazy-installed via tools/lazy_deps.py
 # (memory.supermemory / memory.mem0) at first use. Exact pins MUST match the

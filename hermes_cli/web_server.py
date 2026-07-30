@@ -4854,6 +4854,85 @@ async def speak_stream_ws(ws: "WebSocket") -> None:
             await ws.close()
 
 
+# ── Voice chat (LiveKit) ─────────────────────────────────────────────
+# Active voice workers keyed by channel ID.
+_voice_workers: dict[str, asyncio.Task] = {}
+
+
+@app.post("/api/voice/token")
+async def voice_token(request: Request):
+    """Generate a LiveKit access token for the browser participant."""
+    _require_token(request)
+    from tools.livekit_voice import is_enabled, get_livekit_url
+
+    if not is_enabled():
+        raise HTTPException(status_code=503, detail="Voice chat is not enabled. Set LIVEKIT_ENABLED=true")
+
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+    channel_id = body.get("channelId", "")
+    if not channel_id:
+        raise HTTPException(status_code=400, detail="channelId is required")
+
+    room_name = f"lyra-voice-{channel_id}"
+    identity = "browser-user"
+
+    from tools.livekit_voice.token import generate_token
+
+    token = generate_token(room_name, identity)
+    return {"token": token, "wsUrl": get_livekit_url(), "roomName": room_name}
+
+
+@app.post("/api/voice/worker-start")
+async def voice_worker_start(request: Request):
+    """Launch the voice worker for a given channel."""
+    _require_token(request)
+    from tools.livekit_voice import is_enabled
+
+    if not is_enabled():
+        raise HTTPException(status_code=503, detail="Voice chat is not enabled. Set LIVEKIT_ENABLED=true")
+
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+    channel_id = body.get("channelId", "")
+    if not channel_id:
+        raise HTTPException(status_code=400, detail="channelId is required")
+
+    if channel_id in _voice_workers and not _voice_workers[channel_id].done():
+        return {"status": "already_running", "channelId": channel_id}
+
+    from tools.livekit_voice.worker import run_voice_worker
+
+    room_name = f"lyra-voice-{channel_id}"
+    task = asyncio.create_task(
+        run_voice_worker(app, room_name, channel_id),
+        name=f"voice-worker-{channel_id}",
+    )
+    task.add_done_callback(lambda t: _voice_workers.pop(channel_id, None))
+    _voice_workers[channel_id] = task
+    return {"status": "started", "channelId": channel_id}
+
+
+@app.post("/api/voice/worker-stop")
+async def voice_worker_stop(request: Request):
+    """Stop the voice worker for a given channel."""
+    _require_token(request)
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+    channel_id = body.get("channelId", "")
+
+    task = _voice_workers.pop(channel_id, None)
+    if task and not task.done():
+        task.cancel()
+    return {"status": "stopped", "channelId": channel_id}
+
+
 @app.get("/api/actions/{name}/status")
 async def get_action_status(name: str, lines: int = 200):
     """Tail an action log and report whether the process is still running."""

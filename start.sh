@@ -42,6 +42,19 @@ fi
 echo "Enabling the Ultimate Builder plugin..."
 uv run hermes plugins enable ultimate-builder >/dev/null
 
+# Optional: start LiveKit server for voice chat
+if [[ "${LIVEKIT_ENABLED:-}" == "true" ]]; then
+  if command -v livekit-server >/dev/null 2>&1; then
+    echo "Starting LiveKit server for voice chat..."
+    livekit-server --dev --bind 127.0.0.1 &
+    LIVEKIT_PID=$!
+    trap "kill $LIVEKIT_PID 2>/dev/null" EXIT
+  else
+    echo "Warning: LIVEKIT_ENABLED=true but livekit-server not found."
+    echo "  Install: brew install livekit/tap/livekit-server"
+  fi
+fi
+
 echo
 echo "Starting Lyra at http://127.0.0.1:${PORT}"
 echo "Choose New project or Open project in the browser, then start chatting."
@@ -49,4 +62,4 @@ echo "Lyra keeps technical terminal output behind the guided chat."
 echo "Press Ctrl+C here to stop the web application."
 echo
 
-exec uv run hermes dashboard --port "$PORT" "$@"
+uv run hermes dashboard --port "$PORT" "$@"
