@@ -104,10 +104,12 @@ async def run_voice_worker(app: Any, room_name: str, channel_id: str) -> None:
 
     # STT runs in a background task to avoid blocking the audio stream
     stt_queue: asyncio.Queue[bytes] = asyncio.Queue()
+    recent_events: list[dict] = []
 
     async def _stt_consumer() -> None:
         nonlocal state
         from tools.livekit_voice.stt_bridge import transcribe_wav
+        from tools.livekit_voice.companion import respond_to_user
 
         while True:
             try:
@@ -131,7 +133,9 @@ async def run_voice_worker(app: Any, room_name: str, channel_id: str) -> None:
                 except Exception:
                     logger.warning("Failed to publish transcript data")
             else:
-                logger.info("User spoke during build: %s", transcript)
+                response = await respond_to_user(transcript, recent_events)
+                if response:
+                    await _speak_sentence(response, tts_source, loop)
 
     stt_task = asyncio.create_task(_stt_consumer())
 
@@ -174,6 +178,7 @@ async def run_voice_worker(app: Any, room_name: str, channel_id: str) -> None:
         nonlocal state
 
         from tools.tts_streaming import SentenceChunker
+        from tools.livekit_voice.companion import narrate_event
 
         chunker = SentenceChunker()
 
@@ -193,12 +198,17 @@ async def run_voice_worker(app: Any, room_name: str, channel_id: str) -> None:
                 continue
 
             event_type = params.get("type", "")
+            event_payload = params.get("payload")
+
+            recent_events.append({"type": event_type, "payload": event_payload})
+            if len(recent_events) > 20:
+                del recent_events[:10]
 
             if event_type == "message.start":
                 state = WorkerState.BUILDING
 
             elif event_type == "message.delta":
-                ep = params.get("payload") or {}
+                ep = event_payload or {}
                 delta = ep.get("text", "")
                 if delta:
                     sentences = chunker.feed(delta)
@@ -210,6 +220,12 @@ async def run_voice_worker(app: Any, room_name: str, channel_id: str) -> None:
                 for sentence in remaining:
                     await _speak_sentence(sentence, tts_source, loop)
                 state = WorkerState.IDLE
+                recent_events.clear()
+
+            elif state == WorkerState.BUILDING:
+                narration = narrate_event(event_type, event_payload)
+                if narration:
+                    await _speak_sentence(narration, tts_source, loop)
 
     event_task = asyncio.create_task(_process_events())
 
