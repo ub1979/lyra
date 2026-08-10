@@ -168,6 +168,26 @@ const GUIDED_SPECIALIST_LABELS: Record<string, string> = {
   idk_it: "Workflow coordination",
 };
 
+const GUIDED_SPECIALIST_DESCRIPTIONS: Record<string, string> = {
+  "req-engineer": "Clarify goals, users, scope, and acceptance criteria.",
+  spec: "Turn the request into detailed, testable behavior.",
+  "sw-architect": "Design the system, data, APIs, and boundaries.",
+  "task-planner": "Create an ordered implementation graph.",
+  "proj-manager": "Build milestones, checkpoints, and delivery plans.",
+  "sw-developer": "Write and integrate working application code.",
+  "oop-restructurer": "Improve modules, classes, and maintainability.",
+  debugger: "Find root causes and add regression coverage.",
+  "code-reviewer": "Review correctness, quality, and maintainability.",
+  "qa-engineer": "Test real user journeys and report reproducible bugs.",
+  "security-auditor": "Audit authentication, data, dependencies, and secrets.",
+  "devops-engineer": "Prepare CI/CD, containers, operations, and rollback.",
+  "tech-writer": "Write user, developer, and API documentation.",
+  benchmark: "Measure speed, reliability, and resource usage.",
+  health: "Record operational health and stability baselines.",
+  "context-save": "Keep decisions and progress available between sessions.",
+  learn: "Record evidence-backed improvement candidates.",
+};
+
 const GUIDED_SELECTABLE_SPECIALIST_IDS = Object.keys(
   GUIDED_SPECIALIST_LABELS,
 ).filter((id) => id !== "app-it" && id !== "idk_it");
@@ -242,6 +262,27 @@ function specialistIdsFromBuilderSeed(
 
 function guidedMessageStorageKey(workspace: string): string {
   return `idrak-it.guided-messages.v1:${workspace || "default"}`;
+}
+
+function guidedWelcomeSeed(
+  workspace: string,
+  specialists: readonly string[],
+  models: Readonly<Record<string, string>>,
+): string {
+  return `IDRAK_INTERNAL_SETUP_BEGIN ${JSON.stringify({
+    instruction:
+      "Lyra is the permanent user-facing project guide. Use the internal ultimate-builder:app-it skill, keep internal skill names and orchestration out of user-facing messages, and work only inside the selected workspace.",
+    first_turn_gate:
+      "Inspect the workspace read-only. Then greet the user warmly as Lyra, briefly say what the project appears to be (or that it is empty), and ask exactly ONE short question about what they want to build or change. Recommend the smallest useful specialist team later and ask permission before changing it.",
+    workspace,
+    enabled_specialists: specialists,
+    enabled_specialist_labels: specialists.map(
+      (id) => GUIDED_SPECIALIST_LABELS[id],
+    ),
+    specialist_models: models,
+    user_request:
+      "Start this project conversation now with Lyra's greeting and first focused question.",
+  })} IDRAK_INTERNAL_SETUP_END`;
 }
 
 function readGuidedMessages(workspace: string): GuidedMessage[] {
@@ -664,6 +705,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const [guidedMessages, setGuidedMessages] = useState<GuidedMessage[]>(() =>
     typeof window === "undefined" ? [] : readGuidedMessages(workspaceParam),
   );
+  const guidedMessagesRef = useRef(guidedMessages);
+  const guidedWelcomeStartedRef = useRef(false);
   const [guidedMessageWorkspace, setGuidedMessageWorkspace] = useState(
     workspaceParam,
   );
@@ -699,9 +742,13 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const guidedAutoContinueCountRef = useRef(0);
   const [guidedInput, setGuidedInput] = useState("");
   const [guidedSkillsOpen, setGuidedSkillsOpen] = useState(false);
+  const [guidedSkillDraftIds, setGuidedSkillDraftIds] = useState<string[]>([]);
   const [guidedSkillModels, setGuidedSkillModels] = useState<
     Record<string, string>
   >(() => (typeof window === "undefined" ? {} : readGuidedSkillModels()));
+  const [guidedSkillModelDraft, setGuidedSkillModelDraft] = useState<
+    Record<string, string>
+  >({});
   const guidedSkillModelsRef = useRef(guidedSkillModels);
   const [guidedModelOptions, setGuidedModelOptions] = useState<string[]>([]);
   const [guidedDefaultModelLabel, setGuidedDefaultModelLabel] = useState(
@@ -777,6 +824,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     });
   }, []);
 
+  useEffect(() => {
+    guidedMessagesRef.current = guidedMessages;
+  }, [guidedMessages]);
+
   const applyGuidedSpecialistIds = useCallback(
     (ids: readonly string[]) => {
       const allowed = new Set(GUIDED_SELECTABLE_SPECIALIST_IDS);
@@ -835,6 +886,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     if (!guided || guidedMessageWorkspace === workspaceParam) return;
     setGuidedMessages(readGuidedMessages(workspaceParam));
     setGuidedMessageWorkspace(workspaceParam);
+    guidedWelcomeStartedRef.current = false;
     lastGuidedResponseRef.current = "";
     guidedTurnSettledRef.current = true;
     setGuidedActivity({ phase: "idle", text: "", specialist: null });
@@ -1332,6 +1384,20 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   }, [mobilePanelOpen, closeMobilePanel]);
 
   useEffect(() => {
+    if (!guidedSkillsOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setGuidedSkillsOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [guidedSkillsOpen]);
+
+  useEffect(() => {
     const mql = window.matchMedia("(min-width: 1024px)");
     const onChange = (e: MediaQueryListEvent) => {
       if (e.matches) setMobilePanelOpenRaw(false);
@@ -1436,79 +1502,83 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     [submitGuidedText],
   );
 
-  const toggleGuidedSpecialist = useCallback(
+  const openGuidedSkills = useCallback(() => {
+    setGuidedSkillDraftIds(guidedSelectedSpecialistIdsRef.current);
+    setGuidedSkillModelDraft({ ...guidedSkillModelsRef.current });
+    setGuidedSkillsOpen(true);
+  }, []);
+
+  const toggleGuidedSpecialistDraft = useCallback(
     (id: string) => {
-      if (
-        !GUIDED_SELECTABLE_SPECIALIST_IDS.includes(id) ||
-        guidedPaused ||
-        guidedActivity.phase === "working" ||
-        !guidedAgentReadyRef.current ||
-        wsRef.current?.readyState !== WebSocket.OPEN
-      ) {
-        return;
-      }
-      const current = guidedSelectedSpecialistIdsRef.current;
-      const next = current.includes(id)
-        ? current.filter((candidate) => candidate !== id)
-        : [...current, id];
-      applyGuidedSpecialistIds(next);
-      const labels = next.map((skillId) => GUIDED_SPECIALIST_LABELS[skillId]);
-      sendGuidedProjectState(
-        next,
-        guidedSkillModelsRef.current,
-        labels.length
-          ? `Updated project specialists: ${labels.join(", ")}`
-          : "Updated project specialists: Lyra only",
+      if (!GUIDED_SELECTABLE_SPECIALIST_IDS.includes(id)) return;
+      setGuidedSkillDraftIds((current) =>
+        current.includes(id)
+          ? current.filter((candidate) => candidate !== id)
+          : [...current, id],
       );
     },
-    [
-      applyGuidedSpecialistIds,
-      guidedActivity.phase,
-      guidedPaused,
-      sendGuidedProjectState,
-    ],
+    [],
   );
 
-  const updateGuidedSpecialistModel = useCallback(
+  const updateGuidedSpecialistModelDraft = useCallback(
     (id: string, model: string) => {
-      if (
-        !GUIDED_SELECTABLE_SPECIALIST_IDS.includes(id) ||
-        !guidedSelectedSpecialistIdsRef.current.includes(id) ||
-        guidedPaused ||
-        guidedActivity.phase === "working" ||
-        !guidedAgentReadyRef.current ||
-        wsRef.current?.readyState !== WebSocket.OPEN
-      ) {
-        return;
-      }
-      const next = { ...guidedSkillModelsRef.current };
-      if (model.trim()) next[id] = model.trim();
-      else delete next[id];
-      guidedSkillModelsRef.current = next;
-      setGuidedSkillModels(next);
-      try {
-        window.localStorage.setItem(
-          GUIDED_SKILL_MODELS_STORAGE_KEY,
-          JSON.stringify(next),
-        );
-      } catch {
-        // Live routing still works for this conversation.
-      }
-      sendGuidedProjectState(
-        guidedSelectedSpecialistIdsRef.current,
-        next,
-        `Updated ${GUIDED_SPECIALIST_LABELS[id]} LLM: ${
-          model.trim() || guidedDefaultModelLabel
-        }`,
-      );
+      if (!GUIDED_SELECTABLE_SPECIALIST_IDS.includes(id)) return;
+      setGuidedSkillModelDraft((current) => {
+        const next = { ...current };
+        if (model.trim()) next[id] = model.trim();
+        else delete next[id];
+        return next;
+      });
     },
-    [
-      guidedActivity.phase,
-      guidedDefaultModelLabel,
-      guidedPaused,
-      sendGuidedProjectState,
-    ],
+    [],
   );
+
+  const saveGuidedSkills = useCallback(() => {
+    if (
+      guidedPaused ||
+      guidedActivity.phase === "working" ||
+      !guidedAgentReadyRef.current ||
+      wsRef.current?.readyState !== WebSocket.OPEN
+    ) {
+      return;
+    }
+    const selected = GUIDED_SELECTABLE_SPECIALIST_IDS.filter((id) =>
+      guidedSkillDraftIds.includes(id),
+    );
+    const models = Object.fromEntries(
+      Object.entries(guidedSkillModelDraft).filter(
+        ([id, model]) =>
+          GUIDED_SELECTABLE_SPECIALIST_IDS.includes(id) && Boolean(model.trim()),
+      ),
+    );
+    applyGuidedSpecialistIds(selected);
+    guidedSkillModelsRef.current = models;
+    setGuidedSkillModels(models);
+    try {
+      window.localStorage.setItem(
+        GUIDED_SKILL_MODELS_STORAGE_KEY,
+        JSON.stringify(models),
+      );
+    } catch {
+      // Live routing still works for this conversation.
+    }
+    const labels = selected.map((id) => GUIDED_SPECIALIST_LABELS[id]);
+    sendGuidedProjectState(
+      selected,
+      models,
+      labels.length
+        ? `Updated project specialists: ${labels.join(", ")}`
+        : "Updated project specialists: Lyra only",
+    );
+    setGuidedSkillsOpen(false);
+  }, [
+    applyGuidedSpecialistIds,
+    guidedActivity.phase,
+    guidedPaused,
+    guidedSkillDraftIds,
+    guidedSkillModelDraft,
+    sendGuidedProjectState,
+  ]);
 
   const sendGuidedMessage = useCallback(() => {
     submitGuidedText(guidedInput);
@@ -2162,6 +2232,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           }
           guidedAgentReadyRef.current = true;
           setGuidedAgentReady(true);
+          guidedWelcomeStartedRef.current = true;
           const next = new URLSearchParams(searchParams);
           next.delete("builder");
           setSearchParams(next, { replace: true });
@@ -2196,6 +2267,34 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           if (terminalComposerIsReady(term)) {
             guidedAgentReadyRef.current = true;
             setGuidedAgentReady(true);
+            if (
+              guided &&
+              guidedMessagesRef.current.length === 0 &&
+              !guidedWelcomeStartedRef.current
+            ) {
+              guidedWelcomeStartedRef.current = true;
+              guidedTurnStartLineRef.current = Math.max(
+                0,
+                term.buffer.active.length - 1,
+              );
+              guidedTurnSettledRef.current = false;
+              setGuidedActivity({
+                phase: "working",
+                text: "Lyra is getting to know your project…",
+                specialist: APP_IT_SPECIALIST,
+              });
+              const welcome = guidedWelcomeSeed(
+                workspaceParam,
+                guidedSelectedSpecialistIdsRef.current,
+                guidedSkillModelsRef.current,
+              );
+              wsRef.current.send(welcome);
+              window.setTimeout(() => {
+                if (wsRef.current?.readyState === WebSocket.OPEN) {
+                  wsRef.current.send("\r");
+                }
+              }, 100);
+            }
             return;
           }
           if (Date.now() < readyDeadline) {
@@ -2780,10 +2879,186 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       portalRoot,
     );
 
+  const guidedSkillsPortal =
+    guided &&
+    guidedSkillsOpen &&
+    portalRoot &&
+    createPortal(
+      <div className="font-mondwest fixed inset-0 z-[70] flex items-center justify-center p-3 sm:p-6">
+        <button
+          type="button"
+          className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+          aria-label="Close project skills"
+          onClick={() => setGuidedSkillsOpen(false)}
+        />
+        <section
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="guided-skills-title"
+          className="relative z-[71] flex max-h-[88dvh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-current/20 bg-background-base text-text-primary shadow-2xl"
+        >
+          <header className="flex shrink-0 items-start justify-between gap-4 border-b border-current/15 px-5 py-4 sm:px-6">
+            <div>
+              <h2 id="guided-skills-title" className="text-xl font-semibold text-midground">
+                Project specialists
+              </h2>
+              <p className="mt-1 text-sm text-text-secondary">
+                Lyra is always active. Choose the extra specialists and LLMs this project needs.
+              </p>
+            </div>
+            <Button
+              ghost
+              size="icon"
+              aria-label="Close project skills"
+              onClick={() => setGuidedSkillsOpen(false)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </header>
+
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-current/10 px-5 py-3 sm:px-6">
+            <span className="text-xs text-text-secondary">
+              {guidedSkillDraftIds.length} of {GUIDED_SELECTABLE_SPECIALIST_IDS.length} selected
+            </span>
+            <div className="flex gap-3 text-xs">
+              <button
+                type="button"
+                className="text-midground hover:underline"
+                onClick={() =>
+                  setGuidedSkillDraftIds([...GUIDED_SELECTABLE_SPECIALIST_IDS])
+                }
+              >
+                Select all
+              </button>
+              <button
+                type="button"
+                className="text-midground hover:underline"
+                onClick={() => setGuidedSkillDraftIds([])}
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+            <div className="grid gap-3 md:grid-cols-2">
+              {GUIDED_SELECTABLE_SPECIALIST_IDS.map((id) => {
+                const selected = guidedSkillDraftIds.includes(id);
+                const assignedModel = guidedSkillModelDraft[id] ?? "";
+                const modelChoices =
+                  assignedModel && !guidedModelOptions.includes(assignedModel)
+                    ? [assignedModel, ...guidedModelOptions]
+                    : guidedModelOptions;
+                return (
+                  <div
+                    key={id}
+                    className={cn(
+                      "rounded-xl border p-3 transition-colors",
+                      selected
+                        ? "border-midground/45 bg-midground/[0.07]"
+                        : "border-current/15 bg-midground/[0.02] hover:border-current/30",
+                    )}
+                  >
+                    <label className="grid cursor-pointer grid-cols-[24px_64px_minmax(0,1fr)] items-center gap-3">
+                      <input
+                        type="checkbox"
+                        className="sr-only"
+                        checked={selected}
+                        onChange={() => toggleGuidedSpecialistDraft(id)}
+                      />
+                      <span
+                        className={cn(
+                          "grid h-6 w-6 place-items-center rounded-md border text-xs",
+                          selected
+                            ? "border-midground bg-midground text-background-base"
+                            : "border-current/25 text-transparent",
+                        )}
+                      >
+                        ✓
+                      </span>
+                      <img
+                        src={`/skill-avatars/${id.replace("_", "-")}${
+                          selected ? "" : "-sad"
+                        }.webp`}
+                        alt=""
+                        className={cn(
+                          "h-16 w-16 rounded-xl border border-current/15 object-cover shadow-md transition-all",
+                          selected ? "opacity-100" : "scale-95 opacity-60",
+                        )}
+                      />
+                      <span className="min-w-0">
+                        <strong className="block text-sm text-midground">
+                          {GUIDED_SPECIALIST_LABELS[id]}
+                        </strong>
+                        <small className="mt-1 block text-xs leading-5 text-text-secondary">
+                          {GUIDED_SPECIALIST_DESCRIPTIONS[id]}
+                        </small>
+                      </span>
+                    </label>
+                    {selected && (
+                      <div className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 border-t border-current/10 pt-3">
+                        <span className="text-[10px] font-semibold uppercase tracking-widest text-midground">
+                          LLM
+                        </span>
+                        <select
+                          value={assignedModel}
+                          aria-label={`LLM for ${GUIDED_SPECIALIST_LABELS[id]}`}
+                          className="h-9 min-w-0 rounded-lg border border-current/20 bg-background-base px-2 text-xs text-text-primary outline-none focus:border-midground/60"
+                          onChange={(event) =>
+                            updateGuidedSpecialistModelDraft(
+                              id,
+                              event.target.value,
+                            )
+                          }
+                        >
+                          <option value="">
+                            Default · {guidedDefaultModelLabel}
+                          </option>
+                          {modelChoices.map((model) => (
+                            <option key={model} value={model}>
+                              {model}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <footer className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-current/15 px-5 py-4 sm:px-6">
+            <span className="text-xs text-text-secondary">
+              Changes are sent to Lyra once when you save.
+            </span>
+            <div className="flex gap-2">
+              <Button outlined onClick={() => setGuidedSkillsOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={saveGuidedSkills}
+                disabled={
+                  guidedPaused ||
+                  guidedActivity.phase === "working" ||
+                  !guidedAgentReady ||
+                  ptyState !== "open"
+                }
+              >
+                Save changes
+              </Button>
+            </div>
+          </footer>
+        </section>
+      </div>,
+      portalRoot,
+    );
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2">
       <PluginSlot name="chat:top" />
       {mobileModelToolsPortal}
+      {guidedSkillsPortal}
 
       {visibleBanner && (
         <div className="border border-warning/50 bg-warning/10 text-warning px-3 py-2 text-xs tracking-wide">
@@ -2807,8 +3082,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               <Button
                 ghost
                 size="sm"
-                onClick={() => setGuidedSkillsOpen((open) => !open)}
+                onClick={openGuidedSkills}
                 aria-expanded={guidedSkillsOpen}
+                disabled={
+                  guidedActivity.phase === "working" || !guidedAgentReady
+                }
               >
                 Skills ({guidedSelectedSpecialistIds.length})
               </Button>
@@ -2845,84 +3123,6 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               </Button>
             </div>
           </div>
-
-          {guidedSkillsOpen && (
-            <div className="border-b border-current/10 bg-midground/[0.025] px-4 py-4 sm:px-5">
-              <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-                <div>
-                  <strong className="text-sm text-midground">Lyra is always active</strong>
-                  <span className="ml-2 text-xs text-text-secondary">
-                    Select only the specialists this project needs.
-                  </span>
-                </div>
-                <span className="text-xs text-text-secondary">
-                  Changes are sent to Lyra immediately.
-                </span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {GUIDED_SELECTABLE_SPECIALIST_IDS.map((id) => {
-                  const selected = guidedSelectedSpecialistIds.includes(id);
-                  const assignedModel = guidedSkillModels[id] ?? "";
-                  const modelChoices =
-                    assignedModel && !guidedModelOptions.includes(assignedModel)
-                      ? [assignedModel, ...guidedModelOptions]
-                      : guidedModelOptions;
-                  const disabled =
-                    guidedPaused ||
-                    guidedActivity.phase === "working" ||
-                    !guidedAgentReady;
-                  return (
-                    <div
-                      key={id}
-                      className={cn(
-                        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition-colors",
-                        selected
-                          ? "border-midground/40 bg-midground/10 text-midground"
-                          : "border-current/15 text-text-secondary hover:border-current/30",
-                        disabled && "opacity-50",
-                      )}
-                    >
-                      <label
-                        className={cn(
-                          "inline-flex cursor-pointer items-center gap-2",
-                          disabled && "cursor-not-allowed",
-                        )}
-                      >
-                        <input
-                          type="checkbox"
-                          className="h-3.5 w-3.5 accent-current"
-                          checked={selected}
-                          disabled={disabled}
-                          onChange={() => toggleGuidedSpecialist(id)}
-                        />
-                        {GUIDED_SPECIALIST_LABELS[id]}
-                      </label>
-                      {selected && (
-                        <select
-                          value={assignedModel}
-                          disabled={disabled}
-                          aria-label={`LLM for ${GUIDED_SPECIALIST_LABELS[id]}`}
-                          className="max-w-52 rounded border border-current/20 bg-background-base px-2 py-1 text-[11px] text-text-primary"
-                          onChange={(event) =>
-                            updateGuidedSpecialistModel(id, event.target.value)
-                          }
-                        >
-                          <option value="">
-                            Default · {guidedDefaultModelLabel}
-                          </option>
-                          {modelChoices.map((model) => (
-                            <option key={model} value={model}>
-                              {model}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
 
           <div
             ref={guidedOutputRef}

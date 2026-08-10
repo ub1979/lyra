@@ -67,7 +67,8 @@ def test_build_command_injects_normal_idrak_turn():
 def test_dashboard_enforces_requirements_gate_with_real_skill_loading():
     dashboard = (ROOT / "dashboard" / "dist" / "index.js").read_text()
     assert "first_turn_gate" in dashboard
-    assert "Ask exactly ONE short product question" in dashboard
+    assert "warm one-sentence greeting" in dashboard
+    assert "ask exactly ONE short product question" in dashboard
     assert "ask permission before adding it" in dashboard
     assert "Do not write code before the team and requirements are approved" in dashboard
     assert "Start with the internal ultimate-builder:app-it skill" in dashboard
