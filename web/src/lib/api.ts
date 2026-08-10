@@ -434,6 +434,8 @@ export const api = {
     const query = path ? `?path=${encodeURIComponent(path)}` : "";
     return fetchJSON<ManagedFilesResponse>(`/api/files${query}`);
   },
+  getDefaultCwd: () =>
+    fetchJSON<{ cwd: string; branch: string }>("/api/fs/default-cwd"),
   readFile: (path: string) =>
     fetchJSON<ManagedFileReadResponse>(
       `/api/files/read?path=${encodeURIComponent(path)}`,

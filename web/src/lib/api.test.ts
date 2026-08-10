@@ -49,6 +49,23 @@ describe("api.getModelOptions", () => {
   });
 });
 
+describe("api.getDefaultCwd", () => {
+  it("reads the dashboard's current working folder", async () => {
+    vi.stubGlobal("window", {});
+    const fetchMock = jsonFetchMock({ cwd: "/work", branch: "main" });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(api.getDefaultCwd()).resolves.toEqual({
+      cwd: "/work",
+      branch: "main",
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/fs/default-cwd",
+      expect.objectContaining({ credentials: "include" }),
+    );
+  });
+});
+
 describe("api OAuth helpers", () => {
   it("starts OAuth login in gated mode without requiring an injected session token", async () => {
     vi.stubGlobal("window", { __IDRAK_IT_AUTH_REQUIRED__: true });

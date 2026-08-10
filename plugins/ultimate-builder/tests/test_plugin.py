@@ -79,6 +79,8 @@ def test_dashboard_enforces_requirements_gate_with_real_skill_loading():
     assert "delegate_task.model" in dashboard
     assert '"LLM for " + skill[1]' in dashboard
     assert 'workspace: item.path' in dashboard
+    assert 'api.getDefaultCwd()' in dashboard
+    assert 'joinPath(cwd, "my_projects")' in dashboard
     assert 'window.location.href = "/chat?" + params.toString()' in dashboard
     assert 'disabled: starting || !selected.size' not in dashboard
     assert "Use ultimate-builder:ultimate-app-builder" not in dashboard

@@ -224,6 +224,18 @@
       return () => { active = false; };
     }, []);
 
+    useEffect(function () {
+      let active = true;
+      api.getDefaultCwd()
+        .then((info) => api.listFiles(info && info.cwd).then(() => info.cwd))
+        .catch(() => api.listFiles().then((listing) => listing.path))
+        .then((cwd) => {
+          if (active && cwd) setParentPath(joinPath(cwd, "my_projects"));
+        })
+        .catch(() => {});
+      return () => { active = false; };
+    }, []);
+
     const updateSkillModel = function (id, model) {
       setSkillModels((current) => {
         const next = { ...current };
