@@ -33,8 +33,8 @@
   const BUILTIN_TEMPLATES = [
     {
       id: "app-it",
-      name: "Let App IT guide me",
-      description: "Start with your idea. App IT asks a few questions and recommends the smallest useful specialist team.",
+      name: "Let Lyra guide me",
+      description: "Start with your idea. Lyra asks a few questions and recommends the smallest useful specialist team.",
       skills: [],
       accent: "lime",
     },
@@ -341,10 +341,10 @@
           .some((skill) => selected.has(skill));
         const request = brief.trim() || defaultBrief(templateId, mode === "existing");
         const prompt = "IDRAK_INTERNAL_SETUP_BEGIN " + JSON.stringify({
-          instruction: "App IT is the permanent user-facing coordinator. Start with ultimate-builder:app-it, work only in the selected workspace, and keep internal tools and orchestration out of user-facing messages. The enabled_specialists list is the initial team, not an immutable restriction: App IT may recommend changes, but may apply them only after explicit user approval by emitting the APP_IT_SKILLS_SET marker. Manual dashboard skill changes are authoritative. Load every specialist with skill_view(name='ultimate-builder:<specialist-id>') immediately before running it, and never claim a specialist ran unless its playbook was actually loaded.",
+          instruction: "Lyra is the permanent user-facing coordinator. Start with the internal ultimate-builder:app-it skill, work only in the selected workspace, and keep internal skill names, tools, and orchestration out of user-facing messages. The enabled_specialists list is the initial team, not an immutable restriction: Lyra may recommend changes, but may apply them only after explicit user approval by emitting the APP_IT_SKILLS_SET marker. Manual dashboard skill changes are authoritative. Load every specialist with skill_view(name='ultimate-builder:<specialist-id>') immediately before running it, and never claim a specialist ran unless its playbook was actually loaded.",
           first_turn_gate: mode === "new"
-            ? "Act as App IT. Ask exactly ONE short product question per assistant message. Learn what the user wants, who it is for, the smallest must-have outcome, and only material constraints. Then recommend the smallest useful specialist team and ask permission before adding it. Do not write code before the team and requirements are approved."
-            : "Act as App IT. Inspect the existing workspace read-only, briefly identify what it is, ask what outcome the user wants, then recommend the smallest useful specialist team and ask permission before adding it.",
+            ? "Speak as Lyra. Ask exactly ONE short product question per assistant message. Learn what the user wants, who it is for, the smallest must-have outcome, and only material constraints. Then recommend the smallest useful specialist team and ask permission before adding it. Do not write code before the team and requirements are approved."
+            : "Speak as Lyra. Inspect the existing workspace read-only, briefly identify what it is, ask what outcome the user wants, then recommend the smallest useful specialist team and ask permission before adding it.",
           coordination_rule: "Remain the user's single point of contact. Coordinate only the currently enabled specialist phases and verify each phase's evidence. Specialist delegates return before you continue. Stop for user approval at requirements, visual preview for UI projects, team changes, and final delivery. Present checkpoints with Approve / Change / Skip options. Never ask the user to wake or resume an internal workflow.",
           skill_change_rule: "After the user explicitly approves a proposed team, emit exactly one [APP_IT_SKILLS_SET:comma-separated-ids] marker. The dashboard will update project state and hide the marker. When an IDRAK_INTERNAL_SKILLS_UPDATE message arrives from the dashboard, treat its skill selection and specialist_models map as authoritative and acknowledge it briefly.",
           model_routing_rule: "For every delegate_task specialist phase, look up its specialist id in specialist_models. When a model is assigned, pass that exact value in delegate_task.model (or the task item's model field for a batch). Never substitute another model. When no model is assigned, omit the model field so the configured delegation/session default is inherited. These assignments apply to specialist delegates only; the coordinating conversation keeps its session model.",
@@ -399,9 +399,9 @@
     if (screen === "home") {
       return h("div", { className: "ub-page" },
         h("section", { className: "ub-welcome" },
-          h("p", { className: "ub-kicker" }, "APPIT · APP BUILDER"),
+          h("p", { className: "ub-kicker" }, "LYRA · APP BUILDER"),
           h("h1", null, "What would you like to work on?"),
-          h("p", { className: "ub-subtitle" }, "Start something new or bring an existing folder. App IT learns what you need, recommends the right specialists, and stays with you through delivery."),
+          h("p", { className: "ub-subtitle" }, "Start something new or bring an existing folder. Lyra learns what you need, recommends the right specialists, and stays with you through delivery."),
           h("button", {
             className: "ub-model-settings",
             type: "button",
@@ -412,12 +412,12 @@
           h("button", { className: "ub-start-card ub-start-new", type: "button", onClick: () => begin("new", BUILTIN_TEMPLATES[0]) },
             h("span", { className: "ub-start-symbol" }, "+"),
             h("strong", null, "New project"),
-            h("span", null, "Create a folder, then tell App IT what you want to build."),
+            h("span", null, "Create a folder, then tell Lyra what you want to build."),
           ),
           h("button", { className: "ub-start-card", type: "button", onClick: () => begin("existing", BUILTIN_TEMPLATES[0]) },
             h("span", { className: "ub-start-symbol" }, "⌑"),
             h("strong", null, "Open a project"),
-            h("span", null, "Choose a folder. App IT inspects it and suggests who should help."),
+            h("span", null, "Choose a folder. Lyra inspects it and suggests who should help."),
           ),
         ),
         h("section", { className: "ub-template-preview" },
@@ -452,8 +452,8 @@
         h(Button, { ghost: true, onClick: () => setScreen("home") }, "← Back"),
         h("div", null,
           h("p", { className: "ub-kicker" }, mode === "new" ? "NEW PROJECT" : "EXISTING PROJECT"),
-          h("h1", null, "Meet App IT"),
-          h("p", null, "Describe what you want. Add a starting team now, or let App IT recommend one after a few questions."),
+          h("h1", null, "Start with Lyra"),
+          h("p", null, "Describe what you want. Add a starting team now, or let Lyra recommend one after a few questions."),
         ),
       ),
       h("div", { className: "ub-config-layout" },
@@ -484,7 +484,7 @@
           h(Card, { className: "ub-form-card" },
             h(CardContent, null,
               h("div", { className: "ub-section-heading" },
-                h("div", null, h("h2", null, "Starting team (optional)"), h("p", null, selected.size + " of " + SKILLS.length + " selected · App IT is always active")),
+                h("div", null, h("h2", null, "Starting team (optional)"), h("p", null, selected.size + " of " + SKILLS.length + " selected · Lyra is always active")),
                 h("div", { className: "ub-select-actions" },
                   h("button", { type: "button", onClick: () => setSelected(new Set(ALL_SKILL_IDS)) }, "Select all"),
                   h("button", { type: "button", onClick: () => setSelected(new Set()) }, "Clear"),
@@ -562,11 +562,11 @@
             )),
           ),
           h("div", { className: "ub-summary" },
-            h("span", null, "Starting team"), h("strong", null, selected.size ? selected.size + " specialists" : "App IT only"),
+            h("span", null, "Starting team"), h("strong", null, selected.size ? selected.size + " specialists" : "Lyra only"),
             h("p", null,
               selected.size
-                ? "App IT can recommend changes later and will ask before applying them."
-                : "App IT will ask a few questions and recommend the smallest useful team.",
+                ? "Lyra can recommend changes later and will ask before applying them."
+                : "Lyra will ask a few questions and recommend the smallest useful team.",
             ),
           ),
           error && h("div", { className: "ub-error", role: "alert" }, error),

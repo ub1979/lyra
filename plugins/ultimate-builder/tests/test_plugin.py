@@ -70,7 +70,9 @@ def test_dashboard_enforces_requirements_gate_with_real_skill_loading():
     assert "Ask exactly ONE short product question" in dashboard
     assert "ask permission before adding it" in dashboard
     assert "Do not write code before the team and requirements are approved" in dashboard
-    assert "Start with ultimate-builder:app-it" in dashboard
+    assert "Start with the internal ultimate-builder:app-it skill" in dashboard
+    assert "LYRA · APP BUILDER" in dashboard
+    assert "Meet App IT" not in dashboard
     assert "APP_IT_SKILLS_SET" in dashboard
     assert "skill_view(name='ultimate-builder:<specialist-id>')" in dashboard
     assert "enabled_specialist_labels: enabledLabels" in dashboard

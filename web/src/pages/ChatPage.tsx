@@ -147,7 +147,7 @@ interface GuidedAgentEventEnvelope {
 }
 
 const GUIDED_SPECIALIST_LABELS: Record<string, string> = {
-  "app-it": "App IT",
+  "app-it": "Lyra",
   "req-engineer": "Requirements",
   spec: "Technical specification",
   "sw-architect": "Architecture",
@@ -171,7 +171,7 @@ const GUIDED_SPECIALIST_LABELS: Record<string, string> = {
 const GUIDED_SELECTABLE_SPECIALIST_IDS = Object.keys(
   GUIDED_SPECIALIST_LABELS,
 ).filter((id) => id !== "app-it" && id !== "idk_it");
-const APP_IT_SPECIALIST: GuidedSpecialist = { id: "app-it", label: "App IT" };
+const APP_IT_SPECIALIST: GuidedSpecialist = { id: "app-it", label: "Lyra" };
 
 function guidedSpecialistStorageKey(workspace: string): string {
   return `idrak-it.guided-specialists.v1:${workspace || "default"}`;
@@ -1458,7 +1458,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         guidedSkillModelsRef.current,
         labels.length
           ? `Updated project specialists: ${labels.join(", ")}`
-          : "Updated project specialists: App IT only",
+          : "Updated project specialists: Lyra only",
       );
     },
     [
@@ -2850,13 +2850,13 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             <div className="border-b border-current/10 bg-midground/[0.025] px-4 py-4 sm:px-5">
               <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
                 <div>
-                  <strong className="text-sm text-midground">App IT is always active</strong>
+                  <strong className="text-sm text-midground">Lyra is always active</strong>
                   <span className="ml-2 text-xs text-text-secondary">
                     Select only the specialists this project needs.
                   </span>
                 </div>
                 <span className="text-xs text-text-secondary">
-                  Changes are sent to App IT immediately.
+                  Changes are sent to Lyra immediately.
                 </span>
               </div>
               <div className="flex flex-wrap gap-2">
