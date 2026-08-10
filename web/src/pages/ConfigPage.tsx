@@ -86,6 +86,19 @@ const CATEGORY_ICONS: Record<
   updates: RefreshCw,
 };
 
+// Lyra's default Settings view is intentionally focused on building and
+// shipping software. The full Hermes configuration remains available behind
+// one explicit disclosure for operators and power users.
+const SOFTWARE_DEVELOPMENT_CATEGORIES = new Set([
+  "general",
+  "agent",
+  "terminal",
+  "display",
+  "delegation",
+  "security",
+  "updates",
+]);
+
 function CategoryIcon({
   category,
   className,
@@ -119,6 +132,7 @@ export default function ConfigPage() {
   const [yamlSaving, setYamlSaving] = useState(false);
   const [configPath, setConfigPath] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>("");
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const { toast, showToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -233,6 +247,27 @@ export default function ConfigPage() {
     const extra = allCats.filter((c) => !categoryOrder.includes(c)).sort();
     return [...ordered, ...extra];
   }, [schema, categoryOrder]);
+
+  const visibleCategories = useMemo(
+    () =>
+      showAdvancedSettings
+        ? categories
+        : categories.filter((category) =>
+            SOFTWARE_DEVELOPMENT_CATEGORIES.has(category),
+          ),
+    [categories, showAdvancedSettings],
+  );
+
+  const hiddenCategoryCount = categories.length - visibleCategories.length;
+
+  useEffect(() => {
+    if (
+      visibleCategories.length > 0 &&
+      !visibleCategories.includes(activeCategory)
+    ) {
+      setActiveCategory(visibleCategories[0]);
+    }
+  }, [activeCategory, visibleCategories]);
 
   /* ---- Category field counts ---- */
   const categoryCounts = useMemo(() => {
@@ -563,7 +598,7 @@ export default function ConfigPage() {
                 </div>
 
                 <div className="flex sm:flex-col gap-1 sm:gap-px p-2 sm:pt-1 overflow-x-auto sm:overflow-x-visible scrollbar-none sm:max-h-[calc(100vh-260px)] sm:overflow-y-auto">
-                  {categories.map((cat) => {
+                  {visibleCategories.map((cat) => {
                     const isActive = !isSearching && activeCategory === cat;
 
                     return (
@@ -596,6 +631,23 @@ export default function ConfigPage() {
                     );
                   })}
                 </div>
+                <button
+                  type="button"
+                  className="flex items-center justify-between gap-2 border-t border-border px-3 py-2 text-left text-xs text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+                  onClick={() => setShowAdvancedSettings((current) => !current)}
+                  aria-expanded={showAdvancedSettings}
+                >
+                  <span>
+                    {showAdvancedSettings
+                      ? "Hide advanced settings"
+                      : "Show advanced settings"}
+                  </span>
+                  {!showAdvancedSettings && hiddenCategoryCount > 0 && (
+                    <Badge tone="secondary" className="text-xs">
+                      {hiddenCategoryCount}
+                    </Badge>
+                  )}
+                </button>
               </div>
             </div>
           </aside>

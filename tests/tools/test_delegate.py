@@ -71,6 +71,8 @@ class TestDelegateRequirements(unittest.TestCase):
         self.assertIn("goal", props)
         self.assertIn("tasks", props)
         self.assertIn("context", props)
+        self.assertIn("model", props)
+        self.assertIn("model", props["tasks"]["items"]["properties"])
         # toolsets is intentionally NOT exposed to the model — subagents always
         # inherit the parent's toolsets. Letting the model name toolsets was a
         # capability-selection surface the model should not control.
@@ -1855,6 +1857,39 @@ class TestDelegationProviderIntegration(unittest.TestCase):
             # But provider/base_url/api_key should inherit from parent
             self.assertEqual(kwargs["provider"], parent.provider)
             self.assertEqual(kwargs["base_url"], parent.base_url)
+
+    @patch("tools.delegate_tool._load_config")
+    @patch("tools.delegate_tool._resolve_delegation_credentials")
+    def test_per_task_model_overrides_delegation_default(self, mock_creds, mock_cfg):
+        mock_cfg.return_value = {"max_iterations": 45}
+        mock_creds.return_value = {
+            "model": "default-model",
+            "provider": None,
+            "base_url": None,
+            "api_key": None,
+            "api_mode": None,
+        }
+        parent = _make_mock_parent(depth=0)
+
+        with patch("run_agent.AIAgent") as MockAgent:
+            mock_child = MagicMock()
+            mock_child.run_conversation.return_value = {
+                "final_response": "done", "completed": True, "api_calls": 1
+            }
+            MockAgent.return_value = mock_child
+
+            delegate_task(
+                tasks=[
+                    {"goal": "Write docs", "model": "small-model"},
+                    {"goal": "Implement feature", "model": "coding-model"},
+                ],
+                parent_agent=parent,
+            )
+
+            self.assertEqual(
+                [call.kwargs["model"] for call in MockAgent.call_args_list],
+                ["small-model", "coding-model"],
+            )
 
 
 class TestChildCredentialPoolResolution(unittest.TestCase):

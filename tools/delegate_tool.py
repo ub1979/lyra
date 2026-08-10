@@ -2433,6 +2433,7 @@ def delegate_task(
     goal: Optional[str] = None,
     context: Optional[str] = None,
     tasks: Optional[List[Dict[str, Any]]] = None,
+    model: Optional[str] = None,
     max_iterations: Optional[int] = None,
     role: Optional[str] = None,
     background: Optional[bool] = None,
@@ -2442,8 +2443,8 @@ def delegate_task(
     Spawn one or more child agents to handle delegated tasks.
 
     Supports two modes:
-      - Single: provide goal (+ optional context and role)
-      - Batch:  provide tasks array [{goal, context, role}, ...]
+      - Single: provide goal (+ optional context, model, and role)
+      - Batch:  provide tasks array [{goal, context, model, role}, ...]
 
     The 'role' parameter controls whether a child can further delegate:
     'leaf' (default) cannot; 'orchestrator' retains the delegation
@@ -2545,7 +2546,26 @@ def delegate_task(
     if not task_list:
         return tool_error("No tasks provided.")
 
+    def _normalize_model_name(value: Any, location: str) -> Optional[str]:
+        """Validate a user-selected child model without changing credentials."""
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            raise ValueError(f"{location} model must be a string.")
+        normalized = value.strip()
+        if not normalized:
+            return None
+        if len(normalized) > 500:
+            raise ValueError(f"{location} model is too long.")
+        return normalized
+
+    try:
+        top_model = _normalize_model_name(model, "delegate_task")
+    except ValueError as exc:
+        return tool_error(str(exc))
+
     # Validate each task has a goal
+    task_models = []
     for i, task in enumerate(task_list):
         if not isinstance(task, dict):
             return tool_error(
@@ -2553,6 +2573,13 @@ def delegate_task(
             )
         if not task.get("goal", "").strip():
             return tool_error(f"Task {i} is missing a 'goal'.")
+        try:
+            task_models.append(
+                _normalize_model_name(task.get("model"), f"Task {i}")
+                or top_model or creds["model"]
+            )
+        except ValueError as exc:
+            return tool_error(str(exc))
 
     overall_start = time.monotonic()
     results = []
@@ -2611,7 +2638,7 @@ def delegate_task(
                 # Subagents always inherit the parent's toolsets; the model
                 # cannot choose or narrow them (no model-facing toolsets arg).
                 toolsets=None,
-                model=creds["model"],
+                model=task_models[i],
                 max_iterations=effective_max_iter,
                 task_count=n_tasks,
                 parent_agent=parent_agent,
@@ -3475,7 +3502,7 @@ def _build_top_level_description() -> str:
         f"Orchestrators are bounded by max_spawn_depth={max_depth} for this "
         f"user and can be disabled globally via "
         "delegation.orchestrator_enabled=false.\n"
-        "- Subagent model is NOT selectable per call: children inherit the parent model (plus its fallback chain) unless you pin all subagents to a model via delegation.provider / delegation.model in config.yaml.\n"
+        "- Optional model routing: set `model` on a single task or an item in `tasks` to route that child to a model supported by the inherited/delegation provider. Omit it to inherit delegation.model, then the parent model. Provider credentials remain configuration-controlled.\n"
         "- Each subagent gets its own terminal session (separate working directory and state).\n"
         "- Results are always returned as an array, one entry per task."
     )
@@ -3589,6 +3616,14 @@ DELEGATE_TASK_SCHEMA = {
                     "specific you are, the better the subagent performs."
                 ),
             },
+            "model": {
+                "type": "string",
+                "description": (
+                    "Optional model for this child task. It must be supported "
+                    "by the inherited provider or delegation.provider. Omit to "
+                    "use delegation.model or the parent model."
+                ),
+            },
             "tasks": {
                 "type": "array",
                 "items": {
@@ -3598,6 +3633,13 @@ DELEGATE_TASK_SCHEMA = {
                         "context": {
                             "type": "string",
                             "description": "Task-specific context",
+                        },
+                        "model": {
+                            "type": "string",
+                            "description": (
+                                "Optional model for this child. Omit to inherit "
+                                "the top-level/default model."
+                            ),
                         },
                         "role": {
                             "type": "string",
@@ -3690,6 +3732,7 @@ registry.register(
         goal=args.get("goal"),
         context=args.get("context"),
         tasks=_strip_model_hidden_task_fields(args.get("tasks")),
+        model=args.get("model"),
         max_iterations=args.get("max_iterations"),
         role=args.get("role"),
         background=_model_background_value(args, kw.get("parent_agent")),

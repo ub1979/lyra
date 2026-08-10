@@ -64,6 +64,7 @@
 
   const CUSTOM_TEMPLATES_KEY = "idrak-it.builder.templates.v1";
   const RECENT_PROJECTS_KEY = "idrak-it.builder.projects.v1";
+  const SKILL_MODELS_KEY = "idrak-it.builder.skill-models.v1";
 
   function readStored(key, fallback) {
     try {
@@ -78,6 +79,15 @@
     try {
       localStorage.setItem(key, JSON.stringify(value));
     } catch (_) {}
+  }
+
+  function readStoredMap(key) {
+    try {
+      const value = JSON.parse(localStorage.getItem(key) || "null");
+      return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+    } catch (_) {
+      return {};
+    }
   }
 
   function joinPath(parent, name) {
@@ -173,6 +183,10 @@
     const [customTemplates, setCustomTemplates] = useState(() => readStored(CUSTOM_TEMPLATES_KEY, []));
     const [recentProjects, setRecentProjects] = useState(() => readStored(RECENT_PROJECTS_KEY, []));
     const [templateName, setTemplateName] = useState("");
+    const [skillModels, setSkillModels] = useState(() => readStoredMap(SKILL_MODELS_KEY));
+    const [modelInfo, setModelInfo] = useState({ provider: "", model: "" });
+    const [modelOptions, setModelOptions] = useState([]);
+    const [modelsLoading, setModelsLoading] = useState(true);
 
     const templates = useMemo(
       () => BUILTIN_TEMPLATES.concat(customTemplates.map((template) => ({ ...template, accent: "custom" }))),
@@ -180,9 +194,47 @@
     );
     const activeTemplate = templates.find((template) => template.id === templateId) || templates[0];
 
+    useEffect(function () {
+      let active = true;
+      Promise.all([api.getModelInfo(), api.getModelOptions()])
+        .then(([info, options]) => {
+          if (!active) return;
+          const providers = Array.isArray(options && options.providers) ? options.providers : [];
+          const provider = providers.find((item) => item.slug === info.provider)
+            || providers.find((item) => item.is_current)
+            || null;
+          const models = provider && Array.isArray(provider.models) ? provider.models : [];
+          setModelInfo({
+            provider: String((info && info.provider) || (provider && provider.slug) || ""),
+            model: String((info && info.model) || (options && options.model) || ""),
+          });
+          setModelOptions(Array.from(new Set(models.map(String).filter(Boolean))));
+        })
+        .catch(() => {})
+        .finally(() => { if (active) setModelsLoading(false); });
+      return () => { active = false; };
+    }, []);
+
+    const updateSkillModel = function (id, model) {
+      setSkillModels((current) => {
+        const next = { ...current };
+        if (model) next[id] = model;
+        else delete next[id];
+        writeStored(SKILL_MODELS_KEY, next);
+        return next;
+      });
+    };
+
+    const defaultModelLabel = [modelInfo.provider, modelInfo.model].filter(Boolean).join(" · ")
+      || (modelsLoading ? "Loading current model…" : "Configured session model");
+
     const applyTemplate = function (template) {
       setTemplateId(template.id);
       setSelected(new Set(template.skills));
+      if (template.models && typeof template.models === "object") {
+        setSkillModels(template.models);
+        writeStored(SKILL_MODELS_KEY, template.models);
+      }
     };
 
     const begin = function (nextMode, template) {
@@ -210,6 +262,11 @@
         name,
         description: selected.size + " selected skills",
         skills: Array.from(selected),
+        models: Object.fromEntries(
+          Array.from(selected)
+            .filter((id) => typeof skillModels[id] === "string" && skillModels[id].trim())
+            .map((id) => [id, skillModels[id].trim()]),
+        ),
       };
       const next = customTemplates.concat(value);
       setCustomTemplates(next);
@@ -256,6 +313,11 @@
         const enabledLabels = SKILLS.filter((skill) => selected.has(skill[0])).map((skill) => skill[1]);
         const disabled = SKILLS.filter((skill) => !selected.has(skill[0])).map((skill) => skill[0]);
         const disabledLabels = SKILLS.filter((skill) => !selected.has(skill[0])).map((skill) => skill[1]);
+        const specialistModels = Object.fromEntries(
+          enabled
+            .filter((id) => typeof skillModels[id] === "string" && skillModels[id].trim())
+            .map((id) => [id, skillModels[id].trim()]),
+        );
         const codeChangesAllowed = ["sw-developer", "oop-restructurer", "debugger"]
           .some((skill) => selected.has(skill));
         const request = brief.trim() || defaultBrief(templateId, mode === "existing");
@@ -267,6 +329,7 @@
           coordination_rule: selected.has("idk_it")
             ? "Coordinate the enabled phases in order and verify each phase's evidence. In this guided session, specialist delegates return their result before you continue: immediately advance to the next enabled phase after each result, without asking the user to wake or resume the workflow. EXCEPTION: always stop and wait for user approval at these checkpoints: requirements summary, visual preview (UI projects), and final delivery. Present the checkpoint clearly with Approve / Change / Skip options and do not proceed until the user responds. Keep tool calls, terminal output, diffs, reasoning, and internal workflow details out of user-facing messages."
             : "Complete only the selected specialist work and report concise user-facing results.",
+          model_routing_rule: "For every delegate_task specialist phase, look up its specialist id in specialist_models. When a model is assigned, pass that exact value in delegate_task.model (or the task item's model field for a batch). Never substitute another model. When no model is assigned, omit the model field so the configured delegation/session default is inherited. These assignments apply to specialist delegates only; the coordinating conversation keeps its session model.",
           delivery_rule: templateId === "mvp"
             ? "This is the MVP fast path. Keep artifacts and research proportional to the requested app. After requirements approval: if the project has a UI, you MUST generate a quick visual preview (1-3 static HTML/CSS mockups in .sdlc/preview/) and STOP to show the user and get their explicit approval before writing any application code. Present: 'Preview ready — open .sdlc/preview/index.html. Does this look like what you want? Approve / Change / Skip.' Then move to development, smoke QA, and concise run documentation; do not invent architecture or task-planning phases when they are disabled."
             : "Use the selected specialist phases at appropriate depth for the project.",
@@ -276,6 +339,9 @@
           enabled_specialist_labels: enabledLabels,
           disabled_specialists: disabled,
           disabled_specialist_labels: disabledLabels,
+          specialist_models: specialistModels,
+          default_specialist_model: modelInfo.model,
+          default_specialist_provider: modelInfo.provider,
           code_changes_allowed: codeChangesAllowed,
           user_request: request,
         }) + " IDRAK_INTERNAL_SETUP_END";
@@ -407,16 +473,37 @@
                 ),
               ),
               h("div", { className: "ub-skill-list" },
-                SKILLS.map((skill) => h("label", { className: "ub-skill", key: skill[0] },
-                  h("input", { type: "checkbox", checked: selected.has(skill[0]), onChange: () => toggleSkill(skill[0]) }),
-                  h("span", { className: "ub-skill-check" }, selected.has(skill[0]) ? "✓" : ""),
-                  h("img", {
-                    className: "ub-skill-avatar",
-                    src: "/skill-avatars/" + skill[0].replace("_", "-") + (selected.has(skill[0]) ? "" : "-sad") + ".webp",
-                    alt: selected.has(skill[0]) ? skill[1] + " mascot, happy and ready" : skill[1] + " mascot, sad and waiting",
-                  }),
-                  h("span", { className: "ub-skill-copy" }, h("strong", null, skill[1]), h("small", null, skill[2])),
-                )),
+                SKILLS.map((skill) => {
+                  const assignedModel = typeof skillModels[skill[0]] === "string" ? skillModels[skill[0]] : "";
+                  const choices = assignedModel && !modelOptions.includes(assignedModel)
+                    ? [assignedModel].concat(modelOptions)
+                    : modelOptions;
+                  return h("label", { className: "ub-skill", key: skill[0] },
+                    h("input", { type: "checkbox", checked: selected.has(skill[0]), onChange: () => toggleSkill(skill[0]) }),
+                    h("span", { className: "ub-skill-check" }, selected.has(skill[0]) ? "✓" : ""),
+                    h("img", {
+                      className: "ub-skill-avatar",
+                      src: "/skill-avatars/" + skill[0].replace("_", "-") + (selected.has(skill[0]) ? "" : "-sad") + ".webp",
+                      alt: selected.has(skill[0]) ? skill[1] + " mascot, happy and ready" : skill[1] + " mascot, sad and waiting",
+                    }),
+                    h("span", { className: "ub-skill-copy" }, h("strong", null, skill[1]), h("small", null, skill[2])),
+                    selected.has(skill[0]) && h("span", {
+                      className: "ub-skill-model",
+                      onClick: (event) => event.stopPropagation(),
+                      onMouseDown: (event) => event.stopPropagation(),
+                    },
+                      h("span", { className: "ub-skill-model-label" }, "LLM"),
+                      h("select", {
+                        value: assignedModel,
+                        onChange: (event) => updateSkillModel(skill[0], event.target.value),
+                        "aria-label": "LLM for " + skill[1],
+                      },
+                        h("option", { value: "" }, "Default · " + defaultModelLabel),
+                        choices.map((model) => h("option", { value: model, key: model }, model)),
+                      ),
+                    ),
+                  );
+                }),
               ),
               h("div", { className: "ub-save-template" },
                 h(Input, { value: templateName, onChange: (event) => setTemplateName(event.target.value), placeholder: "Name this skill set…" }),

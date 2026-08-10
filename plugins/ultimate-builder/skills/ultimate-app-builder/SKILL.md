@@ -152,6 +152,13 @@ Constraints: preserve unrelated changes; use real tools; return at most 15
 lines with verdict, counts, evidence paths, and blockers.
 ```
 
+When guided setup provides a `specialist_models` mapping, use its model for
+that specialist's `delegate_task` call. Pass it as top-level `model` for a
+single delegate or on the matching item in a batch. Omit `model` when the
+specialist has no assignment so delegation inherits its configured default.
+Never apply one specialist's assignment to another phase. The coordinating
+conversation remains on its session model.
+
 ## Step 3: implement vertical slices
 
 Build a runnable walking skeleton first. Use the task graph to identify

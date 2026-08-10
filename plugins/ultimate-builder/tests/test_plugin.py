@@ -73,6 +73,9 @@ def test_dashboard_enforces_requirements_gate_with_real_skill_loading():
     assert "skill_view(name='ultimate-builder:<specialist-id>')" in dashboard
     assert "enabled_specialist_labels: enabledLabels" in dashboard
     assert "disabled_specialist_labels: disabledLabels" in dashboard
+    assert "specialist_models: specialistModels" in dashboard
+    assert "delegate_task.model" in dashboard
+    assert '"LLM for " + skill[1]' in dashboard
     assert 'workspace: item.path' in dashboard
     assert 'window.location.href = "/chat?" + params.toString()' in dashboard
     assert "Use ultimate-builder:ultimate-app-builder" not in dashboard
