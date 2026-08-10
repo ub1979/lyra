@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   analyzeGuidedChatOutput,
+  extractAppItSkillSelection,
   friendlyActivityLabel,
   guidedResponseNeedsContinuation,
   presentGuidedChatOutput,
@@ -137,6 +138,31 @@ a//Users/u/funcoding/todo/index.html → b//Users/u/funcoding/todo/index.html
       id: "task-planner",
       label: "Task planning",
     });
+  });
+
+  it("consumes App IT team markers and keeps only registered specialists", () => {
+    expect(
+      extractAppItSkillSelection(
+        "Good choice. I’ll use that team. [APP_IT_SKILLS_SET:req-engineer,sw-developer,unknown,sw-developer]",
+        ["req-engineer", "sw-developer", "qa-engineer"],
+      ),
+    ).toEqual({
+      content: "Good choice. I’ll use that team.",
+      skillIds: ["req-engineer", "sw-developer"],
+    });
+    expect(
+      extractAppItSkillSelection("App IT only. [APP_IT_SKILLS_SET:]", [
+        "req-engineer",
+      ]),
+    ).toEqual({ content: "App IT only.", skillIds: [] });
+  });
+
+  it("never shows App IT control markers in guided responses", () => {
+    expect(
+      sanitizeGuidedResponse(
+        "Team updated. [APP_IT_SKILLS_SET:req-engineer,qa-engineer]",
+      ),
+    ).toBe("Team updated.");
   });
 
 });

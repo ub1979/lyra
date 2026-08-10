@@ -37,9 +37,9 @@ def test_registers_skill_and_commands():
     ctx = Context()
     module.register(ctx)
     skill_names = [row[0] for row in ctx.skills]
-    assert skill_names[0] == "ultimate-app-builder"
-    assert set(skill_names[1:]) == set(module._SPECIALIST_SKILLS)
-    assert len(skill_names) == 19
+    assert skill_names[:2] == ["app-it", "ultimate-app-builder"]
+    assert set(skill_names[2:]) == set(module._SPECIALIST_SKILLS)
+    assert len(skill_names) == 20
     assert all(row[1].is_file() for row in ctx.skills)
     assert {row[0] for row in ctx.commands} == {"ultimate-build", "ultimate-status"}
 
@@ -67,9 +67,11 @@ def test_build_command_injects_normal_idrak_turn():
 def test_dashboard_enforces_requirements_gate_with_real_skill_loading():
     dashboard = (ROOT / "dashboard" / "dist" / "index.js").read_text()
     assert "first_turn_gate" in dashboard
-    assert "Ask exactly ONE focused decision" in dashboard
-    assert "use smart defaults" in dashboard
-    assert "explicit user approval before coding" in dashboard
+    assert "Ask exactly ONE short product question" in dashboard
+    assert "ask permission before adding it" in dashboard
+    assert "Do not write code before the team and requirements are approved" in dashboard
+    assert "Start with ultimate-builder:app-it" in dashboard
+    assert "APP_IT_SKILLS_SET" in dashboard
     assert "skill_view(name='ultimate-builder:<specialist-id>')" in dashboard
     assert "enabled_specialist_labels: enabledLabels" in dashboard
     assert "disabled_specialist_labels: disabledLabels" in dashboard
@@ -78,4 +80,5 @@ def test_dashboard_enforces_requirements_gate_with_real_skill_loading():
     assert '"LLM for " + skill[1]' in dashboard
     assert 'workspace: item.path' in dashboard
     assert 'window.location.href = "/chat?" + params.toString()' in dashboard
+    assert 'disabled: starting || !selected.size' not in dashboard
     assert "Use ultimate-builder:ultimate-app-builder" not in dashboard

@@ -27,11 +27,17 @@
     ["health", "Health checks", "Record operational health and stability baselines."],
     ["context-save", "Context preservation", "Keep decisions and progress available between sessions."],
     ["learn", "Controlled learning", "Record evidence-backed improvement candidates."],
-    ["idk_it", "Workflow coordination", "Act as team lead: sequence the selected specialists and verify their evidence."],
   ];
 
   const ALL_SKILL_IDS = SKILLS.map((skill) => skill[0]);
   const BUILTIN_TEMPLATES = [
+    {
+      id: "app-it",
+      name: "Let App IT guide me",
+      description: "Start with your idea. App IT asks a few questions and recommends the smallest useful specialist team.",
+      skills: [],
+      accent: "lime",
+    },
     {
       id: "sdlc",
       name: "Full SDLC",
@@ -43,21 +49,21 @@
       id: "mvp",
       name: "MVP",
       description: "A fast path from clear requirements to a useful, tested, documented first release.",
-      skills: ["req-engineer", "sw-developer", "qa-engineer", "tech-writer", "idk_it"],
+      skills: ["req-engineer", "sw-developer", "qa-engineer", "tech-writer"],
       accent: "coral",
     },
     {
       id: "planning",
       name: "Plan only",
       description: "Requirements, specification, architecture, and project planning—no coding.",
-      skills: ["req-engineer", "spec", "sw-architect", "task-planner", "proj-manager", "context-save", "idk_it"],
+      skills: ["req-engineer", "spec", "sw-architect", "task-planner", "proj-manager", "context-save"],
       accent: "blue",
     },
     {
       id: "review",
       name: "Review & QA",
       description: "Open an existing folder for independent review, testing, debugging, and security.",
-      skills: ["code-reviewer", "qa-engineer", "debugger", "security-auditor", "tech-writer", "idk_it"],
+      skills: ["code-reviewer", "qa-engineer", "debugger", "security-auditor", "tech-writer"],
       accent: "violet",
     },
   ];
@@ -96,6 +102,9 @@
   }
 
   function defaultBrief(templateId, existing) {
+    if (templateId === "app-it") return existing
+      ? "Help me understand this project and decide which specialists should work on what I need next."
+      : "Help me shape my idea and recommend the smallest useful specialist team.";
     if (templateId === "planning") return "Understand this project and create a clear requirements, architecture, and project plan. Do not implement code.";
     if (templateId === "review") return "Review this existing project, run appropriate QA checks, identify important defects, and recommend verified fixes.";
     if (existing) return "Improve this existing project using the selected specialists. Inspect it first, preserve unrelated work, and confirm the plan before broad changes.";
@@ -171,8 +180,8 @@
   function App() {
     const [screen, setScreen] = useState("home");
     const [mode, setMode] = useState("new");
-    const [templateId, setTemplateId] = useState("mvp");
-    const [selected, setSelected] = useState(new Set(BUILTIN_TEMPLATES[1].skills));
+    const [templateId, setTemplateId] = useState("app-it");
+    const [selected, setSelected] = useState(new Set());
     const [projectPath, setProjectPath] = useState("");
     const [parentPath, setParentPath] = useState("");
     const [projectName, setProjectName] = useState("");
@@ -239,7 +248,7 @@
 
     const begin = function (nextMode, template) {
       setMode(nextMode);
-      applyTemplate(template || BUILTIN_TEMPLATES[nextMode === "new" ? 1 : 3]);
+      applyTemplate(template || BUILTIN_TEMPLATES[0]);
       setBrief("");
       setError("");
       setScreen("configure");
@@ -256,7 +265,7 @@
 
     const saveTemplate = function () {
       const name = templateName.trim();
-      if (!name || !selected.size) return;
+      if (!name) return;
       const value = {
         id: "custom-" + Date.now().toString(36),
         name,
@@ -279,7 +288,7 @@
       const next = customTemplates.filter((template) => template.id !== id);
       setCustomTemplates(next);
       writeStored(CUSTOM_TEMPLATES_KEY, next);
-      if (templateId === id) applyTemplate(BUILTIN_TEMPLATES[1]);
+      if (templateId === id) applyTemplate(BUILTIN_TEMPLATES[0]);
     };
 
     const openRecent = function (item) {
@@ -307,14 +316,12 @@
           if (!workspace) throw new Error("Choose the existing project folder.");
           await api.listFiles(workspace);
         }
-        if (!selected.size) throw new Error("Select at least one skill.");
-
         const enabled = SKILLS.filter((skill) => selected.has(skill[0])).map((skill) => skill[0]);
         const enabledLabels = SKILLS.filter((skill) => selected.has(skill[0])).map((skill) => skill[1]);
         const disabled = SKILLS.filter((skill) => !selected.has(skill[0])).map((skill) => skill[0]);
         const disabledLabels = SKILLS.filter((skill) => !selected.has(skill[0])).map((skill) => skill[1]);
         const specialistModels = Object.fromEntries(
-          enabled
+          ALL_SKILL_IDS
             .filter((id) => typeof skillModels[id] === "string" && skillModels[id].trim())
             .map((id) => [id, skillModels[id].trim()]),
         );
@@ -322,13 +329,12 @@
           .some((skill) => selected.has(skill));
         const request = brief.trim() || defaultBrief(templateId, mode === "existing");
         const prompt = "IDRAK_INTERNAL_SETUP_BEGIN " + JSON.stringify({
-          instruction: "The preloaded Ultimate Application Builder and first selected specialist skills are authoritative. Load every later enabled phase with skill_view(name='ultimate-builder:<specialist-id>') before running it. Work only in the selected workspace. Run only enabled specialist phases, never silently add a disabled phase, and never claim a registered skill ran unless its playbook was actually loaded.",
-          first_turn_gate: mode === "new" && selected.has("req-engineer")
-            ? "Run the Requirements Engineer playbook conversationally before using development tools or writing code. Ask exactly ONE focused decision per assistant message and wait for the answer. The message must contain at most one question mark: do not add a conditional follow-up, a second clause asking another decision, or a numbered batch. Accept 'skip this question'; accept 'decide for me' by choosing and briefly explaining a safe default; accept 'use smart defaults' by resolving all remaining gaps yourself. Once the interview is answered, skipped, or defaulted, present one complete requirements summary for explicit user approval before coding."
-            : "Inspect the selected existing workspace first, then ask only concise questions whose answers materially change the requested work.",
-          coordination_rule: selected.has("idk_it")
-            ? "Coordinate the enabled phases in order and verify each phase's evidence. In this guided session, specialist delegates return their result before you continue: immediately advance to the next enabled phase after each result, without asking the user to wake or resume the workflow. EXCEPTION: always stop and wait for user approval at these checkpoints: requirements summary, visual preview (UI projects), and final delivery. Present the checkpoint clearly with Approve / Change / Skip options and do not proceed until the user responds. Keep tool calls, terminal output, diffs, reasoning, and internal workflow details out of user-facing messages."
-            : "Complete only the selected specialist work and report concise user-facing results.",
+          instruction: "App IT is the permanent user-facing coordinator. Start with ultimate-builder:app-it, work only in the selected workspace, and keep internal tools and orchestration out of user-facing messages. The enabled_specialists list is the initial team, not an immutable restriction: App IT may recommend changes, but may apply them only after explicit user approval by emitting the APP_IT_SKILLS_SET marker. Manual dashboard skill changes are authoritative. Load every specialist with skill_view(name='ultimate-builder:<specialist-id>') immediately before running it, and never claim a specialist ran unless its playbook was actually loaded.",
+          first_turn_gate: mode === "new"
+            ? "Act as App IT. Ask exactly ONE short product question per assistant message. Learn what the user wants, who it is for, the smallest must-have outcome, and only material constraints. Then recommend the smallest useful specialist team and ask permission before adding it. Do not write code before the team and requirements are approved."
+            : "Act as App IT. Inspect the existing workspace read-only, briefly identify what it is, ask what outcome the user wants, then recommend the smallest useful specialist team and ask permission before adding it.",
+          coordination_rule: "Remain the user's single point of contact. Coordinate only the currently enabled specialist phases and verify each phase's evidence. Specialist delegates return before you continue. Stop for user approval at requirements, visual preview for UI projects, team changes, and final delivery. Present checkpoints with Approve / Change / Skip options. Never ask the user to wake or resume an internal workflow.",
+          skill_change_rule: "After the user explicitly approves a proposed team, emit exactly one [APP_IT_SKILLS_SET:comma-separated-ids] marker. The dashboard will update project state and hide the marker. When an IDRAK_INTERNAL_SKILLS_UPDATE message arrives from the dashboard, treat its skill selection and specialist_models map as authoritative and acknowledge it briefly.",
           model_routing_rule: "For every delegate_task specialist phase, look up its specialist id in specialist_models. When a model is assigned, pass that exact value in delegate_task.model (or the task item's model field for a batch). Never substitute another model. When no model is assigned, omit the model field so the configured delegation/session default is inherited. These assignments apply to specialist delegates only; the coordinating conversation keeps its session model.",
           delivery_rule: templateId === "mvp"
             ? "This is the MVP fast path. Keep artifacts and research proportional to the requested app. After requirements approval: if the project has a UI, you MUST generate a quick visual preview (1-3 static HTML/CSS mockups in .sdlc/preview/) and STOP to show the user and get their explicit approval before writing any application code. Present: 'Preview ready — open .sdlc/preview/index.html. Does this look like what you want? Approve / Change / Skip.' Then move to development, smoke QA, and concise run documentation; do not invent architecture or task-planning phases when they are disabled."
@@ -383,7 +389,7 @@
         h("section", { className: "ub-welcome" },
           h("p", { className: "ub-kicker" }, "APPIT · APP BUILDER"),
           h("h1", null, "What would you like to work on?"),
-          h("p", { className: "ub-subtitle" }, "Start something new or bring an existing folder. You choose the experts; Lyra keeps everything in one simple conversation."),
+          h("p", { className: "ub-subtitle" }, "Start something new or bring an existing folder. App IT learns what you need, recommends the right specialists, and stays with you through delivery."),
           h("button", {
             className: "ub-model-settings",
             type: "button",
@@ -391,15 +397,15 @@
           }, "⚙ AI model settings"),
         ),
         h("section", { className: "ub-start-grid", "aria-label": "Choose project action" },
-          h("button", { className: "ub-start-card ub-start-new", type: "button", onClick: () => begin("new", BUILTIN_TEMPLATES[1]) },
+          h("button", { className: "ub-start-card ub-start-new", type: "button", onClick: () => begin("new", BUILTIN_TEMPLATES[0]) },
             h("span", { className: "ub-start-symbol" }, "+"),
             h("strong", null, "New project"),
-            h("span", null, "Create a folder, choose a workflow, and start chatting."),
+            h("span", null, "Create a folder, then tell App IT what you want to build."),
           ),
-          h("button", { className: "ub-start-card", type: "button", onClick: () => begin("existing", BUILTIN_TEMPLATES[3]) },
+          h("button", { className: "ub-start-card", type: "button", onClick: () => begin("existing", BUILTIN_TEMPLATES[0]) },
             h("span", { className: "ub-start-symbol" }, "⌑"),
             h("strong", null, "Open a project"),
-            h("span", null, "Select an existing folder for planning, review, QA, or development."),
+            h("span", null, "Choose a folder. App IT inspects it and suggests who should help."),
           ),
         ),
         h("section", { className: "ub-template-preview" },
@@ -434,8 +440,8 @@
         h(Button, { ghost: true, onClick: () => setScreen("home") }, "← Back"),
         h("div", null,
           h("p", { className: "ub-kicker" }, mode === "new" ? "NEW PROJECT" : "EXISTING PROJECT"),
-          h("h1", null, "Set up your conversation"),
-          h("p", null, "Choose a workflow, adjust its skills, then describe what you need."),
+          h("h1", null, "Meet App IT"),
+          h("p", null, "Describe what you want. Add a starting team now, or let App IT recommend one after a few questions."),
         ),
       ),
       h("div", { className: "ub-config-layout" },
@@ -466,7 +472,7 @@
           h(Card, { className: "ub-form-card" },
             h(CardContent, null,
               h("div", { className: "ub-section-heading" },
-                h("div", null, h("h2", null, "Skills"), h("p", null, selected.size + " of " + SKILLS.length + " selected")),
+                h("div", null, h("h2", null, "Starting team (optional)"), h("p", null, selected.size + " of " + SKILLS.length + " selected · App IT is always active")),
                 h("div", { className: "ub-select-actions" },
                   h("button", { type: "button", onClick: () => setSelected(new Set(ALL_SKILL_IDS)) }, "Select all"),
                   h("button", { type: "button", onClick: () => setSelected(new Set()) }, "Clear"),
@@ -507,7 +513,7 @@
               ),
               h("div", { className: "ub-save-template" },
                 h(Input, { value: templateName, onChange: (event) => setTemplateName(event.target.value), placeholder: "Name this skill set…" }),
-                h(Button, { outlined: true, disabled: !templateName.trim() || !selected.size, onClick: saveTemplate }, "Save template"),
+                h(Button, { outlined: true, disabled: !templateName.trim(), onClick: saveTemplate }, "Save template"),
               ),
             ),
           ),
@@ -544,15 +550,15 @@
             )),
           ),
           h("div", { className: "ub-summary" },
-            h("span", null, "Selected"), h("strong", null, selected.size + " skills"),
+            h("span", null, "Starting team"), h("strong", null, selected.size ? selected.size + " specialists" : "App IT only"),
             h("p", null,
-              ["sw-developer", "oop-restructurer", "debugger"].some((skill) => selected.has(skill))
-                ? "You can change the selection at any time before starting."
-                : "Planning/advisory only—code changes are disabled.",
+              selected.size
+                ? "App IT can recommend changes later and will ask before applying them."
+                : "App IT will ask a few questions and recommend the smallest useful team.",
             ),
           ),
           error && h("div", { className: "ub-error", role: "alert" }, error),
-          h(Button, { className: "ub-start-chat", onClick: startChat, disabled: starting || !selected.size },
+          h(Button, { className: "ub-start-chat", onClick: startChat, disabled: starting },
             starting ? "Starting project…" : "Start Project →",
           ),
           h("p", { className: "ub-chat-note" }, "The project opens in a simple chat. Lyra handles tools and terminal work quietly in the background."),

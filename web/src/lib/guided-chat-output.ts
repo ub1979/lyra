@@ -13,6 +13,8 @@ const INLINE_REASONING_BLOCK =
 const INLINE_TOOL_BLOCK =
   /\s*[├└]─\s*▾\s*Tool calls?(?:\s*\(\d+\))?[\s\S]*?(?=[├└]─\s*Response\b|$)/gi;
 
+const APP_IT_SKILLS_SET = /\[APP_IT_SKILLS_SET:([^\]]*)\]/i;
+
 export type GuidedOutputPhase = "idle" | "working" | "response";
 
 export interface GuidedSpecialist {
@@ -27,6 +29,7 @@ export interface GuidedChatPresentation {
 }
 
 const SPECIALISTS: Array<GuidedSpecialist & { patterns: RegExp }> = [
+  { id: "app-it", label: "App IT", patterns: /ultimate-builder:app-it|\bapp it\b|project coordinator/i },
   { id: "req-engineer", label: "Requirements", patterns: /req-engineer|requirements\.md|acceptance criteria/i },
   { id: "spec", label: "Technical specification", patterns: /ultimate-builder:spec|\bspec\.md\b/i },
   { id: "sw-architect", label: "Architecture", patterns: /sw-architect|plan\.md|system design/i },
@@ -51,6 +54,7 @@ const SPECIALIST_ROLE_PATTERNS: Array<{
   specialist: GuidedSpecialist;
   pattern: RegExp;
 }> = [
+  { specialist: { id: "app-it", label: "App IT" }, pattern: /\byou are (?:the )?app it\b/i },
   { specialist: { id: "req-engineer", label: "Requirements" }, pattern: /\byou are (?:the )?requirements? engineer\b/i },
   { specialist: { id: "spec", label: "Technical specification" }, pattern: /\byou are (?:the )?(?:technical )?specification (?:engineer|specialist)\b/i },
   { specialist: { id: "sw-architect", label: "Architecture" }, pattern: /\byou are (?:the )?(?:software |system )?architect\b/i },
@@ -60,6 +64,36 @@ const SPECIALIST_ROLE_PATTERNS: Array<{
   { specialist: { id: "qa-engineer", label: "Quality assurance" }, pattern: /\byou are (?:the )?(?:qa|quality assurance) engineer\b/i },
   { specialist: { id: "tech-writer", label: "Documentation" }, pattern: /\byou are (?:the )?technical writer\b/i },
 ];
+
+export interface AppItSkillSelection {
+  content: string;
+  skillIds: string[];
+}
+
+/**
+ * App IT emits this control marker only after the user approves a proposed
+ * team. Guided chat consumes it as project state and never shows it as prose.
+ */
+export function extractAppItSkillSelection(
+  raw: string,
+  allowedIds: readonly string[],
+): AppItSkillSelection | null {
+  const match = raw.match(APP_IT_SKILLS_SET);
+  if (!match) return null;
+  const allowed = new Set(allowedIds);
+  const skillIds = Array.from(
+    new Set(
+      match[1]
+        .split(",")
+        .map((id) => id.trim())
+        .filter((id) => allowed.has(id)),
+    ),
+  );
+  return {
+    content: raw.replace(APP_IT_SKILLS_SET, "").trim(),
+    skillIds,
+  };
+}
 
 function detectSpecialist(raw: string): GuidedSpecialist | null {
   for (const candidate of SPECIALIST_ROLE_PATTERNS) {
@@ -125,6 +159,7 @@ function cleanResponse(lines: string[]): string {
 export function sanitizeGuidedResponse(raw: string): string {
   const withoutInlineBlocks = raw
     .replace(/\r/g, "")
+    .replace(APP_IT_SKILLS_SET, " ")
     .replace(INLINE_REASONING_BLOCK, " ")
     .replace(INLINE_TOOL_BLOCK, " ")
     .replace(/[├└]─\s*Response\b/gi, " ");

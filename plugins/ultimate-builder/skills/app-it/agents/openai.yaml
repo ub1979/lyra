@@ -1,0 +1,4 @@
+interface:
+  display_name: "App IT"
+  short_description: "Guide projects and choose the right specialists"
+  default_prompt: "Use $app-it to understand my project and recommend the right skills."

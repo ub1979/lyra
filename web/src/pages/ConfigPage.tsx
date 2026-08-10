@@ -92,11 +92,7 @@ const CATEGORY_ICONS: Record<
 const SOFTWARE_DEVELOPMENT_CATEGORIES = new Set([
   "general",
   "agent",
-  "terminal",
-  "display",
-  "delegation",
   "security",
-  "updates",
 ]);
 
 function CategoryIcon({

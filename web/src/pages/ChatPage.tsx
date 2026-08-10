@@ -39,6 +39,7 @@ import { api } from "@/lib/api";
 import { latchChatActivation } from "@/lib/chat-activation";
 import {
   analyzeGuidedChatOutput,
+  extractAppItSkillSelection,
   friendlyActivityLabel,
   guidedResponseNeedsContinuation,
   sanitizeGuidedResponse,
@@ -117,6 +118,7 @@ function generateChannelId(scope?: string): string {
 const DEFAULT_TERMINAL_BACKGROUND = "#000000";
 const DEFAULT_TERMINAL_FOREGROUND = "#f0e6d2";
 const MODEL_CONNECTION_ERROR_MARKER = "[[IDRAK_MODEL_CONNECTION_ERROR]]";
+const GUIDED_SKILL_MODELS_STORAGE_KEY = "idrak-it.builder.skill-models.v1";
 
 interface GuidedMessage {
   id: string;
@@ -145,6 +147,7 @@ interface GuidedAgentEventEnvelope {
 }
 
 const GUIDED_SPECIALIST_LABELS: Record<string, string> = {
+  "app-it": "App IT",
   "req-engineer": "Requirements",
   spec: "Technical specification",
   "sw-architect": "Architecture",
@@ -165,8 +168,32 @@ const GUIDED_SPECIALIST_LABELS: Record<string, string> = {
   idk_it: "Workflow coordination",
 };
 
+const GUIDED_SELECTABLE_SPECIALIST_IDS = Object.keys(
+  GUIDED_SPECIALIST_LABELS,
+).filter((id) => id !== "app-it" && id !== "idk_it");
+const APP_IT_SPECIALIST: GuidedSpecialist = { id: "app-it", label: "App IT" };
+
 function guidedSpecialistStorageKey(workspace: string): string {
   return `idrak-it.guided-specialists.v1:${workspace || "default"}`;
+}
+
+function readGuidedSkillModels(): Record<string, string> {
+  try {
+    const value = JSON.parse(
+      window.localStorage.getItem(GUIDED_SKILL_MODELS_STORAGE_KEY) ?? "{}",
+    ) as unknown;
+    if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+    return Object.fromEntries(
+      Object.entries(value).filter(
+        (entry): entry is [string, string] =>
+          GUIDED_SELECTABLE_SPECIALIST_IDS.includes(entry[0]) &&
+          typeof entry[1] === "string" &&
+          Boolean(entry[1].trim()),
+      ),
+    );
+  } catch {
+    return {};
+  }
 }
 
 function specialistIdsFromBuilderSeed(
@@ -185,13 +212,11 @@ function specialistIdsFromBuilderSeed(
             (id): id is string =>
               typeof id === "string" && id in GUIDED_SPECIALIST_LABELS,
           );
-          if (selected.length) {
-            window.localStorage.setItem(
-              guidedSpecialistStorageKey(workspace),
-              JSON.stringify(selected),
-            );
-            return selected;
-          }
+          window.localStorage.setItem(
+            guidedSpecialistStorageKey(workspace),
+            JSON.stringify(selected),
+          );
+          return selected;
         }
       } catch {
         // A malformed setup seed should not prevent the guided chat opening.
@@ -207,23 +232,12 @@ function specialistIdsFromBuilderSeed(
         (id): id is string =>
           typeof id === "string" && id in GUIDED_SPECIALIST_LABELS,
       );
-      if (selected.length) return selected;
+      return selected;
     }
   } catch {
     // Fall through to workflow coordination.
   }
-  // Older guided URLs (created before specialist persistence was added) do
-  // not carry the original launcher seed after refresh. Requirements is the
-  // safest first phase for an unknown guided build; it prevents a legacy
-  // session from jumping directly into code.
-  return ["req-engineer"];
-}
-
-function specialistFromId(id: string): GuidedSpecialist {
-  return {
-    id,
-    label: GUIDED_SPECIALIST_LABELS[id] ?? "Workflow coordination",
-  };
+  return [];
 }
 
 function guidedMessageStorageKey(workspace: string): string {
@@ -658,15 +672,13 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     setGuidedSelectedSpecialistIds,
   ] = useState(() =>
     typeof window === "undefined"
-      ? ["idk_it"]
+      ? []
       : specialistIdsFromBuilderSeed(
           searchParams.get("builder"),
           workspaceParam,
         ),
   );
-  const guidedDefaultSpecialist = specialistFromId(
-    guidedSelectedSpecialistIds[0] ?? "idk_it",
-  );
+  const guidedDefaultSpecialist = APP_IT_SPECIALIST;
   const guidedDefaultSpecialistRef = useRef<GuidedSpecialist>(
     guidedDefaultSpecialist,
   );
@@ -675,11 +687,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   );
   const guidedSessionSkillsRef = useRef(
     [
+      "ultimate-builder:app-it",
       "ultimate-builder:ultimate-app-builder",
-      guidedSelectedSpecialistIds[0]
-        ? `ultimate-builder:${guidedSelectedSpecialistIds[0]}`
-        : "",
-    ].filter(Boolean),
+    ],
   );
   const guidedTurnStartLineRef = useRef(0);
   const lastGuidedResponseRef = useRef("");
@@ -688,6 +698,15 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const guidedActiveSubagentRef = useRef(false);
   const guidedAutoContinueCountRef = useRef(0);
   const [guidedInput, setGuidedInput] = useState("");
+  const [guidedSkillsOpen, setGuidedSkillsOpen] = useState(false);
+  const [guidedSkillModels, setGuidedSkillModels] = useState<
+    Record<string, string>
+  >(() => (typeof window === "undefined" ? {} : readGuidedSkillModels()));
+  const guidedSkillModelsRef = useRef(guidedSkillModels);
+  const [guidedModelOptions, setGuidedModelOptions] = useState<string[]>([]);
+  const [guidedDefaultModelLabel, setGuidedDefaultModelLabel] = useState(
+    "Project default",
+  );
   const [guidedPaused, setGuidedPaused] = useState(false);
   const [guidedAgentReady, setGuidedAgentReady] = useState(false);
   const guidedAgentReadyRef = useRef(false);
@@ -758,6 +777,57 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     });
   }, []);
 
+  const applyGuidedSpecialistIds = useCallback(
+    (ids: readonly string[]) => {
+      const allowed = new Set(GUIDED_SELECTABLE_SPECIALIST_IDS);
+      const selected = Array.from(
+        new Set(ids.filter((id) => allowed.has(id))),
+      );
+      setGuidedSelectedSpecialistIds(selected);
+      guidedSelectedSpecialistIdsRef.current = selected;
+      guidedDefaultSpecialistRef.current = APP_IT_SPECIALIST;
+      guidedSessionSkillsRef.current = [
+        "ultimate-builder:app-it",
+        "ultimate-builder:ultimate-app-builder",
+      ];
+      try {
+        window.localStorage.setItem(
+          guidedSpecialistStorageKey(workspaceParam),
+          JSON.stringify(selected),
+        );
+      } catch {
+        // Storage can be unavailable in private browsing; live state still works.
+      }
+    },
+    [workspaceParam],
+  );
+
+  useEffect(() => {
+    if (!guided) return;
+    let active = true;
+    Promise.all([api.getModelInfo(), api.getModelOptions()])
+      .then(([info, options]) => {
+        if (!active) return;
+        const providers = options.providers ?? [];
+        const provider =
+          providers.find((item) => item.slug === info.provider) ??
+          providers.find((item) => item.is_current);
+        setGuidedModelOptions(
+          Array.from(new Set((provider?.models ?? []).filter(Boolean))),
+        );
+        setGuidedDefaultModelLabel(
+          [info.provider, info.model].filter(Boolean).join(" · ") ||
+            "Project default",
+        );
+      })
+      .catch(() => {
+        if (active) setGuidedModelOptions([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [guided]);
+
   // ChatPage stays mounted while the user visits model settings. When they
   // return, reload the newly selected project's own transcript instead of
   // retaining the empty settings-route scope (or another project's history).
@@ -778,17 +848,19 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       searchParams.get("builder"),
       workspaceParam,
     );
-    const first = specialistFromId(selected[0] ?? "req-engineer");
-    setGuidedSelectedSpecialistIds(selected);
-    guidedSelectedSpecialistIdsRef.current = selected;
-    guidedDefaultSpecialistRef.current = first;
-    guidedSessionSkillsRef.current = [
-      "ultimate-builder:ultimate-app-builder",
-      selected[0] ? `ultimate-builder:${selected[0]}` : "",
-    ].filter(Boolean);
-  }, [guided, searchParams, workspaceParam]);
+    applyGuidedSpecialistIds(selected);
+  }, [applyGuidedSpecialistIds, guided, searchParams, workspaceParam]);
   const finishGuidedResponse = useCallback((content: string) => {
-    const response = sanitizeGuidedResponse(content);
+    const skillSelection = extractAppItSkillSelection(
+      content,
+      GUIDED_SELECTABLE_SPECIALIST_IDS,
+    );
+    if (skillSelection) {
+      applyGuidedSpecialistIds(skillSelection.skillIds);
+    }
+    const response = sanitizeGuidedResponse(
+      skillSelection?.content ?? content,
+    );
     if (!response || response === lastGuidedResponseRef.current) return;
     guidedTurnSettledRef.current = true;
     lastGuidedResponseRef.current = response;
@@ -812,7 +884,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         },
       ];
     });
-  }, []);
+  }, [applyGuidedSpecialistIds]);
   // True from the moment the connect effect begins until the socket resolves
   // (open or close). Guards the page-resume reconnect against firing during
   // the async ticket/URL await gap where wsRef.current is not yet assigned.
@@ -1300,7 +1372,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     return () => setEnd(null);
   }, [guided, isActive, narrow, mobilePanelOpen, modelToolsLabel, setEnd]);
 
-  const submitGuidedText = useCallback((value: string) => {
+  const submitGuidedText = useCallback((value: string, displayValue?: string) => {
     const text = value.trim();
     const ws = wsRef.current;
     if (
@@ -1327,7 +1399,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       {
         id: `user-${Date.now()}-${Math.random().toString(36).slice(2)}`,
         role: "user",
-        content: text,
+        content: displayValue?.trim() || text,
       },
     ]);
     setGuidedActivity({
@@ -1344,6 +1416,99 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     }, 80);
     setGuidedInput("");
   }, [guidedPaused]);
+
+  const sendGuidedProjectState = useCallback(
+    (
+      specialists: readonly string[],
+      models: Readonly<Record<string, string>>,
+      displayValue: string,
+    ) => {
+      const labels = specialists.map(
+        (skillId) => GUIDED_SPECIALIST_LABELS[skillId],
+      );
+      const payload = `IDRAK_INTERNAL_SKILLS_UPDATE_BEGIN ${JSON.stringify({
+        enabled_specialists: specialists,
+        enabled_specialist_labels: labels,
+        specialist_models: models,
+      })} IDRAK_INTERNAL_SKILLS_UPDATE_END`;
+      submitGuidedText(payload, displayValue);
+    },
+    [submitGuidedText],
+  );
+
+  const toggleGuidedSpecialist = useCallback(
+    (id: string) => {
+      if (
+        !GUIDED_SELECTABLE_SPECIALIST_IDS.includes(id) ||
+        guidedPaused ||
+        guidedActivity.phase === "working" ||
+        !guidedAgentReadyRef.current ||
+        wsRef.current?.readyState !== WebSocket.OPEN
+      ) {
+        return;
+      }
+      const current = guidedSelectedSpecialistIdsRef.current;
+      const next = current.includes(id)
+        ? current.filter((candidate) => candidate !== id)
+        : [...current, id];
+      applyGuidedSpecialistIds(next);
+      const labels = next.map((skillId) => GUIDED_SPECIALIST_LABELS[skillId]);
+      sendGuidedProjectState(
+        next,
+        guidedSkillModelsRef.current,
+        labels.length
+          ? `Updated project specialists: ${labels.join(", ")}`
+          : "Updated project specialists: App IT only",
+      );
+    },
+    [
+      applyGuidedSpecialistIds,
+      guidedActivity.phase,
+      guidedPaused,
+      sendGuidedProjectState,
+    ],
+  );
+
+  const updateGuidedSpecialistModel = useCallback(
+    (id: string, model: string) => {
+      if (
+        !GUIDED_SELECTABLE_SPECIALIST_IDS.includes(id) ||
+        !guidedSelectedSpecialistIdsRef.current.includes(id) ||
+        guidedPaused ||
+        guidedActivity.phase === "working" ||
+        !guidedAgentReadyRef.current ||
+        wsRef.current?.readyState !== WebSocket.OPEN
+      ) {
+        return;
+      }
+      const next = { ...guidedSkillModelsRef.current };
+      if (model.trim()) next[id] = model.trim();
+      else delete next[id];
+      guidedSkillModelsRef.current = next;
+      setGuidedSkillModels(next);
+      try {
+        window.localStorage.setItem(
+          GUIDED_SKILL_MODELS_STORAGE_KEY,
+          JSON.stringify(next),
+        );
+      } catch {
+        // Live routing still works for this conversation.
+      }
+      sendGuidedProjectState(
+        guidedSelectedSpecialistIdsRef.current,
+        next,
+        `Updated ${GUIDED_SPECIALIST_LABELS[id]} LLM: ${
+          model.trim() || guidedDefaultModelLabel
+        }`,
+      );
+    },
+    [
+      guidedActivity.phase,
+      guidedDefaultModelLabel,
+      guidedPaused,
+      sendGuidedProjectState,
+    ],
+  );
 
   const sendGuidedMessage = useCallback(() => {
     submitGuidedText(guidedInput);
@@ -2628,7 +2793,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
 
       {guided && (
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-current/15 bg-background-base shadow-xl">
-          <div className="flex items-center justify-between gap-3 border-b border-current/10 px-4 py-3 sm:px-5">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-current/10 px-4 py-3 sm:px-5">
             <div className="min-w-0">
               <div className="flex items-center gap-2 text-sm font-semibold text-midground">
                 <FolderOpen className="h-4 w-4" />
@@ -2638,7 +2803,15 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 {workspaceParam || "Guided project chat"}
               </div>
             </div>
-            <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-1 sm:gap-2">
+              <Button
+                ghost
+                size="sm"
+                onClick={() => setGuidedSkillsOpen((open) => !open)}
+                aria-expanded={guidedSkillsOpen}
+              >
+                Skills ({guidedSelectedSpecialistIds.length})
+              </Button>
               <Button ghost size="sm" onClick={toggleGuidedPause}>
                 {guidedPaused ? "Resume" : "Pause"}
               </Button>
@@ -2672,6 +2845,84 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               </Button>
             </div>
           </div>
+
+          {guidedSkillsOpen && (
+            <div className="border-b border-current/10 bg-midground/[0.025] px-4 py-4 sm:px-5">
+              <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                <div>
+                  <strong className="text-sm text-midground">App IT is always active</strong>
+                  <span className="ml-2 text-xs text-text-secondary">
+                    Select only the specialists this project needs.
+                  </span>
+                </div>
+                <span className="text-xs text-text-secondary">
+                  Changes are sent to App IT immediately.
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {GUIDED_SELECTABLE_SPECIALIST_IDS.map((id) => {
+                  const selected = guidedSelectedSpecialistIds.includes(id);
+                  const assignedModel = guidedSkillModels[id] ?? "";
+                  const modelChoices =
+                    assignedModel && !guidedModelOptions.includes(assignedModel)
+                      ? [assignedModel, ...guidedModelOptions]
+                      : guidedModelOptions;
+                  const disabled =
+                    guidedPaused ||
+                    guidedActivity.phase === "working" ||
+                    !guidedAgentReady;
+                  return (
+                    <div
+                      key={id}
+                      className={cn(
+                        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition-colors",
+                        selected
+                          ? "border-midground/40 bg-midground/10 text-midground"
+                          : "border-current/15 text-text-secondary hover:border-current/30",
+                        disabled && "opacity-50",
+                      )}
+                    >
+                      <label
+                        className={cn(
+                          "inline-flex cursor-pointer items-center gap-2",
+                          disabled && "cursor-not-allowed",
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          className="h-3.5 w-3.5 accent-current"
+                          checked={selected}
+                          disabled={disabled}
+                          onChange={() => toggleGuidedSpecialist(id)}
+                        />
+                        {GUIDED_SPECIALIST_LABELS[id]}
+                      </label>
+                      {selected && (
+                        <select
+                          value={assignedModel}
+                          disabled={disabled}
+                          aria-label={`LLM for ${GUIDED_SPECIALIST_LABELS[id]}`}
+                          className="max-w-52 rounded border border-current/20 bg-background-base px-2 py-1 text-[11px] text-text-primary"
+                          onChange={(event) =>
+                            updateGuidedSpecialistModel(id, event.target.value)
+                          }
+                        >
+                          <option value="">
+                            Default · {guidedDefaultModelLabel}
+                          </option>
+                          {modelChoices.map((model) => (
+                            <option key={model} value={model}>
+                              {model}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div
             ref={guidedOutputRef}

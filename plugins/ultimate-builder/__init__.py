@@ -77,6 +77,14 @@ def register(ctx) -> None:
         )
 
     ctx.register_skill(
+        "app-it",
+        _ROOT / "skills" / "app-it" / "SKILL.md",
+        description=(
+            "Understand an application project, recommend the smallest useful "
+            "specialist team, and coordinate approved work."
+        ),
+    )
+    ctx.register_skill(
         "ultimate-app-builder",
         _ROOT / "skills" / "ultimate-app-builder" / "SKILL.md",
         description=(
