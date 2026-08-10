@@ -15,6 +15,15 @@ const INLINE_TOOL_BLOCK =
 
 const APP_IT_SKILLS_SET = /\[APP_IT_SKILLS_SET:([^\]]*)\]/i;
 
+const APP_IT_TEAM_CONTEXT =
+  /\b(?:team|specialists?|experts?|recommend(?:ed|ing|s)?|suggest(?:ed|ing|s)?|hir(?:e|ed|ing|es)|add(?:ed|ing|s)?|select(?:ed|ing|s)?|activat(?:e|ed|ing|es))\b/i;
+
+const APP_IT_TEAM_APPLIED =
+  /\b(?:i(?:'ve| have)\s+(?:hired|added|selected|activated)|(?:team|specialists?)\s+(?:is|are|has been|have been)\s+(?:hired|added|selected|activated|set|updated|active))\b/i;
+
+const APP_IT_TEAM_DIRECTIVE =
+  /\b(?:hire|choose|select|add|activate|use)\b[\s\S]{0,48}\b(?:team|specialists?|experts?)\b|\b(?:decide for me|use smart defaults?)\b/i;
+
 export type GuidedOutputPhase = "idle" | "working" | "response";
 
 export interface GuidedSpecialist {
@@ -49,6 +58,22 @@ const SPECIALISTS: Array<GuidedSpecialist & { patterns: RegExp }> = [
   { id: "learn", label: "Controlled learning", patterns: /controlled learning|learning-candidates/i },
   { id: "idk_it", label: "Workflow coordination", patterns: /workflow coordination|delegate_task/i },
 ];
+
+const TEAM_SPECIALIST_ALIASES: Readonly<Record<string, readonly string[]>> = {
+  "req-engineer": ["requirements engineer"],
+  spec: ["specification specialist"],
+  "sw-architect": ["software architect", "system architect"],
+  "task-planner": ["task planner"],
+  "proj-manager": ["project manager"],
+  "sw-developer": ["software developer", "developer"],
+  "oop-restructurer": ["refactoring specialist"],
+  debugger: ["debugger"],
+  "code-reviewer": ["code reviewer"],
+  "qa-engineer": ["qa", "qa engineer"],
+  "security-auditor": ["security auditor"],
+  "devops-engineer": ["devops", "devops engineer"],
+  "tech-writer": ["technical writer"],
+};
 
 const SPECIALIST_ROLE_PATTERNS: Array<{
   specialist: GuidedSpecialist;
@@ -85,14 +110,79 @@ export function extractAppItSkillSelection(
     new Set(
       match[1]
         .split(",")
-        .map((id) => id.trim())
-        .filter((id) => allowed.has(id)),
+        .map((value) => {
+          const token = value.trim().toLowerCase();
+          const withoutPrefix = token.replace(/^ultimate-builder:/, "");
+          return SPECIALISTS.find(
+            (specialist) =>
+              specialist.id === withoutPrefix ||
+              specialist.label.toLowerCase() === withoutPrefix,
+          )?.id;
+        })
+        .filter(
+          (id): id is string => typeof id === "string" && allowed.has(id),
+        ),
     ),
   );
   return {
     content: raw.replace(APP_IT_SKILLS_SET, "").trim(),
     skillIds,
   };
+}
+
+function phrasePattern(value: string): RegExp {
+  const escaped = value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[^a-z0-9])${escaped}(?=$|[^a-z0-9])`, "i");
+}
+
+/**
+ * Reads the registered specialist ids named in a human-facing team proposal
+ * or team-applied acknowledgement. This is deliberately gated on team
+ * language so ordinary mentions of development or QA do not mutate state.
+ */
+export function extractAppItTeamSpecialistIds(
+  raw: string,
+  allowedIds: readonly string[],
+): string[] | null {
+  if (!APP_IT_TEAM_CONTEXT.test(raw)) return null;
+  const allowed = new Set(allowedIds);
+  const skillIds = SPECIALISTS.filter(
+    (specialist) =>
+      allowed.has(specialist.id) &&
+      (phrasePattern(specialist.id).test(raw) ||
+        phrasePattern(`ultimate-builder:${specialist.id}`).test(raw) ||
+        phrasePattern(specialist.label).test(raw) ||
+        (TEAM_SPECIALIST_ALIASES[specialist.id] ?? []).some((alias) =>
+          phrasePattern(alias).test(raw),
+        )),
+  ).map((specialist) => specialist.id);
+  return skillIds.length ? skillIds : null;
+}
+
+/** True only for an explicit user instruction to choose/apply a team. */
+export function isAppItTeamDirective(raw: string): boolean {
+  return APP_IT_TEAM_DIRECTIVE.test(raw);
+}
+
+/**
+ * Recognizes a concise approval of the immediately preceding team proposal.
+ * Callers must still supply that proposal; this must never approve an
+ * unrelated requirements or delivery checkpoint.
+ */
+export function isAppItTeamApproval(raw: string): boolean {
+  const text = raw.replace(/[*_`]/g, "").replace(/\s+/g, " ").trim();
+  if (!text || text.length > 180) return false;
+  return (
+    /^(?:yes|yep|yeah|ok(?:ay)?|sure)(?:\b|[,.!])/i.test(text) ||
+    /\b(?:approve(?:d)?(?:\s+(?:it|them|that|the team))?|hire\s+(?:them|that team|the team)|add\s+(?:them|that team|the team)|use\s+(?:that|this|the)\s+team|go ahead(?:\s+with\s+(?:that|this|the)\s+team)?|looks good|sounds good)\b/i.test(
+      text,
+    )
+  );
+}
+
+/** True when Lyra explicitly says the named team has already been applied. */
+export function isAppItTeamAppliedResponse(raw: string): boolean {
+  return APP_IT_TEAM_APPLIED.test(raw);
 }
 
 function detectSpecialist(raw: string): GuidedSpecialist | null {

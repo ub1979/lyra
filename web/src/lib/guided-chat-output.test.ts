@@ -3,8 +3,12 @@ import { describe, expect, it } from "vitest";
 import {
   analyzeGuidedChatOutput,
   extractAppItSkillSelection,
+  extractAppItTeamSpecialistIds,
   friendlyActivityLabel,
   guidedResponseNeedsContinuation,
+  isAppItTeamAppliedResponse,
+  isAppItTeamApproval,
+  isAppItTeamDirective,
   presentGuidedChatOutput,
   sanitizeGuidedResponse,
 } from "./guided-chat-output";
@@ -155,6 +159,15 @@ a//Users/u/funcoding/todo/index.html → b//Users/u/funcoding/todo/index.html
         "req-engineer",
       ]),
     ).toEqual({ content: "App IT only.", skillIds: [] });
+    expect(
+      extractAppItSkillSelection(
+        "Team set. [APP_IT_SKILLS_SET:ultimate-builder:sw-developer,Quality assurance]",
+        ["sw-developer", "qa-engineer"],
+      ),
+    ).toEqual({
+      content: "Team set.",
+      skillIds: ["sw-developer", "qa-engineer"],
+    });
   });
 
   it("never shows App IT control markers in guided responses", () => {
@@ -163,6 +176,50 @@ a//Users/u/funcoding/todo/index.html → b//Users/u/funcoding/todo/index.html
         "Team updated. [APP_IT_SKILLS_SET:req-engineer,qa-engineer]",
       ),
     ).toBe("Team updated.");
+  });
+
+  it("reads registered specialists from a human-facing team proposal", () => {
+    expect(
+      extractAppItTeamSpecialistIds(
+        "My recommended team is Requirements, Development, and Quality assurance.",
+        ["req-engineer", "sw-developer", "qa-engineer", "devops-engineer"],
+      ),
+    ).toEqual(["req-engineer", "sw-developer", "qa-engineer"]);
+    expect(
+      extractAppItTeamSpecialistIds(
+        "I recommend ultimate-builder:sw-architect and `task-planner` as the specialists.",
+        ["sw-architect", "task-planner"],
+      ),
+    ).toEqual(["sw-architect", "task-planner"]);
+    expect(
+      extractAppItTeamSpecialistIds(
+        "The smallest team is a software developer and QA engineer.",
+        ["sw-developer", "qa-engineer"],
+      ),
+    ).toEqual(["sw-developer", "qa-engineer"]);
+    expect(
+      extractAppItTeamSpecialistIds(
+        "I've hired Requirements and QA.",
+        ["req-engineer", "qa-engineer"],
+      ),
+    ).toEqual(["req-engineer", "qa-engineer"]);
+  });
+
+  it("does not treat ordinary delivery prose as a team selection", () => {
+    expect(
+      extractAppItTeamSpecialistIds(
+        "Development is complete and quality assurance passed.",
+        ["sw-developer", "qa-engineer"],
+      ),
+    ).toBeNull();
+  });
+
+  it("recognizes explicit team approval and direct hiring language", () => {
+    expect(isAppItTeamApproval("Approve the team")).toBe(true);
+    expect(isAppItTeamApproval("Yes, hire them")).toBe(true);
+    expect(isAppItTeamApproval("Please change the requirements")).toBe(false);
+    expect(isAppItTeamDirective("Choose the smallest specialist team for me")).toBe(true);
+    expect(isAppItTeamAppliedResponse("I've added the selected team.")).toBe(true);
   });
 
 });

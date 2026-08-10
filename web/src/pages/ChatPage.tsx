@@ -40,8 +40,12 @@ import { latchChatActivation } from "@/lib/chat-activation";
 import {
   analyzeGuidedChatOutput,
   extractAppItSkillSelection,
+  extractAppItTeamSpecialistIds,
   friendlyActivityLabel,
   guidedResponseNeedsContinuation,
+  isAppItTeamAppliedResponse,
+  isAppItTeamApproval,
+  isAppItTeamDirective,
   sanitizeGuidedResponse,
   type GuidedChatPresentation,
   type GuidedSpecialist,
@@ -909,6 +913,21 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     );
     if (skillSelection) {
       applyGuidedSpecialistIds(skillSelection.skillIds);
+    } else {
+      const inferredTeam = extractAppItTeamSpecialistIds(
+        content,
+        GUIDED_SELECTABLE_SPECIALIST_IDS,
+      );
+      const latestUserMessage = [...guidedMessagesRef.current]
+        .reverse()
+        .find((message) => message.role === "user");
+      if (
+        inferredTeam &&
+        (isAppItTeamAppliedResponse(content) ||
+          isAppItTeamDirective(latestUserMessage?.content ?? ""))
+      ) {
+        applyGuidedSpecialistIds(inferredTeam);
+      }
     }
     const response = sanitizeGuidedResponse(
       skillSelection?.content ?? content,
@@ -1450,6 +1469,18 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     ) {
       return;
     }
+    const latestAssistantMessage = [...guidedMessagesRef.current]
+      .reverse()
+      .find((message) => message.role === "assistant");
+    const proposedTeam = latestAssistantMessage
+      ? extractAppItTeamSpecialistIds(
+          latestAssistantMessage.content,
+          GUIDED_SELECTABLE_SPECIALIST_IDS,
+        )
+      : null;
+    if (proposedTeam && isAppItTeamApproval(text)) {
+      applyGuidedSpecialistIds(proposedTeam);
+    }
     guidedTurnStartLineRef.current = Math.max(
       0,
       (termRef.current?.buffer.active.length ?? 1) - 1,
@@ -1481,7 +1512,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       }
     }, 80);
     setGuidedInput("");
-  }, [guidedPaused]);
+  }, [applyGuidedSpecialistIds, guidedPaused]);
 
   const sendGuidedProjectState = useCallback(
     (
