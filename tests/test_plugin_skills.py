@@ -195,6 +195,68 @@ class TestSkillViewQualifiedName:
         assert result["name"] == "superpowers:writing-plans"
         assert "writing-plans body." in result["content"]
 
+    def test_serves_companion_file_from_plugin_skill(self, tmp_path):
+        """file_path must serve the companion file, not silently fall back.
+
+        Regression: the qualified-name branch dropped ``file_path`` and always
+        returned SKILL.md with success=True, so a skill body instructing the
+        agent to read ``references/foo.md`` got the playbook back and could not
+        tell the difference.
+        """
+        from tools.skills_tool import skill_view
+
+        md = self._register_skill(tmp_path)
+        refs = md.parent / "references"
+        refs.mkdir()
+        (refs / "comment-style.md").write_text("SEPARATOR WIDTHS 77/37/34/22\n")
+
+        result = json.loads(
+            skill_view("superpowers:writing-plans", file_path="references/comment-style.md")
+        )
+
+        assert result["success"] is True
+        assert result["file"] == "references/comment-style.md"
+        assert "SEPARATOR WIDTHS" in result["content"]
+        assert "writing-plans body." not in result["content"]
+
+    def test_lists_companion_files_on_plugin_skill(self, tmp_path):
+        from tools.skills_tool import skill_view
+
+        md = self._register_skill(tmp_path)
+        refs = md.parent / "references"
+        refs.mkdir()
+        (refs / "api.md").write_text("x")
+
+        result = json.loads(skill_view("superpowers:writing-plans"))
+
+        assert result["linked_files"] == {"references": ["references/api.md"]}
+
+    def test_missing_companion_file_reports_available(self, tmp_path):
+        from tools.skills_tool import skill_view
+
+        md = self._register_skill(tmp_path)
+        refs = md.parent / "references"
+        refs.mkdir()
+        (refs / "api.md").write_text("x")
+
+        result = json.loads(
+            skill_view("superpowers:writing-plans", file_path="references/nope.md")
+        )
+
+        assert result["success"] is False
+        assert result["available_files"] == {"references": ["references/api.md"]}
+
+    def test_companion_file_blocks_traversal(self, tmp_path):
+        from tools.skills_tool import skill_view
+
+        self._register_skill(tmp_path)
+        result = json.loads(
+            skill_view("superpowers:writing-plans", file_path="../../../../etc/passwd")
+        )
+
+        assert result["success"] is False
+        assert "traversal" in result["error"].lower()
+
     def test_invalid_namespace_returns_error(self, tmp_path):
         from tools.skills_tool import skill_view
 

@@ -854,15 +854,117 @@ def skills_list(category: str = None, task_id: str = None) -> str:
 # ── Plugin skill serving ──────────────────────────────────────────────────
 
 
+def _plugin_linked_files(skill_dir: Path) -> Dict[str, List[str]]:
+    """List companion files shipped beside a plugin skill's SKILL.md."""
+    linked: Dict[str, List[str]] = {}
+    for key, sub in (
+        ("references", "references"),
+        ("templates", "templates"),
+        ("assets", "assets"),
+        ("scripts", "scripts"),
+    ):
+        sub_dir = skill_dir / sub
+        if not sub_dir.is_dir():
+            continue
+        found = sorted(
+            str(f.relative_to(skill_dir)) for f in sub_dir.rglob("*") if f.is_file()
+        )
+        if found:
+            linked[key] = found
+    return linked
+
+
+def _serve_plugin_skill_file(
+    skill_dir: Path, namespace: str, bare: str, file_path: str
+) -> str:
+    """Serve one companion file from a plugin skill directory.
+
+    Applies the same traversal guards as the tree-skill path so a plugin skill
+    can never be used to read outside its own directory.
+    """
+    from tools.path_security import validate_within_dir, has_traversal_component
+
+    if has_traversal_component(file_path):
+        return json.dumps(
+            {
+                "success": False,
+                "error": "Path traversal ('..') is not allowed.",
+                "hint": "Use a relative path within the skill directory",
+            },
+            ensure_ascii=False,
+        )
+
+    target_file = skill_dir / file_path
+    traversal_error = validate_within_dir(target_file, skill_dir)
+    if traversal_error:
+        return json.dumps(
+            {
+                "success": False,
+                "error": traversal_error,
+                "hint": "Use a relative path within the skill directory",
+            },
+            ensure_ascii=False,
+        )
+
+    if not target_file.is_file():
+        return json.dumps(
+            {
+                "success": False,
+                "error": (
+                    f"File '{file_path}' not found in skill "
+                    f"'{namespace}:{bare}'."
+                ),
+                "available_files": _plugin_linked_files(skill_dir),
+                "hint": "Use one of the available file paths listed above",
+            },
+            ensure_ascii=False,
+        )
+
+    try:
+        content = target_file.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return json.dumps(
+            {
+                "success": True,
+                "name": f"{namespace}:{bare}",
+                "file": file_path,
+                "content": (
+                    f"[Binary file: {target_file.name}, "
+                    f"size: {target_file.stat().st_size} bytes]"
+                ),
+                "is_binary": True,
+            },
+            ensure_ascii=False,
+        )
+
+    return json.dumps(
+        {
+            "success": True,
+            "name": f"{namespace}:{bare}",
+            "file": file_path,
+            "content": content,
+            "file_type": target_file.suffix,
+        },
+        ensure_ascii=False,
+    )
+
+
 def _serve_plugin_skill(
     skill_md: Path,
     namespace: str,
     bare: str,
     *,
+    file_path: str | None = None,
     preprocess: bool = True,
     session_id: str | None = None,
 ) -> str:
-    """Read a plugin-provided skill, apply guards, return JSON."""
+    """Read a plugin-provided skill, apply guards, return JSON.
+
+    When *file_path* is given, serve that companion file from the skill's
+    directory instead of ``SKILL.md`` — plugin skills carry ``references/``
+    and ``scripts/`` alongside their entry point exactly like tree skills, and
+    their bodies instruct the agent to read them.
+    """
     from hermes_cli.plugins import _get_disabled_plugins, get_plugin_manager
 
     if namespace in _get_disabled_plugins():
@@ -876,6 +978,11 @@ def _serve_plugin_skill(
             },
             ensure_ascii=False,
         )
+
+    skill_dir = skill_md.parent
+
+    if file_path:
+        return _serve_plugin_skill_file(skill_dir, namespace, bare, file_path)
 
     try:
         content = skill_md.read_text(encoding="utf-8")
@@ -951,7 +1058,7 @@ def _serve_plugin_skill(
             "name": f"{namespace}:{bare}",
             "content": f"{banner}{rendered_content}" if banner else rendered_content,
             "description": description,
-            "linked_files": None,
+            "linked_files": _plugin_linked_files(skill_dir) or None,
             "readiness_status": SkillReadinessStatus.AVAILABLE.value,
         },
         ensure_ascii=False,
@@ -1040,6 +1147,7 @@ def skill_view(
                     plugin_skill_md,
                     namespace,
                     bare,
+                    file_path=file_path,
                     preprocess=preprocess,
                     session_id=task_id,
                 )
