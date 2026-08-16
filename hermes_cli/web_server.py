@@ -7931,26 +7931,28 @@ def _write_custom_endpoint(cfg: Dict[str, Any], body: CustomEndpointUpdate) -> T
 
 
 @app.get("/api/providers/custom-endpoints")
-def list_custom_endpoints():
+def list_custom_endpoints(profile: Optional[str] = None):
     """Return configured OpenAI-compatible custom endpoints for Desktop."""
     try:
-        return _custom_endpoint_response(load_config())
+        with _profile_scope(profile):
+            return _custom_endpoint_response(load_config())
     except Exception:
         _log.exception("GET /api/providers/custom-endpoints failed")
         raise HTTPException(status_code=500, detail="Failed to list custom endpoints")
 
 
 @app.post("/api/providers/custom-endpoints")
-def upsert_custom_endpoint(body: CustomEndpointUpdate):
+def upsert_custom_endpoint(body: CustomEndpointUpdate, profile: Optional[str] = None):
     """Create or update a v12+ ``providers`` custom endpoint entry."""
     try:
-        cfg = load_config()
-        endpoint_id, _entry = _write_custom_endpoint(cfg, body)
-        save_config(cfg)
-        response = _custom_endpoint_response(cfg)
-        response["ok"] = True
-        response["id"] = endpoint_id
-        return response
+        with _profile_scope(profile):
+            cfg = load_config()
+            endpoint_id, _entry = _write_custom_endpoint(cfg, body)
+            save_config(cfg)
+            response = _custom_endpoint_response(cfg)
+            response["ok"] = True
+            response["id"] = endpoint_id
+            return response
     except HTTPException:
         raise
     except Exception:

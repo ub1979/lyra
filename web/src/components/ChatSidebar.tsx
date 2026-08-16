@@ -406,6 +406,7 @@ export function ChatSidebar({
           // sidecar config.set RPC, which didn't reliably land in the
           // config.yaml the agent boots from. Always persisted (alwaysGlobal).
           loader={() => api.getModelOptions(profile)}
+          profile={profile}
           alwaysGlobal
           onApply={async ({ provider, model, confirmExpensiveModel }) => {
             setModelNotice(null);

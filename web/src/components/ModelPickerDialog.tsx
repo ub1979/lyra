@@ -5,6 +5,8 @@ import { Spinner } from "@nous-research/ui/ui/components/spinner";
 import { Input } from "@nous-research/ui/ui/components/input";
 import { Label } from "@nous-research/ui/ui/components/label";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { api } from "@/lib/api";
+import type { ModelOptionProvider, ModelOptionsResponse } from "@/lib/api";
 import type { GatewayClient } from "@/lib/gatewayClient";
 import { Check, RefreshCw, Search, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -15,6 +17,10 @@ import {
   bestProviderForQuery,
   queryMatchesProviderOnly,
 } from "@/lib/model-picker-filter";
+import {
+  filterLocalModelServerPresets,
+  type LocalModelServerPreset,
+} from "@/lib/local-model-servers";
 
 /**
  * Two-stage model picker modal.
@@ -35,21 +41,6 @@ import {
  *    command.  This lets the Models page reuse the same UI without
  *    requiring an open chat PTY.
  */
-
-interface ModelOptionProvider {
-  name: string;
-  slug: string;
-  models?: string[];
-  total_models?: number;
-  is_current?: boolean;
-  warning?: string;
-}
-
-interface ModelOptionsResponse {
-  model?: string;
-  provider?: string;
-  providers?: ModelOptionProvider[];
-}
 
 interface ExpensiveModelConfirmResponse {
   confirm_message?: string;
@@ -90,6 +81,8 @@ interface Props {
   title?: string;
   /** If true, hides "Persist globally" checkbox — always saves to config.yaml. */
   alwaysGlobal?: boolean;
+  /** Profile to update when adding a local endpoint. */
+  profile?: string;
 }
 
 export function ModelPickerDialog(props: Props) {
@@ -102,6 +95,7 @@ export function ModelPickerDialog(props: Props) {
     onClose,
     title = "Switch Model",
     alwaysGlobal = false,
+    profile,
   } = props;
   const standalone = !!loader && !!onApply;
 
@@ -112,6 +106,8 @@ export function ModelPickerDialog(props: Props) {
   const [error, setError] = useState<string | null>(null);
   const [selectedSlug, setSelectedSlug] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
+  const [selectedLocalPreset, setSelectedLocalPreset] =
+    useState<LocalModelServerPreset | null>(null);
   const [query, setQuery] = useState("");
   const [persistGlobal, setPersistGlobal] = useState(alwaysGlobal);
   const [applying, setApplying] = useState(false);
@@ -229,6 +225,10 @@ export function ModelPickerDialog(props: Props) {
         (p) => `${p.name} ${p.slug} ${(p.models ?? []).join(" ")}`,
       ).map((r) => r.item),
     [providers, trimmedQuery],
+  );
+  const filteredLocalPresets = useMemo(
+    () => filterLocalModelServerPresets(trimmedQuery),
+    [trimmedQuery],
   );
 
   // Searching used to filter the left column while leaving a now-unrelated
@@ -423,29 +423,54 @@ export function ModelPickerDialog(props: Props) {
             selectedSlug={selectedSlug}
             query={trimmedQuery}
             onSelect={(slug) => {
+              setSelectedLocalPreset(null);
               setSelectedSlug(slug);
+              setSelectedModel("");
+            }}
+            localPresets={filteredLocalPresets}
+            selectedLocalPresetId={selectedLocalPreset?.id ?? ""}
+            onSelectLocal={(preset) => {
+              setSelectedLocalPreset(preset);
+              setSelectedSlug("");
               setSelectedModel("");
             }}
           />
 
-          <ModelColumn
-            provider={selectedProvider}
-            models={filteredModels}
-            allModels={models}
-            selectedModel={selectedModel}
-            currentModel={currentModel}
-            currentProviderSlug={currentProviderSlug}
-            onSelect={setSelectedModel}
-            onConfirm={(m) => {
-              setSelectedModel(m);
-              void applySelection(false, {
-                provider: selectedProvider?.slug ?? "",
-                model: m,
-                persistGlobal,
-                message: "",
-              });
-            }}
-          />
+          {selectedLocalPreset ? (
+            <LocalServerSetup
+              key={selectedLocalPreset.id}
+              preset={selectedLocalPreset}
+              profile={profile}
+              onSaved={async (providerSlug, model) => {
+                const refreshed = await requestOptions(true);
+                if (closedRef.current) return;
+                applyOptions(refreshed);
+                setQuery("");
+                setSelectedLocalPreset(null);
+                setSelectedSlug(providerSlug);
+                setSelectedModel(model);
+              }}
+            />
+          ) : (
+            <ModelColumn
+              provider={selectedProvider}
+              models={filteredModels}
+              allModels={models}
+              selectedModel={selectedModel}
+              currentModel={currentModel}
+              currentProviderSlug={currentProviderSlug}
+              onSelect={setSelectedModel}
+              onConfirm={(m) => {
+                setSelectedModel(m);
+                void applySelection(false, {
+                  provider: selectedProvider?.slug ?? "",
+                  model: m,
+                  persistGlobal,
+                  message: "",
+                });
+              }}
+            />
+          )}
         </div>
 
         <footer className="border-t border-border p-3 flex items-center justify-between gap-3 flex-wrap">
@@ -523,6 +548,9 @@ function ProviderColumn({
   selectedSlug,
   query,
   onSelect,
+  localPresets,
+  selectedLocalPresetId,
+  onSelectLocal,
 }: {
   loading: boolean;
   error: string | null;
@@ -531,9 +559,34 @@ function ProviderColumn({
   selectedSlug: string;
   query: string;
   onSelect(slug: string): void;
+  localPresets: LocalModelServerPreset[];
+  selectedLocalPresetId: string;
+  onSelectLocal(preset: LocalModelServerPreset): void;
 }) {
   return (
     <div className="border-r border-border overflow-y-auto">
+      {localPresets.length > 0 && (
+        <div className="border-b border-border pb-1">
+          <div className="px-3 pb-1 pt-2 text-xs text-muted-foreground uppercase tracking-wider">
+            Local servers
+          </div>
+          {localPresets.map((preset) => (
+            <ListItem
+              key={preset.id}
+              active={preset.id === selectedLocalPresetId}
+              onClick={() => onSelectLocal(preset)}
+              className="items-start text-xs border-l-2 border-l-transparent"
+            >
+              <div className="min-w-0">
+                <div className="font-medium truncate">{preset.name}</div>
+                <div className="text-xs text-text-secondary truncate">
+                  connect local API
+                </div>
+              </div>
+            </ListItem>
+          ))}
+        </div>
+      )}
       {loading && (
         <div className="flex items-center gap-2 p-4 text-xs text-muted-foreground">
           <Spinner className="text-xs" /> loading…
@@ -575,6 +628,163 @@ function ProviderColumn({
           </ListItem>
         );
       })}
+    </div>
+  );
+}
+
+function LocalServerSetup({
+  preset,
+  profile,
+  onSaved,
+}: {
+  preset: LocalModelServerPreset;
+  profile?: string;
+  onSaved(providerSlug: string, model: string): Promise<void>;
+}) {
+  const [baseUrl, setBaseUrl] = useState(preset.defaultBaseUrl);
+  const [apiKey, setApiKey] = useState("");
+  const [model, setModel] = useState("");
+  const [models, setModels] = useState<string[]>([]);
+  const [message, setMessage] = useState<string | null>(null);
+  const [testing, setTesting] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const payload = () => ({
+    id: preset.id,
+    name: preset.name,
+    base_url: baseUrl.trim(),
+    model: model.trim() || "discover",
+    api_key: apiKey.trim() || undefined,
+    discover_models: true,
+    make_default: false,
+    models: models.length ? models : undefined,
+  });
+
+  const testConnection = async () => {
+    setTesting(true);
+    setMessage(null);
+    try {
+      const result = await api.validateCustomEndpoint(payload(), profile);
+      if (!result.ok) {
+        setModels([]);
+        setMessage(result.message || "Connection test failed.");
+        return;
+      }
+      setModels(result.models);
+      if (!model && result.models[0]) setModel(result.models[0]);
+      setMessage(
+        result.models.length
+          ? `Connected — found ${result.models.length} model${result.models.length === 1 ? "" : "s"}.`
+          : "Connected, but the server did not list a model. Enter its model ID below.",
+      );
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const save = async () => {
+    if (!baseUrl.trim() || !model.trim()) {
+      setMessage("Enter an endpoint URL and select or type a model first.");
+      return;
+    }
+    setSaving(true);
+    setMessage(null);
+    try {
+      await api.saveCustomEndpoint(
+        { ...payload(), model: model.trim() },
+        profile,
+      );
+      await onSaved(preset.id, model.trim());
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="overflow-y-auto p-5 space-y-4">
+      <div>
+        <h3 className="font-medium">Connect {preset.name}</h3>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {preset.description}
+        </p>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="local-server-url">OpenAI-compatible URL</Label>
+        <Input
+          id="local-server-url"
+          value={baseUrl}
+          onChange={(event) => setBaseUrl(event.target.value)}
+          placeholder={preset.defaultBaseUrl}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="local-server-key">API key</Label>
+        <Input
+          id="local-server-key"
+          type="password"
+          value={apiKey}
+          onChange={(event) => setApiKey(event.target.value)}
+          placeholder={
+            preset.id === "unsloth-local"
+              ? "Paste Unsloth generated API key"
+              : "Optional"
+          }
+          autoComplete="off"
+        />
+        <p className="text-xs text-muted-foreground">{preset.apiKeyHint}</p>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="local-server-model">Model</Label>
+        {models.length ? (
+          <select
+            id="local-server-model"
+            value={model}
+            onChange={(event) => setModel(event.target.value)}
+            className="h-9 w-full border border-border bg-background px-3 text-sm"
+          >
+            {models.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <Input
+            id="local-server-model"
+            value={model}
+            onChange={(event) => setModel(event.target.value)}
+            placeholder="Test connection to discover models, or type a model ID"
+          />
+        )}
+      </div>
+      {message && (
+        <div className="text-xs text-muted-foreground">{message}</div>
+      )}
+      <div className="flex gap-2">
+        <Button
+          outlined
+          onClick={() => void testConnection()}
+          disabled={testing || saving || !baseUrl.trim()}
+        >
+          {testing ? <Spinner /> : "Test connection"}
+        </Button>
+        <Button
+          onClick={() => void save()}
+          disabled={testing || saving || !baseUrl.trim() || !model.trim()}
+        >
+          {saving ? <Spinner /> : "Add & select"}
+        </Button>
+      </div>
+      {preset.id === "unsloth-local" && (
+        <p className="text-xs text-muted-foreground">
+          Keep Unsloth Studio running with a model loaded. Lyra stores the key
+          in its secret file, not config.yaml.
+        </p>
+      )}
     </div>
   );
 }

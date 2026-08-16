@@ -49,6 +49,39 @@ describe("api.getModelOptions", () => {
   });
 });
 
+describe("custom endpoint API", () => {
+  it("validates and saves a profile-scoped local server", async () => {
+    vi.stubGlobal("window", {});
+    const fetchMock = jsonFetchMock({
+      ok: true,
+      reachable: true,
+      message: "",
+      models: ["local-model"],
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const body = {
+      id: "unsloth-local",
+      name: "Unsloth Studio",
+      base_url: "http://127.0.0.1:8888/v1",
+      model: "local-model",
+      api_key: "secret",
+    };
+
+    await api.validateCustomEndpoint(body, "work");
+    await api.saveCustomEndpoint(body, "work");
+
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "/api/providers/custom-endpoints/validate?profile=work",
+    );
+    expect(fetchMock.mock.calls[1][0]).toBe(
+      "/api/providers/custom-endpoints?profile=work",
+    );
+    expect(fetchMock.mock.calls[1][1]).toEqual(
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+});
+
 describe("api.getDefaultCwd", () => {
   it("reads the dashboard's current working folder", async () => {
     vi.stubGlobal("window", {});
