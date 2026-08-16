@@ -3,7 +3,7 @@ name: idk_it
 description: "Single entry point that orchestrates the full software development lifecycle by dispatching specialized agents in the right order. Use for building, creating, prototyping, adding features, fixing bugs, deploying, testing, reviewing, refactoring, security auditing, documenting, planning, debugging, promoting, or productionizing software."
 ---
 
-# IDK — Software Development Lifecycle Orchestrator
+# Lyra Workflow Coordinator — Software Development Lifecycle Orchestrator
 
 The single entry point for all software development work. This SKILL runs in the main conversation and dispatches AGENTS (autonomous sub-processes) for the heavy lifting. Every agent uses REAL TOOLS — every claim is backed by tool execution with proof. Describe what you want; the orchestrator picks the pipeline.
 

@@ -10144,8 +10144,8 @@ _OAUTH_PROVIDER_CATALOG: tuple[Dict[str, Any], ...] = (
         "status_fn": _copilot_acp_status,
     },
     # ── Anthropic / Claude entries sit at the bottom: the API-key path
-    # first, then the subscription OAuth path (which only works with extra
-    # usage credits on top of a Claude Max plan — see disclaimer in name).
+    # first, then the subscription OAuth path (requires extra usage credits
+    # on top of a Claude Max plan).
     {
         "id": "anthropic",
         "name": "Anthropic API Key",
@@ -10156,7 +10156,7 @@ _OAUTH_PROVIDER_CATALOG: tuple[Dict[str, Any], ...] = (
     },
     {
         "id": "claude-code",
-        "name": "Anthropic OAuth: Required Extra Usage Credits to Use Subscription",
+        "name": "Claude Code (OAuth)",
         "flow": "external",
         "cli_command": "claude setup-token",
         "docs_url": "https://docs.claude.com/en/docs/claude-code",

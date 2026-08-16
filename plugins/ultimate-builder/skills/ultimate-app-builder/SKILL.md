@@ -207,6 +207,13 @@ For Production, run security as a separate delegate. Route concrete findings
 back to a development or debugging delegate, then have the original verifier
 rerun the exact reproduction.
 
+QA and security delegates always receive the **full workspace** as their test
+scope — not just the changed artifact paths. Set `Inputs:` to the workspace
+root and append a "Changed:" note listing what was modified so the verifier
+knows the trigger, but require Step 0 mode "Full pipeline" or "Codebase only"
+so the entire running system is tested, not just the changed slice.
+Code-reviewer remains diff-scoped.
+
 Loop:
 
 ```text
