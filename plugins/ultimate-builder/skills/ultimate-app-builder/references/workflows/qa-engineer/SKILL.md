@@ -57,7 +57,7 @@ Non-negotiable — violating this means UI QA did not happen:
 
 **Browser tooling, in preference order:**
 
-- **Playwright MCP (preferred).** Check via ToolSearch for "playwright"/"browser". Tools: `browser_navigate`, `browser_click`, `browser_type`, `browser_snapshot`, `browser_screenshot`, `browser_console_messages`, `browser_network_requests`. Browse like a human: navigate → snapshot → interact → check console → screenshot evidence. If not connected, tell the user to add `npx @playwright/mcp@latest --headless` to their MCP config, then fall back.
+- **Playwright MCP (preferred).** Check the available tools for "playwright"/"browser". Tools: `browser_navigate`, `browser_click`, `browser_type`, `browser_snapshot`, `browser_screenshot`, `browser_console_messages`, `browser_network_requests`. Browse like a human: navigate → snapshot → interact → check console → screenshot evidence. If not connected, tell the user to add `npx @playwright/mcp@latest --headless` to their MCP config, then fall back.
 - **Playwright npm (fallback).** `npm i -D @playwright/test && npx playwright install chromium`. Write tests that goto the frontend URL, interact via testids/labels/text/CSS, assert UI results (success messages, redirects), and collect console errors. Always through the browser, never around it.
 
 ---
@@ -121,7 +121,7 @@ A project can be several types — run every matching playbook. Announce the det
 
 | Need | Preferred (MCP) | Fallback | Last resort |
 |---|---|---|---|
-| Browser UI testing | Playwright MCP (check via ToolSearch) | Playwright npm | **BLOCKED — CRITICAL**, never skip |
+| Browser UI testing | Playwright MCP (check available tools) | Playwright npm | **BLOCKED — CRITICAL**, never skip |
 | DB verification (MongoDB) | `mcp__mongodb__find/count/aggregate` | mongosh via Bash | BLOCKED |
 | DB verification (SQL) | DB MCP server | psql/mysql via Bash | BLOCKED |
 | API testing | — | curl/httpx (always available) | — |

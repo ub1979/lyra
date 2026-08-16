@@ -14,7 +14,7 @@ The single entry point for all software development work. This SKILL runs in the
 Non-negotiable. You do NOT have authority to decide "I'll just do it manually" or "this phase isn't needed."
 
 ### Rule 1: SPAWN AGENTS — NEVER DO THEIR WORK YOURSELF
-When this skill says "Spawn [agent]", use the Agent tool. You orchestrate; you do not execute. FORBIDDEN: running `curl` yourself and calling it QA; reading code and calling it review; writing fixes/code yourself instead of spawning sw-developer; making architecture decisions inline; claiming you "already did/tested" an agent's work; deciding a phase "isn't needed" without user approval. Each agent follows a rigorous multi-step methodology (linters, SAST, Playwright, scanners) that you CANNOT replicate inline — bypassing it defeats the skill's purpose. Development testing ≠ QA: still spawn qa-engineer after fixes.
+When this skill says "Spawn [agent]", use `delegate_task`. You orchestrate; you do not execute. FORBIDDEN: running `curl` yourself and calling it QA; reading code and calling it review; writing fixes/code yourself instead of spawning sw-developer; making architecture decisions inline; claiming you "already did/tested" an agent's work; deciding a phase "isn't needed" without user approval. Each agent follows a rigorous multi-step methodology (linters, SAST, Playwright, scanners) that you CANNOT replicate inline — bypassing it defeats the skill's purpose. Development testing ≠ QA: still spawn qa-engineer after fixes.
 
 ### Rule 2: THE PIPELINE IS THE PIPELINE — NO SKIPPING PHASES
 Execute EVERY phase of the command's pipeline in order. "Seems fine already", "user didn't ask for it", "I already fixed the bugs" are not reasons. Only skip if the user EXPLICITLY says "skip [phase]" AND you warned them of consequences first. **The MVP profile is not a skip** — it is its own, deliberately shorter pipeline (the MVP Fast Path in Step 0.5); within that path its phases are just as mandatory.
@@ -137,7 +137,7 @@ If documents exist, don't redo completed phases. Ask: "I see [X, Y, Z] already d
 
 ## Step 0.5 — Build Profile (⛔ FIRST QUESTION, before anything else, for `new` / `add` / `modify`)
 
-Before any interview, scan, or agent spawn, ask what the user actually wants out of this build. Use AskUserQuestion if available. Present:
+Before any interview, scan, or agent spawn, ask what the user actually wants out of this build. Use `clarify` if available. Present:
 
 > "What do you want out of this build? Pick one, and I'll adjust anything you want:
 >
@@ -494,13 +494,13 @@ The payoff of the Evolvability Contract: upgrade an MVP built by the Fast Path (
 
 ---
 
-## Agent Tool Execution Requirements
+## Delegate Execution Requirements
 
 **CRITICAL**: Every agent MUST execute real tools and report evidence — never claim success by "reading code" or "assuming it works." If any tool fails, the agent STOPS and reports the failure with error, file/line, and suggested fix.
 
 | Agent | Must Execute |
 |-------|--------------|
-| **req-engineer** | WebSearch to validate competitive features; build HTML/CSS UI prototypes; run examples to verify API specs |
+| **req-engineer** | `web_search` to validate competitive features; build HTML/CSS UI prototypes; run examples to verify API specs |
 | **sw-architect** | Compile/run existing code; SAST (Bandit, Semgrep); dependency scanners (npm audit, pip-audit); POC for risky decisions |
 | **task-planner** | Validate design system with actual component libraries; test responsive breakpoints; verify WCAG accessibility |
 | **sw-developer** | Run dev server; unit tests; linter; Docker build; verify compile; start the app and hit it (curl/Playwright) |

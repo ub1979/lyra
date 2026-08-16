@@ -35,7 +35,7 @@ Accept inline args: `--plan`, `--requirements`, `--sprint-length`, `--team-size`
 
 ### Step 2.1 — Competitive Research (mandatory before any design decisions)
 
-Run 6-10 targeted WebSearch queries:
+Run 6-10 targeted `web_search` queries:
 
 1. Direct competitors — "[domain] best [app type] 2025/2026", study 3-5 competitors
 2. Design award winners — "Awwwards [domain]", "CSS Design Awards [app type]"

@@ -82,6 +82,10 @@ skill does not count as running a specialist.
 | Benchmark | `benchmark` | `benchmark-report.md` |
 | Health | `health` | `.sdlc/health-history.jsonl` |
 | Context | `context-save` | `.sdlc/context.md` |
+| Specification | `spec` | `spec.md` |
+| Restructuring | `oop-restructurer` | `restructure-report.md` |
+| Learning | `learn` | `.sdlc/learnings.jsonl` |
+| Coordination | `idk_it` | `.sdlc/progress.md` |
 
 The imported playbooks originated in another agent environment. Interpret these
 terms using Lyra-native equivalents:

@@ -60,7 +60,7 @@ Read ALL target code first. Then design the target architecture on paper (in the
 - **One class per file.** File name matches the class: `report_generator.py` → `ReportGenerator` (Python: snake_case file / PascalCase class; JS/TS: match project convention).
 - Keep an orchestrator/facade class (e.g. `App` or `<Name>App`) that wires the classes together, plus a thin entry-point file (`main.py`) that preserves the ORIGINAL invocation: if users ran `python script.py args`, that exact command must still work — keep the original file as a thin shim that delegates to the new structure if needed.
 
-### 1.2 Apply SOLID + best practices (verify against current guidance with WebSearch if uncertain)
+### 1.2 Apply SOLID + best practices (verify against current guidance with `web_search` if uncertain)
 
 - **S**ingle Responsibility — one job per class.
 - **O**pen/Closed — extension points via composition, not modification.

@@ -76,7 +76,7 @@ Codebase Analysis questions, plus:
 
 ## Step 2 — Research
 
-Run **3-6 targeted WebSearch queries**, prioritizing technologies you're least confident about or that change rapidly:
+Run **3-6 targeted `web_search` queries**, prioritizing technologies you're least confident about or that change rapidly:
 - Latest stable versions of candidate frameworks/libraries
 - Known limitations and breaking changes in recent releases
 - Benchmarks and comparisons relevant to the user's scale
