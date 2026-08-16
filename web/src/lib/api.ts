@@ -80,7 +80,6 @@ const PROFILE_SCOPED_PREFIXES = [
   "/api/model/auxiliary",
   "/api/model/moa",
   "/api/model/options",
-  "/api/providers/custom-endpoints",
 ];
 
 function withManagementProfile(url: string): string {
@@ -510,30 +509,6 @@ export const api = {
     const suffix = qs.toString() ? `?${qs.toString()}` : "";
     return fetchJSON<ModelOptionsResponse>(`/api/model/options${suffix}`);
   },
-  validateCustomEndpoint: (
-    body: CustomEndpointUpdate,
-    profile = getManagementProfile(),
-  ) =>
-    fetchJSON<CustomEndpointValidationResponse>(
-      appendProfileParam("/api/providers/custom-endpoints/validate", profile),
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      },
-    ),
-  saveCustomEndpoint: (
-    body: CustomEndpointUpdate,
-    profile = getManagementProfile(),
-  ) =>
-    fetchJSON<CustomEndpointsResponse & { ok: boolean; id: string }>(
-      appendProfileParam("/api/providers/custom-endpoints", profile),
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      },
-    ),
   getAuxiliaryModels: (profile = getManagementProfile()) =>
     fetchJSON<AuxiliaryModelsResponse>(
       appendProfileParam("/api/model/auxiliary", profile),
@@ -2341,40 +2316,6 @@ export interface ModelOptionsResponse {
   model?: string;
   provider?: string;
   providers?: ModelOptionProvider[];
-}
-
-export interface CustomEndpointUpdate {
-  id: string;
-  name: string;
-  base_url: string;
-  model: string;
-  api_key?: string;
-  context_length?: number;
-  discover_models?: boolean;
-  make_default?: boolean;
-  models?: string[];
-}
-
-export interface CustomEndpointValidationResponse {
-  ok: boolean;
-  reachable: boolean;
-  message: string;
-  models: string[];
-}
-
-export interface CustomEndpointSummary {
-  id: string;
-  name: string;
-  base_url: string;
-  model: string;
-  models: string[];
-  has_api_key: boolean;
-  is_current: boolean;
-}
-
-export interface CustomEndpointsResponse {
-  endpoints: CustomEndpointSummary[];
-  current?: { provider: string; model: string; base_url: string };
 }
 
 export interface LocalOllamaStatus {
