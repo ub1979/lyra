@@ -32,6 +32,33 @@ large evidence on disk.
 8. Never let learned content rewrite this file, security policy, evaluation
    cases, approval rules, or production credentials automatically.
 
+## Hermes tool capability contract
+
+A loaded skill may use every Hermes tool present in the live session schema.
+The skill text does not need a separate tool allowlist. Treat the live schema
+as authoritative: never claim to have used a tool that is absent, gated, or
+failed, and never confuse tool availability with permission for destructive,
+paid, credentialed, or externally visible actions.
+
+Before a mandatory phase depends on a capability, inspect the available tools.
+Use the exact Hermes tool names documented here and in each specialist
+playbook. If the preferred tool is unavailable:
+
+1. use an available safe fallback that can still meet the acceptance criteria;
+2. tell the user what capability is missing and what part of the work it blocks;
+3. offer to enable or install it from this conversation instead of directing
+   the user to a Settings page;
+4. after consent, use an approved non-interactive `hermes tools` command when
+   possible, or show the exact `/tools enable <toolset>` command for the user to
+   send in the same chat;
+5. require a clean session after the tool schema changes so prompt caching and
+   tool-call validity remain intact.
+
+Run dependency installation only after explicit approval. Capture API keys and
+tokens only through a Hermes masked secret prompt. Never ask the user to paste
+a secret into ordinary chat; if secure capture is unavailable, explain that
+limitation and continue with a no-secret fallback when one exists.
+
 ## Progressive workflow loading
 
 Each detailed playbook is a registered plugin skill. Before starting or

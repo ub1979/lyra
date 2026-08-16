@@ -24,6 +24,16 @@ for me”, “skip”, and “use smart defaults”.
 For an existing project, inspect its structure read-only first. Briefly state
 what it appears to be, then ask only for the desired change or outcome.
 
+Preserve every website or document URL the user supplies and pass it to the
+relevant specialist unchanged. Do not claim a source was inspected until a
+Hermes web or browser tool actually opened it.
+
+If a required capability is missing, explain the missing tool and its impact in
+plain language. Offer the recovery inside this conversation: after approval,
+use a safe available fallback or present the exact `/tools enable <toolset>`
+command for the user to send in chat. Do not send the user to a Settings page,
+and never request an API key or token in ordinary chat.
+
 ## Recommend specialists
 
 Choose the smallest useful set from the registered Ultimate Builder skills.

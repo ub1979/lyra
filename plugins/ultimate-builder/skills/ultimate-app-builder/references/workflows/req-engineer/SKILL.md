@@ -1,6 +1,6 @@
 ---
 name: req-engineer
-description: "Interviews the user conversationally, stress-tests answers, and produces requirements.md with visual prototypes (ASCII wireframes, CLI examples, API samples). Use for requirements, PRDs, product specs, project scoping, wireframes, mockups, prototypes, user stories, acceptance criteria, and project planning."
+description: "Interviews the user conversationally, researches supplied website URLs and reference documents, stress-tests answers, and produces requirements.md with visual prototypes (ASCII wireframes, CLI examples, API samples). Use for requirements, PRDs, product specs, project scoping, website or product references, competitor links, wireframes, mockups, prototypes, user stories, acceptance criteria, and project planning."
 ---
 
 # Requirements Engineer
@@ -28,6 +28,12 @@ Interview the user conversationally, stress-test important assumptions, explore 
 
 - **Inline args** (`--project`, `--domain`, `--scale`, `--deadline`, `--interface` web/cli/api/mobile/desktop) → pre-fill, skip those questions.
 - **Existing document** (.md/.txt/.pdf) → read it, extract requirements, ask only about gaps.
+- **Website reference** (one or more `http://` or `https://` URLs) → preserve
+  every URL, read `references/site-research.md` completely, and inspect the
+  sources before asking questions already answered by them. If the user asks
+  for “all details,” “everything,” or equivalent, use Deep website research.
+  Otherwise ask one focused choice between supplied pages only and Deep
+  website research.
 - **Blank slate** → full interview.
 
 ## Step 1 — Round 1: Vision
@@ -111,9 +117,24 @@ For each: one-line summary · pros (3-5) · cons (3-5) · best for · relative c
 
 Rules: approaches must differ at paradigm level ("traditional web app vs mobile-first PWA vs CLI-first with dashboard", not "React vs Next.js") · include at least one the user hasn't considered · all must be viable (never offer one you'd warn against) · for genuinely simple projects, present the obvious approach plus one creative alternative and recommend the obvious · fold in any direction changes from The Grill.
 
-## Step 4 — Domain Research (WebSearch)
+## Step 4 — Domain and Reference Research
 
-Run 3-6 targeted searches: domain requirements the user missed (e.g., PCI-DSS for payments) · industry standards (healthcare → HL7/FHIR, finance → FIX) · common pitfalls in similar products.
+When the user supplied URLs, execute `references/site-research.md` before
+general domain research. Open the exact URLs; do not replace them with search
+result summaries. Use `web_extract` first when available, then
+`browser_navigate` and `browser_snapshot` for dynamic, blocked, incomplete, or
+otherwise unsuitable extraction. If one capability is absent, use the other.
+If neither is available, follow the chat-first missing-tool protocol in that
+reference and tell the user before continuing. State that the URL has not been
+opened, then ask one focused question offering setup in this chat with the exact
+action `/tools enable web browser`. Do not use a vague “enable web access”
+instruction and do not direct the user to Settings.
+
+Run 3-6 targeted `web_search` queries when the tool is available: domain
+requirements the user missed (e.g., PCI-DSS for payments) · industry standards
+(healthcare → HL7/FHIR, finance → FIX) · common pitfalls in similar products.
+When `web_search` is absent but the browser is available, perform bounded
+browser research and disclose the fallback in the research coverage note.
 
 Competitive analysis (1-2 of the searches): find 2-3 existing products; note features the user didn't mention and what users complain about; report back: "Competitors [X, Y] offer [Z] — needed, or deliberately out of scope?" Cite findings inline in the doc as "[per industry standard]", "[common pitfall]", "[competitor X offers this]".
 

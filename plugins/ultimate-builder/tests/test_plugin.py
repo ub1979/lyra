@@ -87,3 +87,31 @@ def test_dashboard_enforces_requirements_gate_with_real_skill_loading():
     assert 'window.location.href = "/chat?" + params.toString()' in dashboard
     assert 'disabled: starting || !selected.size' not in dashboard
     assert "Use ultimate-builder:ultimate-app-builder" not in dashboard
+
+
+def test_skills_define_chat_first_tool_recovery_and_website_research():
+    skill_root = ROOT / "skills"
+    umbrella = (skill_root / "ultimate-app-builder" / "SKILL.md").read_text()
+    guide = (skill_root / "app-it" / "SKILL.md").read_text()
+    req_root = (
+        skill_root
+        / "ultimate-app-builder"
+        / "references"
+        / "workflows"
+        / "req-engineer"
+    )
+    requirements = (req_root / "SKILL.md").read_text()
+    site_research = (req_root / "references" / "site-research.md").read_text()
+
+    assert "every Hermes tool present in the live session schema" in umbrella
+    assert "/tools enable <toolset>" in umbrella
+    assert "masked secret prompt" in umbrella
+    assert "Do not send the user to a Settings page" in guide
+    assert "website URLs and reference documents" in requirements
+    assert "references/site-research.md" in requirements
+    assert "/tools enable web browser" in requirements
+    assert "Do not use a vague" in requirements
+    assert "web_extract" in site_research
+    assert "browser_navigate" in site_research
+    assert "Never silently skip source research" in site_research
+    assert "Never claim “the whole website was analysed.”" in site_research
