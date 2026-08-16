@@ -1079,7 +1079,8 @@ def _build_child_agent(
     override_api_mode: Optional[str] = None,
     override_request_overrides: Optional[Dict[str, Any]] = None,
     override_max_tokens: Optional[int] = None,
-    # ACP transport overrides from trusted delegation config.
+    # External-agent command overrides from trusted delegation config. The ACP
+    # names are retained for backward compatibility with existing configs.
     override_acp_command: Optional[str] = None,
     override_acp_args: Optional[List[str]] = None,
     # Per-call role controlling whether the child can further delegate.
@@ -1259,14 +1260,14 @@ def _build_child_agent(
     else:
         effective_api_mode = getattr(parent_agent, "api_mode", None)
     # Defensive: validate trusted delegation.command exists on PATH before
-    # honoring it. Stale config should not force a child onto the ACP transport
+    # honoring it. Stale config should not force a child onto an external transport
     # and then fail at subprocess startup.
     if override_acp_command:
         import shutil as _shutil
 
         if not _shutil.which(override_acp_command):
             logger.warning(
-                "Ignoring acp_command=%r: binary not found on PATH; "
+                "Ignoring external agent command=%r: binary not found on PATH; "
                 "falling back to default transport.",
                 override_acp_command,
             )
@@ -1282,7 +1283,7 @@ def _build_child_agent(
     )
 
     # When override_provider is set (e.g. delegation.provider: minimax-cn),
-    # the subagent must use direct API calls — not the parent's ACP transport.
+    # the subagent must use that provider — not the parent's external transport.
     # Inheriting acp_command unconditionally causes run_agent.py to initialize
     # CopilotACPClient, bypassing override credentials entirely (issue #16816).
     if override_provider and not override_acp_command:
@@ -1290,9 +1291,12 @@ def _build_child_agent(
         effective_acp_args = []
 
     if override_acp_command:
-        # If explicitly forcing an ACP transport override, the provider MUST be copilot-acp
-        # so run_agent.py initializes the CopilotACPClient.
-        effective_provider = "copilot-acp"
+        # Preserve a configured external-agent provider (Claude CLI or Copilot
+        # ACP). Legacy callers that pass only acp_command still mean Copilot.
+        from agent.external_agent_client import is_external_agent_provider
+
+        if not is_external_agent_provider(override_provider):
+            effective_provider = "copilot-acp"
         effective_api_mode = "chat_completions"
 
     # Resolve reasoning config: delegation override > parent inherit

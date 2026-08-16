@@ -62,7 +62,7 @@ const PERIODS = [
 const SUBSCRIPTION_PROVIDER_IDS = [
   "openai-codex",
   "anthropic",
-  "claude-code",
+  "claude-cli",
 ];
 
 // Must match _AUX_TASK_SLOTS in hermes_cli/web_server.py.

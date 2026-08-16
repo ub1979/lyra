@@ -2057,7 +2057,24 @@ def list_authenticated_providers(
 
         # Check if credentials exist
         has_creds = False
-        if overlay.auth_type == "aws_sdk":
+        if overlay.auth_type == "external_process":
+            # External-agent providers have no API key or credential-pool row.
+            # Their own status resolver is authoritative (binary present plus,
+            # where supported, a verified CLI login). Without this gate an
+            # authenticated Claude CLI falls through to the unconfigured
+            # skeleton row and the picker misleadingly reports 0 models.
+            try:
+                from hermes_cli.auth import get_external_process_provider_status
+
+                process_status = get_external_process_provider_status(hermes_slug)
+                has_creds = bool(process_status.get("configured"))
+            except Exception as exc:
+                logger.debug(
+                    "External-process credential check failed for %s: %s",
+                    hermes_slug,
+                    exc,
+                )
+        elif overlay.auth_type == "aws_sdk":
             has_creds = _has_aws_sdk_creds_for_listing(hermes_slug)
         elif overlay.auth_type == "vertex":
             # Vertex authenticates via OAuth2 (service-account JSON / ADC),

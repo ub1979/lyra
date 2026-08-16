@@ -696,12 +696,12 @@ def init_agent(
     # Exception: Azure OpenAI serves gpt-5.x on /chat/completions and
     # does NOT support the Responses API — skip the upgrade for Azure
     # (openai.azure.com), even though it looks OpenAI-compatible.
+    from agent.external_agent_client import is_external_agent_provider
+
     if (
         api_mode is None
         and agent.api_mode == "chat_completions"
-        and agent.provider != "copilot-acp"
-        and not str(agent.base_url or "").lower().startswith("acp://copilot")
-        and not str(agent.base_url or "").lower().startswith("acp+tcp://")
+        and not is_external_agent_provider(agent.provider, agent.base_url)
         and not agent._is_azure_openai_url()
         and (
             agent._is_direct_openai_url()
@@ -1130,7 +1130,7 @@ def init_agent(
                 client_kwargs = {"api_key": api_key, "base_url": base_url}
             if _provider_timeout is not None:
                 client_kwargs["timeout"] = _provider_timeout
-            if agent.provider == "copilot-acp":
+            if is_external_agent_provider(agent.provider, base_url):
                 client_kwargs["command"] = agent.acp_command
                 client_kwargs["args"] = agent.acp_args
             effective_base = base_url

@@ -565,14 +565,14 @@ def test_oauth_catalog_marks_external_providers_not_disconnectable():
     assert "provider's CLI" in providers["qwen-oauth"]["disconnect_hint"]
     assert providers["qwen-oauth"]["disconnect_command"] is None
 
-    # Claude Code: still not API-disconnectable, but we hand the GUI a runnable
-    # command (clears the keychain entry / credentials file) so it can offer a
-    # one-click "run in terminal" disconnect.
-    assert providers["claude-code"]["flow"] == "external"
-    assert providers["claude-code"]["disconnectable"] is False
-    assert providers["claude-code"]["disconnect_hint"]
-    cmd = providers["claude-code"]["disconnect_command"]
-    assert cmd and ".claude/.credentials.json" in cmd
+    # Claude Code: still not API-disconnectable, but we hand the GUI the CLI's
+    # own logout command so it can offer a visible terminal action without
+    # Lyra deleting credential files owned by Claude.
+    assert providers["claude-cli"]["flow"] == "external"
+    assert providers["claude-cli"]["disconnectable"] is False
+    assert providers["claude-cli"]["disconnect_hint"]
+    cmd = providers["claude-cli"]["disconnect_command"]
+    assert cmd == "claude auth logout"
 
 
 def test_external_oauth_disconnect_rejected_before_auth_mutation(monkeypatch):

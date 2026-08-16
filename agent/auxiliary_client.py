@@ -332,7 +332,8 @@ _PROVIDER_ALIASES = {
     "minimax-china": "minimax-cn",
     "minimax_cn": "minimax-cn",
     "claude": "anthropic",
-    "claude-code": "anthropic",
+    "claude-code": "claude-cli",
+    "claude-agent-sdk": "claude-cli",
     "github": "copilot",
     "github-copilot": "copilot",
     "github-model": "copilot",
@@ -5449,39 +5450,41 @@ def resolve_provider_client(
             or _read_main_model_for_aux(),
             provider,
         )
-        if provider == "copilot-acp":
-            api_key = str(creds.get("api_key", "")).strip()
-            base_url = str(creds.get("base_url", "")).strip()
-            command = str(creds.get("command", "")).strip() or None
-            args = list(creds.get("args") or [])
-            if not final_model:
-                logger.warning(
-                    "resolve_provider_client: copilot-acp requested but no model "
-                    "was provided or configured"
-                )
-                return None, None
-            if not api_key or not base_url:
-                logger.warning(
-                    "resolve_provider_client: copilot-acp requested but external "
-                    "process credentials are incomplete"
-                )
-                return None, None
-            from agent.copilot_acp_client import CopilotACPClient
-
-            client = CopilotACPClient(
-                api_key=api_key,
-                base_url=base_url,
-                command=command,
-                args=args,
+        api_key = str(creds.get("api_key", "")).strip()
+        base_url = str(creds.get("base_url", "")).strip()
+        command = str(creds.get("command", "")).strip() or None
+        args = list(creds.get("args") or [])
+        if not final_model or not api_key or not base_url:
+            logger.warning(
+                "resolve_provider_client: %s external-process configuration is incomplete",
+                provider,
             )
-            logger.debug("resolve_provider_client: %s (%s)", provider, final_model)
-            return (_to_async_client(client, final_model, is_vision=is_vision) if async_mode
-                    else (client, final_model))
-        if provider not in _LOGGED_UNSUPPORTED_EXTPROC_KEYS:
-            _LOGGED_UNSUPPORTED_EXTPROC_KEYS.add(provider)
-            logger.debug("resolve_provider_client: external-process provider %s not "
-                         "directly supported", provider)
-        return None, None
+            return None, None
+        from agent.external_agent_client import create_external_agent_client
+
+        client = create_external_agent_client(
+            provider,
+            {
+                "api_key": api_key,
+                "base_url": base_url,
+                "command": command,
+                "args": args,
+            },
+        )
+        if client is None:
+            if provider not in _LOGGED_UNSUPPORTED_EXTPROC_KEYS:
+                _LOGGED_UNSUPPORTED_EXTPROC_KEYS.add(provider)
+                logger.debug(
+                    "resolve_provider_client: external-process provider %s not directly supported",
+                    provider,
+                )
+            return None, None
+        logger.debug("resolve_provider_client: %s (%s)", provider, final_model)
+        return (
+            _to_async_client(client, final_model, is_vision=is_vision)
+            if async_mode
+            else (client, final_model)
+        )
 
     elif pconfig.auth_type == "vertex":
         # Google Vertex AI — Gemini via the OpenAI-compatible endpoint with an

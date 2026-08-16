@@ -1945,6 +1945,65 @@ def _model_flow_copilot_acp(config, current_model=""):
 
     print(f"Default model set to: {selected} (via {pconfig.name})")
 
+
+def _model_flow_claude_cli(config, current_model=""):
+    """Claude Code CLI flow using the machine's existing subscription login."""
+    from hermes_cli.auth import (
+        PROVIDER_REGISTRY,
+        _prompt_model_selection,
+        _save_model_choice,
+        deactivate_provider,
+        get_external_process_provider_status,
+        resolve_external_process_provider_credentials,
+    )
+    from hermes_cli.config import load_config, save_config
+    from hermes_cli.models import _PROVIDER_MODELS
+
+    del config
+    provider_id = "claude-cli"
+    pconfig = PROVIDER_REGISTRY[provider_id]
+    status = get_external_process_provider_status(provider_id)
+    command = status.get("resolved_command") or status.get("command") or "claude"
+
+    print("  Claude Code CLI runs through the local Claude subscription login.")
+    print("  Lyra disables Claude's own tools/settings and keeps its tool loop in control.")
+    print("  Ambient Anthropic API keys are stripped to prevent accidental API billing.")
+    print(f"  Command: {command}")
+    print()
+
+    try:
+        creds = resolve_external_process_provider_credentials(provider_id)
+    except Exception as exc:
+        print(f"  ⚠ {exc}")
+        print("  Install Claude Code, run `claude auth login`, then try again.")
+        return
+
+    model_list = list(_PROVIDER_MODELS.get(provider_id, []))
+    selected = _prompt_model_selection(
+        model_list,
+        current_model=current_model,
+        confirm_provider=provider_id,
+        confirm_base_url=creds["base_url"],
+        confirm_api_key=creds["api_key"],
+    )
+    if not selected:
+        print("No change.")
+        return
+
+    _save_model_choice(selected)
+    cfg = load_config()
+    model = cfg.get("model")
+    if not isinstance(model, dict):
+        model = {"default": model} if model else {}
+        cfg["model"] = model
+    model["provider"] = provider_id
+    model["base_url"] = creds["base_url"]
+    model["api_mode"] = "chat_completions"
+    clear_model_endpoint_credentials(model, clear_api_mode=False)
+    save_config(cfg)
+    deactivate_provider()
+    print(f"Default model set to: {selected} (via {pconfig.name})")
+
 def _model_flow_kimi(config, current_model=""):
     """Kimi / Moonshot model selection with automatic endpoint routing.
 

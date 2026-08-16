@@ -703,6 +703,35 @@ class TestToolNamePreservation(unittest.TestCase):
         self.assertEqual(captured["provider"], "copilot-acp")
         self.assertEqual(captured["acp_command"], "copilot")
 
+    def test_build_child_agent_preserves_claude_external_provider(self):
+        """A resolved Claude command must not be rewritten to Copilot ACP."""
+        parent = _make_mock_parent(depth=0)
+
+        with patch("run_agent.AIAgent") as MockAgent, patch(
+            "shutil.which", return_value="/home/user/.local/bin/claude"
+        ):
+            MockAgent.return_value = MagicMock()
+            _build_child_agent(
+                task_index=0,
+                goal="claude specialist",
+                context=None,
+                toolsets=None,
+                model="claude-sonnet-4-6",
+                max_iterations=10,
+                parent_agent=parent,
+                task_count=1,
+                override_provider="claude-cli",
+                override_base_url="claude-cli://local",
+                override_api_key="claude-cli",
+                override_api_mode="chat_completions",
+                override_acp_command="claude",
+                override_acp_args=[],
+            )
+
+        _, kwargs = MockAgent.call_args
+        self.assertEqual(kwargs.get("provider"), "claude-cli")
+        self.assertEqual(kwargs.get("acp_command"), "claude")
+
     def test_schema_never_exposes_acp_transport_fields(self):
         """delegate_task must never make ACP transport model-facing."""
         from tools.delegate_tool import _build_dynamic_schema_overrides
