@@ -35,6 +35,13 @@ import {
   withRequiredGuidedSpecialists,
 } from "@/lib/guided-required-specialists";
 import {
+  guidedPhaseProgress,
+  nextGuidedPhase,
+  orderGuidedPhases,
+  parseGuidedPhaseMarkers,
+  shouldAdvanceGuidedPhase,
+} from "@/lib/guided-phase-plan";
+import {
   GUIDED_MODEL_SILENCE_TIMEOUT_MS,
   decideGuidedWatchdog,
   extendGuidedSubagentGrace,
@@ -818,6 +825,18 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   // so the turn ran until the user gave up (42 minutes, in one report).
   const guidedSubagentGraceUntilRef = useRef(0);
   const guidedAutoContinueCountRef = useRef(0);
+  // Phase chain, driven by Lyra's [APP_IT_PHASE:...] / [APP_IT_PHASE_DONE:...]
+  // markers rather than inferred from her prose.
+  const [guidedPhaseCurrent, setGuidedPhaseCurrent] = useState<string | null>(
+    null,
+  );
+  const [guidedPhasesCompleted, setGuidedPhasesCompleted] = useState<string[]>(
+    [],
+  );
+  const guidedPhaseCurrentRef = useRef<string | null>(null);
+  /** Phase to nudge after the current reply, set by finishGuidedResponse. */
+  const guidedPhaseAdvanceRef = useRef<string | null>(null);
+  const guidedPhasesCompletedRef = useRef<string[]>([]);
   const [guidedInput, setGuidedInput] = useState("");
   const [guidedSkillsOpen, setGuidedSkillsOpen] = useState(false);
   const [guidedSkillDraftIds, setGuidedSkillDraftIds] = useState<string[]>([]);
@@ -840,8 +859,22 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const hasModelConnectionError = guidedOutput.includes(
     MODEL_CONNECTION_ERROR_MARKER,
   );
+  // The declared phase wins over the specialist inferred from output text: a
+  // phase Lyra runs in the conversation herself (requirements) emits no
+  // subagent events, so inference always fell back to Lyra.
+  const guidedPhaseSpecialist = guidedPhaseCurrent
+    ? {
+        id: guidedPhaseCurrent,
+        label: GUIDED_SPECIALIST_LABELS[guidedPhaseCurrent] ?? guidedPhaseCurrent,
+      }
+    : null;
   const guidedWorkingSpecialist =
-    guidedActivity.specialist ?? guidedDefaultSpecialist;
+    guidedPhaseSpecialist ?? guidedActivity.specialist ?? guidedDefaultSpecialist;
+  const guidedPhaseSteps = guidedPhaseProgress({
+    completed: guidedPhasesCompleted,
+    current: guidedPhaseCurrent,
+    ordered: orderGuidedPhases(guidedSelectedSpecialistIds),
+  });
   const latestGuidedMessage =
     guidedMessages[guidedMessages.length - 1] ?? null;
   const showRequirementsApproval =
@@ -986,8 +1019,34 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     applyGuidedSpecialistIds(selected);
   }, [applyGuidedSpecialistIds, guided, searchParams, workspaceParam]);
   const finishGuidedResponse = useCallback((content: string) => {
-    const skillSelection = extractAppItSkillSelection(
+    // Phase markers come off first: they are stripped from what the user reads
+    // and they, not the wording of the reply, decide who is working and what
+    // runs next.
+    const phases = parseGuidedPhaseMarkers(
       content,
+      GUIDED_SELECTABLE_SPECIALIST_IDS,
+    );
+    const startedPhase = phases.started[phases.started.length - 1] ?? null;
+    if (phases.completed.length) {
+      const merged = Array.from(
+        new Set([...guidedPhasesCompletedRef.current, ...phases.completed]),
+      );
+      guidedPhasesCompletedRef.current = merged;
+      setGuidedPhasesCompleted(merged);
+    }
+    if (startedPhase) {
+      guidedPhaseCurrentRef.current = startedPhase;
+      setGuidedPhaseCurrent(startedPhase);
+    } else if (
+      guidedPhaseCurrentRef.current &&
+      phases.completed.includes(guidedPhaseCurrentRef.current)
+    ) {
+      guidedPhaseCurrentRef.current = null;
+      setGuidedPhaseCurrent(null);
+    }
+
+    const skillSelection = extractAppItSkillSelection(
+      phases.content,
       GUIDED_SELECTABLE_SPECIALIST_IDS,
     );
     // The [APP_IT_SKILLS_SET:...] marker is the only authority on the team.
@@ -997,9 +1056,29 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       applyGuidedSpecialistIds(skillSelection.skillIds);
     }
     const response = sanitizeGuidedResponse(
-      skillSelection?.content ?? content,
+      skillSelection?.content ?? phases.content,
     );
     if (!response || response === lastGuidedResponseRef.current) return;
+
+    // Deterministic advancement: a phase reported a verified artifact, another
+    // enabled phase is still outstanding, and the reply is not asking the user
+    // anything. The prose-regex path below stays as a fallback for replies that
+    // carry no markers at all.
+    const orderedPhases = orderGuidedPhases(
+      guidedSelectedSpecialistIdsRef.current,
+    );
+    const upcoming = nextGuidedPhase({
+      completed: guidedPhasesCompletedRef.current,
+      current: guidedPhaseCurrentRef.current,
+      ordered: orderedPhases,
+    });
+    guidedPhaseAdvanceRef.current = shouldAdvanceGuidedPhase({
+      completedInReply: phases.completed,
+      next: upcoming,
+      reply: response,
+    })
+      ? upcoming
+      : null;
     guidedTurnSettledRef.current = true;
     lastGuidedResponseRef.current = response;
     setGuidedLastSignalAt(Date.now());
@@ -1113,6 +1192,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     setGuidedOutput("");
     setGuidedInput("");
     setGuidedPaused(false);
+    setGuidedPhaseCurrent(null);
+    setGuidedPhasesCompleted([]);
+    guidedPhaseCurrentRef.current = null;
+    guidedPhasesCompletedRef.current = [];
     guidedSubagentGraceUntilRef.current = 0;
     setGuidedActivity({ phase: "idle", text: "", specialist: null });
     lastGuidedResponseRef.current = "";
@@ -1317,7 +1400,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           streamedText = "";
           if (response) {
             finishGuidedResponse(response);
-            if (guidedResponseNeedsContinuation(response)) {
+            // A declared [APP_IT_PHASE_DONE:...] is the reliable signal; the
+            // prose test stays as a fallback for replies without markers.
+            const advanceTo = guidedPhaseAdvanceRef.current;
+            guidedPhaseAdvanceRef.current = null;
+            if (advanceTo || guidedResponseNeedsContinuation(response)) {
               const nextAttempt = guidedAutoContinueCountRef.current + 1;
               guidedAutoContinueCountRef.current = nextAttempt;
               if (nextAttempt > 24) {
@@ -1328,11 +1415,17 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               }
               guidedTurnSettledRef.current = false;
               setGuidedLastSignalAt(Date.now());
+              const advanceLabel = advanceTo
+                ? GUIDED_SPECIALIST_LABELS[advanceTo] ?? advanceTo
+                : null;
               setGuidedActivity((current) => ({
                 phase: "working",
-                text: "Moving to the promised specialist…",
-                specialist:
-                  current.specialist ?? guidedDefaultSpecialistRef.current,
+                text: advanceLabel
+                  ? `Handing over to ${advanceLabel}…`
+                  : "Moving to the promised specialist…",
+                specialist: advanceTo
+                  ? { id: advanceTo, label: advanceLabel ?? advanceTo }
+                  : current.specialist ?? guidedDefaultSpecialistRef.current,
               }));
               window.setTimeout(() => {
                 const active = wsRef.current;
@@ -1343,7 +1436,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 );
                 lastGuidedResponseRef.current = "";
                 writeGuidedPrompt(
-                  "IDRAK_INTERNAL_CONTINUE: Continue the selected workflow now. Perform the promised tool call or specialist delegation, verify its artifact, and then advance through later enabled phases. Do not merely describe the next action. Stop for: any approval checkpoint (requirements summary, visual preview, final delivery), a real user decision, permission request, blocker, or final completion. At approval checkpoints, present options (Approve / Change / Skip) and wait.",
+                  advanceTo
+                    ? `IDRAK_INTERNAL_CONTINUE: Start the ${advanceLabel} phase now. Load skill_view(name="ultimate-builder:${advanceTo}"), emit [APP_IT_PHASE:${advanceTo}] in your next reply, run or delegate that phase, verify its artifact, then emit [APP_IT_PHASE_DONE:${advanceTo}] and continue with the next enabled phase. Do not merely describe the next action. Stop for: any approval checkpoint (requirements summary, visual preview, final delivery), a real user decision, permission request, blocker, or final completion. At approval checkpoints, present options (Approve / Change / Skip) and wait.`
+                    : "IDRAK_INTERNAL_CONTINUE: Continue the selected workflow now. Perform the promised tool call or specialist delegation, verify its artifact, and then advance through later enabled phases. Do not merely describe the next action. Stop for: any approval checkpoint (requirements summary, visual preview, final delivery), a real user decision, permission request, blocker, or final completion. At approval checkpoints, present options (Approve / Change / Skip) and wait.",
                   {
                     isOpen: () =>
                       wsRef.current?.readyState === WebSocket.OPEN,
@@ -3284,6 +3379,52 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               </Button>
             </div>
           </div>
+
+          {guidedPhaseSteps.length > 1 && (
+            <ol
+              aria-label="Project phases"
+              className="flex flex-wrap items-center gap-x-1 gap-y-2 border-b border-current/10 px-4 py-2 sm:px-5"
+            >
+              {guidedPhaseSteps.map((step, index) => (
+                <li key={step.id} className="flex items-center gap-1">
+                  {index > 0 && (
+                    <span aria-hidden className="px-1 text-text-secondary/50">
+                      →
+                    </span>
+                  )}
+                  <span
+                    aria-current={step.state === "now" ? "step" : undefined}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] transition-colors",
+                      step.state === "done" &&
+                        "border-current/15 text-text-secondary",
+                      step.state === "now" &&
+                        "border-midground/50 bg-midground/10 font-semibold text-midground",
+                      step.state === "pending" &&
+                        "border-current/10 text-text-secondary/60",
+                    )}
+                  >
+                    <img
+                      src={`/skill-avatars/${step.id.replaceAll("_", "-")}${
+                        step.state === "pending" ? "-sad" : ""
+                      }.webp`}
+                      alt=""
+                      className={cn(
+                        "h-4 w-4 rounded object-cover",
+                        step.state === "pending" && "opacity-50",
+                      )}
+                    />
+                    {GUIDED_SPECIALIST_LABELS[step.id] ?? step.id}
+                    {step.state === "done" && (
+                      <span aria-label="done" className="text-[10px]">
+                        ✓
+                      </span>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          )}
 
           <div
             ref={guidedOutputRef}

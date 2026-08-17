@@ -132,6 +132,13 @@ Updated:
 Use statuses `pending`, `running`, `blocked`, `failed`, and `verified`.
 Update the ledger after every delegate finishes or blocks.
 
+Mirror each transition to the conversation with the phase protocol in the
+`app-it` playbook: `[APP_IT_PHASE:<id>]` when a phase starts running,
+`[APP_IT_PHASE_DONE:<id>]` when its artifact is verified. The ledger is the
+durable record; the markers are what the dashboard reads to show the phase strip
+and to start the next phase. Keep the two in step — a verified ledger row with
+no marker leaves the chain stalled.
+
 ## Step 1: choose the delivery profile
 
 When the launcher prompt includes enabled and disabled specialists, that
