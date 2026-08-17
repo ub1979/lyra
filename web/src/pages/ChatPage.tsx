@@ -37,6 +37,7 @@ import { usePageHeader } from "@/contexts/usePageHeader";
 import { useI18n } from "@/i18n";
 import { api } from "@/lib/api";
 import { latchChatActivation } from "@/lib/chat-activation";
+import { useModalBehavior } from "@/hooks/useModalBehavior";
 import {
   analyzeGuidedChatOutput,
   extractAppItSkillSelection,
@@ -1117,6 +1118,16 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const [portalRoot] = useState<HTMLElement | null>(() =>
     typeof document !== "undefined" ? document.body : null,
   );
+  // Standard modal behaviour, matching every other dialog in the dashboard:
+  // locks body scroll, closes on Escape, restores focus. Without the scroll
+  // lock the page kept scrolling behind the overlay — and because the mobile
+  // breakpoint gives html/body `height:auto; overflow-y:auto`, that scrolling
+  // moved 100dvh under the dialog's max-h-[88dvh], so the panel resized
+  // mid-interaction and the lower specialists ended up below the fold.
+  const guidedSkillsDialogRef = useModalBehavior({
+    open: Boolean(guided && guidedSkillsOpen),
+    onClose: () => setGuidedSkillsOpen(false),
+  });
   const [narrow, setNarrow] = useState(() =>
     typeof window !== "undefined"
       ? window.matchMedia("(max-width: 1023px)").matches
@@ -2965,6 +2976,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           onClick={() => setGuidedSkillsOpen(false)}
         />
         <section
+          ref={guidedSkillsDialogRef}
           role="dialog"
           aria-modal="true"
           aria-labelledby="guided-skills-title"
@@ -3013,7 +3025,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+          {/* overscroll-contain stops a flick at the list's end from chaining
+              into the page behind, which on mobile re-triggers the browser
+              chrome show/hide that changes dvh. */}
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6">
             <div className="grid gap-3 md:grid-cols-2">
               {GUIDED_SELECTABLE_SPECIALIST_IDS.map((id) => {
                 const selected = guidedSkillDraftIds.includes(id);
