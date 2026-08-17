@@ -425,6 +425,25 @@ class CopilotACPClient:
         self.is_closed = False
         self._active_process: subprocess.Popen[str] | None = None
         self._active_process_lock = threading.Lock()
+        # Filled by a subclass's _run_prompt when its transport reports token
+        # usage; drained once per completion. Thread-local because one client
+        # instance serves concurrent requests.
+        self._usage_context = threading.local()
+
+    def record_prompt_usage(self, usage: dict[str, int] | None) -> None:
+        """Report token usage for the in-flight request.
+
+        Subclasses whose CLI returns usage call this from ``_run_prompt``.
+        Keys are the OpenAI-compatible ``prompt_tokens``, ``completion_tokens``,
+        ``total_tokens`` and ``cached_tokens``.
+        """
+        self._usage_context.value = usage
+
+    def _take_prompt_usage(self) -> dict[str, int] | None:
+        """Drain the usage recorded for this request, if any."""
+        value = getattr(self._usage_context, "value", None)
+        self._usage_context.value = None
+        return value
 
     def close(self) -> None:
         proc: subprocess.Popen[str] | None
@@ -483,11 +502,16 @@ class CopilotACPClient:
 
         tool_calls, cleaned_text = _extract_tool_calls_from_text(response_text)
 
+        # Transports that cannot report usage still yield zeros, which is what
+        # every ACP backend did unconditionally before subclasses could report.
+        reported = self._take_prompt_usage() or {}
         usage = SimpleNamespace(
-            prompt_tokens=0,
-            completion_tokens=0,
-            total_tokens=0,
-            prompt_tokens_details=SimpleNamespace(cached_tokens=0),
+            prompt_tokens=int(reported.get("prompt_tokens") or 0),
+            completion_tokens=int(reported.get("completion_tokens") or 0),
+            total_tokens=int(reported.get("total_tokens") or 0),
+            prompt_tokens_details=SimpleNamespace(
+                cached_tokens=int(reported.get("cached_tokens") or 0),
+            ),
         )
         assistant_message = SimpleNamespace(
             content=cleaned_text,

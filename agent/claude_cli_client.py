@@ -52,6 +52,42 @@ def _claude_subprocess_env() -> dict[str, str]:
     return env
 
 
+def _usage_from_payload(payload: Any) -> dict[str, int] | None:
+    """Map Claude CLI ``--output-format json`` usage into OpenAI-compatible keys.
+
+    The CLI reports input in three separate buckets — fresh, cache-read, and
+    cache-creation — and all three are real prompt tokens the request carried,
+    so ``prompt_tokens`` is their sum. ``cached_tokens`` keeps the cache-read
+    share visible, which is the number that tells you whether prompt caching
+    is actually working.
+    """
+    if not isinstance(payload, dict):
+        return None
+    usage = payload.get("usage")
+    if not isinstance(usage, dict):
+        return None
+
+    def _int(key: str) -> int:
+        try:
+            return max(0, int(usage.get(key) or 0))
+        except (TypeError, ValueError):
+            return 0
+
+    fresh = _int("input_tokens")
+    cache_read = _int("cache_read_input_tokens")
+    cache_creation = _int("cache_creation_input_tokens")
+    completion = _int("output_tokens")
+    prompt = fresh + cache_read + cache_creation
+    if not (prompt or completion):
+        return None
+    return {
+        "prompt_tokens": prompt,
+        "completion_tokens": completion,
+        "total_tokens": prompt + completion,
+        "cached_tokens": cache_read,
+    }
+
+
 class ClaudeCLIClient(CopilotACPClient):
     """OpenAI-compatible facade backed by one isolated ``claude -p`` call."""
 
@@ -168,4 +204,5 @@ class ClaudeCLIClient(CopilotACPClient):
             raise RuntimeError(f"Claude CLI failed (exit {proc.returncode}): {detail}")
         if not isinstance(result, str):
             raise RuntimeError("Claude CLI response did not contain a text result.")
+        self.record_prompt_usage(_usage_from_payload(payload))
         return result, ""

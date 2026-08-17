@@ -124,3 +124,60 @@ def test_completion_surfaces_structured_cli_error():
                 model="claude-sonnet-4-6",
                 messages=[{"role": "user", "content": "hello"}],
             )
+
+
+# ── token usage reporting ────────────────────────────────────────────────────
+# The CLI reports usage in its JSON payload, but _run_prompt used to discard
+# everything except `result`, so every turn logged in=0 out=0 total=0 and
+# prompt-cache behaviour was invisible. Keys below match a real
+# `claude --print --output-format json` response.
+
+def _usage_payload(**over):
+    usage = {
+        "input_tokens": 1,
+        "cache_creation_input_tokens": 1656,
+        "cache_read_input_tokens": 3289,
+        "output_tokens": 13,
+    }
+    usage.update(over)
+    return {"result": "hi", "usage": usage}
+
+
+def _complete(payload):
+    proc = _FakeProcess(payload)
+    client = ClaudeCLIClient(command="claude")
+    with patch("agent.claude_cli_client.subprocess.Popen", return_value=proc), patch(
+        "agent.claude_cli_client._claude_subprocess_env", return_value={}
+    ):
+        return client.chat.completions.create(
+            model="claude-sonnet-4-6",
+            messages=[{"role": "user", "content": "hello"}],
+        )
+
+
+def test_completion_reports_cli_token_usage():
+    usage = _complete(_usage_payload()).usage
+    # All three input buckets are prompt tokens the request actually carried.
+    assert usage.prompt_tokens == 1 + 3289 + 1656
+    assert usage.completion_tokens == 13
+    assert usage.total_tokens == 4959
+    # The cache-read share is what shows whether prompt caching is working.
+    assert usage.prompt_tokens_details.cached_tokens == 3289
+
+
+def test_completion_usage_defaults_to_zero_without_cli_usage():
+    usage = _complete({"result": "hi"}).usage
+    assert (usage.prompt_tokens, usage.completion_tokens, usage.total_tokens) == (0, 0, 0)
+    assert usage.prompt_tokens_details.cached_tokens == 0
+
+
+def test_completion_usage_survives_malformed_counts():
+    usage = _complete(_usage_payload(input_tokens="x", output_tokens=None)).usage
+    assert usage.prompt_tokens == 3289 + 1656
+    assert usage.completion_tokens == 0
+
+
+def test_usage_is_not_carried_into_a_later_request():
+    """The thread-local slot must drain, or turn two inherits turn one's counts."""
+    assert _complete(_usage_payload()).usage.total_tokens == 4959
+    assert _complete({"result": "hi"}).usage.total_tokens == 0
