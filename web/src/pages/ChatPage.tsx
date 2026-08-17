@@ -25,6 +25,17 @@ import "@xterm/xterm/css/xterm.css";
 import { Button } from "@nous-research/ui/ui/components/button";
 import { Typography } from "@nous-research/ui/ui/components/typography/index";
 import { cn } from "@/lib/utils";
+import {
+  GUIDED_SPECIALISTS_PANEL,
+  guidedSpecialistModelRowClass,
+} from "@/lib/guided-specialists-dialog";
+import { writeGuidedPrompt } from "@/lib/guided-composer-paste";
+import {
+  GUIDED_MODEL_SILENCE_TIMEOUT_MS,
+  decideGuidedWatchdog,
+  extendGuidedSubagentGrace,
+  guidedWatchdogMessage,
+} from "@/lib/guided-turn-watchdog";
 import { Copy, FolderOpen, PanelRight, RotateCcw, Send, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -794,7 +805,12 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const lastGuidedResponseRef = useRef("");
   const guidedTurnSettledRef = useRef(true);
   const guidedStructuredFeedConnectedRef = useRef(false);
-  const guidedActiveSubagentRef = useRef(false);
+  // Epoch ms until which a specialist phase may stay silent, or 0 when no
+  // phase is running. A boolean flag here used to disable the silence watchdog
+  // outright, and it was set by `subagent.spawn_requested` — a spawn *request*.
+  // A spawn that never started left the watchdog re-arming itself every 75s,
+  // so the turn ran until the user gave up (42 minutes, in one report).
+  const guidedSubagentGraceUntilRef = useRef(0);
   const guidedAutoContinueCountRef = useRef(0);
   const [guidedInput, setGuidedInput] = useState("");
   const [guidedSkillsOpen, setGuidedSkillsOpen] = useState(false);
@@ -1088,7 +1104,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     setGuidedOutput("");
     setGuidedInput("");
     setGuidedPaused(false);
-    guidedActiveSubagentRef.current = false;
+    guidedSubagentGraceUntilRef.current = 0;
     setGuidedActivity({ phase: "idle", text: "", specialist: null });
     lastGuidedResponseRef.current = "";
     guidedTurnSettledRef.current = true;
@@ -1119,12 +1135,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     typeof document !== "undefined" ? document.body : null,
   );
   // Standard modal behaviour, matching every other dialog in the dashboard:
-  // locks body scroll, closes on Escape, restores focus. Without the scroll
-  // lock the page kept scrolling behind the overlay — and because the mobile
-  // breakpoint gives html/body `height:auto; overflow-y:auto`, that scrolling
-  // moved 100dvh under the dialog's max-h-[88dvh], so the panel resized
-  // mid-interaction and the lower specialists ended up below the fold.
-  const guidedSkillsDialogRef = useModalBehavior({
+  // locks page scroll, closes on Escape, restores focus on close.
+  const guidedSkillsDialogRef = useModalBehavior<HTMLElement>({
     open: Boolean(guided && guidedSkillsOpen),
     onClose: () => setGuidedSkillsOpen(false),
   });
@@ -1246,7 +1258,14 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               : null;
           const isSubagent = type.startsWith("subagent.");
           if (isSubagent) {
-            guidedActiveSubagentRef.current = true;
+            // Every genuine phase event pushes the deadline forward, so a live
+            // phase is never interrupted — but silence after the last one is
+            // bounded, and a bare spawn request buys much less time.
+            guidedSubagentGraceUntilRef.current = extendGuidedSubagentGrace(
+              guidedSubagentGraceUntilRef.current,
+              type,
+              Date.now(),
+            );
           }
           const label = friendlyActivityLabel(
             payload as Record<string, unknown> | undefined,
@@ -1269,7 +1288,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           return;
         }
         if (type === "subagent.complete") {
-          guidedActiveSubagentRef.current = false;
+          guidedSubagentGraceUntilRef.current = 0;
           setGuidedLastSignalAt(Date.now());
           return;
         }
@@ -1280,7 +1299,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         if (type === "message.complete") {
           // A completed parent message is also a definitive boundary for any
           // child phase, even when a provider omitted subagent.complete.
-          guidedActiveSubagentRef.current = false;
+          guidedSubagentGraceUntilRef.current = 0;
           const response =
             (typeof payload?.text === "string" && payload.text.trim()
               ? payload.text
@@ -1314,14 +1333,16 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                   (termRef.current?.buffer.active.length ?? 1) - 1,
                 );
                 lastGuidedResponseRef.current = "";
-                active.send(
+                writeGuidedPrompt(
                   "IDRAK_INTERNAL_CONTINUE: Continue the selected workflow now. Perform the promised tool call or specialist delegation, verify its artifact, and then advance through later enabled phases. Do not merely describe the next action. Stop for: any approval checkpoint (requirements summary, visual preview, final delivery), a real user decision, permission request, blocker, or final completion. At approval checkpoints, present options (Approve / Change / Skip) and wait.",
+                  {
+                    isOpen: () =>
+                      wsRef.current?.readyState === WebSocket.OPEN,
+                    schedule: (run, delayMs) =>
+                      window.setTimeout(run, delayMs),
+                    send: (data) => active.send(data),
+                  },
                 );
-                window.setTimeout(() => {
-                  if (wsRef.current?.readyState === WebSocket.OPEN) {
-                    wsRef.current.send("\r");
-                  }
-                }, 80);
               }, 350);
             }
           } else if (payload?.failure_reason) {
@@ -1345,7 +1366,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           return;
         }
         if (type === "error" && payload?.message) {
-          guidedActiveSubagentRef.current = false;
+          guidedSubagentGraceUntilRef.current = 0;
           guidedTurnSettledRef.current = true;
           appendGuidedError(payload.message);
           setGuidedActivity({
@@ -1527,7 +1548,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     );
     guidedAutoScrollRef.current = true;
     guidedTurnSettledRef.current = false;
-    guidedActiveSubagentRef.current = false;
+    guidedSubagentGraceUntilRef.current = 0;
     guidedAutoContinueCountRef.current = 0;
     lastGuidedResponseRef.current = "";
     setGuidedLastSignalAt(Date.now());
@@ -1545,12 +1566,14 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       specialist: guidedDefaultSpecialistRef.current,
     });
     setGuidedOutput("");
-    ws.send(text);
-    window.setTimeout(() => {
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send("\r");
-      }
-    }, 80);
+    // Bracketed paste, not raw typing: a multi-line prompt written straight to
+    // the PTY submits at its first newline, so only the opening line became the
+    // turn and the rest arrived as interruptions mid-answer.
+    writeGuidedPrompt(text, {
+      isOpen: () => wsRef.current?.readyState === WebSocket.OPEN,
+      schedule: (run, delayMs) => window.setTimeout(run, delayMs),
+      send: (data) => ws.send(data),
+    });
     setGuidedInput("");
   }, [guidedPaused]);
 
@@ -1660,7 +1683,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       // Interrupt the current response but keep the PTY/session alive so the
       // user can resume the conversation without losing project context.
       wsRef.current.send("\x03");
-      guidedActiveSubagentRef.current = false;
+      guidedSubagentGraceUntilRef.current = 0;
     }
     setGuidedPaused((value) => !value);
   }, [guidedPaused]);
@@ -1713,12 +1736,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     window.setTimeout(() => {
       const active = wsRef.current;
       if (!active || active.readyState !== WebSocket.OPEN) return;
-      active.send(lastUserMessage.content);
-      window.setTimeout(() => {
-        if (wsRef.current?.readyState === WebSocket.OPEN) {
-          wsRef.current.send("\r");
-        }
-      }, 80);
+      writeGuidedPrompt(lastUserMessage.content, {
+        isOpen: () => wsRef.current?.readyState === WebSocket.OPEN,
+        schedule: (run, delayMs) => window.setTimeout(run, delayMs),
+        send: (data) => active.send(data),
+      });
     }, 300);
   }, [guidedMessages]);
 
@@ -2318,12 +2340,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             specialist: guidedDefaultSpecialistRef.current,
           });
           setGuidedLastSignalAt(Date.now());
-          active.send(builderSeed);
-          window.setTimeout(() => {
-            if (wsRef.current?.readyState === WebSocket.OPEN) {
-              wsRef.current.send("\r");
-            }
-          }, 100);
+          writeGuidedPrompt(builderSeed, {
+            isOpen: () => wsRef.current?.readyState === WebSocket.OPEN,
+            schedule: (run, delayMs) => window.setTimeout(run, delayMs),
+            send: (data) => active.send(data),
+          });
         };
         builderSeedTimer = window.setTimeout(sendWhenReady, 100);
       } else {
@@ -2371,12 +2392,13 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                   guidedSkillModelsRef.current,
                   projectSummary,
                 );
-                wsRef.current.send(welcome);
-                window.setTimeout(() => {
-                  if (wsRef.current?.readyState === WebSocket.OPEN) {
-                    wsRef.current.send("\r");
-                  }
-                }, 100);
+                writeGuidedPrompt(welcome, {
+                  isOpen: () =>
+                    wsRef.current?.readyState === WebSocket.OPEN,
+                  schedule: (run, delayMs) =>
+                    window.setTimeout(run, delayMs),
+                  send: (data) => wsRef.current?.send(data),
+                });
               });
             }
             return;
@@ -2720,25 +2742,27 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     if (!guided || guidedActivity.phase !== "working") return;
     const remainingMs = Math.max(
       0,
-      75_000 - (Date.now() - guidedLastSignalAt),
+      GUIDED_MODEL_SILENCE_TIMEOUT_MS - (Date.now() - guidedLastSignalAt),
     );
     const timeout = window.setTimeout(() => {
-      if (guidedActiveSubagentRef.current) {
-        // Specialist phases routinely take longer than a single model reply.
-        // Their live subagent events are the truthful heartbeat; do not
-        // interrupt real work merely because the top-level assistant has not
-        // produced its final prose yet.
+      const decision = decideGuidedWatchdog({
+        subagentGraceUntil: guidedSubagentGraceUntilRef.current,
+        now: Date.now(),
+      });
+      if (decision.action === "extend") {
+        // Specialist phases routinely take longer than a single model reply,
+        // so give this one more time — bounded by the grace window its own
+        // events earned, never indefinitely.
         setGuidedLastSignalAt(Date.now());
         return;
       }
+      guidedSubagentGraceUntilRef.current = 0;
       try {
         wsRef.current?.send("\x03");
       } catch {
         // The visible error is still useful if the transport already closed.
       }
-      appendGuidedError(
-        "Lyra did not receive a response from the AI model within 75 seconds. The turn was stopped; check the AI model or select Stop & retry.",
-      );
+      appendGuidedError(guidedWatchdogMessage(decision.reason));
       guidedTurnSettledRef.current = true;
       setGuidedActivity({ phase: "idle", text: "", specialist: null });
     }, remainingMs);
@@ -2975,12 +2999,17 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           aria-label="Close project skills"
           onClick={() => setGuidedSkillsOpen(false)}
         />
+        {/* Fixed height, not max-h: with a content-driven height the panel
+            grew and shrank as specialists were ticked, and because the overlay
+            centres it, every change moved the header and the whole list under
+            the pointer. A constant height keeps header, toolbar and footer
+            pinned; only the inner list scrolls. */}
         <section
           ref={guidedSkillsDialogRef}
           role="dialog"
           aria-modal="true"
           aria-labelledby="guided-skills-title"
-          className="relative z-[71] flex max-h-[88dvh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-current/20 bg-background-base text-text-primary shadow-2xl"
+          className={GUIDED_SPECIALISTS_PANEL}
         >
           <header className="flex shrink-0 items-start justify-between gap-4 border-b border-current/15 px-5 py-4 sm:px-6">
             <div>
@@ -3083,33 +3112,38 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                         </small>
                       </span>
                     </label>
-                    {selected && (
-                      <div className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 border-t border-current/10 pt-3">
-                        <span className="text-[10px] font-semibold uppercase tracking-widest text-midground">
-                          LLM
-                        </span>
-                        <select
-                          value={assignedModel}
-                          aria-label={`LLM for ${GUIDED_SPECIALIST_LABELS[id]}`}
-                          className="h-9 min-w-0 rounded-lg border border-current/20 bg-background-base px-2 text-xs text-text-primary outline-none focus:border-midground/60"
-                          onChange={(event) =>
-                            updateGuidedSpecialistModelDraft(
-                              id,
-                              event.target.value,
-                            )
-                          }
-                        >
-                          <option value="">
-                            Default · {guidedDefaultModelLabel}
+                    {/* Always rendered, disabled when the specialist is off.
+                        This row used to mount only while selected, so ticking
+                        a box changed the card's height — and with it the grid
+                        row's height, the list's scrollHeight and the panel's
+                        own height. Everything below the click jumped. Keeping
+                        the row reserves the space and holds the layout still. */}
+                    <div className={guidedSpecialistModelRowClass(selected)}>
+                      <span className="text-[10px] font-semibold uppercase tracking-widest text-midground">
+                        LLM
+                      </span>
+                      <select
+                        value={assignedModel}
+                        disabled={!selected}
+                        aria-label={`LLM for ${GUIDED_SPECIALIST_LABELS[id]}`}
+                        className="h-9 min-w-0 rounded-lg border border-current/20 bg-background-base px-2 text-xs text-text-primary outline-none focus:border-midground/60 disabled:cursor-not-allowed"
+                        onChange={(event) =>
+                          updateGuidedSpecialistModelDraft(
+                            id,
+                            event.target.value,
+                          )
+                        }
+                      >
+                        <option value="">
+                          Default · {guidedDefaultModelLabel}
+                        </option>
+                        {modelChoices.map((model) => (
+                          <option key={model} value={model}>
+                            {model}
                           </option>
-                          {modelChoices.map((model) => (
-                            <option key={model} value={model}>
-                              {model}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 );
               })}

@@ -1,5 +1,7 @@
 """_tui_need_npm_install: auto npm when node_modules is behind the lockfile."""
 
+import io
+import json
 import os
 import types
 from pathlib import Path
@@ -30,6 +32,25 @@ def _assert_utf8_replace_capture(kwargs: dict) -> None:
     assert kwargs["text"] is True
     assert kwargs["encoding"] == "utf-8"
     assert kwargs["errors"] == "replace"
+
+
+def _fake_popen(calls: list, *, output=(), returncode: int = 0):
+    """Recorder standing in for ``subprocess.Popen``.
+
+    The npm install streams its output rather than capturing it (a silent
+    multi-minute install is indistinguishable from a hang), so it goes through
+    Popen — tests asserting on the install command patch this, not ``run``.
+    """
+
+    class _Proc:
+        def __init__(self, cmd, **kwargs):
+            calls.append((cmd, kwargs))
+            self.stdout = io.StringIO("".join(f"{line}\n" for line in output))
+
+        def wait(self) -> int:
+            return returncode
+
+    return _Proc
 
 
 def test_need_install_when_ink_missing(tmp_path: Path, main_mod) -> None:
@@ -220,10 +241,12 @@ def test_make_tui_argv_scopes_npm_install_on_termux_workspace(
         return types.SimpleNamespace(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(main_mod.subprocess, "run", fake_run)
+    install_calls: list = []
+    monkeypatch.setattr(main_mod.subprocess, "Popen", _fake_popen(install_calls))
 
     main_mod._make_tui_argv(tui_dir, tui_dev=False)
 
-    install_cmd = calls[0][0][0]
+    install_cmd = install_calls[0][0]
     assert install_cmd[:7] == [
         "/bin/npm",
         "install",
@@ -233,9 +256,9 @@ def test_make_tui_argv_scopes_npm_install_on_termux_workspace(
         "ui-tui/packages/hermes-ink",
         "--include-workspace-root=false",
     ]
-    assert calls[0][1]["cwd"] == str(tmp_path)
+    assert install_calls[0][1]["cwd"] == str(tmp_path)
+    _assert_utf8_replace_capture(install_calls[0][1])
     _assert_utf8_replace_capture(calls[0][1])
-    _assert_utf8_replace_capture(calls[1][1])
 
 
 def test_make_tui_argv_keeps_desktop_workspace_install_behaviour(
@@ -257,23 +280,26 @@ def test_make_tui_argv_keeps_desktop_workspace_install_behaviour(
         return types.SimpleNamespace(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(main_mod.subprocess, "run", fake_run)
+    install_calls: list = []
+    monkeypatch.setattr(main_mod.subprocess, "Popen", _fake_popen(install_calls))
 
     main_mod._make_tui_argv(tui_dir, tui_dev=False)
 
-    assert calls[0][0][0] == [
+    # No --silent: npm's own output is the only progress signal the user gets
+    # while the install runs.
+    assert install_calls[0][0] == [
         "/bin/npm",
         "install",
         "--workspace",
         "ui-tui",
         "--include=dev",
-        "--silent",
         "--no-fund",
         "--no-audit",
         "--progress=false",
     ]
-    assert calls[0][1]["cwd"] == str(tmp_path)
+    assert install_calls[0][1]["cwd"] == str(tmp_path)
+    _assert_utf8_replace_capture(install_calls[0][1])
     _assert_utf8_replace_capture(calls[0][1])
-    _assert_utf8_replace_capture(calls[1][1])
 
 
 def test_make_tui_argv_npm_install_forces_include_dev(
@@ -301,10 +327,12 @@ def test_make_tui_argv_npm_install_forces_include_dev(
         return types.SimpleNamespace(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(main_mod.subprocess, "run", fake_run)
+    install_calls: list = []
+    monkeypatch.setattr(main_mod.subprocess, "Popen", _fake_popen(install_calls))
 
     main_mod._make_tui_argv(tui_dir, tui_dev=False)
 
-    install_cmd = calls[0][0][0]
+    install_cmd = install_calls[0][0]
     assert install_cmd[:2] == ["/bin/npm", "install"]
     assert "--include=dev" in install_cmd
 
@@ -622,19 +650,18 @@ def test_tui_launch_install_uses_workspace_scope(
     monkeypatch.setattr(main_mod, "_tui_need_rebuild", lambda _root: False)
     monkeypatch.setattr(main_mod.shutil, "which", lambda name: f"/usr/bin/{name}")
 
-    npm_calls = []
+    npm_calls: list = []
 
     def fake_run(cmd, **kwargs):
-        if cmd[0].endswith("npm"):
-            npm_calls.append(cmd)
         return types.SimpleNamespace(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(main_mod.subprocess, "run", fake_run)
+    monkeypatch.setattr(main_mod.subprocess, "Popen", _fake_popen(npm_calls))
 
     main_mod._make_tui_argv(tui_dir, tui_dev=False)
 
     assert npm_calls, "expected npm install to be called"
-    install_cmd = npm_calls[0]
+    install_cmd = npm_calls[0][0]
     assert "--workspace" in install_cmd
     assert "ui-tui" in install_cmd
 
@@ -666,14 +693,275 @@ def test_make_tui_argv_omits_workspace_when_tui_has_own_lockfile(
         return types.SimpleNamespace(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(main_mod.subprocess, "run", fake_run)
+    install_calls: list = []
+    monkeypatch.setattr(main_mod.subprocess, "Popen", _fake_popen(install_calls))
 
     main_mod._make_tui_argv(tui_dir, tui_dev=False)
 
-    install_cmd = calls[0][0][0]
+    install_cmd = install_calls[0][0]
     # Must NOT contain --workspace when npm_cwd == tui_dir
     assert "--workspace" not in install_cmd, (
         f"npm install should omit --workspace when tui_dir has its own lockfile, got: {install_cmd}"
     )
     assert install_cmd[:2] == ["/bin/npm", "install"]
     # cwd must be tui_dir (standalone), not parent
-    assert calls[0][1]["cwd"] == str(tui_dir)
+    assert install_calls[0][1]["cwd"] == str(tui_dir)
+
+
+# --------------------------------------------------------------------------
+# Workspace-scoped install closure
+#
+# The launch installs only `--workspace ui-tui`, so the hoisted node_modules/
+# legitimately lacks every dependency that belongs to the other workspaces
+# (apps/desktop and friends). Comparing the whole root lockfile made
+# _tui_need_npm_install permanently true: the install it triggered could never
+# satisfy the condition that triggered it, so every launch reprinted
+# `Installing TUI dependencies…` and reinstalled from scratch.
+# --------------------------------------------------------------------------
+
+_OTHER_WORKSPACE_ONLY = ("node_modules/electron", "node_modules/@codemirror/lang-css")
+
+
+def _workspace_lock_packages() -> dict:
+    """A miniature of the real root lockfile: two workspaces, one shared root."""
+    return {
+        "": {"name": "hermes-agent"},
+        "ui-tui": {
+            "name": "hermes-tui",
+            "dependencies": {"@hermes/ink": "*", "ink": "^5.0.0"},
+            "devDependencies": {"esbuild": "^0.24.0"},
+        },
+        "ui-tui/packages/hermes-ink": {
+            "name": "@hermes/ink",
+            "dependencies": {"react": "^19.0.0"},
+        },
+        "apps/desktop": {
+            "name": "hermes-desktop",
+            "dependencies": {"electron": "^33.0.0", "@codemirror/lang-css": "^6.0.0"},
+        },
+        "node_modules/@hermes/ink": {
+            "resolved": "ui-tui/packages/hermes-ink",
+            "link": True,
+        },
+        "node_modules/ink": {
+            "version": "5.0.0",
+            "dependencies": {"yoga-wasm-web": "^0.3.3"},
+        },
+        "node_modules/yoga-wasm-web": {"version": "0.3.3"},
+        "node_modules/esbuild": {"version": "0.24.0"},
+        "node_modules/react": {"version": "19.0.0"},
+        "node_modules/electron": {"version": "33.0.0"},
+        "node_modules/@codemirror/lang-css": {"version": "6.0.0"},
+    }
+
+
+def _write_workspace(tmp_path: Path, *, drop=(), hidden_overrides=None) -> Path:
+    """Lay out a workspace checkout and return the ui-tui directory.
+
+    The hidden lockfile gets every ``node_modules/`` entry except *drop* and the
+    packages that belong to the other workspace — exactly what a
+    ``--workspace ui-tui`` install produces. Directory entries (``""``,
+    ``ui-tui``, ``apps/desktop``) are absent because npm never records them.
+    """
+    packages = _workspace_lock_packages()
+    hidden = {
+        key: value
+        for key, value in packages.items()
+        if key.startswith("node_modules/")
+        and key not in _OTHER_WORKSPACE_ONLY
+        and key not in drop
+    }
+    hidden.update(hidden_overrides or {})
+
+    tui_dir = tmp_path / "ui-tui"
+    tui_dir.mkdir(exist_ok=True)
+    (tui_dir / "package.json").write_text("{}")
+    (tmp_path / "package-lock.json").write_text(json.dumps({"packages": packages}))
+    _touch_ink(tmp_path)
+    (tmp_path / "node_modules" / ".package-lock.json").write_text(
+        json.dumps({"packages": hidden})
+    )
+    return tui_dir
+
+
+def test_no_install_when_only_other_workspace_deps_missing(
+    tmp_path: Path, main_mod
+) -> None:
+    """The regression: apps/desktop's uninstalled deps must not force a reinstall."""
+    tui_dir = _write_workspace(tmp_path)
+    assert main_mod._tui_need_npm_install(tui_dir) is False
+
+
+def test_no_install_when_other_workspace_dep_version_differs(
+    tmp_path: Path, main_mod
+) -> None:
+    tui_dir = _write_workspace(
+        tmp_path,
+        hidden_overrides={"node_modules/electron": {"version": "30.0.0"}},
+    )
+    assert main_mod._tui_need_npm_install(tui_dir) is False
+
+
+def test_need_install_when_tui_runtime_dep_missing(tmp_path: Path, main_mod) -> None:
+    tui_dir = _write_workspace(tmp_path, drop=("node_modules/ink",))
+    assert main_mod._tui_need_npm_install(tui_dir) is True
+
+
+def test_need_install_when_tui_dev_dep_missing(tmp_path: Path, main_mod) -> None:
+    """--include=dev means ui-tui's build toolchain counts as required."""
+    tui_dir = _write_workspace(tmp_path, drop=("node_modules/esbuild",))
+    assert main_mod._tui_need_npm_install(tui_dir) is True
+
+
+def test_need_install_when_transitive_tui_dep_missing(tmp_path: Path, main_mod) -> None:
+    tui_dir = _write_workspace(tmp_path, drop=("node_modules/yoga-wasm-web",))
+    assert main_mod._tui_need_npm_install(tui_dir) is True
+
+
+def test_need_install_when_linked_workspace_dep_missing(
+    tmp_path: Path, main_mod
+) -> None:
+    """react is reached only through the @hermes/ink workspace link."""
+    tui_dir = _write_workspace(tmp_path, drop=("node_modules/react",))
+    assert main_mod._tui_need_npm_install(tui_dir) is True
+
+
+def test_need_install_when_tui_dep_version_differs(tmp_path: Path, main_mod) -> None:
+    tui_dir = _write_workspace(
+        tmp_path,
+        hidden_overrides={"node_modules/ink": {"version": "4.0.0"}},
+    )
+    assert main_mod._tui_need_npm_install(tui_dir) is True
+
+
+def test_full_lock_compared_when_lock_has_no_tui_workspace_entry(
+    tmp_path: Path, main_mod
+) -> None:
+    """No workspace entry to seed the closure (standalone layout) → compare it all."""
+    _touch_ink(tmp_path)
+    (tmp_path / "package-lock.json").write_text(
+        json.dumps({"packages": {"node_modules/foo": {"version": "1.0.0"}}})
+    )
+    (tmp_path / "node_modules" / ".package-lock.json").write_text(
+        json.dumps({"packages": {}})
+    )
+    assert main_mod._tui_need_npm_install(tmp_path) is True
+
+
+def test_install_closure_resolves_nested_node_modules(main_mod) -> None:
+    """A nested copy shadows the hoisted one, npm-style."""
+    packages = {
+        "ui-tui": {"dependencies": {"ink": "*"}},
+        "ui-tui/node_modules/ink": {"version": "5.0.0"},
+        "node_modules/ink": {"version": "4.0.0"},
+    }
+    closure = main_mod._tui_install_closure(packages, ("ui-tui",))
+    assert "ui-tui/node_modules/ink" in closure
+    assert "node_modules/ink" not in closure
+
+
+def test_install_closure_is_none_without_seeds(main_mod) -> None:
+    assert main_mod._tui_install_closure({"node_modules/foo": {}}, ("ui-tui",)) is None
+
+
+# --------------------------------------------------------------------------
+# Streamed npm output
+# --------------------------------------------------------------------------
+
+
+def test_run_npm_streamed_echoes_output_and_returns_tail(
+    main_mod, monkeypatch, capsys
+) -> None:
+    monkeypatch.delenv("HERMES_QUIET", raising=False)
+    calls: list = []
+    monkeypatch.setattr(
+        main_mod.subprocess,
+        "Popen",
+        _fake_popen(calls, output=("adding deps", "added 488 packages")),
+    )
+
+    code, tail = main_mod._run_npm_streamed(
+        ["/bin/npm", "install"],
+        cwd="/tmp",
+        env={},
+        label="npm install",
+        heartbeat_seconds=0,
+    )
+
+    assert code == 0
+    assert tail.splitlines() == ["adding deps", "added 488 packages"]
+    out = capsys.readouterr().out
+    assert "added 488 packages" in out
+
+
+def test_run_npm_streamed_bounds_the_tail(main_mod, monkeypatch) -> None:
+    calls: list = []
+    monkeypatch.setattr(
+        main_mod.subprocess,
+        "Popen",
+        _fake_popen(calls, output=tuple(f"line {n}" for n in range(50)), returncode=1),
+    )
+
+    code, tail = main_mod._run_npm_streamed(
+        ["/bin/npm", "install"],
+        cwd="/tmp",
+        env={},
+        label="npm install",
+        heartbeat_seconds=0,
+        tail_lines=3,
+    )
+
+    assert code == 1
+    assert tail.splitlines() == ["line 47", "line 48", "line 49"]
+
+
+def test_run_npm_streamed_is_silent_under_hermes_quiet(
+    main_mod, monkeypatch, capsys
+) -> None:
+    monkeypatch.setenv("HERMES_QUIET", "1")
+    calls: list = []
+    monkeypatch.setattr(
+        main_mod.subprocess, "Popen", _fake_popen(calls, output=("noisy",))
+    )
+
+    _, tail = main_mod._run_npm_streamed(
+        ["/bin/npm", "install"],
+        cwd="/tmp",
+        env={},
+        label="npm install",
+        heartbeat_seconds=0,
+    )
+
+    assert tail == "noisy"
+    assert capsys.readouterr().out == ""
+
+
+def test_run_npm_streamed_heartbeats_while_npm_is_quiet(
+    main_mod, monkeypatch, capsys
+) -> None:
+    """A silent install must still show it is alive — that silence is what read
+    as 'stuck'."""
+    import time
+
+    monkeypatch.delenv("HERMES_QUIET", raising=False)
+
+    class _SlowProc:
+        def __init__(self, cmd, **kwargs):
+            self.stdout = io.StringIO("")
+
+        def wait(self) -> int:
+            time.sleep(0.3)
+            return 0
+
+    monkeypatch.setattr(main_mod.subprocess, "Popen", _SlowProc)
+
+    code, _ = main_mod._run_npm_streamed(
+        ["/bin/npm", "install"],
+        cwd="/tmp",
+        env={},
+        label="npm install",
+        heartbeat_seconds=0.05,
+    )
+
+    assert code == 0
+    assert "still running" in capsys.readouterr().out

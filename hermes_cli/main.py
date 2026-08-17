@@ -1612,6 +1612,153 @@ def _termux_workspace_install_context(
     return ws_root, tuple(workspace_args)
 
 
+_NPM_LOCK_DEP_FIELDS = ("dependencies", "optionalDependencies", "peerDependencies")
+"""Dependency fields npm installs for a *transitive* package."""
+
+_NPM_LOCK_WORKSPACE_DEP_FIELDS = _NPM_LOCK_DEP_FIELDS + ("devDependencies",)
+"""Plus devDependencies, which the TUI install requests via ``--include=dev``."""
+
+
+def _resolve_lock_entry(packages: dict, from_path: str, name: str) -> Optional[str]:
+    """Resolve dependency *name* required by the lock entry at *from_path*.
+
+    Mirrors Node resolution: walk up the directory tree looking for
+    ``<dir>/node_modules/<name>``, so a hoisted package at the workspace root
+    satisfies a request from any nested package. Returns the lockfile key, or
+    None when the lock does not describe it (npm skipped it for this platform).
+    """
+    parts = [part for part in from_path.split("/") if part]
+    while True:
+        base = "/".join(parts)
+        candidate = f"{base}/node_modules/{name}" if base else f"node_modules/{name}"
+        if candidate in packages:
+            return candidate
+        if not parts:
+            return None
+        parts.pop()
+
+
+def _tui_install_closure(packages: dict, seeds: tuple[str, ...]) -> Optional[set[str]]:
+    """Lockfile keys a ``--workspace ui-tui`` install is responsible for.
+
+    Returns None when none of *seeds* appear in the lock — a standalone or
+    prebuilt layout, where the caller should keep comparing the whole lockfile.
+
+    Why this exists: the root ``package-lock.json`` describes *every* workspace
+    (1387 entries in the hermes checkout), but the TUI launch installs only
+    ``--workspace ui-tui``. The hoisted ``node_modules/`` therefore legitimately
+    lacks the ~600 entries belonging to ``apps/desktop`` and friends, plus the
+    project and workspace *directory* entries that npm's hidden lockfile never
+    records at all. Comparing the full lock made :func:`_tui_need_npm_install`
+    permanently true: the install it triggered could never satisfy the condition
+    that triggered it, so every single launch printed
+    ``Installing TUI dependencies…`` and reinstalled from scratch.
+    """
+    present = tuple(seed for seed in seeds if seed in packages)
+    if not present:
+        return None
+
+    closure = set(present)
+    queue = list(present)
+    while queue:
+        path = queue.pop()
+        entry = packages.get(path)
+        if not isinstance(entry, dict):
+            continue
+
+        # A seed is a workspace we install directly, so its devDependencies
+        # (esbuild, tsx, typescript) are in scope. Transitive packages only
+        # bring their runtime dependencies.
+        fields = (
+            _NPM_LOCK_WORKSPACE_DEP_FIELDS if path in present else _NPM_LOCK_DEP_FIELDS
+        )
+        targets = []
+        for field in fields:
+            for name in entry.get(field) or {}:
+                target = _resolve_lock_entry(packages, path, name)
+                if target is not None:
+                    targets.append(target)
+
+        # Workspace links (``node_modules/@hermes/ink`` -> ``ui-tui/packages/…``)
+        # carry no dependencies of their own; follow them to the real directory
+        # entry so its dependencies are walked too.
+        resolved = entry.get("resolved")
+        if entry.get("link") and isinstance(resolved, str) and resolved in packages:
+            targets.append(resolved)
+
+        for target in targets:
+            if target not in closure:
+                closure.add(target)
+                queue.append(target)
+
+    return closure
+
+
+def _run_npm_streamed(
+    argv: list,
+    *,
+    cwd: str,
+    env: dict,
+    label: str,
+    heartbeat_seconds: float = 15.0,
+    tail_lines: int = 30,
+) -> "tuple[int, str]":
+    """Run *argv*, echoing output live, and return ``(returncode, tail)``.
+
+    The TUI install used to run ``--silent`` with both streams captured, so a
+    slow — or genuinely blocked — install printed one line and then nothing for
+    minutes, which reads as a hang. Echoing npm's own output, plus a heartbeat
+    while it is quiet, keeps the launch legible. The tail is still collected so
+    a failure can print a bounded excerpt rather than the whole log.
+
+    Honours ``HERMES_QUIET`` by collecting output without echoing it.
+    """
+    import threading
+    import time
+    from collections import deque
+
+    quiet = bool(os.environ.get("HERMES_QUIET"))
+    tail: "deque[str]" = deque(maxlen=tail_lines)
+    proc = subprocess.Popen(
+        argv,
+        cwd=cwd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        env=env,
+    )
+
+    done = threading.Event()
+
+    def _heartbeat() -> None:
+        started = time.monotonic()
+        while not done.wait(heartbeat_seconds):
+            elapsed = int(time.monotonic() - started)
+            print(f"  {label} still running ({elapsed}s)…", flush=True)
+
+    beat = None
+    if not quiet and heartbeat_seconds > 0:
+        beat = threading.Thread(target=_heartbeat, daemon=True)
+        beat.start()
+
+    try:
+        if proc.stdout is not None:
+            for line in proc.stdout:
+                line = line.rstrip("\n")
+                tail.append(line)
+                if not quiet:
+                    print(f"  {line}", flush=True)
+        code = proc.wait()
+    finally:
+        done.set()
+        if beat is not None:
+            beat.join(timeout=1)
+
+    return code, "\n".join(tail)
+
+
 def _tui_need_npm_install(root: Path) -> bool:
     """True when @hermes/ink is missing or node_modules is behind package-lock.json.
 
@@ -1673,11 +1820,34 @@ def _tui_need_npm_install(root: Path) -> bool:
     def comparable(pkg: dict) -> dict:
         return {k: v for k, v in pkg.items() if k not in _NPM_LOCK_RUNTIME_KEYS}
 
+    # Restrict the comparison to what a scoped install actually materialises.
+    try:
+        rel = root.relative_to(ws_root).as_posix()
+    except ValueError:
+        rel = ""
+    seeds: tuple[str, ...] = ()
+    if rel and rel != ".":
+        seeds = (rel,) + tuple(
+            key
+            for key in wanted
+            if key.startswith(f"{rel}/packages/") and "node_modules/" not in key
+        )
+    closure = _tui_install_closure(wanted, seeds)
+
     for name, pkg in wanted.items():
         if not name:
             continue
 
         if not isinstance(pkg, dict):
+            continue
+
+        # Outside the TUI's dependency closure (another workspace's deps), or a
+        # project/workspace *directory* entry that the hidden lockfile never
+        # records. A scoped install would not create either, so requiring them
+        # would reinstall on every launch, forever.
+        if closure is not None and (
+            name not in closure or "node_modules/" not in name
+        ):
             continue
 
         if name not in installed:
@@ -1977,7 +2147,9 @@ def _make_tui_argv(tui_dir: Path, tui_dev: bool) -> tuple[list[str], Path]:
                 tui_dir,
                 include_child_workspaces=True,
             )
-        result = subprocess.run(
+        # Streamed, not captured: this step can take minutes on a cold cache
+        # and a silent multi-minute pause is indistinguishable from a hang.
+        code, preview = _run_npm_streamed(
             [
                 npm,
                 "install",
@@ -1988,22 +2160,15 @@ def _make_tui_argv(tui_dir: Path, tui_dev: bool) -> tuple[list[str], Path]:
                 # npm `omit=dev` config would silently skip them and the TUI
                 # build would fail. See _run_npm_install_deterministic.
                 "--include=dev",
-                "--silent",
                 "--no-fund",
                 "--no-audit",
                 "--progress=false",
             ],
             cwd=str(npm_cwd),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
             env={**os.environ, "CI": "1"},
+            label="npm install",
         )
-        if result.returncode != 0:
-            combined = f"{result.stdout or ''}\n{result.stderr or ''}".strip()
-            preview = "\n".join(combined.splitlines()[-30:])
+        if code != 0:
             print("npm install failed.")
             if preview:
                 print(preview)

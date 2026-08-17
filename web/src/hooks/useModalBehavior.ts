@@ -3,19 +3,33 @@ import { useEffect, useRef } from "react";
 /**
  * Hook that adds standard modal behaviors when `open` is true:
  * - Escape key calls `onClose`
- * - Body scroll is locked
+ * - Page scroll is locked
  * - Focus is restored to the previously focused element on close
  *
- * Returns a ref to attach to the modal container (for optional future focus trapping).
+ * The effect deliberately depends on `open` alone. Every caller passes
+ * `onClose` as an inline arrow, so its identity changes on each render of the
+ * host page; while it was in the dependency array the effect tore down and set
+ * itself up again after *every* render. Each teardown ran the focus restore,
+ * which pulled focus out of the open dialog — and because `focus()` scrolls
+ * the element into view, that also jumped the dialog's scroll position while
+ * the user was clicking through it. The live handler lives in a ref instead.
+ *
+ * Returns a ref to attach to the modal container (for optional future focus
+ * trapping).
  */
-export function useModalBehavior({
+export function useModalBehavior<T extends HTMLElement = HTMLDivElement>({
   open,
   onClose,
 }: {
   open: boolean;
   onClose: () => void;
 }) {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<T>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!open) return;
@@ -25,7 +39,7 @@ export function useModalBehavior({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.preventDefault();
-        onClose();
+        onCloseRef.current();
       }
     };
 
@@ -48,7 +62,7 @@ export function useModalBehavior({
       root.style.overflow = prevRootOverflow;
       prevActive?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   return containerRef;
 }
