@@ -137,7 +137,8 @@ Update the ledger after every delegate finishes or blocks.
 When the launcher prompt includes enabled and disabled specialists, that
 selection is authoritative:
 
-- run only the enabled specialist phases;
+- run only the enabled specialist phases, except Requirements, which is always
+  enabled and always runs first;
 - do not silently add a disabled phase because it normally appears in a
   delivery profile;
 - a planning-only selection may inspect files and write requested planning
@@ -145,11 +146,16 @@ selection is authoritative:
 - ask before adding a specialist that becomes necessary for safety or a
   user-requested outcome.
 
-If Requirements is enabled, load
+Requirements always runs. Load
 `skill_view(name="ultimate-builder:req-engineer")` before the first
-user-facing response. Its multi-round interview, separate Grill, design-space
-exploration, prototype walkthrough, and approval gate are mandatory. Do not
-inspect or write project files before completing that interactive gate.
+user-facing response about the work. Its multi-round interview, separate Grill,
+design-space exploration, prototype walkthrough, and approval gate are
+mandatory. Do not inspect or write project files before completing that
+interactive gate, and do not begin any later phase — or delegate to any other
+specialist — until `requirements.md` exists and the user has approved it. A
+request that already sounds clear does not qualify for a shortcut; only an
+explicit "use smart defaults" from the user collapses the interview, and those
+defaults are then recorded as assumptions in `requirements.md`.
 
 Use the smallest profile that matches the request:
 

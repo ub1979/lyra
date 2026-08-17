@@ -31,6 +31,10 @@ import {
 } from "@/lib/guided-specialists-dialog";
 import { writeGuidedPrompt } from "@/lib/guided-composer-paste";
 import {
+  isRequiredGuidedSpecialist,
+  withRequiredGuidedSpecialists,
+} from "@/lib/guided-required-specialists";
+import {
   GUIDED_MODEL_SILENCE_TIMEOUT_MS,
   decideGuidedWatchdog,
   extendGuidedSubagentGrace,
@@ -339,6 +343,8 @@ function guidedWelcomeSeed(
       "Lyra is the permanent user-facing project guide. Use the internal ultimate-builder:app-it skill, keep internal skill names and orchestration out of user-facing messages, and work only inside the selected workspace.",
     first_turn_gate:
       "The project listing below, together with your workspace snapshot, IS the inspection — do not call file, search, or terminal tools before greeting. Greet the user warmly as Lyra, briefly say what the project appears to be (or that it is empty) from what you were given, and ask exactly ONE short question about what they want to build or change. Inspect files later, once you know what they actually want. Recommend the smallest useful specialist team later and ask permission before changing it.",
+    requirements_gate:
+      "Requirements is mandatory and always enabled. As soon as the user describes anything to build, change, or fix, load skill_view(name=\"ultimate-builder:req-engineer\") and run that playbook yourself in this conversation — it is interactive, so do not delegate it to a spawned agent. Its multi-round interview, the separate Grill stress test, the design-space exploration, the prototype walkthrough and the approval gate are all required, and requirements.md must exist and be approved by the user before you write a plan, an architecture, a task graph, or any code, and before you delegate to any other specialist. Never gather requirements informally yourself and never skip the interview because the request already looks clear. Keep asking one focused question per message; the user may say Skip, Decide for me, or Use smart defaults, and you record those as assumptions and continue.",
     project_listing: projectSummary || "(listing unavailable)",
     workspace,
     enabled_specialists: specialists,
@@ -902,9 +908,12 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
 
   const applyGuidedSpecialistIds = useCallback(
     (ids: readonly string[]) => {
-      const allowed = new Set(GUIDED_SELECTABLE_SPECIALIST_IDS);
-      const selected = Array.from(
-        new Set(ids.filter((id) => allowed.has(id))),
+      // Requirements is pinned here rather than at each caller: the team can
+      // be set from the ?builder= URL, the specialists dialog, or Lyra's own
+      // [APP_IT_SKILLS_SET:...] marker, and all three land in this function.
+      const selected = withRequiredGuidedSpecialists(
+        ids,
+        GUIDED_SELECTABLE_SPECIALIST_IDS,
       );
       setGuidedSelectedSpecialistIds(selected);
       guidedSelectedSpecialistIdsRef.current = selected;
@@ -1597,7 +1606,12 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   );
 
   const openGuidedSkills = useCallback(() => {
-    setGuidedSkillDraftIds(guidedSelectedSpecialistIdsRef.current);
+    setGuidedSkillDraftIds(
+      withRequiredGuidedSpecialists(
+        guidedSelectedSpecialistIdsRef.current,
+        GUIDED_SELECTABLE_SPECIALIST_IDS,
+      ),
+    );
     setGuidedSkillModelDraft({ ...guidedSkillModelsRef.current });
     setGuidedSkillsOpen(true);
   }, []);
@@ -1605,6 +1619,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const toggleGuidedSpecialistDraft = useCallback(
     (id: string) => {
       if (!GUIDED_SELECTABLE_SPECIALIST_IDS.includes(id)) return;
+      // Requirements is not optional — see guided-required-specialists.ts.
+      if (isRequiredGuidedSpecialist(id)) return;
       setGuidedSkillDraftIds((current) =>
         current.includes(id)
           ? current.filter((candidate) => candidate !== id)
@@ -1636,8 +1652,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     ) {
       return;
     }
-    const selected = GUIDED_SELECTABLE_SPECIALIST_IDS.filter((id) =>
-      guidedSkillDraftIds.includes(id),
+    const selected = withRequiredGuidedSpecialists(
+      GUIDED_SELECTABLE_SPECIALIST_IDS.filter((id) =>
+        guidedSkillDraftIds.includes(id),
+      ),
+      GUIDED_SELECTABLE_SPECIALIST_IDS,
     );
     const models = Object.fromEntries(
       Object.entries(guidedSkillModelDraft).filter(
@@ -3017,7 +3036,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 Project specialists
               </h2>
               <p className="mt-1 text-sm text-text-secondary">
-                Lyra is always active. Choose the extra specialists and LLMs this project needs.
+                Lyra and Requirements are always active. Choose the extra
+                specialists and LLMs this project needs.
               </p>
             </div>
             <Button
@@ -3047,7 +3067,14 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               <button
                 type="button"
                 className="text-midground hover:underline"
-                onClick={() => setGuidedSkillDraftIds([])}
+                onClick={() =>
+                  setGuidedSkillDraftIds(
+                    withRequiredGuidedSpecialists(
+                      [],
+                      GUIDED_SELECTABLE_SPECIALIST_IDS,
+                    ),
+                  )
+                }
               >
                 Clear
               </button>
@@ -3060,7 +3087,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6">
             <div className="grid gap-3 md:grid-cols-2">
               {GUIDED_SELECTABLE_SPECIALIST_IDS.map((id) => {
-                const selected = guidedSkillDraftIds.includes(id);
+                const required = isRequiredGuidedSpecialist(id);
+                const selected = required || guidedSkillDraftIds.includes(id);
                 const assignedModel = guidedSkillModelDraft[id] ?? "";
                 const modelChoices =
                   assignedModel && !guidedModelOptions.includes(assignedModel)
@@ -3076,11 +3104,17 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                         : "border-current/15 bg-midground/[0.02] hover:border-current/30",
                     )}
                   >
-                    <label className="grid cursor-pointer grid-cols-[24px_64px_minmax(0,1fr)] items-center gap-3">
+                    <label
+                      className={cn(
+                        "grid grid-cols-[24px_64px_minmax(0,1fr)] items-center gap-3",
+                        required ? "cursor-default" : "cursor-pointer",
+                      )}
+                    >
                       <input
                         type="checkbox"
                         className="sr-only"
                         checked={selected}
+                        disabled={required}
                         onChange={() => toggleGuidedSpecialistDraft(id)}
                       />
                       <span
@@ -3106,6 +3140,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                       <span className="min-w-0">
                         <strong className="block text-sm text-midground">
                           {GUIDED_SPECIALIST_LABELS[id]}
+                          {required && (
+                            <span className="ml-2 rounded-full border border-current/25 px-2 py-0.5 text-[10px] font-normal uppercase tracking-widest text-text-secondary">
+                              Always on
+                            </span>
+                          )}
                         </strong>
                         <small className="mt-1 block text-xs leading-5 text-text-secondary">
                           {GUIDED_SPECIALIST_DESCRIPTIONS[id]}
