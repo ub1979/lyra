@@ -1509,6 +1509,97 @@ class TestWebServerEndpoints:
         assert target.is_file()
         assert target.read_bytes().startswith(b"GIF89a")
 
+    # ── POST /api/chat/file-upload (browser attachments) ────────────────
+
+    def test_chat_file_upload_writes_to_default_profile_uploads(self):
+        from hermes_constants import get_hermes_home
+
+        resp = self.client.post(
+            "/api/chat/file-upload",
+            files={"file": ("notes.md", b"# hello\n", "text/markdown")},
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        target = Path(data["path"])
+        assert data["ok"] is True
+        assert data["bytes"] == len(b"# hello\n")
+        assert target.parent == get_hermes_home() / "uploads"
+        assert target.name.startswith("dashboard_")
+        assert target.name.endswith("_notes.md")
+        assert target.read_bytes() == b"# hello\n"
+
+    def test_chat_file_upload_keeps_traversal_out_of_the_path(self):
+        from hermes_constants import get_hermes_home
+
+        resp = self.client.post(
+            "/api/chat/file-upload",
+            files={"file": ("../../etc/passwd", b"root:x:0:0", "text/plain")},
+        )
+
+        assert resp.status_code == 200
+        target = Path(resp.json()["path"])
+        assert target.parent == get_hermes_home() / "uploads"
+        assert target.name.endswith("_passwd")
+        assert target.is_file()
+
+    def test_chat_file_upload_is_not_executable(self):
+        resp = self.client.post(
+            "/api/chat/file-upload",
+            files={"file": ("run.sh", b"#!/bin/sh\necho hi\n", "text/x-shellscript")},
+        )
+
+        assert resp.status_code == 200
+        target = Path(resp.json()["path"])
+        assert target.stat().st_mode & 0o111 == 0
+
+    def test_chat_file_upload_rejects_empty_file(self):
+        resp = self.client.post(
+            "/api/chat/file-upload",
+            files={"file": ("empty.txt", b"", "text/plain")},
+        )
+
+        assert resp.status_code == 400
+        assert "empty" in resp.json()["detail"].lower()
+
+    def test_chat_file_upload_leaves_no_partial_behind_when_rejected(self):
+        from hermes_constants import get_hermes_home
+
+        self.client.post(
+            "/api/chat/file-upload",
+            files={"file": ("empty.txt", b"", "text/plain")},
+        )
+
+        upload_dir = get_hermes_home() / "uploads"
+        assert not list(upload_dir.glob("*.part"))
+
+    def test_chat_file_upload_writes_to_requested_profile_uploads(self):
+        from hermes_cli import profiles as profiles_mod
+
+        worker_home = profiles_mod.get_profile_dir("worker")
+        worker_home.mkdir(parents=True)
+
+        resp = self.client.post(
+            "/api/chat/file-upload?profile=worker",
+            files={"file": ("spec.pdf", b"%PDF-1.7 fake", "application/pdf")},
+        )
+
+        assert resp.status_code == 200
+        target = Path(resp.json()["path"])
+        assert target.parent == worker_home / "uploads"
+        assert target.is_file()
+
+    def test_chat_file_upload_requires_auth(self):
+        from hermes_cli.web_server import _SESSION_HEADER_NAME
+
+        resp = self.client.post(
+            "/api/chat/file-upload",
+            files={"file": ("notes.md", b"x", "text/markdown")},
+            headers={_SESSION_HEADER_NAME: "wrong-token"},
+        )
+
+        assert resp.status_code == 401
+
     def test_chat_image_upload_rejects_non_image_payload(self):
         resp = self.client.post(
             "/api/chat/image-upload",

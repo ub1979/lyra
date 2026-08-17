@@ -2448,6 +2448,100 @@ async def upload_chat_image(payload: ChatImageUpload, profile: Optional[str] = N
     }
 
 
+_CHAT_FILE_UPLOAD_MAX_BYTES = 50 * 1024 * 1024
+_CHAT_FILE_UPLOAD_CHUNK_BYTES = 1024 * 1024
+
+
+def _sanitize_chat_upload_name(filename: str | None) -> tuple[str, str]:
+    """Return a safe ``(stem, suffix)`` for a browser-supplied attachment name.
+
+    Only the basename survives, control characters and anything outside
+    ``[A-Za-z0-9_.-]`` collapse to ``_``, and the suffix is kept only when it
+    looks like a real extension — so ``../../etc/passwd`` and
+    ``report.pdf.exe\x00.txt`` cannot steer the write.
+    """
+    candidate = Path(str(filename or "").strip()).name
+    candidate = re.sub(r"[\x00-\x1f]+", "_", candidate).strip().strip(".")
+    raw_suffix = Path(candidate).suffix
+    suffix = raw_suffix.lower() if re.fullmatch(r"\.[A-Za-z0-9]{1,12}", raw_suffix) else ""
+    stem = Path(candidate).stem if suffix else candidate
+    stem = re.sub(r"[^A-Za-z0-9_.-]+", "_", stem).strip("._-")[:96]
+    return stem or "upload", suffix
+
+
+@app.post("/api/chat/file-upload")
+async def upload_chat_file(file: UploadFile = File(...), profile: Optional[str] = None):
+    """Persist a browser-provided chat attachment where the agent can read it.
+
+    The dashboard chat is a browser page talking to an agent that runs on *this*
+    machine, so a file the user picks in the browser is not on the agent's disk.
+    This writes it to ``HERMES_HOME/uploads/`` and returns the absolute path,
+    which the chat page puts in the prompt for the agent's file tools to open.
+    Images have their own endpoint (``/api/chat/image-upload``) because they are
+    attached to the model turn as vision content rather than read from disk.
+
+    Multipart and chunked, unlike that base64 JSON sibling: an attachment can be
+    tens of MB, where base64 inflates the body ~33% and buffers the whole file
+    twice in memory — the same reasoning as ``/api/files/upload-stream``.
+    """
+    stem, suffix = _sanitize_chat_upload_name(file.filename)
+    with _profile_scope(profile) as scoped_home:
+        home = scoped_home or get_hermes_home()
+        upload_dir = Path(home) / "uploads"
+        try:
+            upload_dir.mkdir(parents=True, exist_ok=True)
+        except PermissionError:
+            raise HTTPException(status_code=403, detail="Upload directory is not writable")
+        except OSError as exc:
+            raise HTTPException(status_code=500, detail=f"Could not create upload directory: {exc}")
+
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        target = upload_dir / f"dashboard_{ts}_{secrets.token_hex(4)}_{stem}{suffix}"
+        partial = target.with_name(f"{target.name}.part")
+
+        total = 0
+        try:
+            with partial.open("wb") as handle:
+                while True:
+                    chunk = await file.read(_CHAT_FILE_UPLOAD_CHUNK_BYTES)
+                    if not chunk:
+                        break
+                    total += len(chunk)
+                    if total > _CHAT_FILE_UPLOAD_MAX_BYTES:
+                        mb = _CHAT_FILE_UPLOAD_MAX_BYTES // (1024 * 1024)
+                        raise HTTPException(
+                            status_code=413, detail=f"File is too large; cap is {mb} MB"
+                        )
+                    handle.write(chunk)
+            if total == 0:
+                raise HTTPException(status_code=400, detail="Uploaded file is empty")
+            # Never hand back something the shell would happily execute.
+            os.chmod(partial, 0o600)
+            partial.replace(target)
+        except HTTPException:
+            partial.unlink(missing_ok=True)
+            raise
+        except PermissionError:
+            partial.unlink(missing_ok=True)
+            raise HTTPException(status_code=403, detail="Upload directory is not writable")
+        except OSError as exc:
+            partial.unlink(missing_ok=True)
+            raise HTTPException(status_code=500, detail=f"Could not write upload: {exc}")
+
+    mime_type = (
+        file.content_type
+        or mimetypes.guess_type(target.name)[0]
+        or "application/octet-stream"
+    )
+    return {
+        "ok": True,
+        "path": str(target),
+        "name": target.name,
+        "bytes": total,
+        "mime_type": mime_type,
+    }
+
+
 @app.get("/api/files")
 async def list_managed_files(request: Request, path: Optional[str] = None):
     policy, target, display_path = _resolve_managed_path(path, request)

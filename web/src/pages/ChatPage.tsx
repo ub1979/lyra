@@ -31,6 +31,17 @@ import {
 } from "@/lib/guided-specialists-dialog";
 import { writeGuidedPrompt } from "@/lib/guided-composer-paste";
 import {
+  CHAT_ATTACHMENT_ACCEPT,
+  attachmentPromptBlock,
+  attachmentRejection,
+  attachmentSummaryLine,
+  formatAttachmentSize,
+  mergeAttachments,
+  splitChatAttachments,
+  uploadChatFile,
+  type ChatFileUploadResult,
+} from "@/lib/chatAttachments";
+import {
   isRequiredGuidedSpecialist,
   withRequiredGuidedSpecialists,
 } from "@/lib/guided-required-specialists";
@@ -47,7 +58,16 @@ import {
   extendGuidedSubagentGrace,
   guidedWatchdogMessage,
 } from "@/lib/guided-turn-watchdog";
-import { Copy, FolderOpen, PanelRight, RotateCcw, Send, Trash2, X } from "lucide-react";
+import {
+  Copy,
+  FolderOpen,
+  Paperclip,
+  PanelRight,
+  RotateCcw,
+  Send,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
@@ -838,6 +858,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const guidedPhaseAdvanceRef = useRef<string | null>(null);
   const guidedPhasesCompletedRef = useRef<string[]>([]);
   const [guidedInput, setGuidedInput] = useState("");
+  const [guidedAttachments, setGuidedAttachments] = useState<File[]>([]);
+  const [guidedAttachBusy, setGuidedAttachBusy] = useState(false);
+  const [guidedDragActive, setGuidedDragActive] = useState(false);
+  const guidedFileInputRef = useRef<HTMLInputElement>(null);
   const [guidedSkillsOpen, setGuidedSkillsOpen] = useState(false);
   const [guidedSkillDraftIds, setGuidedSkillDraftIds] = useState<string[]>([]);
   const [guidedSkillModels, setGuidedSkillModels] = useState<
@@ -1788,9 +1812,100 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     sendGuidedProjectState,
   ]);
 
+  const addGuidedAttachments = useCallback(
+    (incoming: readonly File[]) => {
+      if (!incoming.length) return;
+      const rejected = incoming
+        .map((file) => attachmentRejection(file))
+        .filter((reason): reason is string => Boolean(reason));
+      const accepted = incoming.filter((file) => !attachmentRejection(file));
+      if (rejected.length) appendGuidedError(rejected.join("; "));
+      if (accepted.length) {
+        setGuidedAttachments((current) => mergeAttachments(current, accepted));
+      }
+    },
+    [appendGuidedError],
+  );
+
+  const removeGuidedAttachment = useCallback((index: number) => {
+    setGuidedAttachments((current) =>
+      current.filter((_file, position) => position !== index),
+    );
+  }, []);
+
+  /**
+   * Upload the attachments, then send the message.
+   *
+   * Images go through the TUI's `/image <path>` command so they arrive as vision
+   * content on the turn; documents are uploaded and their absolute paths are
+   * appended to the prompt for the agent's file tools to open. The visible
+   * bubble shows the typed text plus a 📎 line, never the paths.
+   */
   const sendGuidedMessage = useCallback(() => {
-    submitGuidedText(guidedInput);
-  }, [guidedInput, submitGuidedText]);
+    const text = guidedInput.trim();
+    const attachments = guidedAttachments;
+    if (!attachments.length) {
+      submitGuidedText(guidedInput);
+      return;
+    }
+    if (guidedAttachBusy) return;
+
+    const { documents, images } = splitChatAttachments(attachments);
+    setGuidedAttachBusy(true);
+    void (async () => {
+      const uploads: ChatFileUploadResult[] = [];
+      for (const file of documents) {
+        uploads.push(await uploadChatFile(file, scopedProfile));
+      }
+      const imagePaths: string[] = [];
+      for (const file of images) {
+        const uploaded = await uploadChatImage(file, scopedProfile);
+        imagePaths.push(uploaded.path);
+      }
+
+      const socket = wsRef.current;
+      if (!socket || socket.readyState !== WebSocket.OPEN) {
+        appendGuidedError(
+          "Attachments uploaded, but the chat is not connected — try sending again.",
+        );
+        return;
+      }
+
+      // Attach images first: /image is a composer command, so it has to land
+      // and be submitted before the message text is typed.
+      for (const path of imagePaths) {
+        socket.send(`/image ${path}`);
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 120));
+        if (wsRef.current?.readyState !== WebSocket.OPEN) return;
+        wsRef.current.send("\r");
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 160));
+      }
+      if (wsRef.current?.readyState !== WebSocket.OPEN) return;
+
+      const summary = attachmentSummaryLine(attachments);
+      const prompt = `${text}${attachmentPromptBlock(uploads)}`.trim();
+      setGuidedAttachments([]);
+      submitGuidedText(
+        prompt || summary,
+        [text, summary].filter(Boolean).join("\n"),
+      );
+    })()
+      .catch((error: unknown) => {
+        appendGuidedError(
+          `Attachment upload failed: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      })
+      .finally(() => setGuidedAttachBusy(false));
+  }, [
+    appendGuidedError,
+    guidedAttachBusy,
+    guidedAttachments,
+    guidedInput,
+    scopedProfile,
+    submitGuidedText,
+  ]);
 
   const toggleGuidedPause = useCallback(() => {
     if (!guidedPaused && wsRef.current?.readyState === WebSocket.OPEN) {
@@ -3434,7 +3549,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 element.scrollHeight - element.scrollTop - element.clientHeight <
                 80;
             }}
-            className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-7 sm:py-7"
+            className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:px-7 sm:py-4"
             aria-live="polite"
           >
             <div className="mx-auto max-w-3xl text-[15px] leading-7 text-text-primary">
@@ -3598,12 +3713,90 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             </div>
           </div>
 
-          <div className="border-t border-current/10 bg-background-base p-3 sm:p-4">
-            <div className="mx-auto flex max-w-3xl items-end gap-2 rounded-xl border border-current/20 bg-midground/5 p-2 focus-within:border-midground/50">
+          <div
+            className="border-t border-current/10 bg-background-base p-2 sm:p-3"
+            onDragOver={(event) => {
+              if (!event.dataTransfer?.types.includes("Files")) return;
+              event.preventDefault();
+              event.dataTransfer.dropEffect = "copy";
+              setGuidedDragActive(true);
+            }}
+            onDragLeave={() => setGuidedDragActive(false)}
+            onDrop={(event) => {
+              if (!event.dataTransfer?.files.length) return;
+              event.preventDefault();
+              setGuidedDragActive(false);
+              addGuidedAttachments(Array.from(event.dataTransfer.files));
+            }}
+          >
+            {guidedAttachments.length > 0 && (
+              <ul className="mx-auto mb-2 flex max-w-3xl flex-wrap gap-2">
+                {guidedAttachments.map((file, index) => (
+                  <li
+                    key={`${file.name}-${file.size}-${file.lastModified}`}
+                    className="flex items-center gap-2 rounded-lg border border-current/20 bg-midground/5 px-2 py-1 text-xs text-text-secondary"
+                  >
+                    <Paperclip className="h-3 w-3 shrink-0" />
+                    <span className="max-w-[16rem] truncate text-text-primary">
+                      {file.name}
+                    </span>
+                    <span className="opacity-70">
+                      {formatAttachmentSize(file.size)}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label={`Remove ${file.name}`}
+                      className="rounded p-0.5 hover:text-midground"
+                      disabled={guidedAttachBusy}
+                      onClick={() => removeGuidedAttachment(index)}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div
+              className={cn(
+                "mx-auto flex max-w-3xl items-end gap-2 rounded-xl border bg-midground/5 p-2 focus-within:border-midground/50",
+                guidedDragActive
+                  ? "border-midground/60 bg-midground/10"
+                  : "border-current/20",
+              )}
+            >
+              <input
+                ref={guidedFileInputRef}
+                type="file"
+                multiple
+                accept={CHAT_ATTACHMENT_ACCEPT}
+                className="sr-only"
+                onChange={(event) => {
+                  addGuidedAttachments(Array.from(event.target.files ?? []));
+                  event.target.value = "";
+                }}
+              />
+              <Button
+                ghost
+                size="icon"
+                aria-label="Attach files or images"
+                title="Attach files or images"
+                disabled={guidedPaused || guidedAttachBusy}
+                onClick={() => guidedFileInputRef.current?.click()}
+              >
+                <Paperclip className="h-4 w-4" />
+              </Button>
               <textarea
                 value={guidedInput}
                 onChange={(event) => setGuidedInput(event.target.value)}
                 disabled={guidedPaused}
+                onPaste={(event) => {
+                  const files = Array.from(
+                    event.clipboardData?.files ?? [],
+                  ).filter((file) => file.type.startsWith("image/"));
+                  if (!files.length) return;
+                  event.preventDefault();
+                  addGuidedAttachments(files);
+                }}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && !event.shiftKey) {
                     event.preventDefault();
@@ -3618,7 +3811,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                     ? "Preparing the project conversation…"
                     : "Describe your idea or ask Lyra what to do next…"
                 }
-                className="min-h-12 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-text-primary outline-none placeholder:text-text-secondary"
+                className="max-h-56 min-h-16 flex-1 resize-y bg-transparent px-2 py-2 text-sm text-text-primary outline-none placeholder:text-text-secondary"
                 aria-label="Message Lyra"
               />
               <Button
@@ -3627,7 +3820,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 disabled={
                   guidedPaused ||
                   !guidedAgentReady ||
-                  !guidedInput.trim() ||
+                  guidedAttachBusy ||
+                  (!guidedInput.trim() && !guidedAttachments.length) ||
                   ptyState !== "open"
                 }
                 aria-label="Send message"
@@ -3635,8 +3829,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 <Send className="h-4 w-4" />
               </Button>
             </div>
-            <p className="mx-auto mt-2 max-w-3xl px-2 text-xs text-text-secondary">
-              Lyra can plan, review, test, or build using only the skills you selected.
+            <p className="mx-auto mt-1.5 max-w-3xl px-2 text-xs text-text-secondary">
+              {guidedAttachBusy
+                ? "Uploading attachments…"
+                : "Attach files or images with the clip, drag them here, or paste a screenshot. Shift+Enter for a new line."}
             </p>
           </div>
         </div>

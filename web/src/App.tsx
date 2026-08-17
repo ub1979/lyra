@@ -789,7 +789,7 @@ export default function App() {
                 isSimpleExperience
                   ? "p-0"
                   : isChatRoute
-                  ? "pb-0 pt-1 sm:pt-2 lg:pt-4"
+                  ? "pb-0 pt-0.5 sm:pt-1 lg:pt-2"
                   : "pt-2 sm:pt-4 lg:pt-6",
               )}
             >
