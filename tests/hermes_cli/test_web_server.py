@@ -1509,6 +1509,45 @@ class TestWebServerEndpoints:
         assert target.is_file()
         assert target.read_bytes().startswith(b"GIF89a")
 
+    # ── GET /api/model/info vision capability ───────────────────────────
+
+    def test_model_info_uses_declared_supports_vision_when_catalogue_is_silent(
+        self, monkeypatch
+    ):
+        """models.dev knows nothing about custom/local models, and those are
+        exactly the ones whose vision support the composer has to decide on. The
+        user's own `model.supports_vision` override is authoritative there."""
+        import hermes_cli.web_server as ws
+
+        monkeypatch.setattr(ws, "load_config", lambda: {
+            "model": {
+                "default": "glm-5.2:cloud",
+                "provider": "custom",
+                "supports_vision": True,
+            }
+        })
+
+        resp = self.client.get("/api/model/info")
+
+        assert resp.status_code == 200
+        assert resp.json()["capabilities"].get("supports_vision") is True
+
+    def test_model_info_reports_declared_vision_refusal(self, monkeypatch):
+        import hermes_cli.web_server as ws
+
+        monkeypatch.setattr(ws, "load_config", lambda: {
+            "model": {
+                "default": "glm-5.2:cloud",
+                "provider": "custom",
+                "supports_vision": False,
+            }
+        })
+
+        resp = self.client.get("/api/model/info")
+
+        assert resp.status_code == 200
+        assert resp.json()["capabilities"].get("supports_vision") is False
+
     # ── POST /api/chat/file-upload (browser attachments) ────────────────
 
     def test_chat_file_upload_writes_to_default_profile_uploads(self):

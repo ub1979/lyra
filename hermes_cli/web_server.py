@@ -6848,6 +6848,21 @@ def get_model_info(profile: Optional[str] = None):
         except Exception:
             pass
 
+        # models.dev has no entry for custom or locally served models, so vision
+        # would read as "unknown" for exactly the setups most likely to need an
+        # answer. The agent's image routing resolves the user's own
+        # `model.supports_vision` override first; use the same lookup so the
+        # dashboard's picker agrees with what a turn would actually do.
+        if caps.get("supports_vision") is None:
+            try:
+                from agent.image_routing import _lookup_supports_vision
+
+                declared = _lookup_supports_vision(provider, model_name, cfg)
+                if declared is not None:
+                    caps["supports_vision"] = declared
+            except Exception:
+                pass
+
         return {
             "model": model_name,
             "provider": provider,

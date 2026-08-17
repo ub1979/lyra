@@ -42,6 +42,12 @@ import {
   type ChatFileUploadResult,
 } from "@/lib/chatAttachments";
 import {
+  attachmentAccept,
+  attachmentCapabilityNotice,
+  screenAttachments,
+  type ChatModelCapabilities,
+} from "@/lib/chatAttachmentPolicy";
+import {
   isRequiredGuidedSpecialist,
   withRequiredGuidedSpecialists,
 } from "@/lib/guided-required-specialists";
@@ -859,6 +865,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const guidedPhasesCompletedRef = useRef<string[]>([]);
   const [guidedInput, setGuidedInput] = useState("");
   const [guidedAttachments, setGuidedAttachments] = useState<File[]>([]);
+  // What the model in use can actually accept. Drives the picker's accept list,
+  // the refusals, and the composer hint.
+  const [guidedModelCaps, setGuidedModelCaps] = useState<ChatModelCapabilities>(
+    {},
+  );
   const [guidedAttachBusy, setGuidedAttachBusy] = useState(false);
   const [guidedDragActive, setGuidedDragActive] = useState(false);
   const guidedFileInputRef = useRef<HTMLInputElement>(null);
@@ -1010,6 +1021,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           [info.provider, info.model].filter(Boolean).join(" · ") ||
             "Project default",
         );
+        setGuidedModelCaps({
+          model: info.model,
+          supportsVision: info.capabilities?.supports_vision ?? null,
+        });
       })
       .catch(() => {
         if (active) setGuidedModelOptions([]);
@@ -1815,16 +1830,22 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const addGuidedAttachments = useCallback(
     (incoming: readonly File[]) => {
       if (!incoming.length) return;
-      const rejected = incoming
+      // What the model cannot accept never reaches the upload: a file on disk
+      // plus an answer written as if it had been read is worse than a refusal.
+      const screened = screenAttachments(incoming, guidedModelCaps);
+      const tooBig = screened.accepted
         .map((file) => attachmentRejection(file))
         .filter((reason): reason is string => Boolean(reason));
-      const accepted = incoming.filter((file) => !attachmentRejection(file));
-      if (rejected.length) appendGuidedError(rejected.join("; "));
+      const accepted = screened.accepted.filter(
+        (file) => !attachmentRejection(file),
+      );
+      const problems = [...screened.refusals, ...tooBig];
+      if (problems.length) appendGuidedError(problems.join("\n"));
       if (accepted.length) {
         setGuidedAttachments((current) => mergeAttachments(current, accepted));
       }
     },
-    [appendGuidedError],
+    [appendGuidedError, guidedModelCaps],
   );
 
   const removeGuidedAttachment = useCallback((index: number) => {
@@ -1849,6 +1870,15 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       return;
     }
     if (guidedAttachBusy) return;
+
+    // Re-checked here as well: the model can be switched between picking a file
+    // and sending it.
+    const screened = screenAttachments(attachments, guidedModelCaps);
+    if (screened.refusals.length) {
+      appendGuidedError(screened.refusals.join("\n"));
+      setGuidedAttachments(screened.accepted);
+      return;
+    }
 
     const { documents, images } = splitChatAttachments(attachments);
     setGuidedAttachBusy(true);
@@ -1903,6 +1933,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     guidedAttachBusy,
     guidedAttachments,
     guidedInput,
+    guidedModelCaps,
     scopedProfile,
     submitGuidedText,
   ]);
@@ -3768,7 +3799,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 ref={guidedFileInputRef}
                 type="file"
                 multiple
-                accept={CHAT_ATTACHMENT_ACCEPT}
+                accept={attachmentAccept(guidedModelCaps, CHAT_ATTACHMENT_ACCEPT)}
                 className="sr-only"
                 onChange={(event) => {
                   addGuidedAttachments(Array.from(event.target.files ?? []));
@@ -3832,7 +3863,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             <p className="mx-auto mt-1.5 max-w-3xl px-2 text-xs text-text-secondary">
               {guidedAttachBusy
                 ? "Uploading attachments…"
-                : "Attach files or images with the clip, drag them here, or paste a screenshot. Shift+Enter for a new line."}
+                : (attachmentCapabilityNotice(guidedModelCaps) ??
+                  "Attach files or images with the clip, drag them here, or paste a screenshot. Shift+Enter for a new line.")}
             </p>
           </div>
         </div>
