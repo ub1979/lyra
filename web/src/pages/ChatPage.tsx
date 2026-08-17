@@ -40,12 +40,8 @@ import { latchChatActivation } from "@/lib/chat-activation";
 import {
   analyzeGuidedChatOutput,
   extractAppItSkillSelection,
-  extractAppItTeamSpecialistIds,
   friendlyActivityLabel,
   guidedResponseNeedsContinuation,
-  isAppItTeamAppliedResponse,
-  isAppItTeamApproval,
-  isAppItTeamDirective,
   sanitizeGuidedResponse,
   type GuidedChatPresentation,
   type GuidedSpecialist,
@@ -415,6 +411,10 @@ const GUIDED_WORK_PHRASES = [
 ];
 
 const GUIDED_SPECIALIST_ETA_SECONDS: Record<string, [number, number]> = {
+  // Lyra's own conversational turns are not pipeline phases. Without this row
+  // every reply fell through to the idk_it coordinator estimate and advertised
+  // "30s-2m" for a one-line answer.
+  "app-it": [3, 20],
   "req-engineer": [20, 60],
   spec: [45, 120],
   "sw-architect": [45, 120],
@@ -732,12 +732,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const guidedSelectedSpecialistIdsRef = useRef(
     guidedSelectedSpecialistIds,
   );
-  const guidedSessionSkillsRef = useRef(
-    [
-      "ultimate-builder:app-it",
-      "ultimate-builder:ultimate-app-builder",
-    ],
-  );
+  // Front door only — see applyGuidedSpecialistIds. This initial value is what
+  // a session connecting before the first apply() sends, so it must match.
+  const guidedSessionSkillsRef = useRef(["ultimate-builder:app-it"]);
   const guidedTurnStartLineRef = useRef(0);
   const lastGuidedResponseRef = useRef("");
   const guidedTurnSettledRef = useRef(true);
@@ -841,10 +838,12 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       setGuidedSelectedSpecialistIds(selected);
       guidedSelectedSpecialistIdsRef.current = selected;
       guidedDefaultSpecialistRef.current = APP_IT_SPECIALIST;
-      guidedSessionSkillsRef.current = [
-        "ultimate-builder:app-it",
-        "ultimate-builder:ultimate-app-builder",
-      ];
+      // Only the front-door skill is preloaded. app-it loads the umbrella
+      // workflow itself via skill_view once the team is approved and work
+      // starts — preloading it here put ~2.1k tokens of always-on SDLC
+      // pipeline rules in front of ordinary conversation, which app-it's own
+      // SKILL.md explicitly forbids.
+      guidedSessionSkillsRef.current = ["ultimate-builder:app-it"];
       try {
         window.localStorage.setItem(
           guidedSpecialistStorageKey(workspaceParam),
@@ -911,23 +910,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       content,
       GUIDED_SELECTABLE_SPECIALIST_IDS,
     );
+    // The [APP_IT_SKILLS_SET:...] marker is the only authority on the team.
+    // Inferring it from prose replaced the user's explicit selection with a
+    // guess drawn from one sentence.
     if (skillSelection) {
       applyGuidedSpecialistIds(skillSelection.skillIds);
-    } else {
-      const inferredTeam = extractAppItTeamSpecialistIds(
-        content,
-        GUIDED_SELECTABLE_SPECIALIST_IDS,
-      );
-      const latestUserMessage = [...guidedMessagesRef.current]
-        .reverse()
-        .find((message) => message.role === "user");
-      if (
-        inferredTeam &&
-        (isAppItTeamAppliedResponse(content) ||
-          isAppItTeamDirective(latestUserMessage?.content ?? ""))
-      ) {
-        applyGuidedSpecialistIds(inferredTeam);
-      }
     }
     const response = sanitizeGuidedResponse(
       skillSelection?.content ?? content,
@@ -1469,18 +1456,6 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     ) {
       return;
     }
-    const latestAssistantMessage = [...guidedMessagesRef.current]
-      .reverse()
-      .find((message) => message.role === "assistant");
-    const proposedTeam = latestAssistantMessage
-      ? extractAppItTeamSpecialistIds(
-          latestAssistantMessage.content,
-          GUIDED_SELECTABLE_SPECIALIST_IDS,
-        )
-      : null;
-    if (proposedTeam && isAppItTeamApproval(text)) {
-      applyGuidedSpecialistIds(proposedTeam);
-    }
     guidedTurnStartLineRef.current = Math.max(
       0,
       (termRef.current?.buffer.active.length ?? 1) - 1,
@@ -1512,7 +1487,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       }
     }, 80);
     setGuidedInput("");
-  }, [applyGuidedSpecialistIds, guidedPaused]);
+  }, [guidedPaused]);
 
   const sendGuidedProjectState = useCallback(
     (
