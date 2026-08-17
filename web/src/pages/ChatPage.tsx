@@ -264,16 +264,70 @@ function guidedMessageStorageKey(workspace: string): string {
   return `idrak-it.guided-messages.v1:${workspace || "default"}`;
 }
 
+/**
+ * Compact, read-only description of the project the user just opened.
+ *
+ * The agent already gets a three-line workspace snapshot (root, manifest,
+ * verify commands) from `detect_project_facts`. What it lacked was the shape
+ * of the tree and the project's own name, which it used to obtain by running
+ * read_file/search_files on its first turn. Those tool calls cost ~0.1s but
+ * forced a SECOND model round-trip (~12s) purely to act on the result. Doing
+ * it here keeps the informed greeting and spends milliseconds instead.
+ *
+ * Never throws and never blocks the greeting: any failure yields "" and the
+ * agent simply falls back to asking.
+ */
+async function fetchProjectSummary(workspace: string): Promise<string> {
+  if (!workspace) return "";
+  try {
+    const listing = await api.listFiles(workspace);
+    const entries = listing.entries ?? [];
+    if (!entries.length) return "The project folder is empty.";
+
+    const dirs = entries.filter((e) => e.is_directory).map((e) => e.name);
+    const files = entries.filter((e) => !e.is_directory).map((e) => e.name);
+    const CAP = 40;
+    const parts: string[] = [];
+    if (dirs.length) parts.push(`Folders: ${dirs.slice(0, CAP).join(", ")}`);
+    if (files.length) parts.push(`Files: ${files.slice(0, CAP).join(", ")}`);
+
+    // package.json name/description is the cheapest way to learn what the
+    // project calls itself, which is what makes the greeting feel informed.
+    if (files.includes("package.json")) {
+      try {
+        const pkg = await api.readFile(`${workspace}/package.json`);
+        // The files API returns a data: URL, not raw text.
+        const base64 = (pkg.data_url ?? "").split(",")[1] ?? "";
+        const parsed = JSON.parse(base64 ? atob(base64) : "{}") as {
+          name?: string;
+          description?: string;
+        };
+        const named = [parsed.name, parsed.description]
+          .filter(Boolean)
+          .join(" — ");
+        if (named) parts.push(`package.json: ${named}`);
+      } catch {
+        // Unreadable or non-JSON package.json is not worth failing over.
+      }
+    }
+    return parts.join("\n");
+  } catch {
+    return "";
+  }
+}
+
 function guidedWelcomeSeed(
   workspace: string,
   specialists: readonly string[],
   models: Readonly<Record<string, string>>,
+  projectSummary: string,
 ): string {
   return `IDRAK_INTERNAL_SETUP_BEGIN ${JSON.stringify({
     instruction:
       "Lyra is the permanent user-facing project guide. Use the internal ultimate-builder:app-it skill, keep internal skill names and orchestration out of user-facing messages, and work only inside the selected workspace.",
     first_turn_gate:
-      "Inspect the workspace read-only. Then greet the user warmly as Lyra, briefly say what the project appears to be (or that it is empty), and ask exactly ONE short question about what they want to build or change. Recommend the smallest useful specialist team later and ask permission before changing it.",
+      "The project listing below, together with your workspace snapshot, IS the inspection — do not call file, search, or terminal tools before greeting. Greet the user warmly as Lyra, briefly say what the project appears to be (or that it is empty) from what you were given, and ask exactly ONE short question about what they want to build or change. Inspect files later, once you know what they actually want. Recommend the smallest useful specialist team later and ask permission before changing it.",
+    project_listing: projectSummary || "(listing unavailable)",
     workspace,
     enabled_specialists: specialists,
     enabled_specialist_labels: specialists.map(
@@ -2289,17 +2343,30 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 text: "Lyra is getting to know your project…",
                 specialist: APP_IT_SPECIALIST,
               });
-              const welcome = guidedWelcomeSeed(
-                workspaceParam,
-                guidedSelectedSpecialistIdsRef.current,
-                guidedSkillModelsRef.current,
-              );
-              wsRef.current.send(welcome);
-              window.setTimeout(() => {
-                if (wsRef.current?.readyState === WebSocket.OPEN) {
-                  wsRef.current.send("\r");
-                }
-              }, 100);
+              // Resolve the listing first so the agent can greet in ONE model
+              // round-trip instead of inspecting and then greeting. Capped so a
+              // slow or unresponsive filesystem degrades to a plain greeting
+              // rather than stalling the session.
+              void Promise.race([
+                fetchProjectSummary(workspaceParam),
+                new Promise<string>((resolve) =>
+                  window.setTimeout(() => resolve(""), 1500),
+                ),
+              ]).then((projectSummary) => {
+                if (wsRef.current?.readyState !== WebSocket.OPEN) return;
+                const welcome = guidedWelcomeSeed(
+                  workspaceParam,
+                  guidedSelectedSpecialistIdsRef.current,
+                  guidedSkillModelsRef.current,
+                  projectSummary,
+                );
+                wsRef.current.send(welcome);
+                window.setTimeout(() => {
+                  if (wsRef.current?.readyState === WebSocket.OPEN) {
+                    wsRef.current.send("\r");
+                  }
+                }, 100);
+              });
             }
             return;
           }
