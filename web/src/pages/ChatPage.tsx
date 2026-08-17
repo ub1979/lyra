@@ -591,7 +591,7 @@ function GuidedSpecialistActivity({
 
   return (
     <div className="flex justify-start">
-      <div className="flex max-w-[88%] items-center gap-3 rounded-2xl rounded-bl-md border border-current/10 bg-midground/5 px-4 py-3 sm:max-w-[78%]">
+      <div className="flex max-w-[92%] items-start gap-3 rounded-2xl rounded-bl-md border border-current/10 bg-midground/5 px-4 py-3 sm:max-w-[85%]">
         <div className="guided-specialist-avatar-wrap shrink-0">
           <img
             src={`/skill-avatars/${specialist.id.replaceAll("_", "-")}.webp`}
@@ -604,7 +604,7 @@ function GuidedSpecialistActivity({
           <strong className="block text-sm text-midground">
             {specialist.label} is working
           </strong>
-          <span className="block text-sm text-text-secondary">
+          <span className="block text-sm text-text-secondary break-words">
             {mayBeStalled
               ? "No fresh response yet—it may be waiting on the AI model."
               : phrase}

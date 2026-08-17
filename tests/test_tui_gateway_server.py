@@ -37,6 +37,41 @@ def _neuter_agent_prewarm_timer(request, monkeypatch):
     yield
 
 
+
+def test_tool_ctx_keeps_a_clarify_question_whole():
+    """A clarify argument is a question for the user, read in the dashboard's
+    activity indicator while the turn runs. Truncating it at the status-label
+    cap left half a sentence on screen with no way to see the rest."""
+    from tui_gateway.server import _tool_ctx
+
+    question = (
+        "Should publishing be blocked outright whenever the legal-safety or "
+        "platform-policy check fails, or should it warn and let the author "
+        "publish anyway with a recorded override?"
+    )
+
+    ctx = _tool_ctx("clarify", {"question": question})
+
+    assert question in ctx
+    assert "\u2026" not in ctx
+
+
+def test_tool_ctx_still_caps_ordinary_status_labels():
+    from tui_gateway.server import _tool_ctx
+
+    ctx = _tool_ctx("terminal", {"command": "echo " + "x" * 400})
+
+    assert len(ctx) <= 120
+    assert ctx.endswith("...")
+
+
+def test_tool_ctx_bounds_even_a_runaway_clarify_question():
+    from tui_gateway.server import _tool_ctx
+
+    ctx = _tool_ctx("clarify", {"question": "y" * 5000})
+
+    assert len(ctx) <= 700
+
 def test_session_create_rejects_at_active_session_limit(monkeypatch, tmp_path):
     home = tmp_path / ".hermes"
     home.mkdir()

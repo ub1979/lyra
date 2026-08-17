@@ -4396,11 +4396,27 @@ def _session_info(agent, session: dict | None = None) -> dict:
     return info
 
 
+# Status labels stay short — they are a one-line indicator, not content.
+_TOOL_CTX_MAX_LEN = 80
+
+# ...but a `clarify` argument is a question addressed to the *user*, and the
+# dashboard's activity indicator is where they read it while the turn is still
+# running. Capping that at 80 characters showed half a sentence with no way to
+# reach the rest, so the user could not answer what was being asked.
+_USER_FACING_TOOLS = frozenset({"clarify"})
+_USER_FACING_TOOL_CTX_MAX_LEN = 600
+
+
 def _tool_ctx(name: str, args: dict) -> str:
     try:
         from agent.display import build_tool_label
 
-        return build_tool_label(name, args, max_len=80) or ""
+        max_len = (
+            _USER_FACING_TOOL_CTX_MAX_LEN
+            if name in _USER_FACING_TOOLS
+            else _TOOL_CTX_MAX_LEN
+        )
+        return build_tool_label(name, args, max_len=max_len) or ""
     except Exception:
         return ""
 

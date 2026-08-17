@@ -303,8 +303,14 @@ const FRIENDLY_TOOL_LABELS: Record<string, string> = {
  * Returns `null` when no useful label can be derived — the caller falls back to
  * a generic phrase.
  *
- * The returned label is capped at 80 characters, contains no newlines, and never
- * exposes raw file contents or full paths — only the basename.
+ * Status labels are capped at 80 characters, contain no newlines, and never
+ * expose raw file contents or full paths — only the basename.
+ *
+ * Text addressed to the *user* is exempt from that cap. A `clarify` call is the
+ * agent asking a question, and the activity indicator is where the user reads it
+ * while the turn is still running; cutting it at 80 characters left them staring
+ * at half a sentence with no way to see the rest ("…whenever the legal-safety or
+ * pla…"). Those are returned whole, on one line, and the bubble grows to fit.
  */
 export function friendlyActivityLabel(
   payload: Record<string, unknown> | null | undefined,
@@ -318,7 +324,9 @@ export function friendlyActivityLabel(
     const toolPreview = typeof payload.tool_preview === "string" ? payload.tool_preview.trim() : "";
     const toolName = typeof payload.tool_name === "string" ? payload.tool_name.trim() : "";
 
-    if (summary) return _cap(summary);
+    if (summary) {
+      return _isUserFacing(toolName, summary) ? _whole(summary) : _cap(summary);
+    }
     if (toolName && toolPreview) {
       const verb = FRIENDLY_TOOL_LABELS[toolName] ?? toolName;
       return _cap(`${verb}: ${_basename(toolPreview)}`);
@@ -336,8 +344,13 @@ export function friendlyActivityLabel(
   const preview = typeof payload.preview === "string" ? payload.preview.trim() : "";
   const summary = typeof payload.summary === "string" ? payload.summary.trim() : "";
 
-  if (context) return _cap(_shortenPaths(context));
-  if (summary) return _cap(summary);
+  if (context) {
+    const shortened = _shortenPaths(context);
+    return _isUserFacing(name, shortened) ? _whole(shortened) : _cap(shortened);
+  }
+  if (summary) {
+    return _isUserFacing(name, summary) ? _whole(summary) : _cap(summary);
+  }
 
   const verb = name ? (FRIENDLY_TOOL_LABELS[name] ?? name) : "";
   if (verb && preview) return _cap(`${verb}: ${_basename(preview)}`);
@@ -360,8 +373,24 @@ function _basename(text: string): string {
   return match ? match[1] : clean;
 }
 
+/** Tools whose argument is a message for the user rather than a status line. */
+const USER_FACING_TOOL_NAMES = new Set(["clarify", "ask_user", "ask"]);
+
+function _isUserFacing(toolName: string, text: string): boolean {
+  return USER_FACING_TOOL_NAMES.has(toolName) || /\?["'»)\]]*\s*$/.test(text);
+}
+
+/** Whole text, whitespace collapsed so it wraps as one paragraph. */
+function _whole(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}
+
+/** Short status label: first line only, and never cut mid-word. */
 function _cap(text: string): string {
   const oneLine = text.replace(/\n[\s\S]*/, "").trim();
   if (oneLine.length <= 80) return oneLine;
-  return oneLine.slice(0, 77) + "…";
+  const head = oneLine.slice(0, 79);
+  const lastSpace = head.lastIndexOf(" ");
+  const body = lastSpace >= 40 ? head.slice(0, lastSpace) : head;
+  return body.replace(/[\s,.;:—-]+$/, "") + "…";
 }

@@ -225,6 +225,62 @@ describe("friendlyActivityLabel", () => {
     expect(label).toBe("Writing: App.tsx");
   });
 
+  it("never cuts a question the agent is asking the user", () => {
+    // The activity indicator is where the user reads this while the turn runs.
+    const question =
+      "Asking Should publishing be blocked outright whenever the legal-safety " +
+      "or platform-policy check fails, or should it warn and let the author " +
+      "publish anyway with a recorded override?";
+    const label = friendlyActivityLabel(
+      { context: question, name: "clarify" },
+      false,
+    );
+    expect(label).toBe(question);
+    expect(label).not.toMatch(/…/);
+  });
+
+  it("keeps a question whole even from a tool it does not know", () => {
+    const question = "A".repeat(60) + " which environment should this target?";
+    expect(friendlyActivityLabel({ context: question, name: "mystery" }, false)).toBe(
+      question,
+    );
+  });
+
+  it("puts a multi-line question on one wrapped line instead of dropping the rest", () => {
+    const label = friendlyActivityLabel(
+      {
+        context: "Asking which do you prefer?\n\n1. Postgres\n2. SQLite",
+        name: "clarify",
+      },
+      false,
+    );
+    expect(label).toBe("Asking which do you prefer? 1. Postgres 2. SQLite");
+  });
+
+  it("keeps a subagent question whole too", () => {
+    const question = "Which of these two layouts should I build first?".padStart(
+      120,
+      "x ",
+    );
+    expect(
+      friendlyActivityLabel({ summary: question, tool_name: "clarify" }, true),
+    ).toBe(question.replace(/\s+/g, " ").trim());
+  });
+
+  it("cuts a long status label at a word boundary, not mid-word", () => {
+    const source =
+      "Running a command that installs every dependency in the monorepo workspace right now";
+    const label = friendlyActivityLabel({ context: source }, false);
+
+    expect(label!.length).toBeLessThanOrEqual(80);
+    expect(label).toMatch(/…$/);
+
+    // What survived is a whole-word prefix: the source continues with a space.
+    const body = label!.slice(0, -1);
+    expect(source.startsWith(body)).toBe(true);
+    expect(source[body.length]).toBe(" ");
+  });
+
   it("truncates long text to 80 chars", () => {
     const label = friendlyActivityLabel(
       { context: "A".repeat(100) },
