@@ -8,6 +8,7 @@ import pytest
 from agent.claude_cli_client import (
     ClaudeCLIClient,
     _claude_subprocess_env,
+    _claude_error_detail,
     _normalize_cli_model,
 )
 from agent.external_agent_client import (
@@ -124,6 +125,41 @@ def test_completion_surfaces_structured_cli_error():
                 model="claude-sonnet-4-6",
                 messages=[{"role": "user", "content": "hello"}],
             )
+
+
+def test_completion_surfaces_error_text_from_result_field():
+    proc = _FakeProcess(
+        {
+            "type": "result",
+            "subtype": "error_during_execution",
+            "is_error": True,
+            "result": "Not logged in · Please run /login",
+        },
+        returncode=1,
+    )
+    client = ClaudeCLIClient(command="/opt/homebrew/bin/claude")
+    with patch("agent.claude_cli_client.subprocess.Popen", return_value=proc), patch(
+        "agent.claude_cli_client._claude_subprocess_env", return_value={}
+    ):
+        with pytest.raises(RuntimeError) as exc_info:
+            client.chat.completions.create(
+                model="claude-opus-4-6",
+                messages=[{"role": "user", "content": "hello"}],
+            )
+
+    message = str(exc_info.value)
+    assert "Not logged in · Please run /login" in message
+    assert "error_during_execution" in message
+    assert "model claude-opus-4-6" in message
+    assert "command /opt/homebrew/bin/claude" in message
+
+
+def test_error_detail_uses_subtype_when_cli_omits_message():
+    detail = _claude_error_detail(
+        {"type": "result", "subtype": "error_during_execution", "is_error": True}
+    )
+
+    assert detail == "Claude result subtype: error_during_execution"
 
 
 # ── token usage reporting ────────────────────────────────────────────────────

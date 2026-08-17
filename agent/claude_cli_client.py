@@ -52,6 +52,49 @@ def _claude_subprocess_env() -> dict[str, str]:
     return env
 
 
+def _claude_error_detail(payload: Any, stderr: str = "") -> str:
+    """Extract the most useful failure detail from Claude's JSON result.
+
+    Claude CLI commonly places authentication and model errors in ``result``
+    while setting ``is_error=true``. Some versions only return an error
+    ``subtype``. Preserve stderr as a final diagnostic without hiding those
+    structured fields behind a generic "unknown" message.
+    """
+
+    details: list[str] = []
+    if isinstance(payload, dict):
+        for key in ("error", "message", "result"):
+            value = payload.get(key)
+            if isinstance(value, str) and value.strip():
+                details.append(value.strip())
+            elif key != "result" and value not in (None, "", [], {}):
+                try:
+                    details.append(json.dumps(value, ensure_ascii=False))
+                except (TypeError, ValueError):
+                    details.append(str(value))
+
+        errors = payload.get("errors")
+        if isinstance(errors, list):
+            for value in errors:
+                if isinstance(value, str) and value.strip():
+                    details.append(value.strip())
+                elif value not in (None, "", [], {}):
+                    try:
+                        details.append(json.dumps(value, ensure_ascii=False))
+                    except (TypeError, ValueError):
+                        details.append(str(value))
+
+        subtype = payload.get("subtype")
+        if isinstance(subtype, str) and subtype.strip() and subtype != "success":
+            details.append(f"Claude result subtype: {subtype.strip()}")
+
+    stderr = str(stderr or "").strip()
+    if stderr:
+        details.append(stderr)
+
+    return "; ".join(dict.fromkeys(details)) or "Claude CLI returned no error detail."
+
+
 def _usage_from_payload(payload: Any) -> dict[str, int] | None:
     """Map Claude CLI ``--output-format json`` usage into OpenAI-compatible keys.
 
@@ -211,12 +254,13 @@ class ClaudeCLIClient(CopilotACPClient):
             ) from exc
 
         result = payload.get("result") if isinstance(payload, dict) else None
-        error_text = ""
-        if isinstance(payload, dict):
-            error_text = str(payload.get("error") or payload.get("message") or "").strip()
         if proc.returncode != 0 or (isinstance(payload, dict) and payload.get("is_error")):
-            detail = error_text or "\n".join(stderr_tail).strip() or "unknown Claude CLI error"
-            raise RuntimeError(f"Claude CLI failed (exit {proc.returncode}): {detail}")
+            detail = _claude_error_detail(payload, "\n".join(stderr_tail))
+            model_label = model or "default"
+            raise RuntimeError(
+                f"Claude CLI failed (exit {proc.returncode}, model {model_label}, "
+                f"command {self._acp_command}): {detail}"
+            )
         if not isinstance(result, str):
             raise RuntimeError("Claude CLI response did not contain a text result.")
         self.record_prompt_usage(_usage_from_payload(payload))
