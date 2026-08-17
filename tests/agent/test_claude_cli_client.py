@@ -181,3 +181,48 @@ def test_usage_is_not_carried_into_a_later_request():
     """The thread-local slot must drain, or turn two inherits turn one's counts."""
     assert _complete(_usage_payload()).usage.total_tokens == 4959
     assert _complete({"result": "hi"}).usage.total_tokens == 0
+
+
+# ── CLI default system prompt suppression ────────────────────────────────────
+# Hermes serializes its own system message into the stdin transcript, so the
+# CLI's built-in Claude Code agent prompt is duplicated overhead — measured at
+# ~4.8k prompt tokens per call for tools that `--tools ""` already disables.
+
+def _command_for(*, args=None):
+    proc = _FakeProcess({"result": "ok"})
+    captured = {}
+    real_popen_args = {}
+
+    def _fake_popen(command, **kwargs):
+        real_popen_args["command"] = command
+        return proc
+
+    client = ClaudeCLIClient(command="claude", args=list(args or []))
+    with patch("agent.claude_cli_client.subprocess.Popen", side_effect=_fake_popen), patch(
+        "agent.claude_cli_client._claude_subprocess_env", return_value={}
+    ):
+        client.chat.completions.create(
+            model="claude-sonnet-4-6",
+            messages=[{"role": "user", "content": "hello"}],
+        )
+    captured.update(real_popen_args)
+    return captured["command"]
+
+
+def test_cli_default_system_prompt_is_suppressed():
+    command = _command_for()
+    assert "--system-prompt" in command
+    assert command[command.index("--system-prompt") + 1] == ""
+
+
+def test_operator_system_prompt_override_is_not_duplicated():
+    """An explicit providers.claude-cli.args entry must win, not collide."""
+    command = _command_for(args=["--system-prompt", "custom prompt"])
+    assert command.count("--system-prompt") == 1
+    assert command[command.index("--system-prompt") + 1] == "custom prompt"
+
+
+def test_operator_system_prompt_file_override_is_respected():
+    command = _command_for(args=["--system-prompt-file", "/tmp/p.txt"])
+    assert "--system-prompt" not in [a for a in command if a == "--system-prompt"]
+    assert "--system-prompt-file" in command

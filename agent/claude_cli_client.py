@@ -139,6 +139,21 @@ class ClaudeCLIClient(CopilotACPClient):
             "--strict-mcp-config",
             "--setting-sources=",
         ]
+        # Replace the CLI's built-in agent prompt with an empty one.
+        #
+        # Hermes serializes its own system message into the stdin transcript
+        # (see _messages_to_prompt), so the CLI's default is duplicated work:
+        # ~4.8k tokens of Claude Code file-editing and tool-use guidance, on
+        # every turn, for a session where `--tools ""` already disables those
+        # tools. Measured on a trivial prompt: 4,959 -> 171 prompt tokens and
+        # $0.00214 -> $0.00057 per call, with identical responses.
+        #
+        # Skipped when the operator supplies their own via
+        # providers.claude-cli.args, so an explicit override still wins.
+        if not any(
+            str(arg).startswith("--system-prompt") for arg in self._acp_args
+        ):
+            command.extend(["--system-prompt", ""])
         if model:
             command.extend(["--model", model])
 
