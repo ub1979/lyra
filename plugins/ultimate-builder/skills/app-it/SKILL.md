@@ -91,6 +91,10 @@ it as optional and do not ask whether to include it. The rest is a judgement
 call:
 
 - formal, testable behavior spec on top of requirements: `spec`;
+- anything with a visible interface: `ui-designer` (look and feel from real
+  references, then reviews the build against it);
+- the words users read — labels, empty states, errors: `ux-writer`;
+- shipping a UI to real users: `a11y-auditor`;
 - consequential system or data decisions: `sw-architect`;
 - implementation: `sw-developer`;
 - bugs: `debugger`;

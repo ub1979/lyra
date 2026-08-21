@@ -199,6 +199,7 @@ const GUIDED_SPECIALIST_LABELS: Record<string, string> = {
   "app-it": "Lyra",
   "req-engineer": "Requirements",
   spec: "Technical specification",
+  "ui-designer": "Design",
   "sw-architect": "Architecture",
   "task-planner": "Task planning",
   "proj-manager": "Project planning",
@@ -206,7 +207,9 @@ const GUIDED_SPECIALIST_LABELS: Record<string, string> = {
   "oop-restructurer": "Code restructuring",
   debugger: "Debugging",
   "code-reviewer": "Code review",
+  "ux-writer": "UX writing",
   "qa-engineer": "Quality assurance",
+  "a11y-auditor": "Accessibility",
   "security-auditor": "Security",
   "devops-engineer": "Deployment",
   "tech-writer": "Documentation",
@@ -220,6 +223,7 @@ const GUIDED_SPECIALIST_LABELS: Record<string, string> = {
 const GUIDED_SPECIALIST_DESCRIPTIONS: Record<string, string> = {
   "req-engineer": "Clarify goals, users, scope, and acceptance criteria.",
   spec: "Turn the request into detailed, testable behavior.",
+  "ui-designer": "Set the look and feel from real references, then review the build against it.",
   "sw-architect": "Design the system, data, APIs, and boundaries.",
   "task-planner": "Create an ordered implementation graph.",
   "proj-manager": "Build milestones, checkpoints, and delivery plans.",
@@ -227,7 +231,9 @@ const GUIDED_SPECIALIST_DESCRIPTIONS: Record<string, string> = {
   "oop-restructurer": "Improve modules, classes, and maintainability.",
   debugger: "Find root causes and add regression coverage.",
   "code-reviewer": "Review correctness, quality, and maintainability.",
+  "ux-writer": "Write the labels, empty states, and error messages users read.",
   "qa-engineer": "Test real user journeys and report reproducible bugs.",
+  "a11y-auditor": "Audit against WCAG 2.2 with measured contrast and keyboard paths.",
   "security-auditor": "Audit authentication, data, dependencies, and secrets.",
   "devops-engineer": "Prepare CI/CD, containers, operations, and rollback.",
   "tech-writer": "Write user, developer, and API documentation.",
@@ -522,6 +528,7 @@ const GUIDED_SPECIALIST_ETA_SECONDS: Record<string, [number, number]> = {
   "app-it": [3, 20],
   "req-engineer": [20, 60],
   spec: [45, 120],
+  "ui-designer": [60, 180],
   "sw-architect": [45, 120],
   "task-planner": [30, 90],
   "proj-manager": [45, 120],
@@ -529,7 +536,9 @@ const GUIDED_SPECIALIST_ETA_SECONDS: Record<string, [number, number]> = {
   "oop-restructurer": [60, 240],
   debugger: [60, 240],
   "code-reviewer": [60, 180],
+  "ux-writer": [30, 120],
   "qa-engineer": [45, 180],
+  "a11y-auditor": [45, 150],
   "security-auditor": [60, 240],
   "devops-engineer": [60, 240],
   "tech-writer": [45, 150],
@@ -545,6 +554,47 @@ const GUIDED_SPECIALIST_ETA_SECONDS: Record<string, [number, number]> = {
  * playbook filenames keep their original names — this is the spoken noun only,
  * so one place decides it rather than a dozen string literals.
  */
+/**
+ * Avatar for an agent, falling back to its initial when the artwork is missing.
+ *
+ * Team members are drawn from `/skill-avatars/<id>.webp` (plus a `-sad` variant
+ * for the unselected card). A new agent added before its artwork exists would
+ * otherwise render a broken-image glyph in the dialog and the phase strip.
+ */
+function GuidedAgentAvatar({
+  className,
+  id,
+  muted = false,
+}: {
+  className: string;
+  id: string;
+  muted?: boolean;
+}) {
+  const [failed, setFailed] = useState(false);
+  const label = GUIDED_SPECIALIST_LABELS[id] ?? id;
+  if (failed) {
+    return (
+      <span
+        aria-hidden
+        className={cn(
+          className,
+          "grid place-items-center bg-midground/15 font-semibold text-midground",
+        )}
+      >
+        {label.slice(0, 1).toUpperCase()}
+      </span>
+    );
+  }
+  return (
+    <img
+      src={`/skill-avatars/${id.replaceAll("_", "-")}${muted ? "-sad" : ""}.webp`}
+      alt=""
+      className={className}
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 function guidedAgentName(id: string, label?: string): string {
   const base = label ?? GUIDED_SPECIALIST_LABELS[id] ?? id;
   return /\bagent\b/i.test(base) ? base : `${base} agent`;
@@ -603,9 +653,8 @@ function GuidedSpecialistActivity({
     <div className="flex justify-start">
       <div className="flex max-w-[92%] items-start gap-3 rounded-2xl rounded-bl-md border border-current/10 bg-midground/5 px-4 py-3 sm:max-w-[85%]">
         <div className="guided-specialist-avatar-wrap shrink-0">
-          <img
-            src={`/skill-avatars/${specialist.id.replaceAll("_", "-")}.webp`}
-            alt=""
+          <GuidedAgentAvatar
+            id={specialist.id}
             className="guided-specialist-avatar h-12 w-12 rounded-xl object-cover"
           />
           <span className="guided-specialist-dot" />
@@ -3378,11 +3427,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                       >
                         ✓
                       </span>
-                      <img
-                        src={`/skill-avatars/${id.replace("_", "-")}${
-                          selected ? "" : "-sad"
-                        }.webp`}
-                        alt=""
+                      <GuidedAgentAvatar
+                        id={id}
+                        muted={!selected}
                         className={cn(
                           "h-16 w-16 rounded-xl border border-current/15 object-cover shadow-md transition-all",
                           selected ? "opacity-100" : "scale-95 opacity-60",
@@ -3560,13 +3607,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                         "border-current/10 text-text-secondary/60",
                     )}
                   >
-                    <img
-                      src={`/skill-avatars/${step.id.replaceAll("_", "-")}${
-                        step.state === "pending" ? "-sad" : ""
-                      }.webp`}
-                      alt=""
+                    <GuidedAgentAvatar
+                      id={step.id}
+                      muted={step.state === "pending"}
                       className={cn(
-                        "h-4 w-4 rounded object-cover",
+                        "h-4 w-4 rounded object-cover text-[9px]",
                         step.state === "pending" && "opacity-50",
                       )}
                     />
