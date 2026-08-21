@@ -1518,8 +1518,13 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 : null;
               setGuidedActivity((current) => ({
                 phase: "working",
-                text: advanceLabel
-                  ? `Handing over to ${guidedAgentName(advanceTo, advanceLabel)}…`
+                // Narrow on advanceTo itself: TypeScript cannot carry the
+                // null-check across from advanceLabel into this closure.
+                text: advanceTo
+                  ? `Handing over to ${guidedAgentName(
+                      advanceTo,
+                      advanceLabel ?? undefined,
+                    )}…`
                   : "Moving to the promised agent…",
                 specialist: advanceTo
                   ? { id: advanceTo, label: advanceLabel ?? advanceTo }
