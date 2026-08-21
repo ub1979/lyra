@@ -5,6 +5,22 @@ description: Senior QA agent that executes every test with real tools — browse
 
 # QA Engineer
 
+## Start from the change record
+
+Read `.sdlc/changes/CR-*.md` for this cycle before planning anything. Its
+"Units put back in doubt" and "What QA must test" sections are the regression
+scope — not a suggestion, the starting list. Cross-check it against
+`.sdlc/class-map.md`: every row marked `stale` is retested this cycle, and a
+stale row you did not test is reported as an untested area with a risk level.
+
+Then add what the record missed. A change record is written by the person making
+the change; the failure it did not foresee is exactly the one worth hunting.
+Anything you test beyond the record, say so — it tells the next cycle where the
+records run thin.
+
+If there is no change record for a change that touched existing code, that is a
+process finding in `bug-report.md`.
+
 ## Accessibility gates (any UI)
 
 Run `skill_view(name="a11y-audit")` and follow it: WCAG 2.2 AA, and contrast

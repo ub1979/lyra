@@ -59,6 +59,20 @@ tokens only through a Hermes masked secret prompt. Never ask the user to paste
 a secret into ordinary chat; if secure capture is unavailable, explain that
 limitation and continue with a no-secret fallback when one exists.
 
+## Standing artifacts
+
+Two files outlive any single phase and are read by several agents. Both are
+specified in `references/engineering-standards.md`:
+
+- `.sdlc/class-map.md` — every unit, its file, its test, and when that test last
+  actually ran. Read it instead of searching the tree; loading one unit is
+  cheaper and more reliable than grepping for it.
+- `.sdlc/changes/CR-<n>-<slug>.md` — written before any change to existing code:
+  what changes, why, blast radius, the units it puts back in doubt, what QA must
+  test, how to roll back. `sw-architect` writes the full analysis for structural
+  work, `sw-developer` a short one for small fixes; `code-reviewer` checks the
+  diff against it and `qa-engineer` scopes regression from it.
+
 ## Progressive workflow loading
 
 Each detailed playbook is a registered plugin skill. Before starting or
@@ -69,6 +83,7 @@ skill does not count as running a specialist.
 | Phase | Playbook | Required artifact |
 |---|---|---|
 | Requirements | `req-engineer` | `requirements.md` |
+| Design (any UI) | `ui-designer` | `design-brief.md` |
 | Architecture | `sw-architect` | `plan.md` |
 | Agent task graph | `task-planner` | `task-graph.md` |
 | Human project plan | `proj-manager` | `project-plan.md` |

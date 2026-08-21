@@ -154,6 +154,12 @@ Reading alone misses real problems — running reveals broken builds, failing te
 4. **Dependency chain** — required order of changes (e.g., DB schema → API → frontend)
 5. **Blast radius** — worst case per change plus rollback strategy
 
+Write this analysis into `.sdlc/changes/CR-<n>-<slug>.md` in the format in
+`references/engineering-standards.md`, not only into `plan.md`. That file is what
+`sw-developer` works from, what `code-reviewer` checks the diff against, and what
+`qa-engineer` uses to scope regression — an impact analysis that lives only in
+the architecture document reaches none of them.
+
 ### Removal / Deprecation
 The danger is what silently depends on the thing you delete — be exhaustive before recommending deletion.
 1. **Find every reference (search, don't trust memory)**: Grep/Glob for imports, calls, routes, DB tables/columns, config keys, env vars, feature flags, tests; dynamic/string references too (reflection, route strings, SQL with the table name, config lookups); infra (CI jobs, cron, dashboards, alerts, IaC)

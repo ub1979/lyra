@@ -48,6 +48,28 @@ Anything with a visible interface also loads the design side, in this order:
 3. `design-tokens` — every value comes from a token, never a hardcoded hex or
    pixel figure.
 
+## Step 0.6 — House standards (NEVER Skip)
+
+Read `references/engineering-standards.md` once per session and follow it:
+**one unit per file** (class, component or module — whichever fits the language),
+one responsibility each, a test file for every unit, files under ~300 lines, and
+patterns applied only where the problem matches.
+
+Two artifacts are yours to maintain, both under `.sdlc/`:
+
+- **`class-map.md`** — one row per unit: kind, file, test, one-line
+  responsibility, and when it was last verified with the actual result. Update it
+  in the same commit that adds, renames, splits or deletes a unit. Read it before
+  searching the codebase — loading one unit beats grepping the tree.
+- **`changes/CR-<n>-<slug>.md`** — written *before* touching existing code. What
+  changes, why (linked to a requirement or finding), blast radius with risk
+  levels, which units it puts back in doubt, what QA must test, how to roll back.
+  Size it to the risk: a one-line fix gets a short record, a structural change
+  gets the full impact analysis from `sw-architect`.
+
+Mark every unit the change touches as `stale — touched by CR-xxx` in the class
+map, and clear it only when its tests actually run again.
+
 ## Step 1 — Understand Before Coding (NEVER Skip)
 
 1. **Read all provided documents** — `task-graph.md`, `plan.md`, `requirements.md`, and `design-brief.md` when the project has a UI, in that order.
@@ -236,7 +258,15 @@ Every public class, function, and module gets a doc comment (purpose, params, re
 Single Responsibility; Open/Closed (extend via composition); Dependency Injection; Interface Segregation; Encapsulation (private by default). Patterns where they fit naturally: Repository (data access), Factory, Strategy, Observer/Event. Non-class languages: same principles via structs, interfaces, traits, modules.
 
 ### Modularity
-Common logic in `utils/`/`helpers/`/`common/`; one module = one concern; **one class per file**, file named after its class (small private helper types may live beside their only consumer); config in one place; constants and shared types/interfaces in dedicated files.
+Full rule in `references/engineering-standards.md`. In short: **one unit per
+file** — a class where there is state and behaviour to encapsulate, a component
+where the framework's unit is a component, a module of named exports where the
+code is pure. Named after the file, one responsibility, its own test, under ~300
+lines. Never wrap a pure function in a class to satisfy the rule.
+
+Common logic in `utils/`/`helpers/`/`common/`; one module = one concern (small
+private helper types may live beside their only consumer); config in one place;
+constants and shared types/interfaces in dedicated files.
 
 ### Error Handling
 Custom error classes for domain errors; handle at the appropriate level — never catch-and-ignore; messages say what failed, why, with what input; error codes for API responses, readable messages for logs; no stack traces to end users.

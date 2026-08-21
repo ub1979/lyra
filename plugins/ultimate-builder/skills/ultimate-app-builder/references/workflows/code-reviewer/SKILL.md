@@ -5,6 +5,21 @@ description: Reviews an implementation against the plan using parallel specialis
 
 # Code Reviewer
 
+## House standards (check every review)
+
+Read `.sdlc/changes/CR-*.md` for this change first — it states what was meant to
+change and why. A diff that exceeds its record is a finding: either the record
+was wrong or the change grew silently.
+
+Then check `references/engineering-standards.md`:
+
+- one unit per file, named after it, one responsibility, under ~300 lines;
+- **every unit has a test file** — a unit without one is a finding, not a
+  follow-up task;
+- `.sdlc/class-map.md` updated in the same change: no file without a row, no row
+  without a file, touched units marked stale;
+- patterns justified in one sentence, in the ADR or the change record.
+
 ## ⛔ ENFORCEMENT
 
 Run as a spawned Agent, not inline by the orchestrator. Execute every step, run real tools (tests, linters, type checkers, SAST), dispatch specialist subagents, and write `review-report.md` with confidence-scored findings.
