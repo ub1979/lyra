@@ -373,11 +373,11 @@ function guidedWelcomeSeed(
 ): string {
   return `IDRAK_INTERNAL_SETUP_BEGIN ${JSON.stringify({
     instruction:
-      "Lyra is the permanent user-facing project guide. Use the internal ultimate-builder:app-it skill, keep internal skill names and orchestration out of user-facing messages, and work only inside the selected workspace.",
+      "Lyra is the permanent user-facing project guide. Use the internal ultimate-builder:app-it skill, keep internal skill names and orchestration out of user-facing messages, and work only inside the selected workspace. Vocabulary: when speaking to the user these are AGENTS — the requirements agent, the development agent, the QA agent. Never call them skills, specialists, playbooks, or subagents in a user-facing message; those are internal words.",
     first_turn_gate:
-      "The project listing below, together with your workspace snapshot, IS the inspection — do not call file, search, or terminal tools before greeting. Greet the user warmly as Lyra, briefly say what the project appears to be (or that it is empty) from what you were given, and ask exactly ONE short question about what they want to build or change. Inspect files later, once you know what they actually want. Recommend the smallest useful specialist team later and ask permission before changing it.",
+      "The project listing below, together with your workspace snapshot, IS the inspection — do not call file, search, or terminal tools before greeting. Greet the user warmly as Lyra, briefly say what the project appears to be (or that it is empty) from what you were given, and ask exactly ONE short question about what they want to build or change. Inspect files later, once you know what they actually want. Recommend the smallest useful agent team later and ask permission before changing it.",
     requirements_gate:
-      "Requirements is mandatory and always enabled. As soon as the user describes anything to build, change, or fix, load skill_view(name=\"ultimate-builder:req-engineer\") and run that playbook yourself in this conversation — it is interactive, so do not delegate it to a spawned agent. Its multi-round interview, the separate Grill stress test, the design-space exploration, the prototype walkthrough and the approval gate are all required, and requirements.md must exist and be approved by the user before you write a plan, an architecture, a task graph, or any code, and before you delegate to any other specialist. Never gather requirements informally yourself and never skip the interview because the request already looks clear. Keep asking one focused question per message; the user may say Skip, Decide for me, or Use smart defaults, and you record those as assumptions and continue.",
+      "Requirements is mandatory and always enabled. As soon as the user describes anything to build, change, or fix, load skill_view(name=\"ultimate-builder:req-engineer\") and run that playbook yourself in this conversation — it is interactive, so do not delegate it to a spawned agent. Its multi-round interview, the separate Grill stress test, the design-space exploration, the prototype walkthrough and the approval gate are all required, and requirements.md must exist and be approved by the user before you write a plan, an architecture, a task graph, or any code, and before you delegate to any other agent. Never gather requirements informally yourself and never skip the interview because the request already looks clear. Keep asking one focused question per message; the user may say Skip, Decide for me, or Use smart defaults, and you record those as assumptions and continue.",
     project_listing: projectSummary || "(listing unavailable)",
     workspace,
     enabled_specialists: specialists,
@@ -540,6 +540,16 @@ const GUIDED_SPECIALIST_ETA_SECONDS: Record<string, [number, number]> = {
   idk_it: [30, 120],
 };
 
+/**
+ * What the user calls these: agents, not skills or specialists. The ids and the
+ * playbook filenames keep their original names — this is the spoken noun only,
+ * so one place decides it rather than a dozen string literals.
+ */
+function guidedAgentName(id: string, label?: string): string {
+  const base = label ?? GUIDED_SPECIALIST_LABELS[id] ?? id;
+  return /\bagent\b/i.test(base) ? base : `${base} agent`;
+}
+
 function formatGuidedDuration(totalSeconds: number): string {
   if (totalSeconds < 60) return `${totalSeconds}s`;
   const minutes = Math.floor(totalSeconds / 60);
@@ -602,7 +612,7 @@ function GuidedSpecialistActivity({
         </div>
         <div className="min-w-0">
           <strong className="block text-sm text-midground">
-            {specialist.label} is working
+            {guidedAgentName(specialist.id, specialist.label)} is working
           </strong>
           <span className="block text-sm text-text-secondary break-words">
             {mayBeStalled
@@ -1409,7 +1419,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             text:
               label ??
               (isSubagent
-                ? "A specialist is working on this phase…"
+                ? "An agent is working on this phase…"
                 : "Preparing the next step…"),
             specialist:
               selected ??
@@ -1460,8 +1470,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               setGuidedActivity((current) => ({
                 phase: "working",
                 text: advanceLabel
-                  ? `Handing over to ${advanceLabel}…`
-                  : "Moving to the promised specialist…",
+                  ? `Handing over to ${guidedAgentName(advanceTo, advanceLabel)}…`
+                  : "Moving to the promised agent…",
                 specialist: advanceTo
                   ? { id: advanceTo, label: advanceLabel ?? advanceTo }
                   : current.specialist ?? guidedDefaultSpecialistRef.current,
@@ -1814,8 +1824,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       selected,
       models,
       labels.length
-        ? `Updated project specialists: ${labels.join(", ")}`
-        : "Updated project specialists: Lyra only",
+        ? `Updated project agents: ${labels.join(", ")}`
+        : "Updated project agents: Lyra only",
     );
     setGuidedSkillsOpen(false);
   }, [
@@ -3256,7 +3266,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         <button
           type="button"
           className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-          aria-label="Close project skills"
+          aria-label="Close project agents"
           onClick={() => setGuidedSkillsOpen(false)}
         />
         {/* Fixed height, not max-h: with a content-driven height the panel
@@ -3274,17 +3284,17 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           <header className="flex shrink-0 items-start justify-between gap-4 border-b border-current/15 px-5 py-4 sm:px-6">
             <div>
               <h2 id="guided-skills-title" className="text-xl font-semibold text-midground">
-                Project specialists
+                Project agents
               </h2>
               <p className="mt-1 text-sm text-text-secondary">
-                Lyra and Requirements are always active. Choose the extra
-                specialists and LLMs this project needs.
+                Lyra and the Requirements agent are always active. Choose the
+                extra agents and LLMs this project needs.
               </p>
             </div>
             <Button
               ghost
               size="icon"
-              aria-label="Close project skills"
+              aria-label="Close project agents"
               onClick={() => setGuidedSkillsOpen(false)}
             >
               <X className="h-4 w-4" />
@@ -3380,7 +3390,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                       />
                       <span className="min-w-0">
                         <strong className="block text-sm text-midground">
-                          {GUIDED_SPECIALIST_LABELS[id]}
+                          {guidedAgentName(id)}
                           {required && (
                             <span className="ml-2 rounded-full border border-current/25 px-2 py-0.5 text-[10px] font-normal uppercase tracking-widest text-text-secondary">
                               Always on
@@ -3405,7 +3415,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                       <select
                         value={assignedModel}
                         disabled={!selected}
-                        aria-label={`LLM for ${GUIDED_SPECIALIST_LABELS[id]}`}
+                        aria-label={`LLM for the ${guidedAgentName(id)}`}
                         className="h-9 min-w-0 rounded-lg border border-current/20 bg-background-base px-2 text-xs text-text-primary outline-none focus:border-midground/60 disabled:cursor-not-allowed"
                         onChange={(event) =>
                           updateGuidedSpecialistModelDraft(
@@ -3490,7 +3500,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                   guidedActivity.phase === "working" || !guidedAgentReady
                 }
               >
-                Skills ({guidedSelectedSpecialistIds.length})
+                Agents ({guidedSelectedSpecialistIds.length})
               </Button>
               <Button ghost size="sm" onClick={toggleGuidedPause}>
                 {guidedPaused ? "Resume" : "Pause"}
@@ -3561,6 +3571,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                       )}
                     />
                     {GUIDED_SPECIALIST_LABELS[step.id] ?? step.id}
+                    <span className="sr-only"> agent</span>
                     {step.state === "done" && (
                       <span aria-label="done" className="text-[10px]">
                         ✓
