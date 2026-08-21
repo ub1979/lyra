@@ -414,3 +414,23 @@
   .ub-recent-list button,
   .ub-picker-actions { align-items: flex-start; flex-direction: column; }
 }
+
+/* Agent without artwork yet: an initial on a tinted tile, same box as the
+   mascot it stands in for. */
+.ub-skill-avatar-fallback {
+  display: grid;
+  place-items: center;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: color-mix(in srgb, currentColor 75%, transparent);
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.ub-skill-required {
+  margin-left: 0.5rem;
+  font-size: 0.65rem;
+  font-style: normal;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.65;
+}

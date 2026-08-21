@@ -12,6 +12,7 @@
   const SKILLS = [
     ["req-engineer", "Requirements", "Clarify goals, users, scope, and acceptance criteria."],
     ["spec", "Technical specification", "Turn the request into detailed, testable behavior."],
+    ["ui-designer", "Design", "Set the look and feel from real references, then review the build against it."],
     ["sw-architect", "Architecture", "Design the system, data, APIs, and boundaries."],
     ["task-planner", "Task planning", "Create an ordered implementation graph."],
     ["proj-manager", "Project planning", "Build milestones, checkpoints, and delivery plans."],
@@ -19,7 +20,9 @@
     ["oop-restructurer", "Code restructuring", "Improve modules, classes, and maintainability."],
     ["debugger", "Debugging", "Find root causes and add regression coverage."],
     ["code-reviewer", "Code review", "Review correctness, quality, and maintainability."],
+    ["ux-writer", "UX writing", "Write the labels, empty states, and error messages users read."],
     ["qa-engineer", "Quality assurance", "Test real user journeys and report reproducible bugs."],
+    ["a11y-auditor", "Accessibility", "Audit against WCAG 2.2 with measured contrast and keyboard paths."],
     ["security-auditor", "Security", "Audit authentication, data, dependencies, and secrets."],
     ["devops-engineer", "Deployment", "Prepare CI/CD, containers, operations, and rollback."],
     ["tech-writer", "Documentation", "Write user, developer, and API documentation."],
@@ -30,6 +33,14 @@
   ];
 
   const ALL_SKILL_IDS = SKILLS.map((skill) => skill[0]);
+  // Requirements always runs (see the app-it playbook). Every path that sets the
+  // team goes through this, so no template, Clear, or stray click can drop it.
+  const REQUIRED_SKILL_IDS = ["req-engineer"];
+  const withRequired = function (ids) {
+    const next = new Set(ids);
+    REQUIRED_SKILL_IDS.forEach((id) => next.add(id));
+    return next;
+  };
   const BUILTIN_TEMPLATES = [
     {
       id: "app-it",
@@ -103,11 +114,11 @@
 
   function defaultBrief(templateId, existing) {
     if (templateId === "app-it") return existing
-      ? "Help me understand this project and decide which specialists should work on what I need next."
+      ? "Help me understand this project and decide which agents should work on what I need next."
       : "Help me shape my idea and recommend the smallest useful specialist team.";
     if (templateId === "planning") return "Understand this project and create a clear requirements, architecture, and project plan. Do not implement code.";
     if (templateId === "review") return "Review this existing project, run appropriate QA checks, identify important defects, and recommend verified fixes.";
-    if (existing) return "Improve this existing project using the selected specialists. Inspect it first, preserve unrelated work, and confirm the plan before broad changes.";
+    if (existing) return "Improve this existing project using the selected agents. Inspect it first, preserve unrelated work, and confirm the plan before broad changes.";
     return "Help me turn my idea into a useful application. Ask concise questions when an important product decision is missing.";
   }
 
@@ -181,7 +192,7 @@
     const [screen, setScreen] = useState("home");
     const [mode, setMode] = useState("new");
     const [templateId, setTemplateId] = useState("app-it");
-    const [selected, setSelected] = useState(new Set());
+    const [selected, setSelected] = useState(withRequired([]));
     const [projectPath, setProjectPath] = useState("");
     const [parentPath, setParentPath] = useState("");
     const [projectName, setProjectName] = useState("");
@@ -251,7 +262,7 @@
 
     const applyTemplate = function (template) {
       setTemplateId(template.id);
-      setSelected(new Set(template.skills));
+      setSelected(withRequired(template.skills));
       if (template.models && typeof template.models === "object") {
         setSkillModels(template.models);
         writeStored(SKILL_MODELS_KEY, template.models);
@@ -267,6 +278,7 @@
     };
 
     const toggleSkill = function (id) {
+      if (REQUIRED_SKILL_IDS.indexOf(id) !== -1) return;
       setSelected((current) => {
         const next = new Set(current);
         if (next.has(id)) next.delete(id);
@@ -281,7 +293,7 @@
       const value = {
         id: "custom-" + Date.now().toString(36),
         name,
-        description: selected.size + " selected skills",
+        description: selected.size + " selected agents",
         skills: Array.from(selected),
         models: Object.fromEntries(
           Array.from(selected)
@@ -341,9 +353,9 @@
           .some((skill) => selected.has(skill));
         const request = brief.trim() || defaultBrief(templateId, mode === "existing");
         const prompt = "IDRAK_INTERNAL_SETUP_BEGIN " + JSON.stringify({
-          instruction: "Lyra is the permanent user-facing coordinator. Start with the internal ultimate-builder:app-it skill, work only in the selected workspace, and keep internal skill names, tools, and orchestration out of user-facing messages. The enabled_specialists list is the initial team, not an immutable restriction: Lyra may recommend changes, but may apply them only after explicit user approval by emitting the APP_IT_SKILLS_SET marker. Manual dashboard skill changes are authoritative. Load every specialist with skill_view(name='ultimate-builder:<specialist-id>') immediately before running it, and never claim a specialist ran unless its playbook was actually loaded.",
+          instruction: "Lyra is the permanent user-facing coordinator. Start with the internal ultimate-builder:app-it skill, work only in the selected workspace, and keep internal skill names, tools, and orchestration out of user-facing messages. Vocabulary: to the user these are AGENTS — the requirements agent, the design agent, the development agent. Never say skill, specialist, playbook, or subagent in a user-facing message. The enabled_specialists list is the initial team, not an immutable restriction: Lyra may recommend changes, but may apply them only after explicit user approval by emitting the APP_IT_SKILLS_SET marker. Manual dashboard changes are authoritative. Load every agent with skill_view(name='ultimate-builder:<specialist-id>') immediately before running it, and never claim an agent ran unless its playbook was actually loaded. Requirements is mandatory: as soon as the user names anything to build, change, or fix, load skill_view(name='ultimate-builder:req-engineer') and run that interview in this conversation — its Grill, design-space exploration and approval gate included — and produce an approved requirements.md before any plan, architecture, or code.",
           first_turn_gate: mode === "new"
-            ? "Speak as Lyra. Begin with a warm one-sentence greeting, explain that you will help shape the project and choose the right specialists, then ask exactly ONE short product question. Continue with one focused question per assistant message. Learn what the user wants, who it is for, the smallest must-have outcome, and only material constraints. Then recommend the smallest useful specialist team and ask permission before adding it. Do not write code before the team and requirements are approved."
+            ? "Speak as Lyra. Begin with a warm one-sentence greeting, explain that you will help shape the project and choose the right agents, then ask exactly ONE short product question. Hand the detailed interview to the requirements agent rather than running it yourself. Then recommend the smallest useful agent team and ask permission before adding it. Do not write code before the team and requirements are approved."
             : "Speak as Lyra. Inspect the existing workspace read-only, then begin with a warm one-sentence greeting, briefly say what the project appears to be, and ask exactly ONE question about the outcome the user wants. Recommend the smallest useful specialist team and ask permission before adding it.",
           coordination_rule: "Remain the user's single point of contact. Coordinate only the currently enabled specialist phases and verify each phase's evidence. Specialist delegates return before you continue. Stop for user approval at requirements, visual preview for UI projects, team changes, and final delivery. Present checkpoints with Approve / Change / Skip options. Never ask the user to wake or resume an internal workflow.",
           skill_change_rule: "After the user explicitly approves a proposed team, emit exactly one [APP_IT_SKILLS_SET:comma-separated-ids] marker. The dashboard will update project state and hide the marker. When an IDRAK_INTERNAL_SKILLS_UPDATE message arrives from the dashboard, treat its skill selection and specialist_models map as authoritative and acknowledge it briefly.",
@@ -401,7 +413,7 @@
         h("section", { className: "ub-welcome" },
           h("p", { className: "ub-kicker" }, "LYRA · APP BUILDER"),
           h("h1", null, "What would you like to work on?"),
-          h("p", { className: "ub-subtitle" }, "Start something new or bring an existing folder. Lyra learns what you need, recommends the right specialists, and stays with you through delivery."),
+          h("p", { className: "ub-subtitle" }, "Start something new or bring an existing folder. Lyra learns what you need, recommends the right agents, and stays with you through delivery."),
           h("button", {
             className: "ub-model-settings",
             type: "button",
@@ -431,7 +443,7 @@
               type: "button",
               onClick: () => begin(template.id === "review" ? "existing" : "new", template),
             },
-              h("div", { className: "ub-template-top" }, h("strong", null, template.name), h(Badge, null, template.skills.length + " skills")),
+              h("div", { className: "ub-template-top" }, h("strong", null, template.name), h(Badge, null, template.skills.length + " agents")),
               h("p", null, template.description),
             )),
           ),
@@ -484,10 +496,10 @@
           h(Card, { className: "ub-form-card" },
             h(CardContent, null,
               h("div", { className: "ub-section-heading" },
-                h("div", null, h("h2", null, "Starting team (optional)"), h("p", null, selected.size + " of " + SKILLS.length + " selected · Lyra is always active")),
+                h("div", null, h("h2", null, "Starting team (optional)"), h("p", null, selected.size + " of " + SKILLS.length + " agents selected · Lyra and Requirements are always active")),
                 h("div", { className: "ub-select-actions" },
-                  h("button", { type: "button", onClick: () => setSelected(new Set(ALL_SKILL_IDS)) }, "Select all"),
-                  h("button", { type: "button", onClick: () => setSelected(new Set()) }, "Clear"),
+                  h("button", { type: "button", onClick: () => setSelected(withRequired(ALL_SKILL_IDS)) }, "Select all"),
+                  h("button", { type: "button", onClick: () => setSelected(withRequired([])) }, "Clear"),
                 ),
               ),
               h("div", { className: "ub-skill-list" },
@@ -496,16 +508,31 @@
                   const choices = assignedModel && !modelOptions.includes(assignedModel)
                     ? [assignedModel].concat(modelOptions)
                     : modelOptions;
+                  const required = REQUIRED_SKILL_IDS.indexOf(skill[0]) !== -1;
+                  const on = required || selected.has(skill[0]);
                   return h("label", { className: "ub-skill", key: skill[0] },
-                    h("input", { type: "checkbox", checked: selected.has(skill[0]), onChange: () => toggleSkill(skill[0]) }),
-                    h("span", { className: "ub-skill-check" }, selected.has(skill[0]) ? "✓" : ""),
+                    h("input", { type: "checkbox", checked: on, disabled: required, onChange: () => toggleSkill(skill[0]) }),
+                    h("span", { className: "ub-skill-check" }, on ? "✓" : ""),
                     h("img", {
                       className: "ub-skill-avatar",
-                      src: "/skill-avatars/" + skill[0].replace("_", "-") + (selected.has(skill[0]) ? "" : "-sad") + ".webp",
-                      alt: selected.has(skill[0]) ? skill[1] + " mascot, happy and ready" : skill[1] + " mascot, sad and waiting",
+                      src: "/skill-avatars/" + skill[0].replace("_", "-") + (on ? "" : "-sad") + ".webp",
+                      alt: on ? skill[1] + " mascot, happy and ready" : skill[1] + " mascot, sad and waiting",
+                      // A newly added agent may not have artwork yet; an initial
+                      // beats a broken-image glyph.
+                      onError: (event) => {
+                        const img = event.currentTarget;
+                        if (img.dataset.fallback) return;
+                        img.dataset.fallback = "1";
+                        const tile = document.createElement("span");
+                        tile.className = "ub-skill-avatar ub-skill-avatar-fallback";
+                        tile.textContent = skill[1].slice(0, 1).toUpperCase();
+                        img.replaceWith(tile);
+                      },
                     }),
-                    h("span", { className: "ub-skill-copy" }, h("strong", null, skill[1]), h("small", null, skill[2])),
-                    selected.has(skill[0]) && h("span", {
+                    h("span", { className: "ub-skill-copy" },
+                      h("strong", null, skill[1], required ? h("em", { className: "ub-skill-required" }, "always on") : null),
+                      h("small", null, skill[2])),
+                    on && h("span", {
                       className: "ub-skill-model",
                       onClick: (event) => event.stopPropagation(),
                       onMouseDown: (event) => event.stopPropagation(),
