@@ -4443,6 +4443,46 @@ def _recent_upstream_commits(n: int = 20) -> List[Dict[str, Any]]:
         return []
 
 
+@app.get("/api/lyra/version")
+async def get_lyra_version(force: bool = False):
+    """Lyra's own version, its release notes, and whether a newer build exists.
+
+    Separate from ``/api/hermes/update/check`` (disabled for this distribution,
+    and about the upstream Hermes CLI). This answers the question a Lyra user
+    actually asks — which Lyra am I running, and is there a newer one — by
+    reading the product version and counting commits between HEAD and its
+    tracked remote branch.
+
+    Never fails the page: if git is absent, the checkout has no upstream, or the
+    changelog cannot be read, the fields resolve to null and the dashboard shows
+    the version alone.
+
+    Args:
+        force: bypass the one-hour cache on the commit-behind count.
+    """
+    try:
+        from lyra_version import version_payload
+
+        return await asyncio.to_thread(version_payload, force)
+    except Exception:
+        _log.exception("Lyra version lookup failed")
+        return {
+            "version": None,
+            "channel": None,
+            "display": None,
+            "release_name": None,
+            "released": None,
+            "title": None,
+            "notes": [],
+            "update": {
+                "behind": None,
+                "update_available": False,
+                "branch": None,
+                "checked": False,
+            },
+        }
+
+
 @app.get("/api/hermes/update/check")
 async def check_hermes_update(force: bool = False):
     """Upstream update checks are disabled in the Lyra distribution.

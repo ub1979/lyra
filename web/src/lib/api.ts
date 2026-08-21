@@ -315,6 +315,11 @@ function appendProfileParam(url: string, profile?: string): string {
 export const api = {
   buildWsUrl,
   getStatus: () => fetchJSON<StatusResponse>("/api/status"),
+  /** Lyra's own version and update state — not the upstream CLI's. */
+  getLyraVersion: (force = false) =>
+    fetchJSON<LyraVersionResponse>(
+      force ? "/api/lyra/version?force=true" : "/api/lyra/version",
+    ),
   /**
    * Identity probe for the dashboard auth gate (Phase 7).
    *
@@ -2281,6 +2286,22 @@ export interface SessionSearchResponse {
 }
 
 // ── Model info types ──────────────────────────────────────────────────
+
+export interface LyraVersionResponse {
+  version: string | null;
+  channel: string | null;
+  display: string | null;
+  release_name: string | null;
+  released: string | null;
+  title: string | null;
+  notes: string[];
+  update: {
+    behind: number | null;
+    update_available: boolean;
+    branch: string | null;
+    checked: boolean;
+  };
+}
 
 export interface ModelInfoResponse {
   model: string;

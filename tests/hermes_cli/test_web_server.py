@@ -1509,6 +1509,61 @@ class TestWebServerEndpoints:
         assert target.is_file()
         assert target.read_bytes().startswith(b"GIF89a")
 
+    # ── GET /api/lyra/version ───────────────────────────────────────────
+
+    def test_lyra_version_reports_the_product_version_not_the_cli_one(self):
+        """Users install Lyra; the number they quote in a bug report has to be
+        Lyra's, not the upstream Hermes CLI version it is built on."""
+        resp = self.client.get("/api/lyra/version")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["version"] == "0.17.0"
+        assert data["channel"] == "alpha"
+        assert data["display"] == "alpha v0.17"
+        assert data["release_name"] == "base code"
+
+    def test_lyra_version_carries_the_release_notes(self):
+        resp = self.client.get("/api/lyra/version")
+
+        notes = resp.json()["notes"]
+        assert notes, "the changelog entry should reach the dashboard"
+        assert any("base code" in note.lower() for note in notes)
+        # Wrapped bullets arrive whole, not cut at the first newline.
+        assert all(not note.endswith(("and", "the", "a")) for note in notes)
+
+    def test_lyra_version_reports_an_update_signal(self):
+        resp = self.client.get("/api/lyra/version")
+
+        update = resp.json()["update"]
+        assert set(update) == {"behind", "update_available", "branch", "checked"}
+        assert isinstance(update["update_available"], bool)
+        if update["checked"]:
+            assert isinstance(update["behind"], int)
+        else:
+            assert update["behind"] is None
+
+    def test_lyra_version_survives_a_broken_lookup(self):
+        """A version widget must never be able to take the page down."""
+        import lyra_version
+
+        with patch.object(
+            lyra_version, "version_payload", side_effect=RuntimeError("boom")
+        ):
+            resp = self.client.get("/api/lyra/version")
+
+        assert resp.status_code == 200
+        assert resp.json()["version"] is None
+        assert resp.json()["update"]["update_available"] is False
+
+    def test_lyra_version_requires_auth(self):
+        from hermes_cli.web_server import _SESSION_HEADER_NAME
+
+        resp = self.client.get(
+            "/api/lyra/version", headers={_SESSION_HEADER_NAME: "wrong-token"}
+        )
+        assert resp.status_code == 401
+
     # ── GET /api/model/info vision capability ───────────────────────────
 
     def test_model_info_uses_declared_supports_vision_when_catalogue_is_silent(

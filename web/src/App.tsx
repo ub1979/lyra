@@ -774,7 +774,7 @@ export default function App() {
               )}
             >
               <AuthWidget />
-              <SidebarFooter status={sidebarStatus} />
+              <SidebarFooter />
             </div>
           </aside>}
 
