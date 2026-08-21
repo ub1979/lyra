@@ -5,6 +5,18 @@ description: Senior QA agent that executes every test with real tools — browse
 
 # QA Engineer
 
+## Accessibility gates (any UI)
+
+Run `skill_view(name="a11y-audit")` and follow it: WCAG 2.2 AA, and contrast
+**measured**, never eyeballed — `scripts/measure_render.mjs` for rendered text,
+`scripts/verify_states.mjs` for interactive states (it catches hover-state
+failures), `scripts/contrast.py` for loose colour pairs. Never report a ratio you
+did not measure. Findings go in `bug-report.md` with their WCAG criterion.
+
+`design-review` covers the visual pass; `ux-writing` covers error and empty-state
+copy.
+
+
 ## ⛔ ENFORCEMENT
 
 This skill runs ONLY as a dedicated spawned Agent — the orchestrator never "does QA itself" with a few inline curl or `npm test` calls.

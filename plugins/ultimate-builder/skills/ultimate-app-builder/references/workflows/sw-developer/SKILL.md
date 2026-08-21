@@ -23,9 +23,34 @@ Inline args: `--task-graph`, `--plan`, `--requirements`, `--task`, `--path`, `--
 
 ---
 
+## Step 0.5 — Load the playbook for this stack (NEVER Skip)
+
+Before writing code, load the guide that matches what is being built. Reading
+this file is not a substitute for it, and defaults are not a stack decision:
+
+| Building | Load |
+|---|---|
+| Backend, API, or full-stack service | `skill_view(name="fullstack-dev")` |
+| Web UI, landing page, marketing site | `skill_view(name="frontend-dev")` |
+| Android (Kotlin / Compose) | `skill_view(name="android-native-dev")` |
+| iOS (Swift / SwiftUI / UIKit) | `skill_view(name="ios-application-dev")` |
+| Flutter | `skill_view(name="flutter-dev")` |
+| React Native / Expo | `skill_view(name="react-native-dev")` |
+| GLSL / shader work | `skill_view(name="shader-dev")` |
+
+Anything with a visible interface also loads the design side, in this order:
+
+1. `design-reference` — if `design-brief.md` is missing, there is no agreed
+   direction yet. Stop and get one; do not invent a look.
+2. `design-taste-frontend` — the anti-slop rules, plus one aesthetic overlay
+   when the brief calls for it (`minimalist-ui`, `industrial-brutalist-ui`,
+   `high-end-visual-design`).
+3. `design-tokens` — every value comes from a token, never a hardcoded hex or
+   pixel figure.
+
 ## Step 1 — Understand Before Coding (NEVER Skip)
 
-1. **Read all provided documents** — `task-graph.md`, `plan.md`, `requirements.md`, in that order.
+1. **Read all provided documents** — `task-graph.md`, `plan.md`, `requirements.md`, and `design-brief.md` when the project has a UI, in that order.
 2. **Build a mental model**: system purpose, tech stack, all epics/stories and how they relate, data models, API contracts, architectural patterns from ADRs.
 3. **If existing codebase**: read directory structure and naming conventions, code style, test framework and assertion patterns, reusable utilities, config patterns.
 4. **Present the task list** — all stories/tasks grouped by epic as a numbered checklist. Ask which to start with, or suggest the first by dependencies.

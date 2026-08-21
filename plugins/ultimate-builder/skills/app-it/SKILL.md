@@ -98,6 +98,13 @@ call:
 - measurable performance work: `benchmark`;
 - long projects or handoff: `context-save`.
 
+Anything with a visible interface gets a design direction before implementation:
+the specialist that builds it loads `design-reference` (which produces
+`design-brief.md` from real references the user picks), then the taste and token
+skills. Ask for one site the user already likes — a single real reference is
+worth more than a paragraph of adjectives — and never promise a look you have
+not agreed with them.
+
 Do not recommend every skill by default. Do not add or remove a skill merely
 because it is conventionally part of an SDLC.
 
