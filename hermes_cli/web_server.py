@@ -3980,6 +3980,7 @@ _ACTION_LOG_TAIL_MAX_CHUNK_BYTES = 64 * 1024
 # Short ``name`` (from the URL) → absolute log file path.
 _ACTION_LOG_FILES: Dict[str, str] = {
     "gateway-restart": "gateway-restart.log",
+    "gateway-install": "gateway-install.log",
     "gateway-start": "gateway-start.log",
     "gateway-stop": "gateway-stop.log",
     "hermes-update": "hermes-update.log",
@@ -13946,6 +13947,40 @@ async def start_gateway(profile: Optional[str] = None):
         _log.exception("Failed to spawn gateway start")
         raise HTTPException(status_code=500, detail=f"Failed to start gateway: {exc}")
     return {"ok": True, "pid": proc.pid, "name": "gateway-start"}
+
+
+@app.post("/api/gateway/install")
+async def install_gateway(profile: Optional[str] = None):
+    """Install the gateway as a background service and start it.
+
+    `gateway start` only starts an *already installed* service, so on a fresh
+    machine it fails and the channel never comes up. Asking a non-technical
+    user to open a terminal and run `hermes gateway install` is the step where
+    they give up, so the dashboard does it for them: this is the difference
+    between "Telegram works" and "Telegram works until you close the browser".
+
+    `--start-on-login` is what makes it survive a reboot. Both flags are
+    passed explicitly because the interactive prompts that would otherwise ask
+    are suppressed by HERMES_NONINTERACTIVE in `_spawn_hermes_action`, and an
+    unanswered prompt would leave the service installed but never started.
+
+    Poll `/api/actions/gateway-install/status` for the outcome — the spawn is
+    detached, so a 200 here means "started installing", not "installed".
+    """
+    try:
+        proc = _spawn_hermes_action(
+            _profile_cli_args(profile)
+            + ["gateway", "install", "--start-now", "--start-on-login"],
+            "gateway-install",
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        _log.exception("Failed to spawn gateway install")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to install gateway service: {exc}"
+        )
+    return {"ok": True, "pid": proc.pid, "name": "gateway-install"}
 
 
 @app.post("/api/gateway/stop")

@@ -44,6 +44,7 @@ import {
   Settings,
   Shield,
   ShieldCheck,
+  Smartphone,
   Sparkles,
   Star,
   Terminal,
@@ -86,6 +87,7 @@ import PluginsPage from "@/pages/PluginsPage";
 import McpPage from "@/pages/McpPage";
 import PairingPage from "@/pages/PairingPage";
 import ChannelsPage from "@/pages/ChannelsPage";
+import RemotePage from "@/pages/RemotePage";
 import WebhooksPage from "@/pages/WebhooksPage";
 import SystemPage from "@/pages/SystemPage";
 import ChatPage from "@/pages/ChatPage";
@@ -134,6 +136,7 @@ const BUILTIN_ROUTES_CORE: Record<string, ComponentType> = {
   "/mcp": McpPage,
   "/pairing": PairingPage,
   "/channels": ChannelsPage,
+  "/remote": RemotePage,
   "/webhooks": WebhooksPage,
   "/system": SystemPage,
   "/profiles": ProfilesPage,
@@ -167,6 +170,7 @@ const BUILTIN_NAV_CORE: NavItem[] = [
     label: "Models",
     icon: Cpu,
   },
+  { path: "/remote", label: "Remote", icon: Smartphone },
   { path: "/config", labelKey: "config", label: "Settings", icon: Settings },
   { path: "/env", labelKey: "keys", label: "Keys", icon: KeyRound },
 ];
@@ -198,6 +202,7 @@ const ADVANCED_PATHS = new Set(BUILTIN_NAV_ADVANCED.map((i) => i.path));
 const ICON_MAP: Record<string, ComponentType<{ className?: string }>> = {
   Activity,
   BarChart3,
+  Smartphone,
   Clock,
   Cpu,
   FileText,

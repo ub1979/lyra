@@ -3387,6 +3387,64 @@ class TestWebServerEndpoints:
         assert resp.status_code == 200
         assert captured["args"] == ["import", str(archive)]
 
+    def test_gateway_install_asks_for_a_service_that_starts_and_stays(
+        self, monkeypatch
+    ):
+        """The Remote page's one-click connect depends on these two flags.
+
+        Without ``--start-now`` the service is installed but dead, so the
+        channel never comes up and the page waits forever. Without
+        ``--start-on-login`` it dies at the next reboot and the user concludes
+        Lyra "stopped working". The interactive prompts that would otherwise
+        ask are suppressed by HERMES_NONINTERACTIVE, so an omitted flag is
+        never recovered by the user answering.
+        """
+        import hermes_cli.web_server as ws
+
+        captured = {}
+
+        def fake_spawn(subcommand, name):
+            captured["args"] = subcommand
+            captured["name"] = name
+            from types import SimpleNamespace as NS
+
+            return NS(pid=4321)
+
+        monkeypatch.setattr(ws, "_spawn_hermes_action", fake_spawn)
+
+        resp = self.client.post("/api/gateway/install")
+
+        assert resp.status_code == 200
+        assert resp.json()["name"] == "gateway-install"
+        assert captured["args"] == [
+            "gateway",
+            "install",
+            "--start-now",
+            "--start-on-login",
+        ]
+        assert captured["name"] == "gateway-install"
+
+    def test_gateway_install_has_somewhere_to_write_its_log(self):
+        """``_spawn_hermes_action`` KeyErrors on an unregistered action name,
+        which would surface as a 500 with no explanation."""
+        import hermes_cli.web_server as ws
+
+        assert "gateway-install" in ws._ACTION_LOG_FILES
+
+    def test_gateway_install_reports_a_spawn_failure_instead_of_hanging(
+        self, monkeypatch
+    ):
+        import hermes_cli.web_server as ws
+
+        def fail_spawn(subcommand, name):
+            raise OSError("no such executable")
+
+        monkeypatch.setattr(ws, "_spawn_hermes_action", fail_spawn)
+
+        resp = self.client.post("/api/gateway/install")
+        assert resp.status_code == 500
+        assert "no such executable" in resp.json()["detail"]
+
     def test_ops_backup_defaults_to_dashboard_downloadable_archive(self, monkeypatch):
         from pathlib import Path
 

@@ -29,6 +29,15 @@ moving under users.
 
 ### Added
 
+- **Remote — a settings page that puts Lyra on your phone.** Telegram used to
+  mean editing `.env` by hand and running `hermes gateway install` in a
+  terminal, which is where most people stopped. Now: paste the one thing
+  Telegram will only give a human (the token from @BotFather) and Lyra does
+  the rest — saves it, switches the channel on, installs the background
+  service, starts it, and watches until your phone actually answers. The
+  service survives closing the window and a reboot. Steps appear one at a
+  time, with the full guide behind "Show me everything". The Channels page is
+  unchanged for anyone who wants the per-variable controls.
 - **Copy button on every chat message.** Each bubble carries a small copy icon —
   hover to reveal on desktop, always visible on touch. Lyra's replies copy as
   their original markdown, so code blocks, lists and formatting survive being

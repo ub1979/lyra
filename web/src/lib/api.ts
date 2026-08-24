@@ -1165,6 +1165,15 @@ export const api = {
     }),
 
   // ── Admin: Gateway lifecycle ────────────────────────────────────────
+  /**
+   * Install the gateway as a background service and start it.
+   *
+   * `startGateway` only starts a service that already exists, so this is the
+   * one that works on a machine where nobody has ever opened a terminal.
+   * Detached: poll `getActionStatus("gateway-install")` for the outcome.
+   */
+  installGateway: () =>
+    fetchJSON<ActionResponse>("/api/gateway/install", { method: "POST" }),
   startGateway: () =>
     fetchJSON<ActionResponse>("/api/gateway/start", { method: "POST" }),
   stopGateway: () =>
