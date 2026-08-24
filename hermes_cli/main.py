@@ -7502,7 +7502,7 @@ def _update_via_zip(args):
     if not uv_bin:
         uv_bin = _ensure_uv_for_termux(pip_cmd)
     if uv_bin:
-        uv_env = {**os.environ, "VIRTUAL_ENV": str(PROJECT_ROOT / "venv")}
+        uv_env = {**os.environ, "VIRTUAL_ENV": str(_project_venv_root())}
         if _is_termux_env(uv_env):
             uv_env.pop("PYTHONPATH", None)
             uv_env.pop("PYTHONHOME", None)
@@ -8413,7 +8413,7 @@ def _recover_core_update_marker_locked() -> None:
 
         uv_bin = ensure_uv()
         if uv_bin:
-            uv_env = {**os.environ, "VIRTUAL_ENV": str(PROJECT_ROOT / "venv")}
+            uv_env = {**os.environ, "VIRTUAL_ENV": str(_project_venv_root())}
             if _is_termux_env(uv_env):
                 uv_env.pop("PYTHONPATH", None)
                 uv_env.pop("PYTHONHOME", None)
@@ -8487,6 +8487,29 @@ def _windows_running_hermes_launcher_locked() -> bool:
     return False
 
 
+# The project venv is found, not assumed to be named "venv" — see
+# ``hermes_cli/venv_paths.py`` for why that assumption failed silently.
+def _detect_project_venv_dir() -> Path | None:
+    """The project's venv directory, or ``None`` when there is none."""
+    from hermes_cli.venv_paths import detect_project_venv_dir
+
+    return detect_project_venv_dir(PROJECT_ROOT)
+
+
+def _project_venv_root() -> Path:
+    """The project venv, or where one should be created if none exists."""
+    from hermes_cli.venv_paths import project_venv_root
+
+    return project_venv_root(PROJECT_ROOT)
+
+
+def _venv_python_path(venv_dir: Path) -> Path:
+    """The interpreter inside *venv_dir* for this platform."""
+    from hermes_cli.venv_paths import venv_python_path
+
+    return venv_python_path(venv_dir, windows=_is_windows())
+
+
 def _default_venv_install_target() -> tuple[list[str], dict[str, str] | None]:
     """Return ``(install_cmd_prefix, env)`` for the project venv when possible."""
     try:
@@ -8496,7 +8519,7 @@ def _default_venv_install_target() -> tuple[list[str], dict[str, str] | None]:
     except Exception:
         uv_bin = None
     if uv_bin:
-        env = {**os.environ, "VIRTUAL_ENV": str(PROJECT_ROOT / "venv")}
+        env = {**os.environ, "VIRTUAL_ENV": str(_project_venv_root())}
         if _is_termux_env(env):
             env.pop("PYTHONPATH", None)
             env.pop("PYTHONHOME", None)
@@ -8549,7 +8572,7 @@ def _is_windows() -> bool:
 
 def _venv_scripts_dir() -> Path | None:
     """Return the venv Scripts directory if we're running inside the project venv."""
-    venv_dir = PROJECT_ROOT / "venv"
+    venv_dir = _project_venv_root()
     if not venv_dir.is_dir():
         return None
     scripts = venv_dir / ("Scripts" if _is_windows() else "bin")
@@ -9132,8 +9155,13 @@ def _repair_venv_via_import_probes(
     """
     broken = _detect_broken_lazy_refresh_imports(install_cmd_prefix, env=env)
     if broken is None:
+        # Say *why* they were unavailable. Without this the message repeats on
+        # every launch with nothing to act on — which is exactly how a wrong
+        # venv path (looking for `venv/` in a `.venv` checkout) stayed hidden.
+        target = (env or {}).get("VIRTUAL_ENV") or "the current interpreter"
         print(
-            "  ⚠ Import probes unavailable — cannot confirm venv package health."
+            "  ⚠ Import probes unavailable — cannot confirm venv package health "
+            f"(no usable Python under {target})."
         )
         return "indeterminate"
     if not broken:
@@ -10745,10 +10773,8 @@ def _venv_core_imports_healthy() -> tuple[bool, str]:
     Returns ``(healthy, detail)``. Never raises; unknown states report
     healthy so a probe failure can't force needless reinstalls.
     """
-    venv_dir = PROJECT_ROOT / "venv"
-    python_name = "python.exe" if _is_windows() else "python"
-    bin_dir = "Scripts" if _is_windows() else "bin"
-    venv_python = venv_dir / bin_dir / python_name
+    venv_dir = _project_venv_root()
+    venv_python = _venv_python_path(venv_dir)
     if not venv_python.exists():
         # No venv interpreter at all. In a dev checkout that's normal (the
         # dev may run hermes from any interpreter), so report healthy to
@@ -10826,7 +10852,7 @@ def _detect_venv_python_processes(
     except Exception:
         return []
 
-    venv_dir = PROJECT_ROOT / "venv"
+    venv_dir = _project_venv_root()
     try:
         venv_prefix = str(venv_dir.resolve()).lower().rstrip(os.sep) + os.sep
     except OSError:
@@ -11623,21 +11649,20 @@ def _cmd_update_impl(args, gateway_mode: bool):
                 # A managed install whose venv is gone entirely (interrupted
                 # repair after the old venv was moved aside) needs the venv
                 # recreated before dependencies can be installed into it.
-                venv_python_missing = not (
-                    PROJECT_ROOT
-                    / "venv"
-                    / ("Scripts" if _is_windows() else "bin")
-                    / ("python.exe" if _is_windows() else "python")
-                ).exists()
+                repair_venv_dir = _project_venv_root()
+                venv_python_missing = not _venv_python_path(repair_venv_dir).exists()
                 if venv_python_missing and repair_uv:
                     print("→ Recreating virtual environment...")
                     subprocess.run(
-                        [repair_uv, "venv", "venv"],
+                        # Recreate under the name this checkout already uses,
+                        # so a `.venv` project does not end up with a second,
+                        # unused `venv/` beside it.
+                        [repair_uv, "venv", repair_venv_dir.name],
                         cwd=PROJECT_ROOT,
                         check=False,
                     )
                 if repair_uv:
-                    repair_env = {**os.environ, "VIRTUAL_ENV": str(PROJECT_ROOT / "venv")}
+                    repair_env = {**os.environ, "VIRTUAL_ENV": str(_project_venv_root())}
                     _install_python_dependencies_with_optional_fallback(
                         [repair_uv, "pip"], env=repair_env, group="all"
                     )
@@ -11821,7 +11846,7 @@ def _cmd_update_impl(args, gateway_mode: bool):
         install_group = "all"
 
         if uv_bin:
-            uv_env = {**os.environ, "VIRTUAL_ENV": str(PROJECT_ROOT / "venv")}
+            uv_env = {**os.environ, "VIRTUAL_ENV": str(_project_venv_root())}
             if _is_termux_env(uv_env):
                 uv_env.pop("PYTHONPATH", None)
                 uv_env.pop("PYTHONHOME", None)

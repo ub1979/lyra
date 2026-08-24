@@ -35,12 +35,16 @@ from typing import Callable, Optional
 
 from hermes_constants import get_hermes_home
 from hermes_cli.sqlite_runtime import SQLiteRuntimeInfo, probe_sqlite_runtime
+from hermes_cli.venv_paths import DEFAULT_VENV_DIR_NAME, project_venv_root
 
 logger = logging.getLogger(__name__)
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
 _RUNTIME_DIR_NAME = ".hermes-runtime"
-_VENV_NAME = "venv"
+# Kept for the *creation* default only; where the live venv actually is comes
+# from venv_paths.project_venv_root, so a `.venv` install is repaired too
+# instead of silently reporting "not-applicable".
+_VENV_NAME = DEFAULT_VENV_DIR_NAME
 _REPAIR_LOCK_NAME = "runtime-repair.lock"
 
 # ---------------------------------------------------------------------------
@@ -743,7 +747,7 @@ def _cut_over_candidate(
     project_root: Path,
     live: Path | None = None,
 ) -> tuple[bool, Path | None, SQLiteRuntimeInfo | None, str]:
-    live = live if live is not None else project_root / _VENV_NAME
+    live = live if live is not None else project_venv_root(project_root)
     runtime_root = project_root / _RUNTIME_DIR_NAME
     token = f"{int(time.time())}-{os.getpid()}-{uuid.uuid4().hex[:8]}"
     backup = live.with_name(f"{live.name}.stale.runtime-{token}")
@@ -886,7 +890,7 @@ def repair_vulnerable_runtime(
     post-cutover smoke failures restore the parked venv synchronously.
     """
     root = Path(project_root) if project_root is not None else _PROJECT_ROOT
-    live = Path(venv_dir) if venv_dir is not None else root / _VENV_NAME
+    live = Path(venv_dir) if venv_dir is not None else project_venv_root(root)
     live_python = _venv_python(live)
     if not (root / "pyproject.toml").is_file() or not live_python.is_file():
         return RuntimeRepairResult("not-applicable")

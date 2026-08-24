@@ -36,11 +36,18 @@ fi
 
 if [[ ! -x ".venv/bin/hermes" ]]; then
   echo "Preparing Lyra for the first run..."
+  echo "This downloads and compiles Python dependencies and can take"
+  echo "5-20 minutes on a new machine. It only happens once."
   uv sync --extra dev
 fi
 
+# Do NOT silence this. It used to be `>/dev/null`, which meant the slowest
+# step of a cold start - uv resolving the environment, then Hermes scanning
+# skills and plugins - printed the "Enabling..." line and then produced no
+# output at all for minutes. Every report of "it got stuck on startup" landed
+# in this gap. Showing the work is the difference between slow and hung.
 echo "Enabling the Ultimate Builder plugin..."
-uv run hermes plugins enable ultimate-builder >/dev/null
+uv run hermes plugins enable ultimate-builder
 
 echo
 echo "Starting Lyra at http://127.0.0.1:${PORT}"

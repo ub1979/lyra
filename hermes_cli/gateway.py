@@ -2663,7 +2663,11 @@ def _build_service_path_dirs(project_root: Path | None = None) -> list[str]:
 
     candidates = []
 
-    venv_bin = project_root / "venv" / "bin"
+    # Whatever the venv is called (`venv`, `.venv`, anything activated) —
+    # a hardcoded "venv" left `.venv` installs with the service PATH missing
+    # their own bin directory.
+    detected_venv = _detect_venv_dir()
+    venv_bin = (detected_venv or project_root / "venv") / "bin"
     if _is_dir(venv_bin):
         candidates.append(str(venv_bin))
     elif sys.prefix != sys.base_prefix:
