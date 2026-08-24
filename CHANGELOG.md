@@ -10,8 +10,29 @@ moving under users.
 
 ## [Unreleased]
 
-_Nothing yet. Add entries here as work lands; move them under a version heading
-when you cut the release._
+### Fixed
+
+- **Startup no longer nags about an unhealthy venv it never checked.** Lyra
+  looked for its virtual environment at `venv/`, but `start.sh` creates `.venv`
+  (uv's default) — so on every install the health probe found no interpreter,
+  reported "cannot tell" instead of an answer, and left the
+  `.lazy-refresh-incomplete` marker on disk. Result: the warning
+  "a previous lazy-backend refresh may have left the venv unhealthy" reprinted
+  on every single launch, forever, while nothing was ever actually verified.
+  The venv is now located rather than assumed (`hermes_cli/venv_paths.py`), and
+  the same fix un-blinds the SQLite runtime repair and the service PATH, which
+  were silently opting out on `.venv` installs for the same reason.
+- **A cold start no longer looks like a hang.** `start.sh` discarded the output
+  of the plugin-enable step, so the slowest part of a first run printed one line
+  and then went silent for minutes. It now shows its work, and says up front
+  that a first run compiles dependencies and can take a while.
+
+### Added
+
+- **Copy button on every chat message.** Each bubble carries a small copy icon —
+  hover to reveal on desktop, always visible on touch. Lyra's replies copy as
+  their original markdown, so code blocks, lists and formatting survive being
+  pasted somewhere else; internal phase markers never do.
 
 ## [0.17.0] - 2026-08-21 — base code
 
