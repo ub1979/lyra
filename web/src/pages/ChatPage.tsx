@@ -67,6 +67,7 @@ import {
 import {
   Copy,
   FolderOpen,
+  MessageCircle,
   Paperclip,
   PanelRight,
   RotateCcw,
@@ -79,12 +80,14 @@ import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 
 import { ChatSidebar } from "@/components/ChatSidebar";
+import { CopyMessageButton } from "@/components/CopyMessageButton";
 import { Markdown } from "@/components/Markdown";
 import { ChatSessionList } from "@/components/ChatSessionList";
 import { usePageHeader } from "@/contexts/usePageHeader";
 import { useI18n } from "@/i18n";
-import { api } from "@/lib/api";
+import { api, type MessagingPlatform } from "@/lib/api";
 import { latchChatActivation } from "@/lib/chat-activation";
+import { chatMessageCopyText } from "@/lib/chat-copy";
 import { useModalBehavior } from "@/hooks/useModalBehavior";
 import {
   analyzeGuidedChatOutput,
@@ -117,6 +120,11 @@ import {
 import { PluginSlot } from "@/plugins";
 import { useTheme } from "@/themes";
 import { useProfileScope } from "@/contexts/useProfileScope";
+import {
+  telegramRemoteButtonLabel,
+  telegramRemoteHint,
+  telegramRemoteReadiness,
+} from "@/lib/telegram-remote";
 
 // Stable per-browser token identifying THIS chat tab's keep-alive PTY session.
 // Sent as ?attach=; lets a refresh/disconnect reattach to the same live process
@@ -947,12 +955,20 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   );
   const [guidedPaused, setGuidedPaused] = useState(false);
   const [guidedAgentReady, setGuidedAgentReady] = useState(false);
+  const [telegramPlatform, setTelegramPlatform] =
+    useState<MessagingPlatform | null>(null);
+  const [telegramRemoteLoading, setTelegramRemoteLoading] = useState(false);
+  const [telegramHandoffStatus, setTelegramHandoffStatus] = useState<
+    "idle" | "sending" | "sent" | "failed"
+  >("idle");
+  const telegramHandoffRequestedRef = useRef(false);
   const guidedAgentReadyRef = useRef(false);
   const guidedOutputRef = useRef<HTMLDivElement | null>(null);
   const guidedAutoScrollRef = useRef(true);
   const hasModelConnectionError = guidedOutput.includes(
     MODEL_CONNECTION_ERROR_MARKER,
   );
+  const telegramReadiness = telegramRemoteReadiness(telegramPlatform);
   // The declared phase wins over the specialist inferred from output text: a
   // phase Lyra runs in the conversation herself (requirements) emits no
   // subagent events, so inference always fell back to Lyra.
@@ -1355,6 +1371,35 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   // management profile. Changing it remounts the terminal (key below /
   // effect dep) so the user explicitly starts a fresh scoped session.
   const { profile: scopedProfile } = useProfileScope();
+  useEffect(() => {
+    if (!guided || !isActive) return;
+    let cancelled = false;
+    let first = true;
+
+    const refreshTelegram = async () => {
+      if (first) setTelegramRemoteLoading(true);
+      try {
+        const response = await api.getMessagingPlatforms();
+        if (cancelled) return;
+        setTelegramPlatform(
+          response.platforms.find((platform) => platform.id === "telegram") ??
+            null,
+        );
+      } catch {
+        if (!cancelled) setTelegramPlatform(null);
+      } finally {
+        first = false;
+        if (!cancelled) setTelegramRemoteLoading(false);
+      }
+    };
+
+    void refreshTelegram();
+    const timer = window.setInterval(() => void refreshTelegram(), 10_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [guided, isActive, scopedProfile]);
   const channel = useMemo(
     () => generateChannelId(`${resumeParam ?? ""}\0${scopedProfile}`),
     [resumeParam, scopedProfile],
@@ -2011,6 +2056,44 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     }
     setGuidedPaused((value) => !value);
   }, [guidedPaused]);
+
+  const continueGuidedOnTelegram = useCallback(() => {
+    if (telegramReadiness !== "ready") {
+      const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      window.location.href = `/channels?focus=telegram&returnTo=${encodeURIComponent(returnTo)}`;
+      return;
+    }
+
+    const socket = wsRef.current;
+    if (
+      !socket ||
+      socket.readyState !== WebSocket.OPEN ||
+      guidedActivity.phase === "working" ||
+      !guidedAgentReadyRef.current
+    ) {
+      appendGuidedError(
+        "Wait for Lyra to finish the current step, then try Continue on Telegram again.",
+      );
+      return;
+    }
+
+    telegramHandoffRequestedRef.current = true;
+    setTelegramHandoffStatus("sending");
+    writeGuidedPrompt("/handoff telegram", {
+      isOpen: () => wsRef.current?.readyState === WebSocket.OPEN,
+      schedule: (run, delayMs) => window.setTimeout(run, delayMs),
+      send: (data) => socket.send(data),
+    });
+
+    // The gateway watcher has a bounded 60-second handoff window. If the PTY
+    // has not exited by then, leave the project local and offer a retry rather
+    // than showing an endless "moving" state.
+    window.setTimeout(() => {
+      if (!telegramHandoffRequestedRef.current) return;
+      telegramHandoffRequestedRef.current = false;
+      setTelegramHandoffStatus("failed");
+    }, 65_000);
+  }, [appendGuidedError, guidedActivity.phase, telegramReadiness]);
 
   const retryLastGuidedMessage = useCallback(() => {
     const ws = wsRef.current;
@@ -2814,6 +2897,13 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       //   4410 = the agent PROCESS exited (real end) → restart affordance.
       //   4409 = superseded by a newer tab attaching the same token → stay quiet.
       if (ev.code === 4410) {
+        if (telegramHandoffRequestedRef.current) {
+          telegramHandoffRequestedRef.current = false;
+          setTelegramHandoffStatus("sent");
+          setBanner(null);
+          setPtyState("ended");
+          return;
+        }
         term.write(`\r\n\x1b[90m[session ended]\x1b[0m\r\n`);
         setPtyState("ended");
         return;
@@ -3544,6 +3634,27 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             </div>
             <div className="flex shrink-0 flex-wrap items-center justify-end gap-1 sm:gap-2">
               <Button
+                outlined
+                size="sm"
+                onClick={continueGuidedOnTelegram}
+                title={telegramRemoteHint(telegramReadiness)}
+                disabled={
+                  telegramRemoteLoading ||
+                  guidedActivity.phase === "working" ||
+                  telegramHandoffStatus === "sending" ||
+                  telegramHandoffStatus === "sent"
+                }
+              >
+                <MessageCircle className="mr-1 h-3.5 w-3.5" />
+                {telegramRemoteLoading
+                  ? "Checking phone…"
+                  : telegramHandoffStatus === "sending"
+                  ? "Moving to Telegram…"
+                  : telegramHandoffStatus === "sent"
+                  ? "On Telegram"
+                  : telegramRemoteButtonLabel(telegramReadiness)}
+              </Button>
+              <Button
                 ghost
                 size="sm"
                 onClick={openGuidedSkills}
@@ -3587,6 +3698,37 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               </Button>
             </div>
           </div>
+
+          {telegramHandoffStatus !== "idle" && (
+            <div
+              className={cn(
+                "flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 text-sm sm:px-5",
+                telegramHandoffStatus === "failed"
+                  ? "border-warning/30 bg-warning/10 text-warning"
+                  : "border-current/10 bg-midground/5 text-text-secondary",
+              )}
+            >
+              <span>
+                {telegramHandoffStatus === "sent"
+                  ? "This project is now on Telegram. Lyra will notify your phone when she asks a question or needs approval."
+                  : telegramHandoffStatus === "failed"
+                  ? "The Telegram handoff did not complete. Check that the gateway is connected and that you pressed Start in the bot."
+                  : "Moving this project and its conversation history to Telegram…"}
+              </span>
+              {telegramHandoffStatus === "failed" && (
+                <Button
+                  ghost
+                  size="sm"
+                  onClick={() => {
+                    setTelegramHandoffStatus("idle");
+                    continueGuidedOnTelegram();
+                  }}
+                >
+                  Retry
+                </Button>
+              )}
+            </div>
+          )}
 
           {guidedPhaseSteps.length > 1 && (
             <ol
@@ -3671,7 +3813,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 </div>
               )}
               <div className="space-y-4">
-                {guidedMessages.map((message) => (
+                {guidedMessages.map((message) => {
+                  const copyText = chatMessageCopyText(message);
+                  return (
                   <div
                     key={message.id}
                     className={cn(
@@ -3681,7 +3825,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                   >
                     <div
                       className={cn(
-                        "max-w-[88%] rounded-2xl px-4 py-3 shadow-sm sm:max-w-[78%]",
+                        // `group` so the copy button can reveal itself on
+                        // hover over anywhere in the bubble, not just itself.
+                        "group max-w-[88%] rounded-2xl px-4 py-3 shadow-sm sm:max-w-[78%]",
                         message.role === "user"
                           ? "whitespace-pre-wrap rounded-br-md bg-midground text-background-base"
                           : message.role === "error"
@@ -3689,12 +3835,27 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                           : "rounded-bl-md border border-current/10 bg-midground/5 text-text-primary",
                       )}
                     >
-                      <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider opacity-65">
-                        {message.role === "user"
-                          ? "You"
-                          : message.role === "error"
-                          ? "Problem"
-                          : "Lyra"}
+                      <div className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider">
+                        <span className="opacity-65">
+                          {message.role === "user"
+                            ? "You"
+                            : message.role === "error"
+                            ? "Problem"
+                            : "Lyra"}
+                        </span>
+                        {copyText ? (
+                          <CopyMessageButton
+                            className="-my-1 ml-auto"
+                            text={copyText}
+                            roleLabel={
+                              message.role === "user"
+                                ? "your"
+                                : message.role === "error"
+                                ? "this error"
+                                : "Lyra"
+                            }
+                          />
+                        ) : null}
                       </div>
                       {message.role === "assistant" ? (
                         <Markdown content={message.content} />
@@ -3779,7 +3940,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                       )}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
 
                 {!hasModelConnectionError &&
                   guidedActivity.phase === "working" && (

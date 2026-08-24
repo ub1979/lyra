@@ -1903,6 +1903,7 @@ export interface TelegramOnboardingApplyResponse {
   ok: boolean;
   platform: "telegram";
   bot_username?: string;
+  home_channel_configured: boolean;
   needs_restart: boolean;
   restart_started?: boolean;
   restart_action?: string;

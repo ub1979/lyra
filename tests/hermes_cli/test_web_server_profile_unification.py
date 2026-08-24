@@ -654,6 +654,12 @@ class TestProfileScopedTelegramOnboarding:
         worker_cfg = _cfg(isolated_profiles["worker_beta"])
         default_cfg = _cfg(isolated_profiles["default"])
         assert worker_cfg["platforms"]["telegram"]["enabled"] is True
+        assert worker_cfg["platforms"]["telegram"]["home_channel"] == {
+            "platform": "telegram",
+            "chat_id": "123456789",
+            "name": "Telegram phone",
+            "user_id": "123456789",
+        }
         assert default_cfg.get("platforms", {}).get("telegram", {}).get("enabled") is not True
 
 

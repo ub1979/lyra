@@ -9841,11 +9841,32 @@ async def apply_telegram_onboarding(
             )
 
     effective_profile = body.profile or profile
+    home_channel_configured = False
     try:
         with _profile_scope(effective_profile):
             save_env_value("TELEGRAM_BOT_TOKEN", bot_token)
             save_env_value("TELEGRAM_ALLOWED_USERS", ",".join(allowed_user_ids))
             _write_platform_enabled("telegram", True)
+            # QR onboarding has authenticated the Telegram account owner and
+            # given us the exact private-chat id. Make that phone the default
+            # destination immediately so guided-project handoff works without
+            # the otherwise-surprising extra `/sethome` round trip. Do not
+            # infer a home from manually-added allowlist entries: only the
+            # owner proved by the pairing service is safe to select here.
+            owner_user_id = record.owner_user_id
+            if owner_user_id and owner_user_id in allowed_user_ids:
+                from gateway.config import HomeChannel, Platform, persist_home_channel
+
+                persist_home_channel(
+                    HomeChannel(
+                        platform=Platform.TELEGRAM,
+                        chat_id=owner_user_id,
+                        name="Telegram phone",
+                        user_id=owner_user_id,
+                    ),
+                    enabled_if_new=True,
+                )
+                home_channel_configured = True
     except HTTPException:
         raise
     except ValueError as exc:
@@ -9866,6 +9887,7 @@ async def apply_telegram_onboarding(
         "ok": True,
         "platform": "telegram",
         "bot_username": bot_username,
+        "home_channel_configured": home_channel_configured,
         "needs_restart": not restart_result["restart_started"],
         **restart_result,
     }

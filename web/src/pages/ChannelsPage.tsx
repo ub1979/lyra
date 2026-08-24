@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import * as QRCode from "qrcode";
+import { useSearchParams } from "react-router-dom";
 import { Badge } from "@nous-research/ui/ui/components/badge";
 import { Button } from "@nous-research/ui/ui/components/button";
 import { Card, CardContent } from "@nous-research/ui/ui/components/card";
@@ -130,6 +131,7 @@ function normalizeWhatsAppMode(mode: unknown): "bot" | "self-chat" | null {
 }
 
 export default function ChannelsPage() {
+  const [searchParams] = useSearchParams();
   const [platforms, setPlatforms] = useState<MessagingPlatform[]>([]);
   const [envPath, setEnvPath] = useState("~/.hermes/.env");
   const [gatewayStartCommand, setGatewayStartCommand] = useState(
@@ -157,6 +159,12 @@ export default function ChannelsPage() {
   const [restarting, setRestarting] = useState(false);
 
   const gatewayRunning = platforms.length > 0 && platforms[0].gateway_running;
+  const requestedPlatform = searchParams.get("focus")?.trim() ?? "";
+  const requestedReturnTo = searchParams.get("returnTo")?.trim() ?? "";
+  const returnTo =
+    requestedReturnTo.startsWith("/") && !requestedReturnTo.startsWith("//")
+      ? requestedReturnTo
+      : "";
 
   const load = useCallback(() => {
     return api
@@ -172,6 +180,13 @@ export default function ChannelsPage() {
   useEffect(() => {
     load().finally(() => setLoading(false));
   }, [load]);
+
+  useEffect(() => {
+    if (loading || !requestedPlatform) return;
+    document
+      .getElementById(`channel-${requestedPlatform}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [loading, requestedPlatform]);
 
   const openConfig = (platform: MessagingPlatform) => {
     const initial: Record<string, string> = {};
@@ -306,6 +321,28 @@ export default function ChannelsPage() {
   return (
     <div className="flex flex-col gap-6">
       <Toast toast={toast} />
+
+      {returnTo && requestedPlatform === "telegram" && (
+        <Card className="border-primary/40">
+          <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-2 text-sm">
+              <Bot className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <span>
+                Connect Telegram below, open the new bot on your phone and press
+                Start. Lyra will use that private chat for project questions.
+              </span>
+            </div>
+            <Button
+              size="sm"
+              outlined
+              className="shrink-0 uppercase"
+              onClick={() => window.location.assign(returnTo)}
+            >
+              Back to project
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Restart banner */}
       {restartNeeded && (
@@ -537,7 +574,11 @@ export default function ChannelsPage() {
                 ? AlertTriangle
                 : Radio;
           return (
-            <Card key={platform.id} className="border-border">
+            <Card
+              key={platform.id}
+              id={`channel-${platform.id}`}
+              className="scroll-mt-6 border-border"
+            >
               <CardContent className="flex flex-col gap-4 p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-start gap-3 min-w-0">
@@ -1223,9 +1264,15 @@ function TelegramOnboardingPanel({
       const result = await api.applyTelegramOnboarding(setup.pairing_id, {
         allowed_user_ids: allowedIds,
       });
+      const phoneReady = result.home_channel_configured;
       resetSetup();
       if (result.restart_started) {
-        showToast("Telegram saved; gateway restarting…", "success");
+        showToast(
+          phoneReady
+            ? "Telegram phone connected; gateway restarting…"
+            : "Telegram saved; gateway restarting…",
+          "success",
+        );
         setRestartNeeded(false);
         setTimeout(() => void onChanged(), 4000);
         void watchRestartOutcome();
@@ -1348,6 +1395,23 @@ function TelegramOnboardingPanel({
                     </span>
                   )}
                 </div>
+
+                {botUsername && (
+                  <div className="rounded-sm border border-primary/30 bg-primary/5 p-3 text-sm text-foreground">
+                    Open your new bot and press <strong>Start</strong>. Telegram
+                    will then allow Lyra to send project questions and phone
+                    notifications.
+                    <a
+                      href={`https://t.me/${encodeURIComponent(botUsername)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-2 flex w-fit items-center gap-1 text-primary hover:underline"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      Open @{botUsername}
+                    </a>
+                  </div>
+                )}
 
                 <div className="grid gap-2">
                   <div className="flex flex-wrap items-center gap-2">

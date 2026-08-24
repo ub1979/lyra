@@ -4008,6 +4008,7 @@ class TestWebServerEndpoints:
             "ok": True,
             "platform": "telegram",
             "bot_username": "hermes_pair_ready_bot",
+            "home_channel_configured": True,
             "needs_restart": False,
             "restart_started": True,
             "restart_action": "gateway-restart",
@@ -4017,7 +4018,53 @@ class TestWebServerEndpoints:
         env = load_env()
         assert env["TELEGRAM_BOT_TOKEN"] == "123456:SECRET"
         assert env["TELEGRAM_ALLOWED_USERS"] == "123456789"
-        assert load_config()["platforms"]["telegram"]["enabled"] is True
+        telegram = load_config()["platforms"]["telegram"]
+        assert telegram["enabled"] is True
+        assert telegram["home_channel"] == {
+            "platform": "telegram",
+            "chat_id": "123456789",
+            "name": "Telegram phone",
+            "user_id": "123456789",
+        }
+
+    def test_telegram_onboarding_does_not_make_unapproved_owner_home(
+        self, monkeypatch
+    ):
+        import time
+        import hermes_cli.web_server as ws
+        from hermes_cli.config import load_config
+
+        with ws._telegram_onboarding_lock:
+            ws._telegram_onboarding_pairings.clear()
+            ws._telegram_onboarding_pairings["pair-other-user"] = (
+                ws._TelegramOnboardingPairing(
+                    poll_token="poll-secret",
+                    expires_at="2027-05-18T00:00:00.000Z",
+                    expires_at_ts=time.time() + 600,
+                    bot_token="123456:SECRET",
+                    bot_username="hermes_other_user_bot",
+                    owner_user_id="123456789",
+                )
+            )
+
+        class FakeRestartProc:
+            pid = 4243
+
+        ws._ACTION_PROCS.pop("gateway-restart", None)
+        monkeypatch.setattr(
+            ws,
+            "_spawn_hermes_action",
+            lambda _subcommand, _name: FakeRestartProc(),
+        )
+
+        applied = self.client.post(
+            "/api/messaging/telegram/onboarding/pair-other-user/apply",
+            json={"allowed_user_ids": ["987654321"]},
+        )
+
+        assert applied.status_code == 200
+        assert applied.json()["home_channel_configured"] is False
+        assert "home_channel" not in load_config()["platforms"]["telegram"]
 
     def test_telegram_onboarding_apply_reports_restart_failure_after_save(
         self, monkeypatch
