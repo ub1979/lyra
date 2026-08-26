@@ -3,6 +3,7 @@ import {
   GUIDED_MODEL_SILENCE_TIMEOUT_MS,
   GUIDED_SUBAGENT_SILENCE_GRACE_MS,
   GUIDED_SUBAGENT_SPAWN_GRACE_MS,
+  GUIDED_TOOL_SILENCE_GRACE_MS,
   decideGuidedWatchdog,
   extendGuidedSubagentGrace,
   guidedSubagentGraceMs,
@@ -90,6 +91,38 @@ describe("decideGuidedWatchdog", () => {
     });
   });
 
+  it("does not classify a running ordinary tool as model silence", () => {
+    const toolGraceUntil = NOW + GUIDED_TOOL_SILENCE_GRACE_MS;
+    expect(
+      decideGuidedWatchdog({
+        subagentGraceUntil: 0,
+        toolGraceUntil,
+        now: NOW + GUIDED_MODEL_SILENCE_TIMEOUT_MS,
+      }),
+    ).toEqual({ action: "extend" });
+  });
+
+  it("stops a tool with an accurate reason after its backend-sized grace", () => {
+    const toolGraceUntil = NOW + GUIDED_TOOL_SILENCE_GRACE_MS;
+    expect(
+      decideGuidedWatchdog({
+        subagentGraceUntil: 0,
+        toolGraceUntil,
+        now: toolGraceUntil,
+      }),
+    ).toEqual({ action: "stop", reason: "tool" });
+  });
+
+  it("uses the later deadline when a subagent and tool overlap", () => {
+    expect(
+      decideGuidedWatchdog({
+        subagentGraceUntil: NOW + 60_000,
+        toolGraceUntil: NOW + 120_000,
+        now: NOW + 60_000,
+      }),
+    ).toEqual({ action: "extend" });
+  });
+
   it("extends while a phase is inside its window", () => {
     expect(
       decideGuidedWatchdog({ subagentGraceUntil: NOW + 1, now: NOW }),
@@ -167,5 +200,10 @@ describe("guidedWatchdogMessage", () => {
   it("names the model when it never answered", () => {
     expect(GUIDED_MODEL_SILENCE_TIMEOUT_MS).toBeGreaterThan(120_000);
     expect(guidedWatchdogMessage("model")).toMatch(/about 2 minutes/);
+  });
+
+  it("names a stalled tool without blaming the model", () => {
+    expect(guidedWatchdogMessage("tool")).toMatch(/project tool/i);
+    expect(guidedWatchdogMessage("tool")).toMatch(/model itself was responding/i);
   });
 });

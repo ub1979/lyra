@@ -30,6 +30,17 @@
  */
 export const GUIDED_MODEL_SILENCE_TIMEOUT_MS = 125_000;
 
+/**
+ * An ordinary tool may legitimately be quiet for longer than a model call.
+ *
+ * The backend's concurrent-tool guard is 420 seconds. Give it five seconds to
+ * emit the authoritative completion/timeout event before the dashboard
+ * intervenes. This prevents a healthy long terminal command from being killed
+ * by the model watchdog while still bounding a tool whose lifecycle event was
+ * lost entirely.
+ */
+export const GUIDED_TOOL_SILENCE_GRACE_MS = 425_000;
+
 /** A running specialist phase may stay silent this long before it is stopped. */
 export const GUIDED_SUBAGENT_SILENCE_GRACE_MS = 120_000;
 
@@ -79,7 +90,7 @@ export function extendGuidedSubagentGrace(
 
 export type GuidedWatchdogDecision =
   | { action: "extend" }
-  | { action: "stop"; reason: "model" | "subagent" };
+  | { action: "stop"; reason: "model" | "subagent" | "tool" };
 
 /**
  * Decide what to do once the silence timer has elapsed.
@@ -90,20 +101,35 @@ export type GuidedWatchdogDecision =
  */
 export function decideGuidedWatchdog({
   subagentGraceUntil,
+  toolGraceUntil = 0,
   now,
 }: {
   subagentGraceUntil: number;
+  toolGraceUntil?: number;
   now: number;
 }): GuidedWatchdogDecision {
-  if (subagentGraceUntil > 0) {
-    if (now < subagentGraceUntil) return { action: "extend" };
-    return { action: "stop", reason: "subagent" };
+  const activityGraceUntil = Math.max(subagentGraceUntil, toolGraceUntil);
+  if (activityGraceUntil > 0) {
+    if (now < activityGraceUntil) return { action: "extend" };
+    return {
+      action: "stop",
+      reason: toolGraceUntil >= subagentGraceUntil ? "tool" : "subagent",
+    };
   }
   return { action: "stop", reason: "model" };
 }
 
 /** User-facing explanation for a stopped turn. */
-export function guidedWatchdogMessage(reason: "model" | "subagent"): string {
+export function guidedWatchdogMessage(
+  reason: "model" | "subagent" | "tool",
+): string {
+  if (reason === "tool") {
+    return (
+      "A project tool ran without completing for about " +
+      `${Math.round(GUIDED_TOOL_SILENCE_GRACE_MS / 60_000)} minutes. ` +
+      "Lyra stopped that tool; the AI model itself was responding. Check the tool output or retry."
+    );
+  }
   if (reason === "subagent") {
     return (
       "A project agent stopped reporting progress for over " +

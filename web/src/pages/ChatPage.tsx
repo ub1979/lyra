@@ -81,6 +81,7 @@ import {
 } from "@/lib/guided-agent-routing";
 import {
   GUIDED_MODEL_SILENCE_TIMEOUT_MS,
+  GUIDED_TOOL_SILENCE_GRACE_MS,
   decideGuidedWatchdog,
   extendGuidedSubagentGrace,
   guidedWatchdogMessage,
@@ -211,6 +212,24 @@ interface GuidedMessage {
   content: string;
 }
 
+interface GuidedRunningTool {
+  deadline: number;
+  id: string;
+  label: string;
+  name: string;
+  startedAt: number;
+}
+
+function latestGuidedRunningTool(
+  tools: ReadonlyMap<string, GuidedRunningTool>,
+): GuidedRunningTool | null {
+  let latest: GuidedRunningTool | null = null;
+  for (const tool of tools.values()) {
+    if (!latest || tool.startedAt >= latest.startedAt) latest = tool;
+  }
+  return latest;
+}
+
 interface GuidedAgentEventEnvelope {
   method?: string;
   params?: {
@@ -233,6 +252,7 @@ interface GuidedAgentEventEnvelope {
       summary?: string;
       smart_denied?: boolean;
       text?: string;
+      tool_id?: string;
       usage?: unknown;
     };
   };
@@ -713,6 +733,7 @@ function GuidedRuntimePanel({
   onStopWorker,
   paused,
   recentWorkers,
+  runningTool,
   usage,
 }: {
   activeWorkers: readonly GuidedWorkerRuntime[];
@@ -724,6 +745,7 @@ function GuidedRuntimePanel({
   onStopWorker: (id: string) => void;
   paused: boolean;
   recentWorkers: readonly GuidedWorkerRuntime[];
+  runningTool: GuidedRunningTool | null;
   usage: GuidedUsageSnapshot;
 }) {
   const model = usage.model || defaultModelLabel;
@@ -811,6 +833,7 @@ function GuidedRuntimePanel({
           activity={activity}
           lastSignalAt={lastSignalAt}
           onRetry={onRetry}
+          runningTool={runningTool}
           specialist={currentSpecialist}
         />
       )}
@@ -1035,11 +1058,13 @@ function GuidedRailSpecialistActivity({
   activity,
   lastSignalAt,
   onRetry,
+  runningTool,
   specialist,
 }: {
   activity: GuidedChatPresentation;
   lastSignalAt: number;
   onRetry: () => void;
+  runningTool: GuidedRunningTool | null;
   specialist: GuidedSpecialist;
 }) {
   const [startedAt] = useState(() => Date.now());
@@ -1062,7 +1087,10 @@ function GuidedRailSpecialistActivity({
     ? activity.text
     : GUIDED_WORK_PHRASES[phraseIndex];
   const silentSeconds = Math.max(0, Math.floor((clock - lastSignalAt) / 1000));
-  const mayBeStalled = silentSeconds >= 30;
+  const toolElapsedSeconds = runningTool
+    ? Math.max(0, Math.floor((clock - runningTool.startedAt) / 1000))
+    : 0;
+  const mayBeStalled = !runningTool && silentSeconds >= 30;
   const isTakingLonger = elapsedSeconds > eta[1];
 
   return (
@@ -1080,7 +1108,9 @@ function GuidedRailSpecialistActivity({
             {guidedAgentName(specialist.id, specialist.label)} is working
           </strong>
           <span className="mt-0.5 block text-[10px] leading-4 text-text-secondary">
-            {mayBeStalled
+            {runningTool
+              ? runningTool.label
+              : mayBeStalled
               ? "No fresh response yet—it may be waiting on the AI model."
               : phrase}
           </span>
@@ -1090,20 +1120,22 @@ function GuidedRailSpecialistActivity({
               mayBeStalled ? "text-warning" : "text-text-secondary/75",
             )}
           >
-            {mayBeStalled
+            {runningTool
+              ? `${formatGuidedDuration(toolElapsedSeconds)} elapsed · the tool is still running`
+              : mayBeStalled
               ? `No new activity for ${formatGuidedDuration(silentSeconds)} · use Pause above if you want to stop`
               : isTakingLonger
               ? `Taking longer than usual · ${formatGuidedDuration(elapsedSeconds)} elapsed`
               : `Typical time ${formatGuidedEta(eta)} · ${formatGuidedDuration(elapsedSeconds)} elapsed`}
           </span>
-          {mayBeStalled && (
+          {(mayBeStalled || (runningTool && toolElapsedSeconds >= 30)) && (
             <Button
               className="mt-2 h-7 px-2 text-[10px]"
               ghost
               size="sm"
               onClick={onRetry}
             >
-              Stop & retry
+              {runningTool ? "Stop tool & retry" : "Stop & retry"}
             </Button>
           )}
         </div>
@@ -1324,6 +1356,12 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   // A spawn that never started left the watchdog re-arming itself every 75s,
   // so the turn ran until the user gave up (42 minutes, in one report).
   const guidedSubagentGraceUntilRef = useRef(0);
+  // Ordinary tools have their own lifecycle and backend timeout. Track every
+  // active id (parallel calls are common) so the two-minute model watchdog
+  // cannot kill a healthy command while another tool completes first.
+  const guidedActiveToolsRef = useRef<Map<string, GuidedRunningTool>>(new Map());
+  const [guidedRunningTool, setGuidedRunningTool] =
+    useState<GuidedRunningTool | null>(null);
   const guidedAutoContinueCountRef = useRef(0);
   // Phase chain, driven by Lyra's [APP_IT_PHASE:...] / [APP_IT_PHASE_DONE:...]
   // markers rather than inferred from her prose.
@@ -1815,6 +1853,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     guidedPhaseCurrentRef.current = null;
     guidedPhasesCompletedRef.current = [];
     guidedSubagentGraceUntilRef.current = 0;
+    guidedActiveToolsRef.current = new Map();
+    setGuidedRunningTool(null);
     setGuidedActivity({ phase: "idle", text: "", specialist: null });
     lastGuidedResponseRef.current = "";
     guidedTurnSettledRef.current = true;
@@ -2070,6 +2110,47 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             payload as Record<string, unknown> | undefined,
             isSubagent,
           );
+          if (!isSubagent) {
+            const now = Date.now();
+            const toolId =
+              typeof payload?.tool_id === "string" && payload.tool_id.trim()
+                ? payload.tool_id.trim()
+                : "";
+            if (type === "tool.start") {
+              const id =
+                toolId ||
+                `${String(payload?.name || "tool")}-${now.toString(36)}`;
+              const next = new Map(guidedActiveToolsRef.current);
+              next.set(id, {
+                deadline: now + GUIDED_TOOL_SILENCE_GRACE_MS,
+                id,
+                label: label ?? "A project tool is running…",
+                name:
+                  typeof payload?.name === "string" && payload.name.trim()
+                    ? payload.name.trim()
+                    : "tool",
+                startedAt: now,
+              });
+              guidedActiveToolsRef.current = next;
+              setGuidedRunningTool(latestGuidedRunningTool(next));
+            } else if (guidedActiveToolsRef.current.size > 0) {
+              // A progress/generating event proves the active tool is alive.
+              // Extend matching ids when supplied, otherwise all active calls
+              // because some provider adapters emit id-less progress frames.
+              const next = new Map(guidedActiveToolsRef.current);
+              for (const [id, tool] of next) {
+                if (!toolId || id === toolId) {
+                  next.set(id, {
+                    ...tool,
+                    deadline: now + GUIDED_TOOL_SILENCE_GRACE_MS,
+                    label: label ?? tool.label,
+                  });
+                }
+              }
+              guidedActiveToolsRef.current = next;
+              setGuidedRunningTool(latestGuidedRunningTool(next));
+            }
+          }
           guidedTurnSettledRef.current = false;
           setGuidedLastSignalAt(Date.now());
           setGuidedActivity((current) => ({
@@ -2111,6 +2192,18 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           return;
         }
         if (type === "tool.complete") {
+          const next = new Map(guidedActiveToolsRef.current);
+          const toolId =
+            typeof payload?.tool_id === "string" ? payload.tool_id.trim() : "";
+          if (toolId) {
+            next.delete(toolId);
+          } else if (typeof payload?.name === "string") {
+            for (const [id, tool] of next) {
+              if (tool.name === payload.name) next.delete(id);
+            }
+          }
+          guidedActiveToolsRef.current = next;
+          setGuidedRunningTool(latestGuidedRunningTool(next));
           setGuidedLastSignalAt(Date.now());
           return;
         }
@@ -2119,6 +2212,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           // A completed parent message is also a definitive boundary for any
           // child phase, even when a provider omitted subagent.complete.
           guidedSubagentGraceUntilRef.current = 0;
+          guidedActiveToolsRef.current = new Map();
+          setGuidedRunningTool(null);
             if (payload?.usage) {
               setGuidedUsage(normalizeGuidedUsage(payload.usage));
             }
@@ -2205,6 +2300,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         if (type === "error" && payload?.message) {
           setGuidedApproval(null);
           guidedSubagentGraceUntilRef.current = 0;
+          guidedActiveToolsRef.current = new Map();
+          setGuidedRunningTool(null);
           guidedTurnSettledRef.current = true;
           appendGuidedError(payload.message);
           setGuidedActivity({
@@ -2402,6 +2499,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     guidedAutoScrollRef.current = true;
     guidedTurnSettledRef.current = false;
     guidedSubagentGraceUntilRef.current = 0;
+    guidedActiveToolsRef.current = new Map();
+    setGuidedRunningTool(null);
     guidedAutoContinueCountRef.current = 0;
     lastGuidedResponseRef.current = "";
     setGuidedLastSignalAt(Date.now());
@@ -2798,6 +2897,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       (termRef.current?.buffer.active.length ?? 1) - 1,
     );
     lastGuidedResponseRef.current = "";
+    guidedActiveToolsRef.current = new Map();
+    setGuidedRunningTool(null);
     setGuidedOutput("");
     setGuidedLastSignalAt(Date.now());
     setGuidedMessages((messages) =>
@@ -3855,7 +3956,17 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
 
   useEffect(() => {
     if (!guided || guidedActivity.phase !== "working") return;
-    const graceDeadline = guidedSubagentGraceUntilRef.current;
+    const toolGraceDeadline = Math.max(
+      0,
+      ...Array.from(
+        guidedActiveToolsRef.current.values(),
+        (tool) => tool.deadline,
+      ),
+    );
+    const graceDeadline = Math.max(
+      guidedSubagentGraceUntilRef.current,
+      toolGraceDeadline,
+    );
     const deadline =
       graceDeadline > 0
         ? graceDeadline
@@ -3864,6 +3975,13 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     const timeout = window.setTimeout(() => {
       const decision = decideGuidedWatchdog({
         subagentGraceUntil: guidedSubagentGraceUntilRef.current,
+        toolGraceUntil: Math.max(
+          0,
+          ...Array.from(
+            guidedActiveToolsRef.current.values(),
+            (tool) => tool.deadline,
+          ),
+        ),
         now: Date.now(),
       });
       if (decision.action === "extend") {
@@ -3873,15 +3991,17 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         return;
       }
       guidedSubagentGraceUntilRef.current = 0;
+      guidedActiveToolsRef.current = new Map();
+      setGuidedRunningTool(null);
       if (decision.reason === "subagent") {
         sendGuidedControlCommand("/agents stop");
         setGuidedWorkers((current) => markGuidedWorkerStopping(current));
       } else {
-      try {
-        wsRef.current?.send("\x03");
-      } catch {
-        // The visible error is still useful if the transport already closed.
-      }
+        try {
+          wsRef.current?.send("\x03");
+        } catch {
+          // The visible error is still useful if the transport already closed.
+        }
       }
       appendGuidedError(guidedWatchdogMessage(decision.reason));
       guidedTurnSettledRef.current = true;
@@ -4398,6 +4518,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                     onRetry={retryLastGuidedMessage}
                     paused={guidedPaused}
                     recentWorkers={guidedRecentWorkers}
+                    runningTool={guidedRunningTool}
                     usage={guidedUsage}
                     onStopWorker={(id) => stopGuidedWorkers(id)}
                   />
@@ -4521,6 +4642,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 onRetry={retryLastGuidedMessage}
                 paused={guidedPaused}
                 recentWorkers={guidedRecentWorkers}
+                runningTool={guidedRunningTool}
                 usage={guidedUsage}
                 onStopWorker={(id) => stopGuidedWorkers(id)}
               />

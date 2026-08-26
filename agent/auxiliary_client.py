@@ -1951,13 +1951,14 @@ def _resolve_xai_oauth_for_aux() -> Optional[Tuple[str, str]]:
 
 
 def _read_codex_access_token() -> Optional[str]:
-    """Read a valid, non-expired Codex OAuth access token from Hermes auth store.
+    """Resolve the Codex OAuth access token through the main runtime path.
 
     If a credential pool exists but currently has no selectable runtime entry
-    (for example all pool slots are marked exhausted), fall back to the
-    profile's auth.json token instead of hard-failing. This keeps explicit
-    fallback-to-Codex working when the pool state is stale but the stored OAuth
-    token is still valid.
+    (for example all pool slots are marked exhausted), use the canonical
+    runtime resolver. That resolver handles the profile auth store, refreshes
+    expiring tokens, and can reuse the machine-local Codex CLI login. Keeping
+    auxiliary tasks on this same path prevents the main chat from working while
+    compression incorrectly reports "no Codex OAuth token found".
     """
     pool_present, entry = _select_pool_entry("openai-codex")
     if pool_present:
@@ -1966,30 +1967,13 @@ def _read_codex_access_token() -> Optional[str]:
             return token
 
     try:
-        from hermes_cli.auth import _read_codex_tokens
-        data = _read_codex_tokens()
-        tokens = data.get("tokens", {})
-        access_token = tokens.get("access_token")
-        if not isinstance(access_token, str) or not access_token.strip():
-            return None
+        from hermes_cli.auth import resolve_codex_runtime_credentials
 
-        # Check JWT expiry — expired tokens block the auto chain and
-        # prevent fallback to working providers (e.g. Anthropic).
-        try:
-            import base64
-            payload = access_token.split(".")[1]
-            payload += "=" * (-len(payload) % 4)
-            claims = json.loads(base64.urlsafe_b64decode(payload))
-            exp = claims.get("exp", 0)
-            if exp and time.time() > exp:
-                logger.debug("Codex access token expired (exp=%s), skipping", exp)
-                return None
-        except Exception:
-            pass  # Non-JWT token or decode error — use as-is
-
-        return access_token.strip()
+        credentials = resolve_codex_runtime_credentials()
+        access_token = str(credentials.get("api_key") or "").strip()
+        return access_token or None
     except Exception as exc:
-        logger.debug("Could not read Codex auth for auxiliary client: %s", exc)
+        logger.debug("Could not resolve Codex auth for auxiliary client: %s", exc)
         return None
 
 
@@ -2770,7 +2754,12 @@ def _build_xai_oauth_aux_client(model: str) -> Tuple[Optional[Any], Optional[str
     return CodexAuxiliaryClient(real_client, model), model
 
 
-def _build_codex_client(model: str) -> Tuple[Optional[Any], Optional[str]]:
+def _build_codex_client(
+    model: str,
+    *,
+    access_token: Optional[str] = None,
+    base_url: Optional[str] = None,
+) -> Tuple[Optional[Any], Optional[str]]:
     """Build a CodexAuxiliaryClient for an explicitly-requested model.
 
     There is no auto-selection of the Codex model: the ChatGPT-account
@@ -2787,25 +2776,33 @@ def _build_codex_client(model: str) -> Tuple[Optional[Any], Optional[str]]:
             "pass model explicitly (auxiliary.<task>.model in config.yaml)."
         )
         return None, None
-    pool_present, entry = _select_pool_entry("openai-codex")
-    if pool_present:
-        codex_token = _pool_runtime_api_key(entry)
-        if codex_token:
-            base_url = _pool_runtime_base_url(entry, _CODEX_AUX_BASE_URL) or _CODEX_AUX_BASE_URL
+    codex_token = str(access_token or "").strip()
+    resolved_base_url = str(base_url or "").strip().rstrip("/")
+    if codex_token:
+        resolved_base_url = resolved_base_url or _CODEX_AUX_BASE_URL
+    else:
+        pool_present, entry = _select_pool_entry("openai-codex")
+        if pool_present:
+            codex_token = _pool_runtime_api_key(entry)
+            if codex_token:
+                resolved_base_url = (
+                    _pool_runtime_base_url(entry, _CODEX_AUX_BASE_URL)
+                    or _CODEX_AUX_BASE_URL
+                )
+            else:
+                codex_token = _read_codex_access_token() or ""
+                if not codex_token:
+                    return None, None
+                resolved_base_url = _CODEX_AUX_BASE_URL
         else:
-            codex_token = _read_codex_access_token()
+            codex_token = _read_codex_access_token() or ""
             if not codex_token:
                 return None, None
-            base_url = _CODEX_AUX_BASE_URL
-    else:
-        codex_token = _read_codex_access_token()
-        if not codex_token:
-            return None, None
-        base_url = _CODEX_AUX_BASE_URL
+            resolved_base_url = _CODEX_AUX_BASE_URL
     logger.debug("Auxiliary client: Codex OAuth (%s via Responses API)", model)
     real_client = _create_openai_client(
         api_key=codex_token,
-        base_url=base_url,
+        base_url=resolved_base_url,
         default_headers=_codex_cloudflare_headers(codex_token),
     )
     return CodexAuxiliaryClient(real_client, model), model
@@ -5049,7 +5046,7 @@ def resolve_provider_client(
         if raw_codex:
             # Return the raw OpenAI client for callers that need direct
             # access to responses.stream() (e.g., the main agent loop).
-            codex_token = _read_codex_access_token()
+            codex_token = str(explicit_api_key or "").strip() or _read_codex_access_token()
             if not codex_token:
                 logger.warning("resolve_provider_client: openai-codex requested "
                                "but no Codex OAuth token found (run: hermes model)")
@@ -5057,12 +5054,19 @@ def resolve_provider_client(
             final_model = _normalize_resolved_model(model, provider)
             raw_client = _create_openai_client(
                 api_key=codex_token,
-                base_url=_CODEX_AUX_BASE_URL,
+                base_url=str(explicit_base_url or _CODEX_AUX_BASE_URL).rstrip("/"),
                 default_headers=_codex_cloudflare_headers(codex_token),
             )
             return (raw_client, final_model)
         # Standard path: wrap in CodexAuxiliaryClient adapter
-        client, default = _build_codex_client(model)
+        if str(explicit_api_key or "").strip():
+            client, default = _build_codex_client(
+                model,
+                access_token=str(explicit_api_key).strip(),
+                base_url=explicit_base_url,
+            )
+        else:
+            client, default = _build_codex_client(model)
         if client is None:
             logger.warning("resolve_provider_client: openai-codex requested "
                            "but no Codex OAuth token found (run: hermes model)")

@@ -912,7 +912,8 @@ class TestReadCodexAccessToken:
         hermes_home.mkdir(parents=True, exist_ok=True)
         (hermes_home / "auth.json").write_text(json.dumps({"version": 1, "providers": {}}))
         monkeypatch.setenv("HERMES_HOME", str(hermes_home))
-        with patch("agent.auxiliary_client._select_pool_entry", return_value=(False, None)):
+        with patch("agent.auxiliary_client._select_pool_entry", return_value=(False, None)), \
+             patch("hermes_cli.auth.resolve_codex_runtime_credentials", side_effect=RuntimeError("no credentials")):
             result = _read_codex_access_token()
         assert result is None
 
@@ -928,8 +929,20 @@ class TestReadCodexAccessToken:
             },
         }))
         monkeypatch.setenv("HERMES_HOME", str(hermes_home))
-        result = _read_codex_access_token()
+        with patch("hermes_cli.auth.resolve_codex_runtime_credentials", side_effect=RuntimeError("no credentials")):
+            result = _read_codex_access_token()
         assert result is None
+
+    def test_reuses_canonical_runtime_credentials(self):
+        """Compression sees the same Codex CLI/shared login as the main chat."""
+        with patch("agent.auxiliary_client._select_pool_entry", return_value=(False, None)), \
+             patch("hermes_cli.auth.resolve_codex_runtime_credentials", return_value={
+                 "api_key": "codex-cli-shared-token",
+                 "source": "codex-cli-shared",
+             }):
+            result = _read_codex_access_token()
+
+        assert result == "codex-cli-shared-token"
 
     def test_malformed_json_returns_none(self, tmp_path):
         codex_dir = tmp_path / ".codex"
@@ -1142,6 +1155,31 @@ class TestAnthropicOAuthFlag:
 
 
 class TestBuildCodexClient:
+    def test_live_main_runtime_token_bypasses_disk_auth_lookup(self):
+        """Compression reuses the already-working parent Codex credential."""
+        with (
+            patch(
+                "agent.auxiliary_client._read_codex_access_token",
+                side_effect=AssertionError("live runtime token should win"),
+            ),
+            patch("agent.auxiliary_client.OpenAI") as mock_openai,
+        ):
+            mock_openai.return_value = MagicMock()
+            client, model = resolve_provider_client(
+                "openai-codex",
+                "gpt-5.6-sol",
+                explicit_api_key="live-parent-token",
+                explicit_base_url="https://chatgpt.com/backend-api/codex",
+            )
+
+        assert client is not None
+        assert model == "gpt-5.6-sol"
+        assert mock_openai.call_args.kwargs["api_key"] == "live-parent-token"
+        assert (
+            mock_openai.call_args.kwargs["base_url"]
+            == "https://chatgpt.com/backend-api/codex"
+        )
+
     def test_pool_without_selected_entry_falls_back_to_auth_store(self):
         with (
             patch("agent.auxiliary_client._select_pool_entry", return_value=(True, None)),
