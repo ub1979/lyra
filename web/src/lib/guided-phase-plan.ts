@@ -123,6 +123,14 @@ export type GuidedPhaseStep = {
   state: GuidedPhaseState;
 };
 
+export type GuidedPhaseSummary = {
+  completed: number;
+  current: string | null;
+  percent: number;
+  remaining: number;
+  total: number;
+};
+
 /** Render model for the progress strip. */
 export function guidedPhaseProgress({
   completed,
@@ -138,6 +146,22 @@ export function guidedPhaseProgress({
     id,
     state: done.has(id) ? "done" : id === current ? "now" : "pending",
   }));
+}
+
+/** Compact completion summary for the guided-build progress map. */
+export function guidedPhaseSummary(
+  steps: readonly GuidedPhaseStep[],
+): GuidedPhaseSummary {
+  const completed = steps.filter((step) => step.state === "done").length;
+  const current = steps.find((step) => step.state === "now")?.id ?? null;
+  const total = steps.length;
+  return {
+    completed,
+    current,
+    percent: total ? Math.round((completed / total) * 100) : 0,
+    remaining: Math.max(0, total - completed),
+    total,
+  };
 }
 
 /**

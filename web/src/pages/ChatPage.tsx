@@ -64,10 +64,12 @@ import {
 } from "@/lib/guided-agent-runtime";
 import {
   guidedPhaseProgress,
+  guidedPhaseSummary,
   nextGuidedPhase,
   orderGuidedPhases,
   parseGuidedPhaseMarkers,
   shouldAdvanceGuidedPhase,
+  type GuidedPhaseStep,
 } from "@/lib/guided-phase-plan";
 import {
   GUIDED_MODEL_SILENCE_TIMEOUT_MS,
@@ -78,10 +80,12 @@ import {
 import {
   Activity,
   Bot,
+  CheckCircle2,
   CircleStop,
   Copy,
   FolderOpen,
   MessageCircle,
+  Map as MapIcon,
   Paperclip,
   PanelRight,
   Pause,
@@ -642,7 +646,6 @@ function GuidedRuntimePanel({
   onRetry,
   onStopWorker,
   paused,
-  phaseSteps,
   recentWorkers,
   usage,
 }: {
@@ -654,7 +657,6 @@ function GuidedRuntimePanel({
   onRetry: () => void;
   onStopWorker: (id: string) => void;
   paused: boolean;
-  phaseSteps: ReturnType<typeof guidedPhaseProgress>;
   recentWorkers: readonly GuidedWorkerRuntime[];
   usage: GuidedUsageSnapshot;
 }) {
@@ -737,45 +739,6 @@ function GuidedRuntimePanel({
         </div>
       </details>
 
-      {phaseSteps.length > 1 && (
-        <div className="mt-3">
-          <p className="text-[10px] uppercase tracking-wider text-text-secondary">
-            Workflow
-          </p>
-          <ol className="mt-2 space-y-1">
-            {phaseSteps.map((step) => (
-              <li
-                key={step.id}
-                aria-current={step.state === "now" ? "step" : undefined}
-                className={cn(
-                  "flex items-center gap-2 rounded-md px-2 py-1.5 text-[10px]",
-                  step.state === "now" &&
-                    "bg-midground/10 font-semibold text-midground",
-                  step.state === "done" && "text-text-secondary",
-                  step.state === "pending" && "text-text-secondary/55",
-                )}
-              >
-                <GuidedAgentAvatar
-                  id={step.id}
-                  muted={step.state === "pending"}
-                  className="h-5 w-5 shrink-0 rounded object-cover"
-                />
-                <span className="min-w-0 flex-1 truncate">
-                  {GUIDED_SPECIALIST_LABELS[step.id] ?? step.id}
-                </span>
-                <span className="shrink-0 uppercase tracking-wider">
-                  {step.state === "done"
-                    ? "Done"
-                    : step.state === "now"
-                      ? "Working"
-                      : "Queued"}
-                </span>
-              </li>
-            ))}
-          </ol>
-        </div>
-      )}
-
       {activity.phase === "working" && (
         <GuidedRailSpecialistActivity
           key={currentSpecialist.id}
@@ -849,6 +812,136 @@ function GuidedRuntimePanel({
             </p>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function GuidedProgressMap({
+  steps,
+}: {
+  steps: readonly GuidedPhaseStep[];
+}) {
+  const summary = guidedPhaseSummary(steps);
+  const current = steps.find((step) => step.state === "now") ?? null;
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col p-3 text-xs">
+      <div className="flex items-center justify-between gap-2">
+        <span className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-[0.16em] text-text-secondary">
+          <MapIcon className="h-3.5 w-3.5" />
+          Project map
+        </span>
+        <strong className="text-sm text-midground">{summary.percent}%</strong>
+      </div>
+
+      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-current/10">
+        <div
+          className="h-full rounded-full bg-emerald-400 transition-[width] duration-500"
+          style={{ width: `${summary.percent}%` }}
+          role="progressbar"
+          aria-label="Verified project completion"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={summary.percent}
+        />
+      </div>
+      <p className="mt-1.5 text-[9px] leading-3 text-text-secondary">
+        Based on verified phases, not elapsed time.
+      </p>
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/[0.07] p-2">
+          <span className="block text-[9px] uppercase tracking-wider text-text-secondary">
+            Done
+          </span>
+          <strong className="mt-0.5 block text-base text-emerald-400">
+            {summary.completed}/{summary.total}
+          </strong>
+        </div>
+        <div className="rounded-lg border border-current/15 bg-background-base/60 p-2">
+          <span className="block text-[9px] uppercase tracking-wider text-text-secondary">
+            Work left
+          </span>
+          <strong className="mt-0.5 block text-base text-midground">
+            {summary.remaining} {summary.remaining === 1 ? "phase" : "phases"}
+          </strong>
+        </div>
+      </div>
+
+      {current && (
+        <div className="mt-2 rounded-lg border border-midground/30 bg-midground/[0.07] p-2.5">
+          <span className="block text-[9px] uppercase tracking-wider text-text-secondary">
+            Working now
+          </span>
+          <strong className="mt-1 flex items-center gap-2 text-[11px] text-midground">
+            <GuidedAgentAvatar
+              id={current.id}
+              className="h-6 w-6 shrink-0 rounded-md object-cover"
+            />
+            <span className="truncate">{guidedAgentName(current.id)}</span>
+          </strong>
+        </div>
+      )}
+
+      <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-0.5">
+        {steps.length ? (
+          <ol aria-label="Project delivery map" className="space-y-1.5">
+            {steps.map((step) => (
+              <li
+                key={step.id}
+                className={cn(
+                  "flex items-center gap-2 rounded-lg border px-2 py-1.5",
+                  step.state === "done"
+                    ? "border-emerald-500/20 bg-emerald-500/[0.05]"
+                    : step.state === "now"
+                      ? "border-midground/35 bg-midground/[0.08]"
+                      : "border-current/10 bg-background-base/45",
+                )}
+              >
+                {step.state === "done" ? (
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+                ) : (
+                  <GuidedAgentAvatar
+                    id={step.id}
+                    muted={step.state === "pending"}
+                    className="h-4 w-4 shrink-0 rounded object-cover"
+                  />
+                )}
+                <span
+                  className={cn(
+                    "min-w-0 flex-1 truncate text-[10px]",
+                    step.state === "pending"
+                      ? "text-text-secondary"
+                      : "font-semibold text-midground",
+                  )}
+                >
+                  {GUIDED_SPECIALIST_LABELS[step.id] ?? step.id}
+                </span>
+                <span
+                  className={cn(
+                    "shrink-0 text-[8px] font-semibold uppercase tracking-wider",
+                    step.state === "done"
+                      ? "text-emerald-400"
+                      : step.state === "now"
+                        ? "text-midground"
+                        : "text-text-secondary/70",
+                  )}
+                >
+                  {step.state === "done"
+                    ? "Done"
+                    : step.state === "now"
+                      ? "Now"
+                      : "Next"}
+                </span>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="rounded-lg border border-dashed border-current/15 p-3 text-[10px] leading-4 text-text-secondary">
+            Lyra will build this map after you confirm the project agents.
+          </p>
+        )}
       </div>
     </div>
   );
@@ -1248,6 +1341,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     current: guidedPhaseCurrent,
     ordered: orderGuidedPhases(guidedSelectedSpecialistIds),
   });
+  const guidedProgressSummary = guidedPhaseSummary(guidedPhaseSteps);
   const latestGuidedMessage = guidedMessages[guidedMessages.length - 1] ?? null;
   const showRequirementsApproval =
     guidedActivity.phase === "idle" &&
@@ -4031,11 +4125,19 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                     lastSignalAt={guidedLastSignalAt}
                     onRetry={retryLastGuidedMessage}
                     paused={guidedPaused}
-                    phaseSteps={guidedPhaseSteps}
                     recentWorkers={guidedRecentWorkers}
                     usage={guidedUsage}
                     onStopWorker={(id) => stopGuidedWorkers(id)}
                   />
+                </div>
+              </details>
+              <details className="group relative xl:hidden">
+                <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-md border border-current/15 px-2 py-1.5 text-xs text-text-secondary">
+                  <MapIcon className="h-3.5 w-3.5" />
+                  Progress {guidedProgressSummary.percent}%
+                </summary>
+                <div className="fixed right-4 top-24 z-30 flex max-h-[72vh] w-[min(19rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-current/20 bg-background-base shadow-2xl">
+                  <GuidedProgressMap steps={guidedPhaseSteps} />
                 </div>
               </details>
               <Button
@@ -4131,7 +4233,6 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 lastSignalAt={guidedLastSignalAt}
                 onRetry={retryLastGuidedMessage}
                 paused={guidedPaused}
-                phaseSteps={guidedPhaseSteps}
                 recentWorkers={guidedRecentWorkers}
                 usage={guidedUsage}
                 onStopWorker={(id) => stopGuidedWorkers(id)}
@@ -4500,6 +4601,12 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             </p>
           </div>
         </div>
+        <aside
+          aria-label="Project progress map"
+          className="hidden w-60 shrink-0 overflow-hidden border-l border-current/10 bg-midground/[0.025] xl:flex"
+        >
+          <GuidedProgressMap steps={guidedPhaseSteps} />
+        </aside>
         </div>
         </div>
       )}

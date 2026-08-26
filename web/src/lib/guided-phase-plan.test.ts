@@ -3,6 +3,7 @@ import {
   GUIDED_PHASE_ORDER,
   guidedPhaseAwaitsUser,
   guidedPhaseProgress,
+  guidedPhaseSummary,
   nextGuidedPhase,
   orderGuidedPhases,
   parseGuidedPhaseMarkers,
@@ -122,6 +123,32 @@ describe("guidedPhaseProgress", () => {
       { id: "sw-developer", state: "now" },
       { id: "qa-engineer", state: "pending" },
     ]);
+  });
+
+  it("summarizes completed and remaining work for the progress map", () => {
+    expect(
+      guidedPhaseSummary([
+        { id: "req-engineer", state: "done" },
+        { id: "sw-developer", state: "now" },
+        { id: "qa-engineer", state: "pending" },
+      ]),
+    ).toEqual({
+      completed: 1,
+      current: "sw-developer",
+      percent: 33,
+      remaining: 2,
+      total: 3,
+    });
+  });
+
+  it("returns a safe empty summary before a workflow exists", () => {
+    expect(guidedPhaseSummary([])).toEqual({
+      completed: 0,
+      current: null,
+      percent: 0,
+      remaining: 0,
+      total: 0,
+    });
   });
 });
 
