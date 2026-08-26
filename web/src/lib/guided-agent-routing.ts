@@ -43,33 +43,29 @@ export function guidedRequirementsTurnDirective({
   );
 }
 
-export type GuidedModelAssignmentReconciliation = {
-  models: Record<string, string>;
-  removed: string[];
+export type GuidedUnavailableModelAssignment = {
+  agentId: string;
+  model: string;
 };
 
 /**
- * Exact model overrides are provider-specific. Keep overrides that the active
- * provider actually exposes and drop stale ones so a Claude id is never sent
- * to OpenAI or Ollama. An empty inventory is inconclusive (offline/custom
- * providers), so it must not erase user choices.
+ * Exact model overrides are provider-specific. Report incompatible active
+ * assignments so the UI can ask the user to choose replacements. It must not
+ * guess a cross-provider equivalent or silently replace the user's choice.
+ * An empty inventory is inconclusive for offline/custom providers.
  */
-export function reconcileGuidedModelAssignments(
+export function unavailableGuidedModelAssignments(
   assignments: Readonly<Record<string, string>>,
+  activeAgentIds: readonly string[],
   availableModels: readonly string[],
-): GuidedModelAssignmentReconciliation {
-  if (!availableModels.length) {
-    return { models: { ...assignments }, removed: [] };
-  }
+): GuidedUnavailableModelAssignment[] {
+  if (!availableModels.length) return [];
 
   const available = new Set(availableModels);
-  const models: Record<string, string> = {};
-  const removed: string[] = [];
-  for (const [agentId, model] of Object.entries(assignments)) {
-    if (available.has(model)) models[agentId] = model;
-    else removed.push(agentId);
-  }
-  return { models, removed };
+  const active = new Set(activeAgentIds);
+  return Object.entries(assignments)
+    .filter(([agentId, model]) => active.has(agentId) && !available.has(model))
+    .map(([agentId, model]) => ({ agentId, model }));
 }
 
 export type GuidedApprovalChoice = "once" | "session" | "always" | "deny";

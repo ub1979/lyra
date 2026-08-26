@@ -220,9 +220,9 @@ single delegate or on the matching item in a batch. Omit `model` when the
 specialist has no assignment so delegation inherits its configured default.
 Never apply one specialist's assignment to another phase. The coordinating
 conversation remains on its session model. Exact assignments are
-provider-specific: after a provider change, an assignment removed by the
-guided routing update must inherit the new project model rather than reusing an
-unavailable id from the previous provider.
+provider-specific. After a provider change, use only the replacement map the
+user confirms in the dashboard. Do not guess a cross-provider equivalent or
+reuse an unavailable id from the previous provider.
 
 ## Step 3: implement vertical slices
 

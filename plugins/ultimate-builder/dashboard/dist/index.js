@@ -32,7 +32,6 @@
     ["learn", "Controlled learning", "Record evidence-backed improvement candidates."],
   ];
 
-  const ALL_SKILL_IDS = SKILLS.map((skill) => skill[0]);
   // Requirements is always available (see the app-it playbook). Every path that sets the
   // team goes through this, so no template, Clear, or stray click can drop it.
   const REQUIRED_SKILL_IDS = ["req-engineer"];
@@ -259,6 +258,12 @@
 
     const defaultModelLabel = [modelInfo.provider, modelInfo.model].filter(Boolean).join(" · ")
       || (modelsLoading ? "Loading current model…" : "Configured session model");
+    const unavailableSelectedModels = modelOptions.length
+      ? SKILLS
+          .filter((skill) => selected.has(skill[0]))
+          .map((skill) => ({ id: skill[0], label: skill[1], model: skillModels[skill[0]] }))
+          .filter((item) => typeof item.model === "string" && item.model && !modelOptions.includes(item.model))
+      : [];
 
     const applyTemplate = function (template) {
       setTemplateId(template.id);
@@ -327,6 +332,13 @@
       setStarting(true);
       setError("");
       try {
+        if (unavailableSelectedModels.length) {
+          throw new Error(
+            "Choose replacement models for "
+              + unavailableSelectedModels.map((item) => item.label).join(", ")
+              + " before starting. Lyra will not guess an equivalent.",
+          );
+        }
         let workspace = projectPath.trim();
         if (mode === "new") {
           const name = projectName.trim();
@@ -345,7 +357,7 @@
         const disabled = SKILLS.filter((skill) => !selected.has(skill[0])).map((skill) => skill[0]);
         const disabledLabels = SKILLS.filter((skill) => !selected.has(skill[0])).map((skill) => skill[1]);
         const specialistModels = Object.fromEntries(
-          ALL_SKILL_IDS
+          enabled
             .filter((id) => typeof skillModels[id] === "string" && skillModels[id].trim())
             .map((id) => [id, skillModels[id].trim()]),
         );
@@ -530,7 +542,7 @@
                       },
                     }),
                     h("span", { className: "ub-skill-copy" },
-                      h("strong", null, skill[1], required ? h("em", { className: "ub-skill-required" }, "always on") : null),
+                      h("strong", null, skill[1], required ? h("em", { className: "ub-skill-required" }, "always available") : null),
                       h("small", null, skill[2])),
                     on && h("span", {
                       className: "ub-skill-model",
@@ -543,12 +555,20 @@
                         onChange: (event) => updateSkillModel(skill[0], event.target.value),
                         "aria-label": "LLM for " + skill[1],
                       },
-                        h("option", { value: "" }, "Default · " + defaultModelLabel),
-                        choices.map((model) => h("option", { value: model, key: model }, model)),
+                        h("option", { value: "" }, "Follow project model · " + defaultModelLabel),
+                        choices.map((model) => h("option", { value: model, key: model },
+                          model === assignedModel && on && !modelOptions.includes(model)
+                            ? "Unavailable on " + (modelInfo.provider || "current provider") + " · " + model
+                            : model,
+                        )),
                       ),
                     ),
                   );
                 }),
+              ),
+              unavailableSelectedModels.length > 0 && h("div", { className: "ub-error", role: "alert" },
+                "Provider changed. Choose a replacement model or Follow project model for: "
+                  + unavailableSelectedModels.map((item) => item.label).join(", "),
               ),
               h("div", { className: "ub-save-template" },
                 h(Input, { value: templateName, onChange: (event) => setTemplateName(event.target.value), placeholder: "Name this skill set…" }),
@@ -597,7 +617,7 @@
             ),
           ),
           error && h("div", { className: "ub-error", role: "alert" }, error),
-          h(Button, { className: "ub-start-chat", onClick: startChat, disabled: starting },
+          h(Button, { className: "ub-start-chat", onClick: startChat, disabled: starting || unavailableSelectedModels.length > 0 },
             starting ? "Starting project…" : "Start Project →",
           ),
           h("p", { className: "ub-chat-note" }, "The project opens in a simple chat. Lyra handles tools and terminal work quietly in the background."),

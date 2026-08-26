@@ -70,6 +70,14 @@ def test_the_launcher_speaks_of_agents():
     assert "right specialists" not in src
 
 
+def test_provider_switch_requires_user_selected_agent_models():
+    src = DASHBOARD.read_text(encoding="utf-8")
+    assert "unavailableSelectedModels" in src
+    assert "Lyra will not guess an equivalent" in src
+    assert "Follow project model" in src
+    assert "starting || unavailableSelectedModels.length > 0" in src
+
+
 def test_the_launcher_boot_prompt_matches_the_playbook():
     """It ships its own copy of Lyra's opening instruction."""
     src = DASHBOARD.read_text(encoding="utf-8")

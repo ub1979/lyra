@@ -213,9 +213,9 @@ permission request, or a blocker.
 Honor `specialist_models`: pass the assigned model in the corresponding
 `delegate_task` call. An unassigned specialist inherits the project default.
 Exact assignments are valid only while the active provider exposes that model.
-When a routing update removes an unavailable assignment after a provider
-change, inherit the new project model; never keep searching for the old
-provider's model id.
+After a provider change, wait for the dashboard's user-confirmed replacement
+map. Do not guess an equivalent model, silently replace the assignment, or keep
+searching for the old provider's model id.
 
 Requirements has already run when it was needed, and its `requirements.md` is
 the input to every affected later phase — pass its path to each specialist you

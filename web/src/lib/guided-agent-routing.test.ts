@@ -3,7 +3,7 @@ import {
   guidedApprovalChoices,
   guidedApprovalKey,
   guidedRequirementsTurnDirective,
-  reconcileGuidedModelAssignments,
+  unavailableGuidedModelAssignments,
 } from "./guided-agent-routing";
 
 describe("guidedRequirementsTurnDirective", () => {
@@ -34,26 +34,37 @@ describe("guidedRequirementsTurnDirective", () => {
   });
 });
 
-describe("reconcileGuidedModelAssignments", () => {
-  it("drops a stale Claude override after switching to OpenAI", () => {
+describe("unavailableGuidedModelAssignments", () => {
+  it("asks for a replacement instead of guessing across providers", () => {
     expect(
-      reconcileGuidedModelAssignments(
+      unavailableGuidedModelAssignments(
         {
           "tech-writer": "claude-haiku-4-5",
           "qa-engineer": "gpt-5.4-mini",
         },
+        ["tech-writer", "qa-engineer"],
         ["gpt-5.4", "gpt-5.4-mini"],
       ),
-    ).toEqual({
-      models: { "qa-engineer": "gpt-5.4-mini" },
-      removed: ["tech-writer"],
-    });
+    ).toEqual([
+      { agentId: "tech-writer", model: "claude-haiku-4-5" },
+    ]);
   });
 
-  it("preserves overrides when a custom provider inventory is unavailable", () => {
+  it("does not report inactive agents or an inconclusive custom inventory", () => {
     expect(
-      reconcileGuidedModelAssignments({ docs: "local-model" }, []),
-    ).toEqual({ models: { docs: "local-model" }, removed: [] });
+      unavailableGuidedModelAssignments(
+        { docs: "claude-haiku-4-5" },
+        [],
+        ["gpt-5.4-mini"],
+      ),
+    ).toEqual([]);
+    expect(
+      unavailableGuidedModelAssignments(
+        { docs: "local-model" },
+        ["docs"],
+        [],
+      ),
+    ).toEqual([]);
   });
 });
 

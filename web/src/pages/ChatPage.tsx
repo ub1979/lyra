@@ -75,8 +75,9 @@ import {
   guidedApprovalChoices,
   guidedApprovalKey,
   guidedRequirementsTurnDirective,
-  reconcileGuidedModelAssignments,
+  unavailableGuidedModelAssignments,
   type GuidedApprovalChoice,
+  type GuidedUnavailableModelAssignment,
 } from "@/lib/guided-agent-routing";
 import {
   GUIDED_MODEL_SILENCE_TIMEOUT_MS,
@@ -239,6 +240,12 @@ interface GuidedApprovalRequest {
   choices: GuidedApprovalChoice[];
   command: string;
   description: string;
+}
+
+interface GuidedModelReviewRequest {
+  projectModel: string;
+  provider: string;
+  unavailable: GuidedUnavailableModelAssignment[];
 }
 
 const GUIDED_APPROVAL_LABELS: Record<GuidedApprovalChoice, string> = {
@@ -1363,9 +1370,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     useState<GuidedUsageSnapshot>(EMPTY_GUIDED_USAGE);
   const [guidedApproval, setGuidedApproval] =
     useState<GuidedApprovalRequest | null>(null);
-  const guidedPendingModelRoutingRef = useRef<Record<string, string> | null>(
-    null,
-  );
+  const [guidedModelReview, setGuidedModelReview] =
+    useState<GuidedModelReviewRequest | null>(null);
+  const guidedModelReviewRef = useRef<GuidedModelReviewRequest | null>(null);
   const [guidedWorkers, setGuidedWorkers] = useState<GuidedWorkerRuntime[]>([]);
   const [guidedRecommendedSpecialistIds, setGuidedRecommendedSpecialistIds] =
     useState<string[]>([]);
@@ -1406,6 +1413,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   );
   const guidedRecentWorkers = guidedWorkers.filter(
     (worker) => worker.status !== "running" && worker.status !== "stopping",
+  );
+  const guidedUnavailableDraftModels = unavailableGuidedModelAssignments(
+    guidedSkillModelDraft,
+    guidedSkillDraftIds,
+    guidedModelOptions,
   );
   const guidedPhaseSteps = guidedPhaseProgress({
     completed: guidedPhasesCompleted,
@@ -1520,29 +1532,39 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           new Set((provider?.models ?? []).filter(Boolean)),
         );
         setGuidedModelOptions(providerModels);
-        const reconciled = reconcileGuidedModelAssignments(
+        const unavailable = unavailableGuidedModelAssignments(
           guidedSkillModelsRef.current,
+          guidedSelectedSpecialistIdsRef.current,
           providerModels,
         );
-        if (reconciled.removed.length) {
-          guidedSkillModelsRef.current = reconciled.models;
-          setGuidedSkillModels(reconciled.models);
-          guidedPendingModelRoutingRef.current = reconciled.models;
-          try {
-            window.localStorage.setItem(
-              GUIDED_SKILL_MODELS_STORAGE_KEY,
-              JSON.stringify(reconciled.models),
-            );
-          } catch {
-            // The live conversation still receives the corrected routing.
-          }
-          const labels = reconciled.removed.map(
-            (id) => GUIDED_SPECIALIST_LABELS[id] ?? id,
+        if (unavailable.length) {
+          const review: GuidedModelReviewRequest = {
+            projectModel: info.model,
+            provider: info.provider,
+            unavailable,
+          };
+          guidedModelReviewRef.current = review;
+          setGuidedModelReview(review);
+          setGuidedTeamRecommendationPending(false);
+          setGuidedRecommendedSpecialistIds([]);
+          setGuidedSkillDraftIds(
+            withRequiredGuidedSpecialists(
+              guidedSelectedSpecialistIdsRef.current,
+              GUIDED_SELECTABLE_SPECIALIST_IDS,
+            ),
+          );
+          setGuidedSkillModelDraft({ ...guidedSkillModelsRef.current });
+          setGuidedSkillsOpen(true);
+          const labels = unavailable.map(
+            ({ agentId }) => GUIDED_SPECIALIST_LABELS[agentId] ?? agentId,
           );
           setBanner(
-            `${labels.join(", ")} had model overrides that are unavailable on ${info.provider}. ` +
-              `They now follow the project model ${info.model || "selected for this provider"}.`,
+            `Choose replacement models for ${labels.join(", ")} after switching to ${info.provider}. ` +
+              "Lyra will not guess or silently replace them.",
           );
+        } else if (guidedModelReviewRef.current) {
+          guidedModelReviewRef.current = null;
+          setGuidedModelReview(null);
         }
         setGuidedDefaultModelLabel(
           [info.provider, info.model].filter(Boolean).join(" · ") ||
@@ -1583,6 +1605,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     setGuidedActivity({ phase: "idle", text: "", specialist: null });
     setGuidedWorkers([]);
     setGuidedApproval(null);
+    guidedModelReviewRef.current = null;
+    setGuidedModelReview(null);
     setGuidedRecommendedSpecialistIds([]);
     setGuidedTeamRecommendationPending(false);
   }, [guided, guidedMessageWorkspace, workspaceParam]);
@@ -2343,6 +2367,23 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     ) => {
     const text = value.trim();
     const ws = wsRef.current;
+    const modelReview = guidedModelReviewRef.current;
+    if (modelReview) {
+      setGuidedTeamRecommendationPending(false);
+      setGuidedRecommendedSpecialistIds([]);
+      setGuidedSkillDraftIds(
+        withRequiredGuidedSpecialists(
+          guidedSelectedSpecialistIdsRef.current,
+          GUIDED_SELECTABLE_SPECIALIST_IDS,
+        ),
+      );
+      setGuidedSkillModelDraft({ ...guidedSkillModelsRef.current });
+      setGuidedSkillsOpen(true);
+      setBanner(
+        `Choose replacement agent models for ${modelReview.provider} before continuing.`,
+      );
+      return;
+    }
     if (
       !guidedAgentReadyRef.current ||
       !text ||
@@ -2383,17 +2424,6 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           current: guidedPhaseCurrentRef.current,
         }),
       );
-      const pendingModels = guidedPendingModelRoutingRef.current;
-      if (pendingModels) {
-        routing.push(
-          `IDRAK_INTERNAL_MODEL_ROUTING_UPDATE_BEGIN ${JSON.stringify({
-            specialist_models: pendingModels,
-            rule:
-              "This replaces prior agent model overrides. Missing agents inherit the current project model; never reuse an unavailable model from the previous provider.",
-          })} IDRAK_INTERNAL_MODEL_ROUTING_UPDATE_END`,
-        );
-        guidedPendingModelRoutingRef.current = null;
-      }
     }
     const routedText = [...routing, text].filter(Boolean).join("\n");
     // Bracketed paste, not raw typing: a multi-line prompt written straight to
@@ -2503,14 +2533,27 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     const models = Object.fromEntries(
       Object.entries(guidedSkillModelDraft).filter(
         ([id, model]) =>
-          GUIDED_SELECTABLE_SPECIALIST_IDS.includes(id) &&
+          selected.includes(id) &&
           Boolean(model.trim()),
       ),
     );
+    const unavailable = unavailableGuidedModelAssignments(
+      models,
+      selected,
+      guidedModelOptions,
+    );
+    if (unavailable.length) {
+      const review = guidedModelReviewRef.current;
+      setBanner(
+        `Choose a current ${review?.provider || "provider"} model, or explicitly choose Follow project model, for every highlighted agent.`,
+      );
+      return;
+    }
     applyGuidedSpecialistIds(selected);
     guidedSkillModelsRef.current = models;
     setGuidedSkillModels(models);
-    guidedPendingModelRoutingRef.current = null;
+    guidedModelReviewRef.current = null;
+    setGuidedModelReview(null);
     try {
       window.localStorage.setItem(
         GUIDED_SKILL_MODELS_STORAGE_KEY,
@@ -2534,6 +2577,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     applyGuidedSpecialistIds,
     guidedSkillDraftIds,
     guidedSkillModelDraft,
+    guidedModelOptions,
     sendGuidedProjectState,
   ]);
 
@@ -4089,14 +4133,18 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 id="guided-skills-title"
                 className="text-xl font-semibold text-midground"
               >
-                {guidedTeamRecommendationPending
-                  ? "Lyra’s recommended team"
-                  : "Project agents"}
+                {guidedModelReview
+                  ? "Review agent models"
+                  : guidedTeamRecommendationPending
+                    ? "Lyra’s recommended team"
+                    : "Project agents"}
               </h2>
               <p className="mt-1 text-sm text-text-secondary">
-                {guidedTeamRecommendationPending
-                  ? "Review Lyra’s smallest-team recommendation. Select or unselect agents before confirming."
-                  : "Lyra is always available. Requirements stays on the team and activates only when discovery or a material change needs it. Choose only the extra agents this project needs."}
+                {guidedModelReview
+                  ? `You switched to ${guidedModelReview.provider}. Choose replacements for models that provider does not offer; Lyra will not guess an equivalent.`
+                  : guidedTeamRecommendationPending
+                    ? "Review Lyra’s smallest-team recommendation. Select or unselect agents before confirming."
+                    : "Lyra is always available. Requirements stays on the team and activates only when discovery or a material change needs it. Choose only the extra agents this project needs."}
               </p>
             </div>
             <Button
@@ -4156,12 +4204,20 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                   assignedModel && !guidedModelOptions.includes(assignedModel)
                     ? [assignedModel, ...guidedModelOptions]
                     : guidedModelOptions;
+                const modelUnavailable = Boolean(
+                  selected &&
+                    assignedModel &&
+                    guidedModelOptions.length &&
+                    !guidedModelOptions.includes(assignedModel),
+                );
                 return (
                   <div
                     key={id}
                     className={cn(
                       "rounded-xl border p-3 transition-colors",
-                      selected
+                      modelUnavailable
+                        ? "border-warning/70 bg-warning/[0.08]"
+                        : selected
                         ? "border-midground/45 bg-midground/[0.07]"
                         : "border-current/15 bg-midground/[0.02] hover:border-current/30",
                     )}
@@ -4244,10 +4300,17 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                         </option>
                         {modelChoices.map((model) => (
                           <option key={model} value={model}>
-                            {model}
+                            {model === assignedModel && modelUnavailable
+                              ? `Unavailable on ${guidedModelReview?.provider || "current provider"} · ${model}`
+                              : model}
                           </option>
                         ))}
                       </select>
+                      {modelUnavailable && (
+                        <span className="col-span-2 text-[10px] font-semibold text-warning">
+                          Choose a replacement or Follow project model
+                        </span>
+                      )}
                     </div>
                   </div>
                 );
@@ -4257,9 +4320,13 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
 
           <footer className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-current/15 px-5 py-4 sm:px-6">
             <span className="text-xs text-text-secondary">
-              {guidedTeamRecommendationPending
-                ? "Nothing starts until you confirm this selection."
-                : "Exact overrides are provider-specific; unavailable ones reset to the project model after a provider change."}
+              {guidedUnavailableDraftModels.length
+                ? `${guidedUnavailableDraftModels.length} model ${guidedUnavailableDraftModels.length === 1 ? "choice needs" : "choices need"} your decision before chat continues.`
+                : guidedModelReview
+                  ? "Your choices will replace the old provider’s model assignments."
+                  : guidedTeamRecommendationPending
+                    ? "Nothing starts until you confirm this selection."
+                    : "Exact model overrides are provider-specific."}
             </span>
             <div className="flex gap-2">
               <Button outlined onClick={() => setGuidedSkillsOpen(false)}>
@@ -4267,11 +4334,17 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               </Button>
               <Button
                 onClick={saveGuidedSkills}
-                disabled={!guidedAgentReady || ptyState !== "open"}
+                disabled={
+                  !guidedAgentReady ||
+                  ptyState !== "open" ||
+                  guidedUnavailableDraftModels.length > 0
+                }
               >
-                {guidedTeamRecommendationPending
-                  ? "Confirm selected agents"
-                  : "Save changes"}
+                {guidedModelReview
+                  ? "Confirm replacement models"
+                  : guidedTeamRecommendationPending
+                    ? "Confirm selected agents"
+                    : "Save changes"}
               </Button>
             </div>
           </footer>
@@ -4798,6 +4871,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 placeholder={
                   !guidedAgentReady
                     ? "Preparing the project conversation…"
+                    : guidedModelReview
+                      ? "Choose replacement agent models before continuing…"
                     : guidedPaused
                       ? "Workers are paused—keep talking to Lyra…"
                     : "Describe your idea or ask Lyra what to do next…"
@@ -4810,6 +4885,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 onClick={sendGuidedMessage}
                 disabled={
                   !guidedAgentReady ||
+                  Boolean(guidedModelReview) ||
                   guidedAttachBusy ||
                   (!guidedInput.trim() && !guidedAttachments.length) ||
                   ptyState !== "open"
@@ -4820,7 +4896,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               </Button>
             </div>
             <p className="mx-auto mt-1.5 max-w-3xl px-2 text-xs text-text-secondary">
-              {guidedAttachBusy
+              {guidedModelReview
+                ? "Open Agents and choose each highlighted replacement model."
+                : guidedAttachBusy
                 ? "Uploading attachments…"
                 : (attachmentCapabilityNotice(guidedModelCaps) ??
                   "Attach files or images with the clip, drag them here, or paste a screenshot. Shift+Enter for a new line.")}
