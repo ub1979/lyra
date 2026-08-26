@@ -2,9 +2,11 @@
 set -Eeuo pipefail
 
 PROJECT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+WORKSPACE_DIR="$PROJECT_DIR/my_projects"
 PORT="${LYRA_PORT:-9119}"
 
 cd "$PROJECT_DIR"
+mkdir -p "$WORKSPACE_DIR"
 
 if command -v lsof >/dev/null 2>&1; then
   RUNNING_PID="$(lsof -tiTCP:"$PORT" -sTCP:LISTEN 2>/dev/null | head -n 1 || true)"
@@ -16,7 +18,7 @@ if command -v lsof >/dev/null 2>&1; then
     )"
     RUNNING_COMMAND="$(ps -p "$RUNNING_PID" -o command= 2>/dev/null || true)"
 
-    if [[ "$RUNNING_CWD" == "$PROJECT_DIR" && "$RUNNING_COMMAND" == *"hermes dashboard"* ]]; then
+    if [[ "$RUNNING_CWD" == "$WORKSPACE_DIR" && "$RUNNING_COMMAND" == *"hermes dashboard"* ]]; then
       echo "Lyra is already running at http://127.0.0.1:${PORT}"
       echo "Open that address, or run ./stop.sh before restarting it."
       exit 0
@@ -56,4 +58,8 @@ echo "Lyra keeps technical terminal output behind the guided chat."
 echo "Press Ctrl+C here to stop the web application."
 echo
 
-exec uv run hermes dashboard --port "$PORT" "$@"
+# The dashboard's working directory becomes the default workspace for chats and
+# the App Builder. Keep it outside Lyra's tracked source tree so an ordinary
+# build cannot rewrite Lyra itself and leave users with a blocked `git pull`.
+cd "$WORKSPACE_DIR"
+exec uv run --project "$PROJECT_DIR" hermes dashboard --port "$PORT" "$@"

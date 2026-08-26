@@ -10,6 +10,11 @@ from fastapi import APIRouter, HTTPException, Query
 
 
 router = APIRouter()
+_LYRA_CHECKOUT = Path(__file__).resolve().parents[3]
+_ALLOWED_CHECKOUT_WORKSPACES = (
+    _LYRA_CHECKOUT / "my_projects",
+    _LYRA_CHECKOUT / "song-maker-studio",
+)
 _ARTIFACTS = (
     "requirements.md",
     "mvp-brief.md",
@@ -27,6 +32,40 @@ _ARTIFACTS = (
 )
 
 
+def _workspace_safety(path: str) -> dict[str, Any]:
+    """Keep guided builds out of Lyra's tracked application source.
+
+    User projects may live anywhere outside this checkout. Inside the checkout,
+    only the explicitly ignored project directories are valid workspaces.
+    ``strict=False`` deliberately supports validating a new project before its
+    directory is created.
+    """
+    candidate = Path(path).expanduser().resolve(strict=False)
+    inside_checkout = (
+        candidate == _LYRA_CHECKOUT
+        or candidate.is_relative_to(_LYRA_CHECKOUT)
+    )
+    in_project_area = any(
+        candidate == root or candidate.is_relative_to(root)
+        for root in _ALLOWED_CHECKOUT_WORKSPACES
+    )
+    protected = inside_checkout and not in_project_area
+    reason = ""
+    if protected:
+        reason = (
+            "That folder contains Lyra's own application files and is protected. "
+            f"Choose or create a project inside {_LYRA_CHECKOUT / 'my_projects'}, "
+            "or choose a folder outside the Lyra installation."
+        )
+    return {
+        "path": str(candidate),
+        "allowed": not protected,
+        "protected": protected,
+        "reason": reason,
+        "recommended_root": str(_LYRA_CHECKOUT / "my_projects"),
+    }
+
+
 def _project(path: str) -> Path:
     candidate = Path(path).expanduser().resolve()
     if not candidate.is_dir():
@@ -40,6 +79,11 @@ def _safe_text(path: Path, limit: int = 120_000) -> str:
     except (OSError, UnicodeError):
         return ""
     return data[:limit]
+
+
+@router.get("/workspace-safety")
+def workspace_safety(path: str = Query(..., min_length=1)) -> dict[str, Any]:
+    return _workspace_safety(path)
 
 
 @router.get("/state")

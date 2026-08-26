@@ -6,6 +6,11 @@ from pathlib import Path
 
 
 _ROOT = Path(__file__).resolve().parent
+_LYRA_CHECKOUT = _ROOT.parents[1]
+_ALLOWED_CHECKOUT_WORKSPACES = (
+    _LYRA_CHECKOUT / "my_projects",
+    _LYRA_CHECKOUT / "song-maker-studio",
+)
 
 _SPECIALIST_SKILLS = {
     "req-engineer": "Requirements engineering",
@@ -29,13 +34,36 @@ _SPECIALIST_SKILLS = {
 }
 
 
-def _command_prompt(raw_args: str) -> str:
+def _protected_workspace_message(cwd: Path | None = None) -> str:
+    workspace = (cwd or Path.cwd()).expanduser().resolve(strict=False)
+    inside_checkout = (
+        workspace == _LYRA_CHECKOUT
+        or workspace.is_relative_to(_LYRA_CHECKOUT)
+    )
+    in_project_area = any(
+        workspace == root or workspace.is_relative_to(root)
+        for root in _ALLOWED_CHECKOUT_WORKSPACES
+    )
+    if not inside_checkout or in_project_area:
+        return ""
+    return (
+        "Lyra protected its own application folder, so Ultimate Builder was not started here.\n"
+        f"Create or open a project inside {_LYRA_CHECKOUT / 'my_projects'}, then run "
+        "/ultimate-build again. You can also choose any project folder outside "
+        "the Lyra installation."
+    )
+
+
+def _command_prompt(raw_args: str, cwd: Path | None = None) -> str:
     brief = raw_args.strip()
     if not brief:
         return (
             "Usage: /ultimate-build <what you want to build>\n"
             "Example: /ultimate-build a private task manager with email login"
         )
+    protected_message = _protected_workspace_message(cwd)
+    if protected_message:
+        return protected_message
     return (
         "Start the Ultimate Application Builder workflow now. Load it first with "
         "skill_view(name='ultimate-builder:ultimate-app-builder') and follow its "
@@ -58,7 +86,7 @@ def _status_prompt(raw_args: str) -> str:
 def register(ctx) -> None:
     def start_build(raw_args: str) -> str:
         prompt = _command_prompt(raw_args)
-        if prompt.startswith("Usage:"):
+        if prompt.startswith("Usage:") or prompt.startswith("Lyra protected"):
             return prompt
         if ctx.inject_message(prompt):
             return "Ultimate Builder started in the current Lyra conversation."

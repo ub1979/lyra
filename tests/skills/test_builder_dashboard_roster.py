@@ -1,10 +1,10 @@
 """The plugin's New-project screen agrees with the chat dashboard.
 
-`plugins/ultimate-builder/dashboard/dist/index.js` is a hand-written, pre-bundled
-file the browser loads directly — it is not generated from web/src, so it holds a
-second copy of the agent roster. That duplication is why the picker kept showing
-17 agents after the chat side gained three: the two lists drift silently, and the
-only symptom is a screen that disagrees with the rest of the product.
+`plugins/ultimate-builder/dashboard/app/index.js` is a hand-written, pre-bundled
+file the browser loads directly — it is not generated from web/src, so it holds
+a second copy of the agent roster. The legacy `dist/index.js` stays frozen so a
+machine where an earlier Lyra session changed it can still update with a plain
+`git pull`; the manifest loads `app/index.js` instead.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ import re
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-DASHBOARD = REPO / "plugins" / "ultimate-builder" / "dashboard" / "dist" / "index.js"
+DASHBOARD = REPO / "plugins" / "ultimate-builder" / "dashboard" / "app" / "index.js"
 CHAT_PAGE = REPO / "web" / "src" / "pages" / "ChatPage.tsx"
 WORKFLOWS = (
     REPO / "plugins" / "ultimate-builder" / "skills" / "ultimate-app-builder"

@@ -5,6 +5,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+DASHBOARD_ENTRY = ROOT / "dashboard" / "app" / "index.js"
 
 
 class Context:
@@ -44,17 +45,18 @@ def test_registers_skill_and_commands():
     assert {row[0] for row in ctx.commands} == {"ultimate-build", "ultimate-status"}
 
 
-def test_build_command_requires_brief():
+def test_build_command_requires_brief(tmp_path):
     module = load_plugin()
     assert "Usage:" in module._command_prompt("")
-    prompt = module._command_prompt("a task manager")
+    prompt = module._command_prompt("a task manager", cwd=tmp_path)
     assert "skill_view(name='ultimate-builder:ultimate-app-builder')" in prompt
     assert "registered specialist skill" in prompt
     assert "a task manager" in prompt
 
 
-def test_build_command_injects_normal_idrak_turn():
+def test_build_command_injects_normal_idrak_turn(tmp_path, monkeypatch):
     module = load_plugin()
+    monkeypatch.chdir(tmp_path)
     ctx = Context()
     module.register(ctx)
     handler = next(row[1] for row in ctx.commands if row[0] == "ultimate-build")
@@ -64,8 +66,20 @@ def test_build_command_injects_normal_idrak_turn():
     assert "skill_view(name='ultimate-builder:ultimate-app-builder')" in ctx.injected[0]
 
 
+def test_build_command_protects_lyra_checkout():
+    module = load_plugin()
+    message = module._command_prompt("change the dashboard", cwd=module._LYRA_CHECKOUT)
+    assert message.startswith("Lyra protected its own application folder")
+    assert str(module._LYRA_CHECKOUT / "my_projects") in message
+    allowed = module._command_prompt(
+        "build a task manager",
+        cwd=module._LYRA_CHECKOUT / "my_projects" / "task-manager",
+    )
+    assert "Start the Ultimate Application Builder workflow now" in allowed
+
+
 def test_dashboard_enforces_requirements_gate_with_real_skill_loading():
-    dashboard = (ROOT / "dashboard" / "dist" / "index.js").read_text()
+    dashboard = DASHBOARD_ENTRY.read_text()
     assert "first_turn_gate" in dashboard
     assert "warm one-sentence greeting" in dashboard
     assert "ask exactly ONE short product question" in dashboard
@@ -81,12 +95,26 @@ def test_dashboard_enforces_requirements_gate_with_real_skill_loading():
     assert "specialist_models: specialistModels" in dashboard
     assert "delegate_task.model" in dashboard
     assert '"LLM for " + skill[1]' in dashboard
-    assert 'workspace: item.path' in dashboard
+    assert 'requireSafeWorkspace(item.path)' in dashboard
     assert 'api.getDefaultCwd()' in dashboard
-    assert 'joinPath(cwd, "my_projects")' in dashboard
+    assert 'defaultProjectsRoot(cwd)' in dashboard
+    assert 'workspace-safety?path=' in dashboard
+    assert 'workspace = await requireSafeWorkspace(workspace)' in dashboard
     assert 'window.location.href = "/chat?" + params.toString()' in dashboard
     assert 'disabled: starting || !selected.size' not in dashboard
     assert "Use ultimate-builder:ultimate-app-builder" not in dashboard
+
+
+def test_start_script_launches_dashboard_from_ignored_project_root():
+    start_script = (ROOT.parents[1] / "start.sh").read_text()
+    assert 'WORKSPACE_DIR="$PROJECT_DIR/my_projects"' in start_script
+    assert 'cd "$WORKSPACE_DIR"' in start_script
+    assert 'uv run --project "$PROJECT_DIR" hermes dashboard' in start_script
+
+
+def test_manifest_uses_the_non_conflicting_dashboard_entry():
+    manifest = (ROOT / "dashboard" / "manifest.json").read_text()
+    assert '"entry": "app/index.js"' in manifest
 
 
 def test_skills_define_chat_first_tool_recovery_and_website_research():

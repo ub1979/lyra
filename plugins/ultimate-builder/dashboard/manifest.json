@@ -8,7 +8,7 @@
     "path": "/ultimate-builder",
     "position": "after:skills"
   },
-  "entry": "dist/index.js",
+  "entry": "app/index.js",
   "css": "dist/style.css",
   "api": "plugin_api.py"
 }
