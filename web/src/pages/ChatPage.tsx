@@ -52,6 +52,17 @@ import {
   withRequiredGuidedSpecialists,
 } from "@/lib/guided-required-specialists";
 import {
+  EMPTY_GUIDED_USAGE,
+  formatGuidedTokens,
+  guidedUsageTotal,
+  markGuidedWorkerStopping,
+  normalizeGuidedUsage,
+  updateGuidedWorkers,
+  type GuidedRuntimeEventPayload,
+  type GuidedUsageSnapshot,
+  type GuidedWorkerRuntime,
+} from "@/lib/guided-agent-runtime";
+import {
   guidedPhaseProgress,
   nextGuidedPhase,
   orderGuidedPhases,
@@ -65,11 +76,16 @@ import {
   guidedWatchdogMessage,
 } from "@/lib/guided-turn-watchdog";
 import {
+  Activity,
+  Bot,
+  CircleStop,
   Copy,
   FolderOpen,
   MessageCircle,
   Paperclip,
   PanelRight,
+  Pause,
+  Play,
   RotateCcw,
   Send,
   Trash2,
@@ -163,9 +179,7 @@ function generateChannelId(scope?: string): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return `${prefix}-${crypto.randomUUID()}`;
   }
-  return `${prefix}-${Math.random().toString(36).slice(2)}-${Date.now().toString(
-    36,
-  )}`;
+  return `${prefix}-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`;
 }
 
 // Colors for the terminal body.  Matches the dashboard's dark teal canvas
@@ -187,7 +201,7 @@ interface GuidedAgentEventEnvelope {
   method?: string;
   params?: {
     type?: string;
-    payload?: {
+    payload?: GuidedRuntimeEventPayload & {
       args_text?: string;
       context?: string;
       failure_reason?: string;
@@ -199,6 +213,7 @@ interface GuidedAgentEventEnvelope {
       result_text?: string;
       summary?: string;
       text?: string;
+      usage?: unknown;
     };
   };
 }
@@ -231,7 +246,8 @@ const GUIDED_SPECIALIST_LABELS: Record<string, string> = {
 const GUIDED_SPECIALIST_DESCRIPTIONS: Record<string, string> = {
   "req-engineer": "Clarify goals, users, scope, and acceptance criteria.",
   spec: "Turn the request into detailed, testable behavior.",
-  "ui-designer": "Set the look and feel from real references, then review the build against it.",
+  "ui-designer":
+    "Set the look and feel from real references, then review the build against it.",
   "sw-architect": "Design the system, data, APIs, and boundaries.",
   "task-planner": "Create an ordered implementation graph.",
   "proj-manager": "Build milestones, checkpoints, and delivery plans.",
@@ -241,7 +257,8 @@ const GUIDED_SPECIALIST_DESCRIPTIONS: Record<string, string> = {
   "code-reviewer": "Review correctness, quality, and maintainability.",
   "ux-writer": "Write the labels, empty states, and error messages users read.",
   "qa-engineer": "Test real user journeys and report reproducible bugs.",
-  "a11y-auditor": "Audit against WCAG 2.2 with measured contrast and keyboard paths.",
+  "a11y-auditor":
+    "Audit against WCAG 2.2 with measured contrast and keyboard paths.",
   "security-auditor": "Audit authentication, data, dependencies, and secrets.",
   "devops-engineer": "Prepare CI/CD, containers, operations, and rollback.",
   "tech-writer": "Write user, developer, and API documentation.",
@@ -284,7 +301,9 @@ function specialistIdsFromBuilderSeed(
   workspace: string,
 ): string[] {
   if (seed) {
-    const match = seed.match(/IDRAK_INTERNAL_SETUP_BEGIN\s+(.+?)\s+IDRAK_INTERNAL_SETUP_END/);
+    const match = seed.match(
+      /IDRAK_INTERNAL_SETUP_BEGIN\s+(.+?)\s+IDRAK_INTERNAL_SETUP_END/,
+    );
     if (match) {
       try {
         const setup = JSON.parse(match[1]) as {
@@ -308,7 +327,8 @@ function specialistIdsFromBuilderSeed(
   }
   try {
     const stored = JSON.parse(
-      window.localStorage.getItem(guidedSpecialistStorageKey(workspace)) ?? "[]",
+      window.localStorage.getItem(guidedSpecialistStorageKey(workspace)) ??
+        "[]",
     ) as unknown;
     if (Array.isArray(stored)) {
       const selected = stored.filter(
@@ -391,7 +411,9 @@ function guidedWelcomeSeed(
     first_turn_gate:
       "The project listing below, together with your workspace snapshot, IS the inspection — do not call file, search, or terminal tools before greeting. Greet the user warmly as Lyra, briefly say what the project appears to be (or that it is empty) from what you were given, and ask exactly ONE short question about what they want to build or change. Inspect files later, once you know what they actually want. Recommend the smallest useful agent team later and ask permission before changing it.",
     requirements_gate:
-      "Requirements is mandatory and always enabled. As soon as the user describes anything to build, change, or fix, load skill_view(name=\"ultimate-builder:req-engineer\") and run that playbook yourself in this conversation — it is interactive, so do not delegate it to a spawned agent. Its multi-round interview, the separate Grill stress test, the design-space exploration, the prototype walkthrough and the approval gate are all required, and requirements.md must exist and be approved by the user before you write a plan, an architecture, a task graph, or any code, and before you delegate to any other agent. Never gather requirements informally yourself and never skip the interview because the request already looks clear. Keep asking one focused question per message; the user may say Skip, Decide for me, or Use smart defaults, and you record those as assumptions and continue.",
+      'Requirements is mandatory and always enabled. As soon as the user describes anything to build, change, or fix, load skill_view(name="ultimate-builder:req-engineer") and run that playbook yourself in this conversation — it is interactive, so do not delegate it to a spawned agent. Its multi-round interview, the separate Grill stress test, the design-space exploration, the prototype walkthrough and the approval gate are all required, and requirements.md must exist and be approved by the user before you write a plan, an architecture, a task graph, or any code, and before you delegate to any other agent. Never gather requirements informally yourself and never skip the interview because the request already looks clear. Keep asking one focused question per message; the user may say Skip, Decide for me, or Use smart defaults, and you record those as assumptions and continue.',
+    team_selection_gate:
+      "Recommend only the smallest useful team. Emit APP_IT_SKILLS_SET to open editable checkboxes, but do not treat that marker as approval and do not use newly proposed agents. Wait for the user's dashboard confirmation, delivered as IDRAK_INTERNAL_SKILLS_UPDATE; that confirmed selection is authoritative.",
     project_listing: projectSummary || "(listing unavailable)",
     workspace,
     enabled_specialists: specialists,
@@ -646,14 +668,12 @@ function GuidedSpecialistActivity({
   const eta =
     GUIDED_SPECIALIST_ETA_SECONDS[specialist.id] ??
     GUIDED_SPECIALIST_ETA_SECONDS.idk_it;
-  const phraseIndex = Math.floor(elapsedSeconds / 5) % GUIDED_WORK_PHRASES.length;
+  const phraseIndex =
+    Math.floor(elapsedSeconds / 5) % GUIDED_WORK_PHRASES.length;
   const phrase = activity.text
     ? activity.text
     : GUIDED_WORK_PHRASES[phraseIndex];
-  const silentSeconds = Math.max(
-    0,
-    Math.floor((clock - lastSignalAt) / 1000),
-  );
+  const silentSeconds = Math.max(0, Math.floor((clock - lastSignalAt) / 1000));
   const mayBeStalled = silentSeconds >= 30;
   const isTakingLonger = elapsedSeconds > eta[1];
 
@@ -775,7 +795,10 @@ function guidedTerminalSnapshot(
   }
 
   const presentation = analyzeGuidedChatOutput(
-    lines.join("\n").replace(/\n{3,}/g, "\n\n").trim(),
+    lines
+      .join("\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim(),
   );
   const output = [
     presentation.text,
@@ -834,12 +857,8 @@ function terminalComposerIsReady(term: Terminal): boolean {
   const buffer = term.buffer.active;
   const start = Math.max(0, buffer.length - 40);
   for (let index = start; index < buffer.length; index += 1) {
-    const line =
-      buffer.getLine(index)?.translateToString(true).trim() ?? "";
-    if (
-      /^[\s│┃┊┋]*❯/.test(line) ||
-      /\/help for commands/i.test(line)
-    ) {
+    const line = buffer.getLine(index)?.translateToString(true).trim() ?? "";
+    if (/^[\s│┃┊┋]*❯/.test(line) || /\/help for commands/i.test(line)) {
       return true;
     }
   }
@@ -883,13 +902,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   );
   const guidedMessagesRef = useRef(guidedMessages);
   const guidedWelcomeStartedRef = useRef(false);
-  const [guidedMessageWorkspace, setGuidedMessageWorkspace] = useState(
-    workspaceParam,
-  );
-  const [
-    guidedSelectedSpecialistIds,
-    setGuidedSelectedSpecialistIds,
-  ] = useState(() =>
+  const [guidedMessageWorkspace, setGuidedMessageWorkspace] =
+    useState(workspaceParam);
+  const [guidedSelectedSpecialistIds, setGuidedSelectedSpecialistIds] =
+    useState(() =>
     typeof window === "undefined"
       ? []
       : specialistIdsFromBuilderSeed(
@@ -901,9 +917,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const guidedDefaultSpecialistRef = useRef<GuidedSpecialist>(
     guidedDefaultSpecialist,
   );
-  const guidedSelectedSpecialistIdsRef = useRef(
-    guidedSelectedSpecialistIds,
-  );
+  const guidedSelectedSpecialistIdsRef = useRef(guidedSelectedSpecialistIds);
   // Front door only — see applyGuidedSpecialistIds. This initial value is what
   // a session connecting before the first apply() sends, so it must match.
   const guidedSessionSkillsRef = useRef(["ultimate-builder:app-it"]);
@@ -950,9 +964,15 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   >({});
   const guidedSkillModelsRef = useRef(guidedSkillModels);
   const [guidedModelOptions, setGuidedModelOptions] = useState<string[]>([]);
-  const [guidedDefaultModelLabel, setGuidedDefaultModelLabel] = useState(
-    "Project default",
-  );
+  const [guidedDefaultModelLabel, setGuidedDefaultModelLabel] =
+    useState("Project default");
+  const [guidedUsage, setGuidedUsage] =
+    useState<GuidedUsageSnapshot>(EMPTY_GUIDED_USAGE);
+  const [guidedWorkers, setGuidedWorkers] = useState<GuidedWorkerRuntime[]>([]);
+  const [guidedRecommendedSpecialistIds, setGuidedRecommendedSpecialistIds] =
+    useState<string[]>([]);
+  const [guidedTeamRecommendationPending, setGuidedTeamRecommendationPending] =
+    useState(false);
   const [guidedPaused, setGuidedPaused] = useState(false);
   const [guidedAgentReady, setGuidedAgentReady] = useState(false);
   const [telegramPlatform, setTelegramPlatform] =
@@ -975,18 +995,26 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const guidedPhaseSpecialist = guidedPhaseCurrent
     ? {
         id: guidedPhaseCurrent,
-        label: GUIDED_SPECIALIST_LABELS[guidedPhaseCurrent] ?? guidedPhaseCurrent,
+        label:
+          GUIDED_SPECIALIST_LABELS[guidedPhaseCurrent] ?? guidedPhaseCurrent,
       }
     : null;
   const guidedWorkingSpecialist =
-    guidedPhaseSpecialist ?? guidedActivity.specialist ?? guidedDefaultSpecialist;
+    guidedPhaseSpecialist ??
+    guidedActivity.specialist ??
+    guidedDefaultSpecialist;
+  const guidedActiveWorkers = guidedWorkers.filter(
+    (worker) => worker.status === "running" || worker.status === "stopping",
+  );
+  const guidedRecentWorkers = guidedWorkers.filter(
+    (worker) => worker.status !== "running" && worker.status !== "stopping",
+  );
   const guidedPhaseSteps = guidedPhaseProgress({
     completed: guidedPhasesCompleted,
     current: guidedPhaseCurrent,
     ordered: orderGuidedPhases(guidedSelectedSpecialistIds),
   });
-  const latestGuidedMessage =
-    guidedMessages[guidedMessages.length - 1] ?? null;
+  const latestGuidedMessage = guidedMessages[guidedMessages.length - 1] ?? null;
   const showRequirementsApproval =
     guidedActivity.phase === "idle" &&
     latestGuidedMessage?.role === "assistant" &&
@@ -1053,7 +1081,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     (ids: readonly string[]) => {
       // Requirements is pinned here rather than at each caller: the team can
       // be set from the ?builder= URL, the specialists dialog, or Lyra's own
-      // [APP_IT_SKILLS_SET:...] marker, and all three land in this function.
+      // confirmed dashboard selections all land in this function.
       const selected = withRequiredGuidedSpecialists(
         ids,
         GUIDED_SELECTABLE_SPECIALIST_IDS,
@@ -1096,6 +1124,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           [info.provider, info.model].filter(Boolean).join(" · ") ||
             "Project default",
         );
+        setGuidedUsage((current) => ({
+          ...current,
+          model: info.model || current.model,
+        }));
         setGuidedModelCaps({
           model: info.model,
           supportsVision: info.capabilities?.supports_vision ?? null,
@@ -1120,6 +1152,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     lastGuidedResponseRef.current = "";
     guidedTurnSettledRef.current = true;
     setGuidedActivity({ phase: "idle", text: "", specialist: null });
+    setGuidedWorkers([]);
+    setGuidedRecommendedSpecialistIds([]);
+    setGuidedTeamRecommendationPending(false);
   }, [guided, guidedMessageWorkspace, workspaceParam]);
 
   // Keep the preloaded skill set aligned with the project URL as the
@@ -1163,11 +1198,19 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       phases.content,
       GUIDED_SELECTABLE_SPECIALIST_IDS,
     );
-    // The [APP_IT_SKILLS_SET:...] marker is the only authority on the team.
-    // Inferring it from prose replaced the user's explicit selection with a
-    // guess drawn from one sentence.
+    // A marker is a proposal, never permission. Lyra can recommend the smallest
+    // useful team, but the editable dashboard confirmation is the only place a
+    // recommendation becomes project state.
     if (skillSelection) {
-      applyGuidedSpecialistIds(skillSelection.skillIds);
+      const recommended = withRequiredGuidedSpecialists(
+        skillSelection.skillIds,
+        GUIDED_SELECTABLE_SPECIALIST_IDS,
+      );
+      setGuidedRecommendedSpecialistIds(recommended);
+      setGuidedSkillDraftIds(recommended);
+      setGuidedSkillModelDraft({ ...guidedSkillModelsRef.current });
+      setGuidedTeamRecommendationPending(true);
+      setGuidedSkillsOpen(true);
     }
     const response = sanitizeGuidedResponse(
       skillSelection?.content ?? phases.content,
@@ -1201,10 +1244,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     setGuidedMessages((messages) => {
       const last = messages[messages.length - 1];
       if (last?.role === "assistant") {
-        return [
-          ...messages.slice(0, -1),
-          { ...last, content: response },
-        ];
+        return [...messages.slice(0, -1), { ...last, content: response }];
       }
       return [
         ...messages,
@@ -1215,7 +1255,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         },
       ];
     });
-  }, [applyGuidedSpecialistIds]);
+  }, []);
   // True from the moment the connect effect begins until the socket resolves
   // (open or close). Guards the page-resume reconnect against firing during
   // the async ticket/URL await gap where wsRef.current is not yet assigned.
@@ -1223,8 +1263,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const connectingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ptyInputLineRef = useRef("");
   const mobileReplacementInputUntilRef = useRef(0);
-  const [ptyState, setPtyState] =
-    useState<PtyConnectionState>("connecting");
+  const [ptyState, setPtyState] = useState<PtyConnectionState>("connecting");
   const ptyStateRef = useRef<PtyConnectionState>("connecting");
   const [lastCloseCode, setLastCloseCode] = useState<number | null>(null);
   // NS-504: when the agent process exits cleanly (the user typed `/exit`, or
@@ -1306,6 +1345,13 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     setGuidedOutput("");
     setGuidedInput("");
     setGuidedPaused(false);
+    setGuidedUsage((current) => ({
+      ...EMPTY_GUIDED_USAGE,
+      model: current.model,
+    }));
+    setGuidedWorkers([]);
+    setGuidedRecommendedSpecialistIds([]);
+    setGuidedTeamRecommendationPending(false);
     setGuidedPhaseCurrent(null);
     setGuidedPhasesCompleted([]);
     guidedPhaseCurrentRef.current = null;
@@ -1408,7 +1454,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const sessionTitle =
     sessionTitleState.scope === titleScope ? sessionTitleState.title : null;
   const handleSessionTitleChange = useCallback(
-    (title: string | null) => setSessionTitleState({ scope: titleScope, title }),
+    (title: string | null) =>
+      setSessionTitleState({ scope: titleScope, title }),
     [titleScope],
   );
 
@@ -1423,19 +1470,36 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     let unmounting = false;
     let ws: WebSocket | null = null;
     let streamedText = "";
+    let reconnectAttempt = 0;
+    let reconnectTimer: number | null = null;
 
-    void (async () => {
+    const scheduleReconnect = () => {
+      if (unmounting || reconnectTimer !== null) return;
+      const delay = Math.min(5000, 500 * 2 ** reconnectAttempt);
+      reconnectAttempt += 1;
+      reconnectTimer = window.setTimeout(() => {
+        reconnectTimer = null;
+        void connect();
+      }, delay);
+    };
+
+    const connect = async () => {
+      try {
       const url = await api.buildWsUrl("/api/events", { channel });
       if (unmounting) return;
-      ws = new WebSocket(url);
-      ws.addEventListener("open", () => {
+        const socket = new WebSocket(url);
+        ws = socket;
+        socket.addEventListener("open", () => {
+          reconnectAttempt = 0;
         guidedStructuredFeedConnectedRef.current = true;
       });
-      ws.addEventListener("close", () => {
+        socket.addEventListener("close", () => {
+          if (ws !== socket) return;
         guidedStructuredFeedConnectedRef.current = false;
+          scheduleReconnect();
       });
 
-      ws.addEventListener("message", (event) => {
+        socket.addEventListener("message", (event) => {
         let frame: GuidedAgentEventEnvelope;
         try {
           frame = JSON.parse(event.data);
@@ -1445,6 +1509,12 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         if (frame.method !== "event" || !frame.params?.type) return;
 
         const { type, payload } = frame.params;
+          if (type === "session.info") {
+            if (payload?.usage) {
+              setGuidedUsage(normalizeGuidedUsage(payload.usage));
+            }
+            return;
+          }
         if (type === "message.start") {
           guidedTurnSettledRef.current = false;
           streamedText = "";
@@ -1501,6 +1571,20 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               type,
               Date.now(),
             );
+              setGuidedWorkers((current) =>
+                updateGuidedWorkers(
+                  current,
+                  type,
+                  {
+                    ...payload,
+                    display_label:
+                      detected?.label ??
+                      payload?.display_label ??
+                      "Project agent",
+                  },
+                  Date.now(),
+                ),
+              );
           }
           const label = friendlyActivityLabel(
             payload as Record<string, unknown> | undefined,
@@ -1525,6 +1609,25 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         if (type === "subagent.complete") {
           guidedSubagentGraceUntilRef.current = 0;
           setGuidedLastSignalAt(Date.now());
+            const detected = analyzeGuidedChatOutput(
+              [payload?.goal, payload?.summary, payload?.text]
+                .filter((value): value is string => typeof value === "string")
+                .join(" "),
+            ).specialist;
+            setGuidedWorkers((current) =>
+              updateGuidedWorkers(
+                current,
+                type,
+                {
+                  ...payload,
+                  display_label:
+                    detected?.label ??
+                    payload?.display_label ??
+                    "Project agent",
+                },
+                Date.now(),
+              ),
+            );
           return;
         }
         if (type === "tool.complete") {
@@ -1535,8 +1638,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           // A completed parent message is also a definitive boundary for any
           // child phase, even when a provider omitted subagent.complete.
           guidedSubagentGraceUntilRef.current = 0;
-          const response =
-            (typeof payload?.text === "string" && payload.text.trim()
+            if (payload?.usage) {
+              setGuidedUsage(normalizeGuidedUsage(payload.usage));
+            }
+            const response = (
+              typeof payload?.text === "string" && payload.text.trim()
               ? payload.text
               : streamedText
             ).trim();
@@ -1559,21 +1665,19 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               guidedTurnSettledRef.current = false;
               setGuidedLastSignalAt(Date.now());
               const advanceLabel = advanceTo
-                ? GUIDED_SPECIALIST_LABELS[advanceTo] ?? advanceTo
+                  ? (GUIDED_SPECIALIST_LABELS[advanceTo] ?? advanceTo)
                 : null;
               setGuidedActivity((current) => ({
                 phase: "working",
                 // Narrow on advanceTo itself: TypeScript cannot carry the
                 // null-check across from advanceLabel into this closure.
                 text: advanceTo
-                  ? `Handing over to ${guidedAgentName(
-                      advanceTo,
-                      advanceLabel ?? undefined,
-                    )}…`
+                    ? `Handing over to ${guidedAgentName(advanceTo, advanceLabel ?? undefined)}…`
                   : "Moving to the promised agent…",
                 specialist: advanceTo
                   ? { id: advanceTo, label: advanceLabel ?? advanceTo }
-                  : current.specialist ?? guidedDefaultSpecialistRef.current,
+                    : (current.specialist ??
+                      guidedDefaultSpecialistRef.current),
               }));
               window.setTimeout(() => {
                 const active = wsRef.current;
@@ -1628,27 +1732,21 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           });
         }
       });
-    })().catch((error: unknown) => {
-      if (unmounting) return;
-      appendGuidedError(
-        error instanceof Error
-          ? `The project response feed could not connect: ${error.message}`
-          : "The project response feed could not connect.",
-      );
-    });
+      } catch {
+        guidedStructuredFeedConnectedRef.current = false;
+        scheduleReconnect();
+      }
+    };
+
+    void connect();
 
     return () => {
       unmounting = true;
       guidedStructuredFeedConnectedRef.current = false;
+      if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
       ws?.close();
     };
-  }, [
-    appendGuidedError,
-    channel,
-    finishGuidedResponse,
-    guided,
-    hasActivated,
-  ]);
+  }, [appendGuidedError, channel, finishGuidedResponse, guided, hasActivated]);
 
   useEffect(() => {
     if (!isActive) {
@@ -1782,11 +1880,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     return () => setEnd(null);
   }, [guided, isActive, narrow, mobilePanelOpen, modelToolsLabel, setEnd]);
 
-  const submitGuidedText = useCallback((value: string, displayValue?: string) => {
+  const submitGuidedText = useCallback(
+    (value: string, displayValue?: string) => {
     const text = value.trim();
     const ws = wsRef.current;
     if (
-      guidedPaused ||
       !guidedAgentReadyRef.current ||
       !text ||
       !ws ||
@@ -1827,7 +1925,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       send: (data) => ws.send(data),
     });
     setGuidedInput("");
-  }, [guidedPaused]);
+    },
+    [],
+  );
 
   const sendGuidedProjectState = useCallback(
     (
@@ -1849,6 +1949,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   );
 
   const openGuidedSkills = useCallback(() => {
+    setGuidedTeamRecommendationPending(false);
+    setGuidedRecommendedSpecialistIds([]);
     setGuidedSkillDraftIds(
       withRequiredGuidedSpecialists(
         guidedSelectedSpecialistIdsRef.current,
@@ -1859,8 +1961,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     setGuidedSkillsOpen(true);
   }, []);
 
-  const toggleGuidedSpecialistDraft = useCallback(
-    (id: string) => {
+  const toggleGuidedSpecialistDraft = useCallback((id: string) => {
       if (!GUIDED_SELECTABLE_SPECIALIST_IDS.includes(id)) return;
       // Requirements is not optional — see guided-required-specialists.ts.
       if (isRequiredGuidedSpecialist(id)) return;
@@ -1869,9 +1970,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           ? current.filter((candidate) => candidate !== id)
           : [...current, id],
       );
-    },
-    [],
-  );
+  }, []);
 
   const updateGuidedSpecialistModelDraft = useCallback(
     (id: string, model: string) => {
@@ -1888,8 +1987,6 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
 
   const saveGuidedSkills = useCallback(() => {
     if (
-      guidedPaused ||
-      guidedActivity.phase === "working" ||
       !guidedAgentReadyRef.current ||
       wsRef.current?.readyState !== WebSocket.OPEN
     ) {
@@ -1904,7 +2001,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     const models = Object.fromEntries(
       Object.entries(guidedSkillModelDraft).filter(
         ([id, model]) =>
-          GUIDED_SELECTABLE_SPECIALIST_IDS.includes(id) && Boolean(model.trim()),
+          GUIDED_SELECTABLE_SPECIALIST_IDS.includes(id) &&
+          Boolean(model.trim()),
       ),
     );
     applyGuidedSpecialistIds(selected);
@@ -1926,11 +2024,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         ? `Updated project agents: ${labels.join(", ")}`
         : "Updated project agents: Lyra only",
     );
+    setGuidedTeamRecommendationPending(false);
+    setGuidedRecommendedSpecialistIds([]);
     setGuidedSkillsOpen(false);
   }, [
     applyGuidedSpecialistIds,
-    guidedActivity.phase,
-    guidedPaused,
     guidedSkillDraftIds,
     guidedSkillModelDraft,
     sendGuidedProjectState,
@@ -2031,9 +2129,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     })()
       .catch((error: unknown) => {
         appendGuidedError(
-          `Attachment upload failed: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
+          `Attachment upload failed: ${error instanceof Error ? error.message : String(error)}`,
         );
       })
       .finally(() => setGuidedAttachBusy(false));
@@ -2047,15 +2143,51 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     submitGuidedText,
   ]);
 
+  const sendGuidedControlCommand = useCallback((command: string) => {
+    const socket = wsRef.current;
+    if (!socket || socket.readyState !== WebSocket.OPEN) return false;
+    writeGuidedPrompt(command, {
+      isOpen: () => wsRef.current?.readyState === WebSocket.OPEN,
+      schedule: (run, delayMs) => window.setTimeout(run, delayMs),
+      send: (data) => socket.send(data),
+    });
+    return true;
+  }, []);
+
   const toggleGuidedPause = useCallback(() => {
-    if (!guidedPaused && wsRef.current?.readyState === WebSocket.OPEN) {
-      // Interrupt the current response but keep the PTY/session alive so the
-      // user can resume the conversation without losing project context.
-      wsRef.current.send("\x03");
-      guidedSubagentGraceUntilRef.current = 0;
+    const nextPaused = !guidedPaused;
+    if (
+      !sendGuidedControlCommand(nextPaused ? "/agents pause" : "/agents resume")
+    ) {
+      appendGuidedError(
+        "Worker controls are unavailable while the chat reconnects.",
+      );
+      return;
     }
-    setGuidedPaused((value) => !value);
-  }, [guidedPaused]);
+      guidedSubagentGraceUntilRef.current = 0;
+    if (nextPaused) {
+      setGuidedWorkers((current) => markGuidedWorkerStopping(current));
+    }
+    setGuidedPaused(nextPaused);
+  }, [appendGuidedError, guidedPaused, sendGuidedControlCommand]);
+
+  const stopGuidedWorkers = useCallback(
+    (subagentId?: string) => {
+      const command = subagentId
+        ? `/agents stop ${subagentId}`
+        : "/agents stop";
+      if (!sendGuidedControlCommand(command)) {
+        appendGuidedError(
+          "Worker controls are unavailable while the chat reconnects.",
+        );
+        return;
+    }
+      setGuidedWorkers((current) =>
+        markGuidedWorkerStopping(current, subagentId),
+      );
+    },
+    [appendGuidedError, sendGuidedControlCommand],
+  );
 
   const continueGuidedOnTelegram = useCallback(() => {
     if (telegramReadiness !== "ready") {
@@ -2103,11 +2235,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     const lastAssistantMessage = [...guidedMessages]
       .reverse()
       .find((message) => message.role === "assistant");
-    if (
-      !lastUserMessage ||
-      !ws ||
-      ws.readyState !== WebSocket.OPEN
-    ) {
+    if (!lastUserMessage || !ws || ws.readyState !== WebSocket.OPEN) {
       return;
     }
 
@@ -2134,8 +2262,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       phase: "working",
       text: "Trying that again…",
       specialist:
-        inferred &&
-        guidedSelectedSpecialistIdsRef.current.includes(inferred.id)
+        inferred && guidedSelectedSpecialistIdsRef.current.includes(inferred.id)
           ? inferred
           : guidedDefaultSpecialistRef.current,
     });
@@ -2262,7 +2389,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           // Most common reason: the Clipboard API requires a user gesture.
           // This can fail when the OSC 52 response arrives outside the
           // original keydown event's activation. Log to aid debugging.
-          console.warn("[dashboard clipboard] OSC 52 write failed:", err.message);
+          console.warn(
+            "[dashboard clipboard] OSC 52 write failed:",
+            err.message,
+          );
         });
       } catch {
         console.warn("[dashboard clipboard] malformed OSC 52 payload");
@@ -2291,9 +2421,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         if (imageUploadDisposed) return;
         const ws = wsRef.current;
         if (!ws || ws.readyState !== WebSocket.OPEN) {
-          setBanner(
-            "Image uploaded, but chat is not connected — try again.",
-          );
+          setBanner("Image uploaded, but chat is not connected — try again.");
           return;
         }
         ws.send(`/image ${path}`);
@@ -2359,7 +2487,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           // gesture — async round-trips through OSC 52 can lose activation
           // and fail with "Document is not focused".
           navigator.clipboard.writeText(sel).catch((err) => {
-            console.warn("[dashboard clipboard] direct copy failed:", err.message);
+            console.warn(
+              "[dashboard clipboard] direct copy failed:",
+              err.message,
+            );
           });
           // Clear xterm.js's highlight after copy (matches gnome-terminal).
           term.clearSelection();
@@ -2386,9 +2517,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 if (!type) continue;
                 const blob = await item.getType(type);
                 const ext = type.split("/")[1]?.split("+")[0] || "png";
-                files.push(
-                  new File([blob], `clipboard.${ext}`, { type }),
-                );
+                files.push(new File([blob], `clipboard.${ext}`, { type }));
               }
               if (files.length) {
                 uploadAndAttachImages(files);
@@ -2402,8 +2531,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             const text = await navigator.clipboard.readText();
             if (text) term.paste(text);
           } catch (err) {
-            const message =
-              err instanceof Error ? err.message : String(err);
+            const message = err instanceof Error ? err.message : String(err);
             console.warn("[dashboard clipboard] paste failed:", message);
           }
         })();
@@ -2461,18 +2589,24 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             isMobileLike,
           )
         ) {
-          mobileReplacementInputUntilRef.current = Date.now() + MOBILE_REPLACEMENT_WINDOW_MS;
+          mobileReplacementInputUntilRef.current =
+            Date.now() + MOBILE_REPLACEMENT_WINDOW_MS;
         }
       };
       const markCompositionEnd = () => {
-        mobileReplacementInputUntilRef.current = Date.now() + MOBILE_REPLACEMENT_WINDOW_MS;
+        mobileReplacementInputUntilRef.current =
+          Date.now() + MOBILE_REPLACEMENT_WINDOW_MS;
       };
 
       textarea.addEventListener("beforeinput", markReplacementInput, true);
       textarea.addEventListener("compositionend", markCompositionEnd, true);
       mobileInputCleanup = () => {
         textarea.removeEventListener("beforeinput", markReplacementInput, true);
-        textarea.removeEventListener("compositionend", markCompositionEnd, true);
+        textarea.removeEventListener(
+          "compositionend",
+          markCompositionEnd,
+          true,
+        );
       };
     }
 
@@ -2526,7 +2660,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       // display:none hosts have clientWidth/Height = 0, which fit() turns
       // into a 1x1 terminal.  Skip entirely while hidden; the visibility
       // effect below runs another fit as soon as the tab is shown again.
-      if (!host.isConnected || host.clientWidth <= 0 || host.clientHeight <= 0) {
+      if (
+        !host.isConnected ||
+        host.clientWidth <= 0 ||
+        host.clientHeight <= 0
+      ) {
         return;
       }
       const w = terminalTierWidthPx(host);
@@ -2573,7 +2711,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     ro.observe(host);
 
     window.addEventListener("resize", scheduleSyncTerminalMetrics);
-    window.visualViewport?.addEventListener("resize", scheduleSyncTerminalMetrics);
+    window.visualViewport?.addEventListener(
+      "resize",
+      scheduleSyncTerminalMetrics,
+    );
     scheduleHostSync();
     requestAnimationFrame(() => scheduleHostSync());
 
@@ -2757,10 +2898,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       } else {
         const readyDeadline = Date.now() + 15_000;
         const markReady = () => {
-          if (
-            wsRef.current?.readyState !== WebSocket.OPEN ||
-            unmounting
-          ) {
+            if (wsRef.current?.readyState !== WebSocket.OPEN || unmounting) {
             return;
           }
           if (terminalComposerIsReady(term)) {
@@ -2800,10 +2938,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                   projectSummary,
                 );
                 writeGuidedPrompt(welcome, {
-                  isOpen: () =>
-                    wsRef.current?.readyState === WebSocket.OPEN,
-                  schedule: (run, delayMs) =>
-                    window.setTimeout(run, delayMs),
+                    isOpen: () => wsRef.current?.readyState === WebSocket.OPEN,
+                    schedule: (run, delayMs) => window.setTimeout(run, delayMs),
                   send: (data) => wsRef.current?.send(data),
                 });
               });
@@ -2923,9 +3059,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       // `/exit`, or started a new session). NS-504: surface an explicit
       // restart affordance instead of leaving a dead terminal that only a
       // full page refresh could recover.
-      term.write(
-        `\r\n\x1b[90m[session ended (code ${ev.code})]\x1b[0m\r\n`,
-      );
+        term.write(`\r\n\x1b[90m[session ended (code ${ev.code})]\x1b[0m\r\n`);
       setPtyState("ended");
     };
 
@@ -2989,9 +3123,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             term,
             guidedTurnStartLineRef.current,
           );
-          setGuidedLastSignalAt(Date.now());
           setGuidedOutput(snapshot.output);
           if (snapshot.errorMessage) {
+            setGuidedLastSignalAt(Date.now());
             guidedTurnSettledRef.current = true;
             appendGuidedError(snapshot.errorMessage);
             setGuidedActivity({
@@ -3032,6 +3166,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             snapshot.presentation.text &&
             snapshot.presentation.text !== lastGuidedResponseRef.current
           ) {
+            setGuidedLastSignalAt(Date.now());
             finishGuidedResponse(snapshot.presentation.text);
           }
         });
@@ -3145,36 +3280,37 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     } catch {
       // Private browsing/storage limits should not break the live conversation.
     }
-  }, [
-    guided,
-    guidedMessageWorkspace,
-    guidedMessages,
-    workspaceParam,
-  ]);
+  }, [guided, guidedMessageWorkspace, guidedMessages, workspaceParam]);
 
   useEffect(() => {
     if (!guided || guidedActivity.phase !== "working") return;
-    const remainingMs = Math.max(
-      0,
-      GUIDED_MODEL_SILENCE_TIMEOUT_MS - (Date.now() - guidedLastSignalAt),
-    );
+    const graceDeadline = guidedSubagentGraceUntilRef.current;
+    const deadline =
+      graceDeadline > 0
+        ? graceDeadline
+        : guidedLastSignalAt + GUIDED_MODEL_SILENCE_TIMEOUT_MS;
+    const remainingMs = Math.max(0, deadline - Date.now());
     const timeout = window.setTimeout(() => {
       const decision = decideGuidedWatchdog({
         subagentGraceUntil: guidedSubagentGraceUntilRef.current,
         now: Date.now(),
       });
       if (decision.action === "extend") {
-        // Specialist phases routinely take longer than a single model reply,
-        // so give this one more time — bounded by the grace window its own
-        // events earned, never indefinitely.
+        // A semantic event extended the deadline while this timer was firing.
+        // Re-arm from that event; never manufacture activity from a timer tick.
         setGuidedLastSignalAt(Date.now());
         return;
       }
       guidedSubagentGraceUntilRef.current = 0;
+      if (decision.reason === "subagent") {
+        sendGuidedControlCommand("/agents stop");
+        setGuidedWorkers((current) => markGuidedWorkerStopping(current));
+      } else {
       try {
         wsRef.current?.send("\x03");
       } catch {
         // The visible error is still useful if the transport already closed.
+      }
       }
       appendGuidedError(guidedWatchdogMessage(decision.reason));
       guidedTurnSettledRef.current = true;
@@ -3186,6 +3322,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     guided,
     guidedActivity.phase,
     guidedLastSignalAt,
+    sendGuidedControlCommand,
   ]);
 
   // When the user returns to the chat tab (isActive: false → true), the
@@ -3214,9 +3351,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         raf2 = 0;
         syncMetricsRef.current?.();
         const host = hostRef.current;
-        const active = typeof document !== "undefined"
-          ? document.activeElement
-          : null;
+        const active =
+          typeof document !== "undefined" ? document.activeElement : null;
         const focusIsElsewhereInChatPage =
           active !== null &&
           active !== document.body &&
@@ -3255,7 +3391,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       })
     ) {
       const now = Date.now();
-      if (now - lastResumeReconnectAtRef.current < PTY_RESUME_RECONNECT_THROTTLE_MS) {
+      if (
+        now - lastResumeReconnectAtRef.current <
+        PTY_RESUME_RECONNECT_THROTTLE_MS
+      ) {
         return;
       }
       lastResumeReconnectAtRef.current = now;
@@ -3308,9 +3447,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   // descendants below those layers (see Toast.tsx).
   const reconnectBanner =
     ptyState === "reconnecting"
-      ? `Chat connection interrupted${
-          lastCloseCode ? ` (code ${lastCloseCode})` : ""
-        }. Reconnecting...`
+      ? `Chat connection interrupted${lastCloseCode ? ` (code ${lastCloseCode})` : ""}. Reconnecting...`
       : null;
   const visibleBanner = banner ?? reconnectBanner;
   const showReconnectOverlay =
@@ -3326,10 +3463,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             ghost
             aria-label={t.app.closeModelTools}
             onClick={closeMobilePanel}
-            className={cn(
-              "fixed inset-0 z-[55] p-0 block",
-              "bg-black/60",
-            )}
+            className={cn("fixed inset-0 z-[55] p-0 block", "bg-black/60")}
           />
         )}
 
@@ -3427,12 +3561,18 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         >
           <header className="flex shrink-0 items-start justify-between gap-4 border-b border-current/15 px-5 py-4 sm:px-6">
             <div>
-              <h2 id="guided-skills-title" className="text-xl font-semibold text-midground">
-                Project agents
+              <h2
+                id="guided-skills-title"
+                className="text-xl font-semibold text-midground"
+              >
+                {guidedTeamRecommendationPending
+                  ? "Lyra’s recommended team"
+                  : "Project agents"}
               </h2>
               <p className="mt-1 text-sm text-text-secondary">
-                Lyra and the Requirements agent are always active. Choose the
-                extra agents and LLMs this project needs.
+                {guidedTeamRecommendationPending
+                  ? "Review Lyra’s smallest-team recommendation. Select or unselect agents before confirming."
+                  : "Lyra and the Requirements agent are always active. Choose only the extra agents this project needs."}
               </p>
             </div>
             <Button
@@ -3447,18 +3587,21 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
 
           <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-current/10 px-5 py-3 sm:px-6">
             <span className="text-xs text-text-secondary">
-              {guidedSkillDraftIds.length} of {GUIDED_SELECTABLE_SPECIALIST_IDS.length} selected
+              {guidedSkillDraftIds.length} of{" "}
+              {GUIDED_SELECTABLE_SPECIALIST_IDS.length} selected
             </span>
             <div className="flex gap-3 text-xs">
+              {guidedRecommendedSpecialistIds.length > 0 && (
               <button
                 type="button"
                 className="text-midground hover:underline"
                 onClick={() =>
-                  setGuidedSkillDraftIds([...GUIDED_SELECTABLE_SPECIALIST_IDS])
+                    setGuidedSkillDraftIds([...guidedRecommendedSpecialistIds])
                 }
               >
-                Select all
+                  Reset to recommendation
               </button>
+              )}
               <button
                 type="button"
                 className="text-midground hover:underline"
@@ -3471,7 +3614,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                   )
                 }
               >
-                Clear
+                Clear optional
               </button>
             </div>
           </div>
@@ -3538,6 +3681,12 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                               Always on
                             </span>
                           )}
+                          {!required &&
+                            guidedRecommendedSpecialistIds.includes(id) && (
+                              <span className="ml-2 rounded-full border border-midground/35 bg-midground/10 px-2 py-0.5 text-[10px] font-normal uppercase tracking-widest text-midground">
+                                Recommended
+                              </span>
+                            )}
                         </strong>
                         <small className="mt-1 block text-xs leading-5 text-text-secondary">
                           {GUIDED_SPECIALIST_DESCRIPTIONS[id]}
@@ -3584,7 +3733,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
 
           <footer className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-current/15 px-5 py-4 sm:px-6">
             <span className="text-xs text-text-secondary">
-              Changes are sent to Lyra once when you save.
+              {guidedTeamRecommendationPending
+                ? "Nothing starts until you confirm this selection."
+                : "Changes are sent to Lyra once when you save."}
             </span>
             <div className="flex gap-2">
               <Button outlined onClick={() => setGuidedSkillsOpen(false)}>
@@ -3592,14 +3743,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               </Button>
               <Button
                 onClick={saveGuidedSkills}
-                disabled={
-                  guidedPaused ||
-                  guidedActivity.phase === "working" ||
-                  !guidedAgentReady ||
-                  ptyState !== "open"
-                }
+                disabled={!guidedAgentReady || ptyState !== "open"}
               >
-                Save changes
+                {guidedTeamRecommendationPending
+                  ? "Confirm selected agents"
+                  : "Save changes"}
               </Button>
             </div>
           </footer>
@@ -3659,15 +3807,29 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 size="sm"
                 onClick={openGuidedSkills}
                 aria-expanded={guidedSkillsOpen}
-                disabled={
-                  guidedActivity.phase === "working" || !guidedAgentReady
-                }
+                disabled={!guidedAgentReady}
               >
                 Agents ({guidedSelectedSpecialistIds.length})
               </Button>
               <Button ghost size="sm" onClick={toggleGuidedPause}>
-                {guidedPaused ? "Resume" : "Pause"}
+                {guidedPaused ? (
+                  <Play className="mr-1 h-3.5 w-3.5" />
+                ) : (
+                  <Pause className="mr-1 h-3.5 w-3.5" />
+                )}
+                {guidedPaused ? "Resume workers" : "Pause workers"}
               </Button>
+              {guidedActiveWorkers.length > 0 && (
+                <Button
+                  ghost
+                  size="sm"
+                  onClick={() => stopGuidedWorkers()}
+                  title="Stop every active project agent"
+                >
+                  <CircleStop className="mr-1 h-3.5 w-3.5" />
+                  Stop workers
+                </Button>
+              )}
               <Button
                 ghost
                 size="sm"
@@ -3698,6 +3860,139 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               </Button>
             </div>
           </div>
+
+          <section
+            aria-label="Live agents and token usage"
+            className="border-b border-current/10 bg-midground/[0.025] px-4 py-3 sm:px-5"
+          >
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 font-semibold text-emerald-400">
+                <Bot className="h-3.5 w-3.5" />
+                Lyra available
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              </span>
+              <span
+                className="max-w-full truncate rounded-full border border-current/15 px-3 py-1.5 text-text-secondary"
+                title={guidedUsage.model || guidedDefaultModelLabel}
+              >
+                Model: {guidedUsage.model || guidedDefaultModelLabel}
+              </span>
+              <details className="group relative">
+                <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-full border border-current/15 px-3 py-1.5 text-text-secondary hover:border-current/30 hover:text-midground">
+                  <Activity className="h-3.5 w-3.5" />
+                  Tokens {formatGuidedTokens(guidedUsageTotal(guidedUsage))}
+                  <span
+                    aria-hidden
+                    className="transition-transform group-open:rotate-180"
+                  >
+                    ▾
+                  </span>
+                </summary>
+                <div className="absolute right-0 z-20 mt-2 grid min-w-64 grid-cols-2 gap-x-5 gap-y-2 rounded-xl border border-current/20 bg-background-base p-4 text-xs shadow-2xl">
+                  <span className="text-text-secondary">Fresh input</span>
+                  <strong className="text-right text-midground">
+                    {formatGuidedTokens(guidedUsage.input)}
+                  </strong>
+                  <span className="text-text-secondary">Cached input</span>
+                  <strong className="text-right text-midground">
+                    {formatGuidedTokens(guidedUsage.cacheRead)}
+                  </strong>
+                  <span className="text-text-secondary">Output</span>
+                  <strong className="text-right text-midground">
+                    {formatGuidedTokens(guidedUsage.output)}
+                  </strong>
+                  <span className="text-text-secondary">Reasoning</span>
+                  <strong className="text-right text-midground">
+                    {formatGuidedTokens(guidedUsage.reasoning)}
+                  </strong>
+                  <span className="text-text-secondary">Model calls</span>
+                  <strong className="text-right text-midground">
+                    {guidedUsage.calls}
+                  </strong>
+                  {guidedUsage.costUsd > 0 && (
+                    <>
+                      <span className="text-text-secondary">
+                        Estimated cost
+                      </span>
+                      <strong className="text-right text-midground">
+                        ${guidedUsage.costUsd.toFixed(3)}
+                      </strong>
+                    </>
+                  )}
+                </div>
+              </details>
+              <span className="text-text-secondary">
+                {guidedPaused
+                  ? "Workers paused at a safe boundary. You can still talk to Lyra."
+                  : guidedActiveWorkers.length
+                    ? `${guidedActiveWorkers.length} project agent${guidedActiveWorkers.length === 1 ? "" : "s"} working in the background.`
+                    : "No background agents are working."}
+              </span>
+            </div>
+
+            {guidedActiveWorkers.length > 0 && (
+              <div className="mt-3 grid gap-2 lg:grid-cols-2">
+                {guidedActiveWorkers.map((worker) => (
+                  <article
+                    key={worker.id}
+                    className="flex min-w-0 items-center gap-3 rounded-xl border border-current/15 bg-background-base/75 p-3"
+                  >
+                    <GuidedAgentAvatar
+                      id={
+                        Object.entries(GUIDED_SPECIALIST_LABELS).find(
+                          ([, label]) => label === worker.label,
+                        )?.[0] ?? "app-it"
+                      }
+                      className="h-9 w-9 shrink-0 rounded-lg object-cover"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <strong className="truncate text-xs text-midground">
+                          {worker.label}
+                        </strong>
+                        <span className="inline-flex shrink-0 items-center gap-1 text-[10px] uppercase tracking-wider text-emerald-400">
+                          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+                          {worker.status === "stopping"
+                            ? "stopping"
+                            : "working"}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 truncate text-[11px] text-text-secondary">
+                        {worker.lastActivity}
+                      </p>
+                      <p
+                        className="mt-1 truncate text-[10px] text-text-secondary/80"
+                        title={worker.model}
+                      >
+                        {worker.model} · {worker.calls} calls · fresh{" "}
+                        {formatGuidedTokens(worker.input)} · cached{" "}
+                        {formatGuidedTokens(worker.cacheRead)} · out{" "}
+                        {formatGuidedTokens(worker.output)}
+                      </p>
+                    </div>
+                    <Button
+                      ghost
+                      size="sm"
+                      disabled={worker.status === "stopping"}
+                      onClick={() => stopGuidedWorkers(worker.id)}
+                      title={`Stop ${worker.label}`}
+                    >
+                      Stop
+                    </Button>
+                  </article>
+                ))}
+              </div>
+            )}
+            {guidedActiveWorkers.length === 0 &&
+              guidedRecentWorkers.length > 0 && (
+                <p className="mt-2 text-[11px] text-text-secondary">
+                  Last agent: {guidedRecentWorkers[0].label} ·{" "}
+                  {guidedRecentWorkers[0].status} ·{" "}
+                  {guidedRecentWorkers[0].model} ·{" "}
+                  {guidedRecentWorkers[0].calls} calls
+                </p>
+              )}
+          </section>
 
           {telegramHandoffStatus !== "idle" && (
             <div
@@ -3780,7 +4075,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             onScroll={(event) => {
               const element = event.currentTarget;
               guidedAutoScrollRef.current =
-                element.scrollHeight - element.scrollTop - element.clientHeight <
+                element.scrollHeight -
+                  element.scrollTop -
+                  element.clientHeight <
                 80;
             }}
             className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:px-7 sm:py-4"
@@ -3789,7 +4086,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             <div className="mx-auto max-w-3xl text-[15px] leading-7 text-text-primary">
               {guidedPaused && (
                 <div className="mb-4 rounded-xl border border-warning/30 bg-warning/10 p-5 text-warning">
-                  Project paused. Select Resume whenever you are ready to continue.
+                  Background agents are paused. Lyra is still available—ask a
+                  question, change direction, or select Resume workers.
                 </div>
               )}
               {hasModelConnectionError && (
@@ -3798,7 +4096,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                     Connect an AI model to continue
                   </strong>
                   <span className="mt-2 block text-sm text-text-secondary">
-                    The current AWS Bedrock credentials are not valid. Choose a working provider and model in AI model settings.
+                    The current AWS Bedrock credentials are not valid. Choose a
+                    working provider and model in AI model settings.
                   </span>
                   <Button
                     className="mt-4"
@@ -3820,7 +4119,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                     key={message.id}
                     className={cn(
                       "flex",
-                      message.role === "user" ? "justify-end" : "justify-start",
+                        message.role === "user"
+                          ? "justify-end"
+                          : "justify-start",
                     )}
                   >
                     <div
@@ -4022,7 +4323,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 ref={guidedFileInputRef}
                 type="file"
                 multiple
-                accept={attachmentAccept(guidedModelCaps, CHAT_ATTACHMENT_ACCEPT)}
+                accept={attachmentAccept(
+                  guidedModelCaps,
+                  CHAT_ATTACHMENT_ACCEPT,
+                )}
                 className="sr-only"
                 onChange={(event) => {
                   addGuidedAttachments(Array.from(event.target.files ?? []));
@@ -4034,7 +4338,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 size="icon"
                 aria-label="Attach files or images"
                 title="Attach files or images"
-                disabled={guidedPaused || guidedAttachBusy}
+                disabled={guidedAttachBusy}
                 onClick={() => guidedFileInputRef.current?.click()}
               >
                 <Paperclip className="h-4 w-4" />
@@ -4042,7 +4346,6 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               <textarea
                 value={guidedInput}
                 onChange={(event) => setGuidedInput(event.target.value)}
-                disabled={guidedPaused}
                 onPaste={(event) => {
                   const files = Array.from(
                     event.clipboardData?.files ?? [],
@@ -4059,10 +4362,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 }}
                 rows={2}
                 placeholder={
-                  guidedPaused
-                    ? "Project paused"
-                    : !guidedAgentReady
+                  !guidedAgentReady
                     ? "Preparing the project conversation…"
+                    : guidedPaused
+                      ? "Workers are paused—keep talking to Lyra…"
                     : "Describe your idea or ask Lyra what to do next…"
                 }
                 className="max-h-56 min-h-16 flex-1 resize-y bg-transparent px-2 py-2 text-sm text-text-primary outline-none placeholder:text-text-secondary"
@@ -4072,7 +4375,6 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 size="icon"
                 onClick={sendGuidedMessage}
                 disabled={
-                  guidedPaused ||
                   !guidedAgentReady ||
                   guidedAttachBusy ||
                   (!guidedInput.trim() && !guidedAttachments.length) ||
@@ -4093,13 +4395,15 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         </div>
       )}
 
-      <div className={cn(
+      <div
+        className={cn(
         "min-h-0 flex-1 flex-col gap-2 lg:flex-row lg:gap-3",
         guided
           ? "pointer-events-none fixed -left-[2400px] top-0 flex h-[720px] w-[1100px] opacity-0"
           : "flex",
       )}
-      aria-hidden={guided}>
+        aria-hidden={guided}
+      >
         <div
           className={cn(
             "relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg",

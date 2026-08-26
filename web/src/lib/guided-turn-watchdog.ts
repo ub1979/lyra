@@ -24,7 +24,7 @@
 export const GUIDED_MODEL_SILENCE_TIMEOUT_MS = 75_000;
 
 /** A running specialist phase may stay silent this long before it is stopped. */
-export const GUIDED_SUBAGENT_SILENCE_GRACE_MS = 300_000;
+export const GUIDED_SUBAGENT_SILENCE_GRACE_MS = 120_000;
 
 /**
  * A spawn *request* is not a running subagent: if nothing follows it, the
@@ -99,9 +99,9 @@ export function decideGuidedWatchdog({
 export function guidedWatchdogMessage(reason: "model" | "subagent"): string {
   if (reason === "subagent") {
     return (
-      "A specialist phase stopped reporting progress for over " +
+      "A project agent stopped reporting progress for over " +
       `${Math.round(GUIDED_SUBAGENT_SILENCE_GRACE_MS / 60_000)} minutes. ` +
-      "The turn was stopped; check the AI model or select Stop & retry."
+      "The worker was stopped; Lyra is still available. Check the model or retry the task."
     );
   }
   return (

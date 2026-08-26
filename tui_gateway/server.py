@@ -4107,12 +4107,18 @@ def _get_usage(agent) -> dict:
         "model": getattr(agent, "model", "") or "",
         "input": g("session_input_tokens", "session_prompt_tokens"),
         "output": g("session_output_tokens", "session_completion_tokens"),
+        "cache_read": g("session_cache_read_tokens"),
+        "cache_write": g("session_cache_write_tokens"),
         "reasoning": g("session_reasoning_tokens"),
         "prompt": g("session_prompt_tokens"),
         "completion": g("session_completion_tokens"),
         "total": g("session_total_tokens"),
         "calls": g("session_api_calls"),
     }
+    estimated_cost = g("session_estimated_cost_usd")
+    if estimated_cost:
+        usage["cost_usd"] = float(estimated_cost)
+        usage["cost_status"] = "estimated"
     comp = getattr(agent, "context_compressor", None)
     if comp:
         # context_used is the *current-window* occupancy. Do NOT fall back to
@@ -4743,6 +4749,8 @@ def _on_tool_progress(
         for int_key in (
             "input_tokens",
             "output_tokens",
+            "cache_read_tokens",
+            "cache_write_tokens",
             "reasoning_tokens",
             "api_calls",
         ):
@@ -10367,10 +10375,24 @@ def _(rid, params: dict) -> dict:
 
 @method("delegation.pause")
 def _(rid, params: dict) -> dict:
-    from tools.delegate_tool import set_spawn_paused
+    from tools.delegate_tool import interrupt_all_subagents, set_spawn_paused
 
     paused = bool(params.get("paused", True))
-    return _ok(rid, {"paused": set_spawn_paused(paused)})
+    active_interrupted = interrupt_all_subagents() if paused else 0
+    return _ok(
+        rid,
+        {
+            "paused": set_spawn_paused(paused),
+            "active_interrupted": active_interrupted,
+        },
+    )
+
+
+@method("delegation.interrupt_all")
+def _(rid, params: dict) -> dict:
+    from tools.delegate_tool import interrupt_all_subagents
+
+    return _ok(rid, {"interrupted": interrupt_all_subagents()})
 
 
 @method("subagent.interrupt")

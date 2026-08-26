@@ -1,6 +1,7 @@
 import type {
   BrowserManageResponse,
   CommandsCatalogResponse,
+  DelegationInterruptAllResponse,
   DelegationPauseResponse,
   ProcessStopResponse,
   ReloadEnvResponse,
@@ -11,6 +12,7 @@ import type {
   SlashExecResponse,
   SpawnTreeListResponse,
   SpawnTreeLoadResponse,
+  SubagentInterruptResponse,
   ToolsConfigureResponse
 } from '../../../gatewayTypes.js'
 import type { PanelSection } from '../../../types.js'
@@ -305,8 +307,41 @@ export const opsCommands: SlashCommand[] = [
           .request<DelegationPauseResponse>('delegation.pause', { paused })
           .then(r => {
             applyDelegationStatus({ paused: r?.paused })
-            ctx.transcript.sys(`delegation · ${r?.paused ? 'paused' : 'resumed'}`)
+            const stopped = r?.active_interrupted ?? 0
+            ctx.transcript.sys(
+              `delegation · ${r?.paused ? `paused${stopped ? ` · stopping ${stopped} active` : ''}` : 'resumed'}`
+            )
           })
+          .catch(ctx.guardedErr)
+
+        return
+      }
+
+      if (sub === 'stop') {
+        ctx.gateway.gw
+          .request<DelegationInterruptAllResponse>('delegation.interrupt_all', {})
+          .then(r => ctx.transcript.sys(`delegation · stopping ${r?.interrupted ?? 0} active agent(s)`))
+          .catch(ctx.guardedErr)
+
+        return
+      }
+
+      if (sub.startsWith('stop ')) {
+        const subagentId = sub.slice('stop '.length).trim()
+
+        if (!subagentId) {
+          ctx.transcript.sys('usage: /agents stop <agent-id>')
+
+          return
+        }
+
+        ctx.gateway.gw
+          .request<SubagentInterruptResponse>('subagent.interrupt', { subagent_id: subagentId })
+          .then(r =>
+            ctx.transcript.sys(
+              r?.found ? `delegation · stopping ${subagentId}` : `delegation · agent not found: ${subagentId}`
+            )
+          )
           .catch(ctx.guardedErr)
 
         return

@@ -202,6 +202,32 @@ def interrupt_subagent(subagent_id: str) -> bool:
     return True
 
 
+def interrupt_all_subagents() -> int:
+    """Request every live delegated child to stop at a safe boundary.
+
+    Snapshot under the registry lock, then interrupt outside it: ``agent.interrupt``
+    recurses into descendants and may call progress hooks, so holding the registry
+    lock while signalling would make a UI pause vulnerable to callback deadlocks.
+    Returns the number of live children that accepted the request.
+    """
+    with _active_subagents_lock:
+        active = [
+            (str(subagent_id), record.get("agent"))
+            for subagent_id, record in _active_subagents.items()
+        ]
+
+    interrupted = 0
+    for subagent_id, agent in active:
+        if agent is None:
+            continue
+        try:
+            agent.interrupt(f"Paused by user ({subagent_id})")
+            interrupted += 1
+        except Exception as exc:
+            logger.debug("interrupt_all_subagents(%s) failed: %s", subagent_id, exc)
+    return interrupted
+
+
 def list_active_subagents() -> List[Dict[str, Any]]:
     """Snapshot of the currently running subagent tree.
 
@@ -921,6 +947,13 @@ def _build_child_progress_callback(
 
         if event_type == "subagent.complete":
             _relay("subagent.complete", preview=preview, **kwargs)
+            return
+
+        if event_type == "subagent.heartbeat":
+            # A semantic 30-second liveness signal for non-terminal UIs. Unlike
+            # spinner redraws it carries real phase + usage data and therefore
+            # can safely drive the user's "what is working?" clock.
+            _relay("subagent.progress", preview=preview, **kwargs)
             return
 
         if event_type == "subagent.text":
@@ -1911,6 +1944,31 @@ def _run_single_child(
                 touch(desc)
             except Exception:
                 pass
+            if child_progress_cb:
+                try:
+                    child_progress_cb(
+                        "subagent.heartbeat",
+                        preview=desc,
+                        status="running",
+                        input_tokens=int(
+                            getattr(child, "session_prompt_tokens", 0) or 0
+                        ),
+                        output_tokens=int(
+                            getattr(child, "session_completion_tokens", 0) or 0
+                        ),
+                        cache_read_tokens=int(
+                            getattr(child, "session_cache_read_tokens", 0) or 0
+                        ),
+                        cache_write_tokens=int(
+                            getattr(child, "session_cache_write_tokens", 0) or 0
+                        ),
+                        reasoning_tokens=int(
+                            getattr(child, "session_reasoning_tokens", 0) or 0
+                        ),
+                        api_calls=int(getattr(child, "session_api_calls", 0) or 0),
+                    )
+                except Exception:
+                    logger.debug("Subagent heartbeat relay failed", exc_info=True)
 
     _heartbeat_thread = threading.Thread(target=_heartbeat_loop, daemon=True)
 
@@ -2197,6 +2255,8 @@ def _run_single_child(
         # Extract token counts (safe for mock objects)
         _input_tokens = getattr(child, "session_prompt_tokens", 0)
         _output_tokens = getattr(child, "session_completion_tokens", 0)
+        _cache_read_tokens = getattr(child, "session_cache_read_tokens", 0)
+        _cache_write_tokens = getattr(child, "session_cache_write_tokens", 0)
         _model = getattr(child, "model", None)
 
         entry: Dict[str, Any] = {
@@ -2308,6 +2368,16 @@ def _run_single_child(
             ),
             "output_tokens": (
                 int(_output_tokens) if isinstance(_output_tokens, (int, float)) else 0
+            ),
+            "cache_read_tokens": (
+                int(_cache_read_tokens)
+                if isinstance(_cache_read_tokens, (int, float))
+                else 0
+            ),
+            "cache_write_tokens": (
+                int(_cache_write_tokens)
+                if isinstance(_cache_write_tokens, (int, float))
+                else 0
             ),
             "reasoning_tokens": (
                 int(_reasoning_tokens)

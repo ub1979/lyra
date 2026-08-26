@@ -18,7 +18,9 @@ describe("guidedSubagentGraceMs", () => {
       "subagent.tool",
       "subagent.progress",
     ]) {
-      expect(guidedSubagentGraceMs(type)).toBe(GUIDED_SUBAGENT_SILENCE_GRACE_MS);
+      expect(guidedSubagentGraceMs(type)).toBe(
+        GUIDED_SUBAGENT_SILENCE_GRACE_MS,
+      );
     }
   });
 
@@ -52,7 +54,11 @@ describe("extendGuidedSubagentGrace", () => {
 
   it("pushes the window forward as a phase keeps reporting", () => {
     const first = extendGuidedSubagentGrace(0, "subagent.start", NOW);
-    const later = extendGuidedSubagentGrace(first, "subagent.tool", NOW + 60_000);
+    const later = extendGuidedSubagentGrace(
+      first,
+      "subagent.tool",
+      NOW + 60_000,
+    );
     expect(later).toBe(NOW + 60_000 + GUIDED_SUBAGENT_SILENCE_GRACE_MS);
     expect(later).toBeGreaterThan(first);
   });
@@ -92,14 +98,18 @@ describe("decideGuidedWatchdog", () => {
   it("stops once the window has expired instead of extending forever", () => {
     // The 42-minute hang: a spawn was requested, nothing followed, and the old
     // code re-armed the timer on every tick because a flag was still set.
+    expect(decideGuidedWatchdog({ subagentGraceUntil: NOW, now: NOW })).toEqual(
+      {
+        action: "stop",
+        reason: "subagent",
+      },
+    );
     expect(
-      decideGuidedWatchdog({ subagentGraceUntil: NOW, now: NOW })).toEqual({
+      decideGuidedWatchdog({ subagentGraceUntil: NOW - 1, now: NOW }),
+    ).toEqual({
       action: "stop",
       reason: "subagent",
     });
-    expect(
-      decideGuidedWatchdog({ subagentGraceUntil: NOW - 1, now: NOW }),
-    ).toEqual({ action: "stop", reason: "subagent" });
   });
 
   it("bounds a spawn request that never becomes a subagent", () => {
@@ -126,24 +136,31 @@ describe("decideGuidedWatchdog", () => {
     let graceUntil = 0;
     let now = NOW;
     for (let tick = 0; tick < 40; tick += 1) {
-      graceUntil = extendGuidedSubagentGrace(graceUntil, "subagent.progress", now);
-      now += 60_000;
-      expect(decideGuidedWatchdog({ subagentGraceUntil: graceUntil, now })).toEqual(
-        { action: "extend" },
+      graceUntil = extendGuidedSubagentGrace(
+        graceUntil,
+        "subagent.progress",
+        now,
       );
+      now += 60_000;
+      expect(
+        decideGuidedWatchdog({ subagentGraceUntil: graceUntil, now }),
+      ).toEqual({ action: "extend" });
     }
     // ...but silence after the last report is still bounded.
     now += GUIDED_SUBAGENT_SILENCE_GRACE_MS;
     expect(
       decideGuidedWatchdog({ subagentGraceUntil: graceUntil, now }),
-    ).toEqual({ action: "stop", reason: "subagent" });
+    ).toEqual({
+      action: "stop",
+      reason: "subagent",
+    });
   });
 });
 
 describe("guidedWatchdogMessage", () => {
   it("names the specialist phase when that is what stalled", () => {
-    expect(guidedWatchdogMessage("subagent")).toMatch(/specialist phase/i);
-    expect(guidedWatchdogMessage("subagent")).toMatch(/5 minutes/);
+    expect(guidedWatchdogMessage("subagent")).toMatch(/project agent/i);
+    expect(guidedWatchdogMessage("subagent")).toMatch(/2 minutes/);
   });
 
   it("names the model when it never answered", () => {

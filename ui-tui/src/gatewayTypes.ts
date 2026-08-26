@@ -525,7 +525,12 @@ export interface DelegationStatusResponse {
 }
 
 export interface DelegationPauseResponse {
+  active_interrupted?: number
   paused?: boolean
+}
+
+export interface DelegationInterruptAllResponse {
+  interrupted?: number
 }
 
 export interface SubagentInterruptResponse {

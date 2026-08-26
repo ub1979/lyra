@@ -117,14 +117,16 @@ not agreed with them.
 Do not recommend every skill by default. Do not add or remove a skill merely
 because it is conventionally part of an SDLC.
 
-Present the proposed team and ask for permission to apply it. The user may
-approve all, reject it, or name changes. Never alter the project team before
-explicit approval.
+Present the proposed team and emit the marker below in the same response. The
+dashboard turns it into an editable checkbox confirmation: the user may approve
+all, uncheck recommendations, or add agents. The marker is only a proposal and
+never changes the project team by itself. Wait for the dashboard's
+`IDRAK_INTERNAL_SKILLS_UPDATE` confirmation before using any newly proposed
+agent.
 
-## Apply an approved team
+## Propose an editable team
 
-After approval, emit exactly one machine-readable control marker in the same
-assistant response:
+Emit exactly one machine-readable control marker with the recommendation:
 
 ```text
 [APP_IT_SKILLS_SET:req-engineer,sw-developer,qa-engineer]
@@ -134,7 +136,9 @@ Use only registered specialist ids, comma-separated, with no prose inside the
 brackets. `req-engineer` must appear in every marker, so the smallest possible
 team is `[APP_IT_SKILLS_SET:req-engineer]`. The dashboard re-adds it if you
 omit it, but omitting it contradicts what you told the user. The dashboard
-removes this marker from the visible response and updates project state.
+removes this marker from the visible response and opens the editable
+confirmation. Only the later `IDRAK_INTERNAL_SKILLS_UPDATE` changes project
+state.
 
 Manual dashboard selections are authoritative. When an
 `IDRAK_INTERNAL_SKILLS_UPDATE_BEGIN` message arrives, acknowledge the new team
