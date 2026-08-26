@@ -625,6 +625,235 @@ function GuidedAgentAvatar({
   );
 }
 
+function guidedWorkerAvatarId(worker: GuidedWorkerRuntime): string {
+  return (
+    Object.entries(GUIDED_SPECIALIST_LABELS).find(
+      ([, label]) => label === worker.label,
+    )?.[0] ?? "app-it"
+  );
+}
+
+function GuidedRuntimePanel({
+  activeWorkers,
+  activity,
+  currentSpecialist,
+  defaultModelLabel,
+  lastSignalAt,
+  onRetry,
+  onStopWorker,
+  paused,
+  phaseSteps,
+  recentWorkers,
+  usage,
+}: {
+  activeWorkers: readonly GuidedWorkerRuntime[];
+  activity: GuidedChatPresentation;
+  currentSpecialist: GuidedSpecialist;
+  defaultModelLabel: string;
+  lastSignalAt: number;
+  onRetry: () => void;
+  onStopWorker: (id: string) => void;
+  paused: boolean;
+  phaseSteps: ReturnType<typeof guidedPhaseProgress>;
+  recentWorkers: readonly GuidedWorkerRuntime[];
+  usage: GuidedUsageSnapshot;
+}) {
+  const model = usage.model || defaultModelLabel;
+  const status = paused
+    ? "Workers paused"
+    : activeWorkers.length
+      ? `${activeWorkers.length} working`
+      : "No workers";
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col p-3 text-xs">
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-semibold uppercase tracking-[0.16em] text-text-secondary">
+          Agent activity
+        </span>
+        <span
+          className={cn(
+            "h-2 w-2 shrink-0 rounded-full",
+            paused
+              ? "bg-warning"
+              : activeWorkers.length
+                ? "animate-pulse bg-emerald-400"
+                : "bg-text-secondary/45",
+          )}
+          aria-hidden
+        />
+      </div>
+
+      <div className="mt-3 rounded-lg border border-emerald-500/25 bg-emerald-500/[0.07] p-2.5">
+        <div className="flex items-center gap-2 font-semibold text-emerald-400">
+          <Bot className="h-3.5 w-3.5" />
+          <span>Lyra available</span>
+        </div>
+        <p
+          className="mt-1 truncate text-[10px] text-text-secondary"
+          title={model}
+        >
+          {model}
+        </p>
+      </div>
+
+      <details className="group mt-2 rounded-lg border border-current/15 bg-background-base/60">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-text-secondary hover:text-midground">
+          <span className="inline-flex items-center gap-1.5">
+            <Activity className="h-3.5 w-3.5" />
+            Tokens
+          </span>
+          <strong className="text-midground">
+            {formatGuidedTokens(guidedUsageTotal(usage))}
+          </strong>
+        </summary>
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 border-t border-current/10 px-2.5 py-2 text-[10px]">
+          <span className="text-text-secondary">Fresh</span>
+          <strong className="text-right text-midground">
+            {formatGuidedTokens(usage.input)}
+          </strong>
+          <span className="text-text-secondary">Cached</span>
+          <strong className="text-right text-midground">
+            {formatGuidedTokens(usage.cacheRead)}
+          </strong>
+          <span className="text-text-secondary">Output</span>
+          <strong className="text-right text-midground">
+            {formatGuidedTokens(usage.output)}
+          </strong>
+          <span className="text-text-secondary">Reasoning</span>
+          <strong className="text-right text-midground">
+            {formatGuidedTokens(usage.reasoning)}
+          </strong>
+          <span className="text-text-secondary">Calls</span>
+          <strong className="text-right text-midground">{usage.calls}</strong>
+          {usage.costUsd > 0 && (
+            <>
+              <span className="text-text-secondary">Cost</span>
+              <strong className="text-right text-midground">
+                ${usage.costUsd.toFixed(3)}
+              </strong>
+            </>
+          )}
+        </div>
+      </details>
+
+      {phaseSteps.length > 1 && (
+        <div className="mt-3">
+          <p className="text-[10px] uppercase tracking-wider text-text-secondary">
+            Workflow
+          </p>
+          <ol className="mt-2 space-y-1">
+            {phaseSteps.map((step) => (
+              <li
+                key={step.id}
+                aria-current={step.state === "now" ? "step" : undefined}
+                className={cn(
+                  "flex items-center gap-2 rounded-md px-2 py-1.5 text-[10px]",
+                  step.state === "now" &&
+                    "bg-midground/10 font-semibold text-midground",
+                  step.state === "done" && "text-text-secondary",
+                  step.state === "pending" && "text-text-secondary/55",
+                )}
+              >
+                <GuidedAgentAvatar
+                  id={step.id}
+                  muted={step.state === "pending"}
+                  className="h-5 w-5 shrink-0 rounded object-cover"
+                />
+                <span className="min-w-0 flex-1 truncate">
+                  {GUIDED_SPECIALIST_LABELS[step.id] ?? step.id}
+                </span>
+                <span className="shrink-0 uppercase tracking-wider">
+                  {step.state === "done"
+                    ? "Done"
+                    : step.state === "now"
+                      ? "Working"
+                      : "Queued"}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+
+      {activity.phase === "working" && (
+        <GuidedRailSpecialistActivity
+          key={currentSpecialist.id}
+          activity={activity}
+          lastSignalAt={lastSignalAt}
+          onRetry={onRetry}
+          specialist={currentSpecialist}
+        />
+      )}
+
+      <div className="mt-3 flex min-h-0 flex-1 flex-col">
+        <p className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-wider text-text-secondary">
+          <span>Project agents</span>
+          <span>{status}</span>
+        </p>
+        <div className="mt-2 min-h-0 space-y-2 overflow-y-auto pr-0.5">
+          {activeWorkers.map((worker) => (
+            <article
+              key={worker.id}
+              className="rounded-lg border border-current/15 bg-background-base/70 p-2"
+            >
+              <div className="flex items-center gap-2">
+                <GuidedAgentAvatar
+                  id={guidedWorkerAvatarId(worker)}
+                  className="h-7 w-7 shrink-0 rounded-md object-cover"
+                />
+                <div className="min-w-0 flex-1">
+                  <strong className="block truncate text-[11px] text-midground">
+                    {worker.label}
+                  </strong>
+                  <span className="block truncate text-[10px] text-emerald-400">
+                    {worker.status === "stopping" ? "Stopping" : "Working"}
+                  </span>
+                </div>
+                <Button
+                  ghost
+                  size="sm"
+                  className="h-7 px-2 text-[10px]"
+                  disabled={worker.status === "stopping"}
+                  onClick={() => onStopWorker(worker.id)}
+                  title={`Stop ${worker.label}`}
+                >
+                  Stop
+                </Button>
+              </div>
+              <p className="mt-1.5 truncate text-[10px] text-text-secondary">
+                {worker.lastActivity}
+              </p>
+              <p
+                className="mt-1 truncate text-[9px] text-text-secondary/75"
+                title={worker.model}
+              >
+                {worker.model} · {worker.calls} calls ·{" "}
+                {formatGuidedTokens(
+                  worker.input + worker.cacheRead + worker.output,
+                )}{" "}
+                tokens
+              </p>
+            </article>
+          ))}
+          {!activeWorkers.length && recentWorkers.length > 0 && (
+            <p className="rounded-lg border border-current/10 px-2.5 py-2 text-[10px] text-text-secondary">
+              Last: {recentWorkers[0].label} · {recentWorkers[0].status} ·{" "}
+              {recentWorkers[0].calls} calls
+            </p>
+          )}
+          {!activeWorkers.length && !recentWorkers.length && (
+            <p className="rounded-lg border border-dashed border-current/15 px-2.5 py-3 text-[10px] leading-4 text-text-secondary">
+              Background agents will appear here while Lyra keeps chatting
+              with you.
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function guidedAgentName(id: string, label?: string): string {
   const base = label ?? GUIDED_SPECIALIST_LABELS[id] ?? id;
   return /\bagent\b/i.test(base) ? base : `${base} agent`;
@@ -643,7 +872,7 @@ function formatGuidedEta([minimum, maximum]: [number, number]): string {
   return `${formatBound(minimum)}–${formatBound(maximum)}`;
 }
 
-function GuidedSpecialistActivity({
+function GuidedRailSpecialistActivity({
   activity,
   lastSignalAt,
   onRetry,
@@ -678,27 +907,27 @@ function GuidedSpecialistActivity({
   const isTakingLonger = elapsedSeconds > eta[1];
 
   return (
-    <div className="flex justify-start">
-      <div className="flex max-w-[92%] items-start gap-3 rounded-2xl rounded-bl-md border border-current/10 bg-midground/5 px-4 py-3 sm:max-w-[85%]">
+    <div className="mt-2 rounded-lg border border-current/15 bg-midground/5 p-2">
+      <div className="flex items-start gap-2">
         <div className="guided-specialist-avatar-wrap shrink-0">
           <GuidedAgentAvatar
             id={specialist.id}
-            className="guided-specialist-avatar h-12 w-12 rounded-xl object-cover"
+            className="guided-specialist-avatar h-7 w-7 rounded-md object-cover"
           />
           <span className="guided-specialist-dot" />
         </div>
         <div className="min-w-0">
-          <strong className="block text-sm text-midground">
+          <strong className="block truncate text-[11px] text-midground">
             {guidedAgentName(specialist.id, specialist.label)} is working
           </strong>
-          <span className="block text-sm text-text-secondary break-words">
+          <span className="mt-0.5 block text-[10px] leading-4 text-text-secondary">
             {mayBeStalled
               ? "No fresh response yet—it may be waiting on the AI model."
               : phrase}
           </span>
           <span
             className={cn(
-              "mt-1 block text-[11px]",
+              "mt-1 block text-[9px] leading-3",
               mayBeStalled ? "text-warning" : "text-text-secondary/75",
             )}
           >
@@ -709,7 +938,12 @@ function GuidedSpecialistActivity({
               : `Typical time ${formatGuidedEta(eta)} · ${formatGuidedDuration(elapsedSeconds)} elapsed`}
           </span>
           {mayBeStalled && (
-            <Button className="mt-2" ghost size="sm" onClick={onRetry}>
+            <Button
+              className="mt-2 h-7 px-2 text-[10px]"
+              ghost
+              size="sm"
+              onClick={onRetry}
+            >
               Stop & retry
             </Button>
           )}
@@ -3781,6 +4015,29 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               </div>
             </div>
             <div className="flex shrink-0 flex-wrap items-center justify-end gap-1 sm:gap-2">
+              <details className="group relative lg:hidden">
+                <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-md border border-current/15 px-2 py-1.5 text-xs text-text-secondary">
+                  <Activity className="h-3.5 w-3.5" />
+                  {guidedActiveWorkers.length
+                    ? `${guidedActiveWorkers.length} working`
+                    : "Activity"}
+                </summary>
+                <div className="fixed right-4 top-24 z-30 flex max-h-[70vh] w-[min(18rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-current/20 bg-background-base shadow-2xl">
+                  <GuidedRuntimePanel
+                    activeWorkers={guidedActiveWorkers}
+                    activity={guidedActivity}
+                    currentSpecialist={guidedWorkingSpecialist}
+                    defaultModelLabel={guidedDefaultModelLabel}
+                    lastSignalAt={guidedLastSignalAt}
+                    onRetry={retryLastGuidedMessage}
+                    paused={guidedPaused}
+                    phaseSteps={guidedPhaseSteps}
+                    recentWorkers={guidedRecentWorkers}
+                    usage={guidedUsage}
+                    onStopWorker={(id) => stopGuidedWorkers(id)}
+                  />
+                </div>
+              </details>
               <Button
                 outlined
                 size="sm"
@@ -3861,138 +4118,27 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             </div>
           </div>
 
-          <section
-            aria-label="Live agents and token usage"
-            className="border-b border-current/10 bg-midground/[0.025] px-4 py-3 sm:px-5"
-          >
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 font-semibold text-emerald-400">
-                <Bot className="h-3.5 w-3.5" />
-                Lyra available
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-              </span>
-              <span
-                className="max-w-full truncate rounded-full border border-current/15 px-3 py-1.5 text-text-secondary"
-                title={guidedUsage.model || guidedDefaultModelLabel}
-              >
-                Model: {guidedUsage.model || guidedDefaultModelLabel}
-              </span>
-              <details className="group relative">
-                <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-full border border-current/15 px-3 py-1.5 text-text-secondary hover:border-current/30 hover:text-midground">
-                  <Activity className="h-3.5 w-3.5" />
-                  Tokens {formatGuidedTokens(guidedUsageTotal(guidedUsage))}
-                  <span
-                    aria-hidden
-                    className="transition-transform group-open:rotate-180"
-                  >
-                    ▾
-                  </span>
-                </summary>
-                <div className="absolute right-0 z-20 mt-2 grid min-w-64 grid-cols-2 gap-x-5 gap-y-2 rounded-xl border border-current/20 bg-background-base p-4 text-xs shadow-2xl">
-                  <span className="text-text-secondary">Fresh input</span>
-                  <strong className="text-right text-midground">
-                    {formatGuidedTokens(guidedUsage.input)}
-                  </strong>
-                  <span className="text-text-secondary">Cached input</span>
-                  <strong className="text-right text-midground">
-                    {formatGuidedTokens(guidedUsage.cacheRead)}
-                  </strong>
-                  <span className="text-text-secondary">Output</span>
-                  <strong className="text-right text-midground">
-                    {formatGuidedTokens(guidedUsage.output)}
-                  </strong>
-                  <span className="text-text-secondary">Reasoning</span>
-                  <strong className="text-right text-midground">
-                    {formatGuidedTokens(guidedUsage.reasoning)}
-                  </strong>
-                  <span className="text-text-secondary">Model calls</span>
-                  <strong className="text-right text-midground">
-                    {guidedUsage.calls}
-                  </strong>
-                  {guidedUsage.costUsd > 0 && (
-                    <>
-                      <span className="text-text-secondary">
-                        Estimated cost
-                      </span>
-                      <strong className="text-right text-midground">
-                        ${guidedUsage.costUsd.toFixed(3)}
-                      </strong>
-                    </>
-                  )}
-                </div>
-              </details>
-              <span className="text-text-secondary">
-                {guidedPaused
-                  ? "Workers paused at a safe boundary. You can still talk to Lyra."
-                  : guidedActiveWorkers.length
-                    ? `${guidedActiveWorkers.length} project agent${guidedActiveWorkers.length === 1 ? "" : "s"} working in the background.`
-                    : "No background agents are working."}
-              </span>
-            </div>
+          <div className="flex min-h-0 min-w-0 flex-1">
+            <aside
+              aria-label="Live agents and token usage"
+              className="hidden w-56 shrink-0 overflow-hidden border-r border-current/10 bg-midground/[0.025] lg:flex xl:w-60"
+            >
+              <GuidedRuntimePanel
+                activeWorkers={guidedActiveWorkers}
+                activity={guidedActivity}
+                currentSpecialist={guidedWorkingSpecialist}
+                defaultModelLabel={guidedDefaultModelLabel}
+                lastSignalAt={guidedLastSignalAt}
+                onRetry={retryLastGuidedMessage}
+                paused={guidedPaused}
+                phaseSteps={guidedPhaseSteps}
+                recentWorkers={guidedRecentWorkers}
+                usage={guidedUsage}
+                onStopWorker={(id) => stopGuidedWorkers(id)}
+              />
+            </aside>
 
-            {guidedActiveWorkers.length > 0 && (
-              <div className="mt-3 grid gap-2 lg:grid-cols-2">
-                {guidedActiveWorkers.map((worker) => (
-                  <article
-                    key={worker.id}
-                    className="flex min-w-0 items-center gap-3 rounded-xl border border-current/15 bg-background-base/75 p-3"
-                  >
-                    <GuidedAgentAvatar
-                      id={
-                        Object.entries(GUIDED_SPECIALIST_LABELS).find(
-                          ([, label]) => label === worker.label,
-                        )?.[0] ?? "app-it"
-                      }
-                      className="h-9 w-9 shrink-0 rounded-lg object-cover"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <strong className="truncate text-xs text-midground">
-                          {worker.label}
-                        </strong>
-                        <span className="inline-flex shrink-0 items-center gap-1 text-[10px] uppercase tracking-wider text-emerald-400">
-                          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
-                          {worker.status === "stopping"
-                            ? "stopping"
-                            : "working"}
-                        </span>
-                      </div>
-                      <p className="mt-0.5 truncate text-[11px] text-text-secondary">
-                        {worker.lastActivity}
-                      </p>
-                      <p
-                        className="mt-1 truncate text-[10px] text-text-secondary/80"
-                        title={worker.model}
-                      >
-                        {worker.model} · {worker.calls} calls · fresh{" "}
-                        {formatGuidedTokens(worker.input)} · cached{" "}
-                        {formatGuidedTokens(worker.cacheRead)} · out{" "}
-                        {formatGuidedTokens(worker.output)}
-                      </p>
-                    </div>
-                    <Button
-                      ghost
-                      size="sm"
-                      disabled={worker.status === "stopping"}
-                      onClick={() => stopGuidedWorkers(worker.id)}
-                      title={`Stop ${worker.label}`}
-                    >
-                      Stop
-                    </Button>
-                  </article>
-                ))}
-              </div>
-            )}
-            {guidedActiveWorkers.length === 0 &&
-              guidedRecentWorkers.length > 0 && (
-                <p className="mt-2 text-[11px] text-text-secondary">
-                  Last agent: {guidedRecentWorkers[0].label} ·{" "}
-                  {guidedRecentWorkers[0].status} ·{" "}
-                  {guidedRecentWorkers[0].model} ·{" "}
-                  {guidedRecentWorkers[0].calls} calls
-                </p>
-              )}
-          </section>
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
 
           {telegramHandoffStatus !== "idle" && (
             <div
@@ -4023,51 +4169,6 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 </Button>
               )}
             </div>
-          )}
-
-          {guidedPhaseSteps.length > 1 && (
-            <ol
-              aria-label="Project phases"
-              className="flex flex-wrap items-center gap-x-1 gap-y-2 border-b border-current/10 px-4 py-2 sm:px-5"
-            >
-              {guidedPhaseSteps.map((step, index) => (
-                <li key={step.id} className="flex items-center gap-1">
-                  {index > 0 && (
-                    <span aria-hidden className="px-1 text-text-secondary/50">
-                      →
-                    </span>
-                  )}
-                  <span
-                    aria-current={step.state === "now" ? "step" : undefined}
-                    className={cn(
-                      "flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] transition-colors",
-                      step.state === "done" &&
-                        "border-current/15 text-text-secondary",
-                      step.state === "now" &&
-                        "border-midground/50 bg-midground/10 font-semibold text-midground",
-                      step.state === "pending" &&
-                        "border-current/10 text-text-secondary/60",
-                    )}
-                  >
-                    <GuidedAgentAvatar
-                      id={step.id}
-                      muted={step.state === "pending"}
-                      className={cn(
-                        "h-4 w-4 rounded object-cover text-[9px]",
-                        step.state === "pending" && "opacity-50",
-                      )}
-                    />
-                    {GUIDED_SPECIALIST_LABELS[step.id] ?? step.id}
-                    <span className="sr-only"> agent</span>
-                    {step.state === "done" && (
-                      <span aria-label="done" className="text-[10px]">
-                        ✓
-                      </span>
-                    )}
-                  </span>
-                </li>
-              ))}
-            </ol>
           )}
 
           <div
@@ -4246,13 +4347,19 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
 
                 {!hasModelConnectionError &&
                   guidedActivity.phase === "working" && (
-                    <GuidedSpecialistActivity
-                      key={guidedWorkingSpecialist.id}
-                      activity={guidedActivity}
-                      lastSignalAt={guidedLastSignalAt}
-                      onRetry={retryLastGuidedMessage}
-                      specialist={guidedWorkingSpecialist}
-                    />
+                    <div className="flex justify-start">
+                      <div className="max-w-[88%] rounded-2xl rounded-bl-md border border-current/10 bg-midground/5 px-4 py-3 sm:max-w-[78%]">
+                        <div className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-midground">
+                          <Bot className="h-3.5 w-3.5" />
+                          Lyra
+                        </div>
+                        <p className="text-sm text-text-secondary">
+                          The project agents are working in the background. I’m
+                          still here if you need anything or want to change
+                          direction.
+                        </p>
+                      </div>
+                    </div>
                   )}
 
                 {!hasModelConnectionError &&
@@ -4392,6 +4499,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                   "Attach files or images with the clip, drag them here, or paste a screenshot. Shift+Enter for a new line.")}
             </p>
           </div>
+        </div>
+        </div>
         </div>
       )}
 
