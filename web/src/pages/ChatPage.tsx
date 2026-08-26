@@ -94,6 +94,7 @@ import {
   FolderOpen,
   MessageCircle,
   Map as MapIcon,
+  Monitor,
   Paperclip,
   PanelRight,
   Pause,
@@ -109,6 +110,7 @@ import { useSearchParams } from "react-router-dom";
 
 import { ChatSidebar } from "@/components/ChatSidebar";
 import { CopyMessageButton } from "@/components/CopyMessageButton";
+import { GuidedAppPreview } from "@/components/GuidedAppPreview";
 import { Markdown } from "@/components/Markdown";
 import { ChatSessionList } from "@/components/ChatSessionList";
 import { usePageHeader } from "@/contexts/usePageHeader";
@@ -1345,6 +1347,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     initialGuidedPhaseState.completed,
   );
   const [guidedInput, setGuidedInput] = useState("");
+  const [guidedPreviewOpen, setGuidedPreviewOpen] = useState(false);
   const [guidedAttachments, setGuidedAttachments] = useState<File[]>([]);
   // What the model in use can actually accept. Drives the picker's accept list,
   // the refusals, and the composer hint.
@@ -4400,7 +4403,12 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                   />
                 </div>
               </details>
-              <details className="group relative xl:hidden">
+              <details
+                className={cn(
+                  "group relative",
+                  guidedPreviewOpen ? "2xl:hidden" : "xl:hidden",
+                )}
+              >
                 <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-md border border-current/15 px-2 py-1.5 text-xs text-text-secondary">
                   <MapIcon className="h-3.5 w-3.5" />
                   Progress {guidedProgressSummary.percent}%
@@ -4409,6 +4417,16 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                   <GuidedProgressMap steps={guidedPhaseSteps} />
                 </div>
               </details>
+              <Button
+                outlined
+                size="sm"
+                onClick={() => setGuidedPreviewOpen((value) => !value)}
+                aria-expanded={guidedPreviewOpen}
+                title="Open the local app and select rendered elements"
+              >
+                <Monitor className="mr-1 h-3.5 w-3.5" />
+                {guidedPreviewOpen ? "Close preview" : "App preview"}
+              </Button>
               <Button
                 outlined
                 size="sm"
@@ -4905,9 +4923,28 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             </p>
           </div>
         </div>
+        {guidedPreviewOpen && (
+          <GuidedAppPreview
+            workspace={workspaceParam}
+            projectName={projectName}
+            canSend={
+              guidedAgentReady &&
+              !guidedModelReview &&
+              ptyState === "open"
+            }
+            onClose={() => setGuidedPreviewOpen(false)}
+            onSendFeedback={(prompt, display) =>
+              submitGuidedText(prompt, display, { applyAgentRouting: false })
+            }
+            className="fixed inset-3 z-40 overflow-hidden rounded-xl border border-current/20 lg:static lg:z-auto lg:w-[min(42vw,700px)] lg:min-w-[440px] lg:shrink-0 lg:rounded-none lg:border-y-0 lg:border-r-0"
+          />
+        )}
         <aside
           aria-label="Project progress map"
-          className="hidden w-60 shrink-0 overflow-hidden border-l border-current/10 bg-midground/[0.025] xl:flex"
+          className={cn(
+            "w-60 shrink-0 overflow-hidden border-l border-current/10 bg-midground/[0.025]",
+            guidedPreviewOpen ? "hidden 2xl:flex" : "hidden xl:flex",
+          )}
         >
           <GuidedProgressMap steps={guidedPhaseSteps} />
         </aside>

@@ -1,12 +1,18 @@
-"""Read-only dashboard API for Ultimate Builder project state."""
+"""Dashboard API for Ultimate Builder project state and local app previews."""
 
 from __future__ import annotations
 
 import json
+import re
+import secrets
+from html import escape
 from pathlib import Path
 from typing import Any
+from urllib.parse import urljoin, urlparse
 
+import httpx
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, Field
 
 
 router = APIRouter()
@@ -30,6 +36,23 @@ _ARTIFACTS = (
     ".sdlc/debt.md",
     ".sdlc/preview/index.html",
 )
+_PREVIEW_MAX_BYTES = 4 * 1024 * 1024
+_PREVIEW_REDIRECT_LIMIT = 4
+_LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+_HTML_URL_ATTRIBUTE = re.compile(
+    r"(?P<prefix>\b(?:src|href|action|poster)\s*=\s*[\"'])(?P<path>/[^/][^\"']*)",
+    re.IGNORECASE,
+)
+_BASE_TAG = re.compile(r"<base\b[^>]*>", re.IGNORECASE)
+_CSP_META = re.compile(
+    r"<meta\b(?=[^>]*http-equiv\s*=\s*[\"']?content-security-policy[\"']?)[^>]*>",
+    re.IGNORECASE,
+)
+
+
+class PreviewDocumentRequest(BaseModel):
+    url: str = Field(min_length=1, max_length=2_048)
+    workspace: str = Field(min_length=1, max_length=8_192)
 
 
 def _workspace_safety(path: str) -> dict[str, Any]:
@@ -79,6 +102,209 @@ def _safe_text(path: Path, limit: int = 120_000) -> str:
     except (OSError, UnicodeError):
         return ""
     return data[:limit]
+
+
+def _loopback_preview_url(value: str) -> str:
+    raw = value.strip()
+    if "://" not in raw:
+        raw = f"http://{raw}"
+    parsed = urlparse(raw)
+    if (
+        parsed.scheme not in {"http", "https"}
+        or (parsed.hostname or "").lower() not in _LOOPBACK_HOSTS
+        or parsed.username
+        or parsed.password
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="App Preview only accepts localhost or loopback HTTP URLs.",
+        )
+    try:
+        _ = parsed.port
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid preview port.") from exc
+    return parsed.geturl()
+
+
+def _preview_bridge_script(bridge_token: str, target_url: str) -> str:
+    script = r"""
+<script>
+(() => {
+  const token = __LYRA_TOKEN__;
+  const targetUrl = __LYRA_TARGET__;
+  let selectMode = true;
+  let selected = [];
+  const send = (type, payload = {}) => parent.postMessage({
+    source: "lyra-app-preview", token, type, ...payload
+  }, "*");
+  const segment = (element) => {
+    const esc = (value) => window.CSS && CSS.escape ? CSS.escape(value) : value.replace(/[^a-zA-Z0-9_-]/g, "\\$&");
+    if (element.id) return `#${esc(element.id)}`;
+    const testId = element.getAttribute("data-testid");
+    if (testId) return `[data-testid="${esc(testId)}"]`;
+    let value = element.tagName.toLowerCase();
+    if (element.parentElement) {
+      const siblings = [...element.parentElement.children].filter((item) => item.tagName === element.tagName);
+      if (siblings.length > 1) value += `:nth-of-type(${siblings.indexOf(element) + 1})`;
+    }
+    return value;
+  };
+  const selector = (element) => {
+    const parts = [];
+    let current = element;
+    while (current && parts.length < 6) {
+      const value = segment(current);
+      parts.unshift(value);
+      if (value.startsWith("#") || value.startsWith("[data-testid=")) break;
+      current = current.parentElement;
+    }
+    return parts.join(" > ");
+  };
+  const context = (element) => {
+    const rect = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    const text = (element.innerText || element.textContent || "").replace(/\s+/g, " ").trim().slice(0, 280);
+    const path = selector(element);
+    return {
+      id: path, selector: path, tag: element.tagName.toLowerCase(), text,
+      role: element.getAttribute("role") || "",
+      accessibleName: element.getAttribute("aria-label") || element.getAttribute("title") || text.slice(0, 140),
+      html: element.outerHTML.slice(0, 1200),
+      rect: { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) },
+      styles: {
+        display: style.display, position: style.position, color: style.color,
+        backgroundColor: style.backgroundColor, fontFamily: style.fontFamily,
+        fontSize: style.fontSize, fontWeight: style.fontWeight, lineHeight: style.lineHeight,
+        padding: style.padding, margin: style.margin, border: style.border, borderRadius: style.borderRadius
+      },
+      comment: ""
+    };
+  };
+  const refresh = () => {
+    document.querySelectorAll("[data-lyra-preview-selected]").forEach((element) => element.removeAttribute("data-lyra-preview-selected"));
+    selected.forEach((path) => {
+      try { document.querySelector(path)?.setAttribute("data-lyra-preview-selected", "true"); } catch (_) {}
+    });
+  };
+  const style = document.createElement("style");
+  style.textContent = `
+    [data-lyra-preview-hover] { outline: 2px dashed #8b5cf6 !important; outline-offset: 2px !important; cursor: crosshair !important; }
+    [data-lyra-preview-selected] { outline: 3px solid #7c3aed !important; outline-offset: 2px !important; box-shadow: 0 0 0 5px rgba(124,58,237,.18) !important; }
+  `;
+  document.head.appendChild(style);
+  document.addEventListener("pointerover", (event) => {
+    if (selectMode && event.target instanceof Element) event.target.setAttribute("data-lyra-preview-hover", "true");
+  }, true);
+  document.addEventListener("pointerout", (event) => {
+    if (event.target instanceof Element) event.target.removeAttribute("data-lyra-preview-hover");
+  }, true);
+  document.addEventListener("click", (event) => {
+    if (!selectMode || !(event.target instanceof HTMLElement)) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    send("element-selected", { element: context(event.target) });
+  }, true);
+  window.addEventListener("message", (event) => {
+    const message = event.data || {};
+    if (message.source !== "lyra-app-preview-parent" || message.token !== token) return;
+    if (message.type === "mode") selectMode = Boolean(message.selectMode);
+    if (message.type === "selected") {
+      selected = Array.isArray(message.selectors) ? message.selectors : [];
+      refresh();
+    }
+  });
+  const stringify = (values) => values.map((value) => {
+    if (typeof value === "string") return value;
+    try { return JSON.stringify(value); } catch (_) { return String(value); }
+  }).join(" ").slice(0, 1000);
+  ["error", "warn"].forEach((level) => {
+    const original = console[level].bind(console);
+    console[level] = (...values) => {
+      send("console", { entry: { level, message: stringify(values), at: new Date().toISOString() } });
+      original(...values);
+    };
+  });
+  window.addEventListener("error", (event) => send("console", { entry: { level: "error", message: String(event.message || "Page error"), at: new Date().toISOString() } }));
+  window.addEventListener("unhandledrejection", (event) => send("console", { entry: { level: "error", message: `Unhandled promise rejection: ${stringify([event.reason])}`, at: new Date().toISOString() } }));
+  window.__LYRA_APP_PREVIEW__ = { targetUrl };
+  send("ready");
+})();
+</script>
+"""
+    return script.replace("__LYRA_TOKEN__", json.dumps(bridge_token)).replace(
+        "__LYRA_TARGET__", json.dumps(target_url)
+    )
+
+
+def _preview_html(document: str, target_url: str, bridge_token: str) -> str:
+    """Make a fetched local document work inside an authenticated srcdoc frame."""
+    parsed = urlparse(target_url)
+    origin = f"{parsed.scheme}://{parsed.netloc}"
+    document = _CSP_META.sub("", document)
+    document = _BASE_TAG.sub("", document)
+    document = _HTML_URL_ATTRIBUTE.sub(
+        lambda match: f"{match.group('prefix')}{origin}{match.group('path')}",
+        document,
+    )
+    bridge = _preview_bridge_script(bridge_token, target_url)
+    base = f'<base href="{escape(target_url, quote=True)}">'
+    injection = base + bridge
+    head = re.search(r"<head\b[^>]*>", document, re.IGNORECASE)
+    if head:
+        offset = head.end()
+        return document[:offset] + injection + document[offset:]
+    return (
+        f"<!doctype html><html><head>{injection}</head><body>{document}</body></html>"
+    )
+
+
+async def _fetch_preview_document(url: str) -> tuple[str, str]:
+    current = _loopback_preview_url(url)
+    timeout = httpx.Timeout(10.0, connect=4.0)
+    async with httpx.AsyncClient(
+        timeout=timeout,
+        follow_redirects=False,
+        trust_env=False,
+        headers={"Accept": "text/html,application/xhtml+xml"},
+    ) as client:
+        for _ in range(_PREVIEW_REDIRECT_LIMIT + 1):
+            try:
+                response = await client.get(current)
+            except httpx.RequestError as exc:
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"Could not reach the local app at {current}: {exc}",
+                ) from exc
+            if response.is_redirect:
+                location = response.headers.get("location")
+                if not location:
+                    break
+                current = _loopback_preview_url(urljoin(current, location))
+                continue
+            if response.status_code >= 400:
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"Local app returned HTTP {response.status_code}.",
+                )
+            content_type = response.headers.get("content-type", "").lower()
+            if (
+                "html" not in content_type
+                and not response.text
+                .lstrip()
+                .lower()
+                .startswith(("<!doctype html", "<html"))
+            ):
+                raise HTTPException(
+                    status_code=415,
+                    detail="The preview URL did not return an HTML document.",
+                )
+            if len(response.content) > _PREVIEW_MAX_BYTES:
+                raise HTTPException(
+                    status_code=413,
+                    detail="The preview document is larger than 4 MB.",
+                )
+            return response.text, str(response.url)
+    raise HTTPException(status_code=502, detail="Too many local preview redirects.")
 
 
 @router.get("/workspace-safety")
@@ -133,4 +359,20 @@ def state(path: str = Query(..., min_length=1)) -> dict[str, Any]:
         "progress": _safe_text(progress),
         "artifacts": artifacts,
         "learning_candidates": candidates,
+    }
+
+
+@router.post("/preview/document")
+async def preview_document(payload: PreviewDocumentRequest) -> dict[str, str]:
+    safety = _workspace_safety(payload.workspace)
+    if not safety["allowed"]:
+        raise HTTPException(status_code=403, detail=safety["reason"])
+    _project(payload.workspace)
+    requested_url = _loopback_preview_url(payload.url)
+    document, resolved_url = await _fetch_preview_document(requested_url)
+    bridge_token = secrets.token_urlsafe(24)
+    return {
+        "html": _preview_html(document, resolved_url, bridge_token),
+        "url": resolved_url,
+        "bridge_token": bridge_token,
     }
