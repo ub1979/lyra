@@ -60,7 +60,6 @@ def test_requirements_cannot_be_switched_off_at_launch():
     assert "useState(withRequired([]))" in src
     assert "setSelected(withRequired(template.skills))" in src
     assert "setSelected(withRequired([]))" in src, "Clear must keep requirements"
-    assert 'setSelected(withRequired(ALL_SKILL_IDS))' in src
     assert "if (REQUIRED_SKILL_IDS.indexOf(id) !== -1) return;" in src
 
 

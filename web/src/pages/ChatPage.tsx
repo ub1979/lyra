@@ -72,6 +72,13 @@ import {
   type GuidedPhaseStep,
 } from "@/lib/guided-phase-plan";
 import {
+  guidedApprovalChoices,
+  guidedApprovalKey,
+  guidedRequirementsTurnDirective,
+  reconcileGuidedModelAssignments,
+  type GuidedApprovalChoice,
+} from "@/lib/guided-agent-routing";
+import {
   GUIDED_MODEL_SILENCE_TIMEOUT_MS,
   decideGuidedWatchdog,
   extendGuidedSubagentGrace,
@@ -204,10 +211,15 @@ interface GuidedMessage {
 interface GuidedAgentEventEnvelope {
   method?: string;
   params?: {
+    session_id?: string;
     type?: string;
     payload?: GuidedRuntimeEventPayload & {
+      allow_permanent?: boolean;
       args_text?: string;
+      choices?: string[];
+      command?: string;
       context?: string;
+      description?: string;
       failure_reason?: string;
       goal?: string;
       message?: string;
@@ -216,11 +228,25 @@ interface GuidedAgentEventEnvelope {
       rendered?: string;
       result_text?: string;
       summary?: string;
+      smart_denied?: boolean;
       text?: string;
       usage?: unknown;
     };
   };
 }
+
+interface GuidedApprovalRequest {
+  choices: GuidedApprovalChoice[];
+  command: string;
+  description: string;
+}
+
+const GUIDED_APPROVAL_LABELS: Record<GuidedApprovalChoice, string> = {
+  always: "Always allow",
+  deny: "Deny",
+  once: "Allow once",
+  session: "Allow this session",
+};
 
 const GUIDED_SPECIALIST_LABELS: Record<string, string> = {
   "app-it": "Lyra",
@@ -351,6 +377,37 @@ function guidedMessageStorageKey(workspace: string): string {
   return `idrak-it.guided-messages.v1:${workspace || "default"}`;
 }
 
+function guidedPhaseStorageKey(workspace: string): string {
+  return `idrak-it.guided-phases.v1:${workspace || "default"}`;
+}
+
+function readGuidedPhaseState(workspace: string): {
+  completed: string[];
+  current: string | null;
+} {
+  try {
+    const value = JSON.parse(
+      window.localStorage.getItem(guidedPhaseStorageKey(workspace)) ?? "{}",
+    ) as { completed?: unknown; current?: unknown };
+    const completed = Array.isArray(value.completed)
+      ? value.completed.filter(
+          (id): id is string =>
+            typeof id === "string" &&
+            GUIDED_SELECTABLE_SPECIALIST_IDS.includes(id),
+        )
+      : [];
+    const current =
+      typeof value.current === "string" &&
+      GUIDED_SELECTABLE_SPECIALIST_IDS.includes(value.current) &&
+      !completed.includes(value.current)
+        ? value.current
+        : null;
+    return { completed: Array.from(new Set(completed)), current };
+  } catch {
+    return { completed: [], current: null };
+  }
+}
+
 /**
  * Compact, read-only description of the project the user just opened.
  *
@@ -415,7 +472,7 @@ function guidedWelcomeSeed(
     first_turn_gate:
       "The project listing below, together with your workspace snapshot, IS the inspection — do not call file, search, or terminal tools before greeting. Greet the user warmly as Lyra, briefly say what the project appears to be (or that it is empty) from what you were given, and ask exactly ONE short question about what they want to build or change. Inspect files later, once you know what they actually want. Recommend the smallest useful agent team later and ask permission before changing it.",
     requirements_gate:
-      'Requirements is mandatory and always enabled. As soon as the user describes anything to build, change, or fix, load skill_view(name="ultimate-builder:req-engineer") and run that playbook yourself in this conversation — it is interactive, so do not delegate it to a spawned agent. Its multi-round interview, the separate Grill stress test, the design-space exploration, the prototype walkthrough and the approval gate are all required, and requirements.md must exist and be approved by the user before you write a plan, an architecture, a task graph, or any code, and before you delegate to any other agent. Never gather requirements informally yourself and never skip the interview because the request already looks clear. Keep asking one focused question per message; the user may say Skip, Decide for me, or Use smart defaults, and you record those as assumptions and continue.',
+      'Requirements is a permanent project capability, not the speaker for every turn. Activate it for the first meaningful product brief when no approved requirements exist, while its interview is active, when the user explicitly asks to revise requirements, or when a request materially changes product scope, user-visible behavior, data, permissions, integrations, or acceptance criteria. Do not activate or reload it for greetings, status questions, explanations, approvals, pause/stop commands, ordinary in-scope feedback, implementation details already covered by approved requirements, or minor fixes. If requirements.md already covers the request, Lyra handles the turn directly. When Requirements is genuinely needed, load skill_view(name="ultimate-builder:req-engineer") and run its interactive playbook in this conversation; do not delegate it. Complete its relevant interview, Grill, design-space exploration, prototype choice, requirements.md update, and approval gate before downstream work affected by that change. Once approved, emit the done marker and do not restart it unless a later material change requires a focused delta.',
     team_selection_gate:
       "Recommend only the smallest useful team. Emit APP_IT_SKILLS_SET to open editable checkboxes, but do not treat that marker as approval and do not use newly proposed agents. Wait for the user's dashboard confirmation, delivered as IDRAK_INTERNAL_SKILLS_UPDATE; that confirmed selection is authoritative.",
     project_listing: projectSummary || "(listing unavailable)",
@@ -1261,16 +1318,25 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const guidedAutoContinueCountRef = useRef(0);
   // Phase chain, driven by Lyra's [APP_IT_PHASE:...] / [APP_IT_PHASE_DONE:...]
   // markers rather than inferred from her prose.
+  const [initialGuidedPhaseState] = useState(() =>
+    typeof window === "undefined"
+      ? { completed: [] as string[], current: null as string | null }
+      : readGuidedPhaseState(workspaceParam),
+  );
   const [guidedPhaseCurrent, setGuidedPhaseCurrent] = useState<string | null>(
-    null,
+    initialGuidedPhaseState.current,
   );
   const [guidedPhasesCompleted, setGuidedPhasesCompleted] = useState<string[]>(
-    [],
+    initialGuidedPhaseState.completed,
   );
-  const guidedPhaseCurrentRef = useRef<string | null>(null);
+  const guidedPhaseCurrentRef = useRef<string | null>(
+    initialGuidedPhaseState.current,
+  );
   /** Phase to nudge after the current reply, set by finishGuidedResponse. */
   const guidedPhaseAdvanceRef = useRef<string | null>(null);
-  const guidedPhasesCompletedRef = useRef<string[]>([]);
+  const guidedPhasesCompletedRef = useRef<string[]>(
+    initialGuidedPhaseState.completed,
+  );
   const [guidedInput, setGuidedInput] = useState("");
   const [guidedAttachments, setGuidedAttachments] = useState<File[]>([]);
   // What the model in use can actually accept. Drives the picker's accept list,
@@ -1295,6 +1361,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     useState("Project default");
   const [guidedUsage, setGuidedUsage] =
     useState<GuidedUsageSnapshot>(EMPTY_GUIDED_USAGE);
+  const [guidedApproval, setGuidedApproval] =
+    useState<GuidedApprovalRequest | null>(null);
+  const guidedPendingModelRoutingRef = useRef<Record<string, string> | null>(
+    null,
+  );
   const [guidedWorkers, setGuidedWorkers] = useState<GuidedWorkerRuntime[]>([]);
   const [guidedRecommendedSpecialistIds, setGuidedRecommendedSpecialistIds] =
     useState<string[]>([]);
@@ -1327,8 +1398,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       }
     : null;
   const guidedWorkingSpecialist =
-    guidedPhaseSpecialist ??
     guidedActivity.specialist ??
+    guidedPhaseSpecialist ??
     guidedDefaultSpecialist;
   const guidedActiveWorkers = guidedWorkers.filter(
     (worker) => worker.status === "running" || worker.status === "stopping",
@@ -1436,7 +1507,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   );
 
   useEffect(() => {
-    if (!guided) return;
+    if (!guided || !isActive) return;
     let active = true;
     Promise.all([api.getModelInfo(), api.getModelOptions()])
       .then(([info, options]) => {
@@ -1445,9 +1516,34 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         const provider =
           providers.find((item) => item.slug === info.provider) ??
           providers.find((item) => item.is_current);
-        setGuidedModelOptions(
-          Array.from(new Set((provider?.models ?? []).filter(Boolean))),
+        const providerModels = Array.from(
+          new Set((provider?.models ?? []).filter(Boolean)),
         );
+        setGuidedModelOptions(providerModels);
+        const reconciled = reconcileGuidedModelAssignments(
+          guidedSkillModelsRef.current,
+          providerModels,
+        );
+        if (reconciled.removed.length) {
+          guidedSkillModelsRef.current = reconciled.models;
+          setGuidedSkillModels(reconciled.models);
+          guidedPendingModelRoutingRef.current = reconciled.models;
+          try {
+            window.localStorage.setItem(
+              GUIDED_SKILL_MODELS_STORAGE_KEY,
+              JSON.stringify(reconciled.models),
+            );
+          } catch {
+            // The live conversation still receives the corrected routing.
+          }
+          const labels = reconciled.removed.map(
+            (id) => GUIDED_SPECIALIST_LABELS[id] ?? id,
+          );
+          setBanner(
+            `${labels.join(", ")} had model overrides that are unavailable on ${info.provider}. ` +
+              `They now follow the project model ${info.model || "selected for this provider"}.`,
+          );
+        }
         setGuidedDefaultModelLabel(
           [info.provider, info.model].filter(Boolean).join(" · ") ||
             "Project default",
@@ -1467,20 +1563,26 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     return () => {
       active = false;
     };
-  }, [guided]);
+  }, [guided, isActive]);
 
   // ChatPage stays mounted while the user visits model settings. When they
   // return, reload the newly selected project's own transcript instead of
   // retaining the empty settings-route scope (or another project's history).
   useEffect(() => {
     if (!guided || guidedMessageWorkspace === workspaceParam) return;
+    const phaseState = readGuidedPhaseState(workspaceParam);
     setGuidedMessages(readGuidedMessages(workspaceParam));
     setGuidedMessageWorkspace(workspaceParam);
+    setGuidedPhaseCurrent(phaseState.current);
+    setGuidedPhasesCompleted(phaseState.completed);
+    guidedPhaseCurrentRef.current = phaseState.current;
+    guidedPhasesCompletedRef.current = phaseState.completed;
     guidedWelcomeStartedRef.current = false;
     lastGuidedResponseRef.current = "";
     guidedTurnSettledRef.current = true;
     setGuidedActivity({ phase: "idle", text: "", specialist: null });
     setGuidedWorkers([]);
+    setGuidedApproval(null);
     setGuidedRecommendedSpecialistIds([]);
     setGuidedTeamRecommendationPending(false);
   }, [guided, guidedMessageWorkspace, workspaceParam]);
@@ -1666,6 +1768,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     }
     try {
       window.localStorage.removeItem(guidedMessageStorageKey(workspaceParam));
+      window.localStorage.removeItem(guidedPhaseStorageKey(workspaceParam));
     } catch {
       // State still clears when browser storage is unavailable.
     }
@@ -1843,6 +1946,28 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             }
             return;
           }
+        if (type === "approval.request") {
+          setGuidedApproval({
+            choices: guidedApprovalChoices({
+              allowPermanent: payload?.allow_permanent,
+              choices: payload?.choices,
+              smartDenied: payload?.smart_denied,
+            }),
+            command:
+              typeof payload?.command === "string" ? payload.command : "",
+            description:
+              typeof payload?.description === "string"
+                ? payload.description
+                : "This action needs your approval",
+          });
+          setGuidedLastSignalAt(Date.now());
+          setGuidedActivity((current) => ({
+            phase: "working",
+            text: "Waiting for your approval…",
+            specialist: current.specialist ?? APP_IT_SPECIALIST,
+          }));
+          return;
+        }
         if (type === "message.start") {
           guidedTurnSettledRef.current = false;
           streamedText = "";
@@ -1963,6 +2088,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           return;
         }
         if (type === "message.complete") {
+          setGuidedApproval(null);
           // A completed parent message is also a definitive boundary for any
           // child phase, even when a provider omitted subagent.complete.
           guidedSubagentGraceUntilRef.current = 0;
@@ -2050,6 +2176,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           return;
         }
         if (type === "error" && payload?.message) {
+          setGuidedApproval(null);
           guidedSubagentGraceUntilRef.current = 0;
           guidedTurnSettledRef.current = true;
           appendGuidedError(payload.message);
@@ -2209,7 +2336,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   }, [guided, isActive, narrow, mobilePanelOpen, modelToolsLabel, setEnd]);
 
   const submitGuidedText = useCallback(
-    (value: string, displayValue?: string) => {
+    (
+      value: string,
+      displayValue?: string,
+      options: { applyAgentRouting?: boolean } = {},
+    ) => {
     const text = value.trim();
     const ws = wsRef.current;
     if (
@@ -2244,10 +2375,31 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       specialist: guidedDefaultSpecialistRef.current,
     });
     setGuidedOutput("");
+    const routing: string[] = [];
+    if (options.applyAgentRouting !== false) {
+      routing.push(
+        guidedRequirementsTurnDirective({
+          completed: guidedPhasesCompletedRef.current,
+          current: guidedPhaseCurrentRef.current,
+        }),
+      );
+      const pendingModels = guidedPendingModelRoutingRef.current;
+      if (pendingModels) {
+        routing.push(
+          `IDRAK_INTERNAL_MODEL_ROUTING_UPDATE_BEGIN ${JSON.stringify({
+            specialist_models: pendingModels,
+            rule:
+              "This replaces prior agent model overrides. Missing agents inherit the current project model; never reuse an unavailable model from the previous provider.",
+          })} IDRAK_INTERNAL_MODEL_ROUTING_UPDATE_END`,
+        );
+        guidedPendingModelRoutingRef.current = null;
+      }
+    }
+    const routedText = [...routing, text].filter(Boolean).join("\n");
     // Bracketed paste, not raw typing: a multi-line prompt written straight to
     // the PTY submits at its first newline, so only the opening line became the
     // turn and the rest arrived as interruptions mid-answer.
-    writeGuidedPrompt(text, {
+    writeGuidedPrompt(routedText, {
       isOpen: () => wsRef.current?.readyState === WebSocket.OPEN,
       schedule: (run, delayMs) => window.setTimeout(run, delayMs),
       send: (data) => ws.send(data),
@@ -2255,6 +2407,28 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     setGuidedInput("");
     },
     [],
+  );
+
+  const respondToGuidedApproval = useCallback(
+    (choice: GuidedApprovalChoice) => {
+      const request = guidedApproval;
+      const socket = wsRef.current;
+      if (!request || !socket || socket.readyState !== WebSocket.OPEN) return;
+      const key = guidedApprovalKey(request.choices, choice);
+      if (!key) return;
+      // The approval overlay lives in the real Ink TUI running inside this PTY.
+      // Its numbered choices are the transport contract; forwarding the key
+      // resolves the exact pending request even for profile-scoped gateways.
+      socket.send(key);
+      setGuidedApproval(null);
+      setGuidedLastSignalAt(Date.now());
+      setGuidedActivity((current) => ({
+        phase: "working",
+        text: choice === "deny" ? "Stopping that action…" : "Continuing…",
+        specialist: current.specialist ?? APP_IT_SPECIALIST,
+      }));
+    },
+    [guidedApproval],
   );
 
   const sendGuidedProjectState = useCallback(
@@ -2271,7 +2445,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         enabled_specialist_labels: labels,
         specialist_models: models,
       })} IDRAK_INTERNAL_SKILLS_UPDATE_END`;
-      submitGuidedText(payload, displayValue);
+      submitGuidedText(payload, displayValue, { applyAgentRouting: false });
     },
     [submitGuidedText],
   );
@@ -2336,6 +2510,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     applyGuidedSpecialistIds(selected);
     guidedSkillModelsRef.current = models;
     setGuidedSkillModels(models);
+    guidedPendingModelRoutingRef.current = null;
     try {
       window.localStorage.setItem(
         GUIDED_SKILL_MODELS_STORAGE_KEY,
@@ -3611,6 +3786,27 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   }, [guided, guidedMessageWorkspace, guidedMessages, workspaceParam]);
 
   useEffect(() => {
+    if (!guided || guidedMessageWorkspace !== workspaceParam) return;
+    try {
+      window.localStorage.setItem(
+        guidedPhaseStorageKey(workspaceParam),
+        JSON.stringify({
+          completed: guidedPhasesCompleted,
+          current: guidedPhaseCurrent,
+        }),
+      );
+    } catch {
+      // Progress remains live when browser storage is unavailable.
+    }
+  }, [
+    guided,
+    guidedMessageWorkspace,
+    guidedPhaseCurrent,
+    guidedPhasesCompleted,
+    workspaceParam,
+  ]);
+
+  useEffect(() => {
     if (!guided || guidedActivity.phase !== "working") return;
     const graceDeadline = guidedSubagentGraceUntilRef.current;
     const deadline =
@@ -3900,7 +4096,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               <p className="mt-1 text-sm text-text-secondary">
                 {guidedTeamRecommendationPending
                   ? "Review Lyra’s smallest-team recommendation. Select or unselect agents before confirming."
-                  : "Lyra and the Requirements agent are always active. Choose only the extra agents this project needs."}
+                  : "Lyra is always available. Requirements stays on the team and activates only when discovery or a material change needs it. Choose only the extra agents this project needs."}
               </p>
             </div>
             <Button
@@ -4006,7 +4202,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                           {guidedAgentName(id)}
                           {required && (
                             <span className="ml-2 rounded-full border border-current/25 px-2 py-0.5 text-[10px] font-normal uppercase tracking-widest text-text-secondary">
-                              Always on
+                              Always available
                             </span>
                           )}
                           {!required &&
@@ -4044,7 +4240,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                         }
                       >
                         <option value="">
-                          Default · {guidedDefaultModelLabel}
+                          Follow project model · {guidedDefaultModelLabel}
                         </option>
                         {modelChoices.map((model) => (
                           <option key={model} value={model}>
@@ -4063,7 +4259,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             <span className="text-xs text-text-secondary">
               {guidedTeamRecommendationPending
                 ? "Nothing starts until you confirm this selection."
-                : "Changes are sent to Lyra once when you save."}
+                : "Exact overrides are provider-specific; unavailable ones reset to the project model after a provider change."}
             </span>
             <div className="flex gap-2">
               <Button outlined onClick={() => setGuidedSkillsOpen(false)}>
@@ -4269,6 +4465,36 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                   Retry
                 </Button>
               )}
+            </div>
+          )}
+
+          {guidedApproval && (
+            <div className="shrink-0 border-b border-warning/35 bg-warning/[0.07] px-4 py-3 sm:px-7">
+              <div role="alert" className="mx-auto max-w-3xl">
+                <strong className="block text-sm text-warning">
+                  Approval needed
+                </strong>
+                <p className="mt-1 text-sm text-text-primary">
+                  {guidedApproval.description}
+                </p>
+                {guidedApproval.command && (
+                  <pre className="mt-2 max-h-28 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-current/15 bg-background-base/70 p-2.5 text-[11px] leading-5 text-text-secondary">
+                    {guidedApproval.command}
+                  </pre>
+                )}
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {guidedApproval.choices.map((choice) => (
+                    <Button
+                      key={choice}
+                      size="sm"
+                      outlined={choice !== "once"}
+                      onClick={() => respondToGuidedApproval(choice)}
+                    >
+                      {GUIDED_APPROVAL_LABELS[choice]}
+                    </Button>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 

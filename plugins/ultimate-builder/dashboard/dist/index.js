@@ -33,7 +33,7 @@
   ];
 
   const ALL_SKILL_IDS = SKILLS.map((skill) => skill[0]);
-  // Requirements always runs (see the app-it playbook). Every path that sets the
+  // Requirements is always available (see the app-it playbook). Every path that sets the
   // team goes through this, so no template, Clear, or stray click can drop it.
   const REQUIRED_SKILL_IDS = ["req-engineer"];
   const withRequired = function (ids) {
@@ -353,7 +353,7 @@
           .some((skill) => selected.has(skill));
         const request = brief.trim() || defaultBrief(templateId, mode === "existing");
         const prompt = "IDRAK_INTERNAL_SETUP_BEGIN " + JSON.stringify({
-          instruction: "Lyra is the permanent user-facing coordinator. Start with the internal ultimate-builder:app-it skill, work only in the selected workspace, and keep internal skill names, tools, and orchestration out of user-facing messages. Vocabulary: to the user these are AGENTS — the requirements agent, the design agent, the development agent. Never say skill, specialist, playbook, or subagent in a user-facing message. The enabled_specialists list is the approved initial team, not an immutable restriction. Recommend only the smallest useful team. Emit APP_IT_SKILLS_SET to open the dashboard's editable recommendation; the marker itself never applies a team. Wait for the user's dashboard confirmation and the resulting IDRAK_INTERNAL_SKILLS_UPDATE before using added agents. Manual dashboard changes are authoritative. Load every agent with skill_view(name='ultimate-builder:<specialist-id>') immediately before running it, and never claim an agent ran unless its playbook was actually loaded. Requirements is mandatory: as soon as the user names anything to build, change, or fix, load skill_view(name='ultimate-builder:req-engineer') and run that interview in this conversation — its Grill, design-space exploration and approval gate included — and produce an approved requirements.md before any plan, architecture, or code.",
+          instruction: "Lyra is the permanent user-facing coordinator. Start with the internal ultimate-builder:app-it skill, work only in the selected workspace, and keep internal skill names, tools, and orchestration out of user-facing messages. Vocabulary: to the user these are AGENTS — the requirements agent, the design agent, the development agent. Never say skill, specialist, playbook, or subagent in a user-facing message. The enabled_specialists list is the approved initial team, not an immutable restriction. Recommend only the smallest useful team. Emit APP_IT_SKILLS_SET to open the dashboard's editable recommendation; the marker itself never applies a team. Wait for the user's dashboard confirmation and the resulting IDRAK_INTERNAL_SKILLS_UPDATE before using added agents. Manual dashboard changes are authoritative. Load every agent with skill_view(name='ultimate-builder:<specialist-id>') immediately before running it, and never claim an agent ran unless its playbook was actually loaded. Requirements is mandatory but not always active: use skill_view(name='ultimate-builder:req-engineer') for the first meaningful brief without approved requirements, an active requirements interview, an explicit requirements revision, or a material change to scope, user-visible behavior, data, permissions, integrations, or acceptance criteria. Do not invoke it for greetings, status, explanations, approvals, pause/stop commands, ordinary in-scope feedback, or minor fixes. When needed, run its Grill, design-space exploration and approval gate in this conversation and produce an approved requirements.md before affected downstream work.",
           first_turn_gate: mode === "new"
             ? "Speak as Lyra. Begin with a warm one-sentence greeting, explain that you will help shape the project and choose the right agents, then ask exactly ONE short product question. Hand the detailed interview to the requirements agent rather than running it yourself. Then recommend the smallest useful agent team and ask permission before adding it. Do not write code before the team and requirements are approved."
             : "Speak as Lyra. Inspect the existing workspace read-only, then begin with a warm one-sentence greeting, briefly say what the project appears to be, and ask exactly ONE question about the outcome the user wants. Recommend the smallest useful specialist team and ask permission before adding it.",
@@ -496,7 +496,7 @@
           h(Card, { className: "ub-form-card" },
             h(CardContent, null,
               h("div", { className: "ub-section-heading" },
-                h("div", null, h("h2", null, "Starting team (optional)"), h("p", null, selected.size + " of " + SKILLS.length + " agents selected · Lyra and Requirements are always active")),
+                h("div", null, h("h2", null, "Starting team (optional)"), h("p", null, selected.size + " of " + SKILLS.length + " agents selected · Lyra is always available; Requirements activates when needed")),
                 h("div", { className: "ub-select-actions" },
                   h("button", { type: "button", onClick: () => setSelected(withRequired(activeTemplate.skills)) }, "Reset to workflow"),
                   h("button", { type: "button", onClick: () => setSelected(withRequired([])) }, "Clear optional"),

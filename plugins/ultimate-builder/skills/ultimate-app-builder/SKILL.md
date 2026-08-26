@@ -160,7 +160,8 @@ When the launcher prompt includes enabled and disabled specialists, that
 selection is authoritative:
 
 - run only the enabled specialist phases, except Requirements, which is always
-  enabled and always runs first;
+  available and runs first only when initial discovery or a material delta is
+  needed;
 - do not silently add a disabled phase because it normally appears in a
   delivery profile;
 - a planning-only selection may inspect files and write requested planning
@@ -168,16 +169,18 @@ selection is authoritative:
 - ask before adding a specialist that becomes necessary for safety or a
   user-requested outcome.
 
-Requirements always runs. Load
-`skill_view(name="ultimate-builder:req-engineer")` before the first
-user-facing response about the work. Its multi-round interview, separate Grill,
-design-space exploration, prototype walkthrough, and approval gate are
-mandatory. Do not inspect or write project files before completing that
-interactive gate, and do not begin any later phase — or delegate to any other
-specialist — until `requirements.md` exists and the user has approved it. A
-request that already sounds clear does not qualify for a shortcut; only an
-explicit "use smart defaults" from the user collapses the interview, and those
-defaults are then recorded as assumptions in `requirements.md`.
+Requirements always belongs to the project, but does not run for every turn.
+Load `skill_view(name="ultimate-builder:req-engineer")` before downstream work
+when no approved requirements cover the first meaningful product brief, when
+the user explicitly asks for requirements work, or when a change materially
+affects scope, user-visible behavior, data, permissions, integrations, or
+acceptance criteria. Do not reload it for status questions, operational
+commands, approvals, ordinary in-scope feedback, or minor fixes. When it is
+needed, its relevant interview, separate Grill, design-space exploration,
+prototype walkthrough, and approval gate are mandatory. Do not begin affected
+later phases until `requirements.md` exists and the user has approved it. Use a
+focused delta for an established project rather than restarting discovery from
+zero.
 
 Use the smallest profile that matches the request:
 
@@ -216,7 +219,10 @@ that specialist's `delegate_task` call. Pass it as top-level `model` for a
 single delegate or on the matching item in a batch. Omit `model` when the
 specialist has no assignment so delegation inherits its configured default.
 Never apply one specialist's assignment to another phase. The coordinating
-conversation remains on its session model.
+conversation remains on its session model. Exact assignments are
+provider-specific: after a provider change, an assignment removed by the
+guided routing update must inherit the new project model rather than reusing an
+unavailable id from the previous provider.
 
 ## Step 3: implement vertical slices
 

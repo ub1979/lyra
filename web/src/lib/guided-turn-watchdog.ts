@@ -20,8 +20,15 @@
  * genuine signal.
  */
 
-/** No signal at all from the model for this long → stop the turn. */
-export const GUIDED_MODEL_SILENCE_TIMEOUT_MS = 75_000;
+/**
+ * No signal at all from the model for this long → stop the turn.
+ *
+ * The transport's large-context no-byte watchdog allows 120 seconds. The
+ * dashboard used to interrupt it at 75 seconds first, turning a slow but valid
+ * provider response into a fake failure. Give the backend five seconds to
+ * report its own timeout while the rail starts warning the user after 30s.
+ */
+export const GUIDED_MODEL_SILENCE_TIMEOUT_MS = 125_000;
 
 /** A running specialist phase may stay silent this long before it is stopped. */
 export const GUIDED_SUBAGENT_SILENCE_GRACE_MS = 120_000;
@@ -106,7 +113,7 @@ export function guidedWatchdogMessage(reason: "model" | "subagent"): string {
   }
   return (
     "Lyra did not receive a response from the AI model within " +
-    `${Math.round(GUIDED_MODEL_SILENCE_TIMEOUT_MS / 1000)} seconds. ` +
+    "about 2 minutes. " +
     "The turn was stopped; check the AI model or select Stop & retry."
   );
 }

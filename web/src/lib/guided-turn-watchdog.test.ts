@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  GUIDED_MODEL_SILENCE_TIMEOUT_MS,
   GUIDED_SUBAGENT_SILENCE_GRACE_MS,
   GUIDED_SUBAGENT_SPAWN_GRACE_MS,
   decideGuidedWatchdog,
@@ -164,6 +165,7 @@ describe("guidedWatchdogMessage", () => {
   });
 
   it("names the model when it never answered", () => {
-    expect(guidedWatchdogMessage("model")).toMatch(/75 seconds/);
+    expect(GUIDED_MODEL_SILENCE_TIMEOUT_MS).toBeGreaterThan(120_000);
+    expect(guidedWatchdogMessage("model")).toMatch(/about 2 minutes/);
   });
 });
