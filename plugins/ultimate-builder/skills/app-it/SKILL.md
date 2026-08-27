@@ -40,6 +40,21 @@ the project appears to be, then ask only for the desired change or outcome.
 Do not spend a turn running file or search tools before that first reply —
 inspect once you know what the user actually wants.
 
+## Local Git commits are mandatory
+
+Every project change must be saved in a local Git commit before Lyra reports
+the work complete or advances to the next implementation phase. This includes
+a new project's initial scaffold and later edits, fixes, generated artifacts,
+and deletions.
+
+Before changing files, inspect `git status` and preserve unrelated user
+changes. After verification, stage only files belonging to the current work
+and commit them with a clear message. If the project is not yet a Git
+repository, initialize it before the first project change and create a baseline
+commit. A local commit is mandatory even when the user has not asked for a
+remote push. Pushing to a remote remains a separate action and requires an
+explicit user request.
+
 Preserve every website or document URL the user supplies and pass it to the
 relevant specialist unchanged. Do not claim a source was inspected until a
 Hermes web or browser tool actually opened it.

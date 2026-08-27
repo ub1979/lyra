@@ -234,7 +234,8 @@ files or state. Give each development delegate:
 - acceptance criteria;
 - artifact paths;
 - test and build commands;
-- the instruction to commit only when the user authorized commits.
+- the instruction to create a local Git commit after verification. Never push
+  to a remote unless the user explicitly asks.
 
 After parallel work, run one integration delegate over the combined state.
 
