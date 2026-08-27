@@ -2,6 +2,7 @@
 set -Eeuo pipefail
 
 PROJECT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+WORKSPACE_DIR="$PROJECT_DIR/my_projects"
 PORT="${LYRA_PORT:-9119}"
 
 if ! command -v lsof >/dev/null 2>&1; then
@@ -23,7 +24,7 @@ RUNNING_CWD="$(
 )"
 RUNNING_COMMAND="$(ps -p "$RUNNING_PID" -o command= 2>/dev/null || true)"
 
-if [[ "$RUNNING_CWD" != "$PROJECT_DIR" || "$RUNNING_COMMAND" != *"hermes dashboard"* ]]; then
+if [[ "$RUNNING_CWD" != "$PROJECT_DIR" && "$RUNNING_CWD" != "$WORKSPACE_DIR" || "$RUNNING_COMMAND" != *"hermes dashboard"* ]]; then
   echo "Refusing to stop process ${RUNNING_PID}: it is not this Lyra application."
   echo "Port ${PORT} belongs to: ${RUNNING_COMMAND:-unknown process}"
   exit 1
@@ -59,7 +60,7 @@ if [[ "$LAUNCHER_PID" =~ ^[0-9]+$ ]] && [[ "$LAUNCHER_PID" -gt 1 ]]; then
       head -n 1
   )"
   LAUNCHER_COMMAND="$(ps -p "$LAUNCHER_PID" -o command= 2>/dev/null || true)"
-  if [[ "$LAUNCHER_CWD" == "$PROJECT_DIR" && "$LAUNCHER_COMMAND" == *"hermes dashboard"* ]]; then
+  if [[ ("$LAUNCHER_CWD" == "$PROJECT_DIR" || "$LAUNCHER_CWD" == "$WORKSPACE_DIR") && "$LAUNCHER_COMMAND" == *"hermes dashboard"* ]]; then
     TARGET_PIDS+=("$LAUNCHER_PID")
   fi
 fi
