@@ -5,10 +5,11 @@ match `LYRA_VERSION` in `lyra_version.py` — a test enforces it, so bumping one
 without the other fails the build rather than shipping a lie.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
-Versions are `MAJOR.MINOR.PATCH` on the `alpha` channel until the interface stops
-moving under users.
+Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
+
+## [0.19.2] - 2026-08-27 — safer remote projects
 
 ### Fixed
 
@@ -26,6 +27,10 @@ moving under users.
   of the plugin-enable step, so the slowest part of a first run printed one line
   and then went silent for minutes. It now shows its work, and says up front
   that a first run compiles dependencies and can take a while.
+- **Telegram setup is private and easier to understand.** Remote setup now
+  explains who can use the linked bot, guides the owner through the required
+  steps, prevents accidental public access, and correctly handles Telegram's
+  disabled group policy instead of treating `FALSE` as an allow-list entry.
 
 ### Added
 
@@ -42,6 +47,12 @@ moving under users.
   hover to reveal on desktop, always visible on touch. Lyra's replies copy as
   their original markdown, so code blocks, lists and formatting survive being
   pasted somewhere else; internal phase markers never do.
+- **Project changes are committed locally by default.** Lyra's project-building
+  guidance now requires a local Git commit after each completed change set,
+  while remote pushes remain explicit user actions.
+- **One product version everywhere.** The dashboard, desktop package, App
+  Builder source, built bundle, release API, and tests now agree on Lyra's
+  version, without changing the separate upstream Hermes CLI version.
 
 ## [0.17.0] - 2026-08-21 — base code
 

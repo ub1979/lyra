@@ -1518,17 +1518,19 @@ class TestWebServerEndpoints:
 
         assert resp.status_code == 200
         data = resp.json()
-        assert data["version"] == "0.17.0"
-        assert data["channel"] == "alpha"
-        assert data["display"] == "alpha v0.17"
-        assert data["release_name"] == "base code"
+        import lyra_version
+
+        assert data["version"] == lyra_version.LYRA_VERSION
+        assert data["channel"] == lyra_version.LYRA_CHANNEL
+        assert data["display"] == lyra_version.lyra_version_display()
+        assert data["release_name"] == lyra_version.LYRA_RELEASE_NAME
 
     def test_lyra_version_carries_the_release_notes(self):
         resp = self.client.get("/api/lyra/version")
 
         notes = resp.json()["notes"]
         assert notes, "the changelog entry should reach the dashboard"
-        assert any("base code" in note.lower() for note in notes)
+        assert any("telegram" in note.lower() for note in notes)
         # Wrapped bullets arrive whole, not cut at the first newline.
         assert all(not note.endswith(("and", "the", "a")) for note in notes)
 

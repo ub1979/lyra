@@ -3,9 +3,12 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
+from lyra_version import LYRA_CHANNEL, LYRA_VERSION
+
 
 ROOT = Path(__file__).resolve().parents[1]
 DASHBOARD_ENTRY = ROOT / "dashboard" / "app" / "index.js"
+DASHBOARD_DIST_ENTRY = ROOT / "dashboard" / "dist" / "index.js"
 
 
 class Context:
@@ -86,7 +89,8 @@ def test_dashboard_enforces_requirements_gate_with_real_skill_loading():
     assert "ask permission before adding it" in dashboard
     assert "Do not write code before the team and requirements are approved" in dashboard
     assert "Start with the internal ultimate-builder:app-it skill" in dashboard
-    assert "LYRA · APP BUILDER · v 0.19.1 beta" in dashboard
+    expected_version = f"LYRA · APP BUILDER · v {LYRA_VERSION} {LYRA_CHANNEL}"
+    assert expected_version in dashboard
     assert "Meet App IT" not in dashboard
     assert "APP_IT_SKILLS_SET" in dashboard
     assert "skill_view(name='ultimate-builder:<specialist-id>')" in dashboard
@@ -103,6 +107,11 @@ def test_dashboard_enforces_requirements_gate_with_real_skill_loading():
     assert 'window.location.href = "/chat?" + params.toString()' in dashboard
     assert 'disabled: starting || !selected.size' not in dashboard
     assert "Use ultimate-builder:ultimate-app-builder" not in dashboard
+
+
+def test_built_dashboard_uses_the_same_product_version():
+    expected_version = f"LYRA · APP BUILDER · v {LYRA_VERSION} {LYRA_CHANNEL}"
+    assert expected_version in DASHBOARD_DIST_ENTRY.read_text()
 
 
 def test_start_script_launches_dashboard_from_ignored_project_root():

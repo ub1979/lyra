@@ -28,13 +28,16 @@ def version_module():
 
 
 def test_lyra_has_its_own_version(version_module):
-    assert version_module.LYRA_VERSION == "0.17.0"
-    assert version_module.LYRA_CHANNEL == "alpha"
-    assert version_module.LYRA_RELEASE_NAME == "base code"
+    assert re.fullmatch(r"\d+\.\d+\.\d+", version_module.LYRA_VERSION)
+    assert version_module.LYRA_CHANNEL in {"alpha", "beta", "rc", "stable"}
+    assert version_module.LYRA_RELEASE_NAME.strip()
 
 
 def test_the_display_string_is_what_the_user_should_read(version_module):
-    assert version_module.lyra_version_display() == "alpha v0.17"
+    number = version_module.LYRA_VERSION
+    if number.endswith(".0"):
+        number = number[:-2]
+    assert version_module.lyra_version_display() == f"{version_module.LYRA_CHANNEL} v{number}"
 
 
 def test_the_changelog_top_entry_matches_the_code(version_module):
@@ -93,3 +96,15 @@ def test_the_sidebar_shows_lyra_not_the_cli():
     )
     assert "getLyraVersion" in footer
     assert "status?.version" not in footer, "the CLI version is back in the footer"
+
+
+def test_app_builder_version_labels_match_lyra(version_module):
+    expected = (
+        f"LYRA · APP BUILDER · v {version_module.LYRA_VERSION} "
+        f"{version_module.LYRA_CHANNEL}"
+    )
+    for relative_path in (
+        "plugins/ultimate-builder/dashboard/app/index.js",
+        "plugins/ultimate-builder/dashboard/dist/index.js",
+    ):
+        assert expected in (REPO / relative_path).read_text(encoding="utf-8")

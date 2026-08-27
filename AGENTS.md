@@ -26,6 +26,16 @@ reviewing any change:
   high. Most new capability should arrive as a CLI command + skill, a
   service-gated tool, or a plugin — not as core surface.
 
+## Lyra Version Discipline
+
+- Before pushing any change to Lyra, increment the patch component of
+  `LYRA_VERSION` in `lyra_version.py` exactly once for that pushed change set.
+- Keep the matching released entry in `CHANGELOG.md`, `LYRA_CHANNEL`, release
+  metadata, desktop package version, and user-visible version labels in sync.
+- Rebuild tracked generated assets when their source contains a version label.
+- Do not use `pyproject.toml` or `hermes_cli.__version__` for this. Those numbers
+  track the upstream Hermes CLI and remain independent from Lyra's version.
+
 ## Contribution Rubric — What We Want / What We Don't
 
 This is the project's intent layer. Use it two ways:
