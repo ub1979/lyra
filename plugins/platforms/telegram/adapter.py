@@ -998,15 +998,23 @@ class TelegramAdapter(BasePlatformAdapter):
 
     def _telegram_auth_env_configured(self) -> bool:
         """Return True when Telegram auth env vars make an early decision safe."""
-        keys = (
+        allowlist_keys = (
             "TELEGRAM_ALLOWED_USERS",
             "TELEGRAM_GROUP_ALLOWED_USERS",
             "TELEGRAM_GROUP_ALLOWED_CHATS",
-            "TELEGRAM_ALLOW_ALL_USERS",
             "GATEWAY_ALLOWED_USERS",
-            "GATEWAY_ALLOW_ALL_USERS",
         )
-        return any(os.getenv(key, "").strip() for key in keys)
+        if any(os.getenv(key, "").strip() for key in allowlist_keys):
+            return True
+
+        # A present-but-false boolean is not an authorization policy. Treating
+        # TELEGRAM_ALLOW_ALL_USERS=FALSE as configured prevents unknown DMs
+        # from reaching the normal pairing flow.
+        truthy = {"1", "true", "yes", "on"}
+        return any(
+            os.getenv(key, "").strip().lower() in truthy
+            for key in ("TELEGRAM_ALLOW_ALL_USERS", "GATEWAY_ALLOW_ALL_USERS")
+        )
 
     def _is_user_authorized_from_message(self, message: Message) -> bool:
         """Check if the sender of a Telegram message is authorized.

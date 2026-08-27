@@ -1738,13 +1738,16 @@ def _setup_telegram():
         if not prompt_yes_no("Reconfigure Telegram?", False):
             # Check missing allowlist on existing config
             if not get_env_value("TELEGRAM_ALLOWED_USERS"):
-                print_info("⚠️  Telegram has no user allowlist - anyone can use your bot!")
+                print_info("⚠️  Telegram has no user allowlist yet.")
+                print_info("   Anyone who finds the bot can request access, so adding your ID is recommended.")
                 if prompt_yes_no("Add allowed users now?", True):
                     print_info("   To find your Telegram user ID: message @userinfobot")
-                    allowed_users = prompt("Allowed user IDs (comma-separated)")
+                    allowed_users = prompt("Allowed user IDs (comma-separated; recommended)")
                     if allowed_users:
                         save_env_value("TELEGRAM_ALLOWED_USERS", allowed_users.replace(" ", ""))
-                        print_success("Telegram allowlist configured")
+                        print_success("Telegram allowlist configured — only listed users can use the bot")
+                    else:
+                        print_info("No users added. Telegram access remains restricted until you configure an allowlist.")
             return
 
     print_info("How would you like to create your Telegram bot?")
@@ -1785,10 +1788,11 @@ def _setup_telegram():
     print_success("Telegram token saved")
 
     print()
-    print_info("🔒 Security: Restrict who can use your bot")
+    print_info("🔒 Security: choose who can use your bot")
     print_info("   To find your Telegram user ID:")
     print_info("   1. Message @userinfobot on Telegram")
     print_info("   2. It will reply with your numeric ID (e.g., 123456789)")
+    print_info("   3. Add that ID below. Do not use your @username or bot username.")
     print()
 
     detected_user_id = getattr(setup_result, "owner_user_id", None)
@@ -1804,11 +1808,11 @@ def _setup_telegram():
             allowed_users = ",".join(ids)
         else:
             allowed_users = prompt(
-                "Allowed user IDs (comma-separated, leave empty for open access)"
+                "Allowed user IDs (comma-separated; recommended)"
             )
     else:
         allowed_users = prompt(
-            "Allowed user IDs (comma-separated, leave empty for open access)"
+            "Allowed user IDs (comma-separated; recommended)"
         )
 
     if allowed_users:
@@ -1816,7 +1820,7 @@ def _setup_telegram():
         save_env_value("TELEGRAM_ALLOWED_USERS", allowed_users)
         print_success("Telegram allowlist configured - only listed users can use the bot")
     else:
-        print_info("⚠️  No allowlist set - anyone who finds your bot can use it!")
+        print_info("⚠️  No allowlist set. The bot will not answer until you add an allowed Telegram user ID.")
 
     print()
     print_info("📬 Home Channel: where Hermes delivers cron job results,")

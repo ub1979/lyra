@@ -177,6 +177,10 @@ hermes gateway setup
 
 Select **Telegram** when prompted. The wizard asks for your bot token and allowed user IDs, then writes the configuration for you.
 
+For a private personal bot, allow only your own numeric Telegram user ID. Do
+not leave the allowlist empty unless you intentionally want to manage access
+with pairing codes.
+
 ### Option B: Manual Configuration
 
 Add the following to `~/.hermes/.env`:
@@ -186,6 +190,10 @@ TELEGRAM_BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrSTUvwxYZ
 TELEGRAM_ALLOWED_USERS=123456789    # Comma-separated for multiple users
 ```
 
+Use the numeric ID from `@userinfobot`, not your Telegram `@username` or the
+bot's username. Never share `TELEGRAM_BOT_TOKEN`: anyone with it can control
+the bot.
+
 ### Start the Gateway
 
 ```bash
@@ -193,6 +201,21 @@ hermes gateway
 ```
 
 The bot should come online within seconds. Send it a message on Telegram to verify.
+
+### Recommended private-bot checklist
+
+1. Add your numeric ID to `TELEGRAM_ALLOWED_USERS`.
+2. Leave `TELEGRAM_ALLOW_ALL_USERS` unset or set it to `false`.
+3. Keep group access disabled unless you intentionally need it.
+4. Restart the gateway after changing `.env` or `config.yaml`:
+
+```bash
+hermes gateway restart
+```
+
+If the bot is connected but silent, send `/start`, verify your numeric ID, and
+check the gateway log. Never paste the bot token into Telegram, GitHub, a chat,
+or a public issue.
 
 ## Sending Generated Files from Docker-backed Terminals
 

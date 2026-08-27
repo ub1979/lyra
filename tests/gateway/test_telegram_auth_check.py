@@ -273,6 +273,25 @@ def test_unknown_dm_with_no_allowlist_passes_to_pairing(monkeypatch):
     assert adapter._is_user_authorized_from_message(msg) is True
 
 
+def test_false_allow_all_flag_does_not_block_pairing(monkeypatch):
+    """FALSE is not an active policy and must not block unknown DMs."""
+    for key in (
+        "TELEGRAM_ALLOWED_USERS",
+        "TELEGRAM_GROUP_ALLOWED_USERS",
+        "TELEGRAM_GROUP_ALLOWED_CHATS",
+        "GATEWAY_ALLOWED_USERS",
+        "GATEWAY_ALLOW_ALL_USERS",
+    ):
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.setenv("TELEGRAM_ALLOW_ALL_USERS", "FALSE")
+
+    adapter = _make_adapter()
+    msg = _make_message(from_user_id=111, chat_id=111, chat_type="private")
+
+    assert adapter._telegram_auth_env_configured() is False
+    assert adapter._is_user_authorized_from_message(msg) is True
+
+
 def test_runner_auth_gets_group_user_allowlist_context(monkeypatch):
     """Group user allowlists need a group-shaped source, not a DM-shaped one."""
     monkeypatch.setenv("TELEGRAM_GROUP_ALLOWED_USERS", "111")

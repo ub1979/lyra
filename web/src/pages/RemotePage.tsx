@@ -330,6 +330,11 @@ export default function RemotePage() {
                             This stays on your computer. Anyone with it can
                             message as your bot, so do not share it.
                           </p>
+                          <p className="text-xs text-warning">
+                            After connecting, allow only your own numeric
+                            Telegram user ID on the Channels page. Do not use
+                            your @username or the bot&rsquo;s username.
+                          </p>
                         </div>
                         <Button
                           disabled={busy || token.trim().length === 0}
@@ -426,10 +431,10 @@ export default function RemotePage() {
                   Who can talk to my bot?
                 </h3>
                 <p>
-                  Only people you approve. The first time someone new messages
-                  it, they get a code and nothing else happens until you
-                  approve them on the Pairing page. A bot username is public,
-                  so strangers can find it — they just cannot use it.
+                  Keep the bot private by adding your numeric Telegram user ID
+                  to the allowed-users field on the Channels page. A bot
+                  username is public, so strangers can find it, but an
+                  allowlist prevents them from using it.
                 </p>
               </section>
               <section className="space-y-1">
@@ -439,8 +444,9 @@ export default function RemotePage() {
                 <p>
                   Send <code>/start</code> to the bot first — Telegram does not
                   deliver anything to a bot you have not started. If it is
-                  still quiet, check the Pairing page for a request waiting for
-                  your approval.
+                  still quiet, confirm that your numeric ID is in the
+                  allowed-users field and restart the gateway after changing
+                  settings.
                 </p>
               </section>
               <section className="space-y-1">
