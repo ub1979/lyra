@@ -82,6 +82,7 @@
   const CUSTOM_TEMPLATES_KEY = "idrak-it.builder.templates.v1";
   const RECENT_PROJECTS_KEY = "idrak-it.builder.projects.v1";
   const SKILL_MODELS_KEY = "idrak-it.builder.skill-models.v1";
+  const PROJECT_SESSION_KEY_PREFIX = "idrak-it.guided-session.v1:";
 
   function readStored(key, fallback) {
     try {
@@ -105,6 +106,44 @@
     } catch (_) {
       return {};
     }
+  }
+
+  function projectSessionKey(workspace) {
+    return PROJECT_SESSION_KEY_PREFIX + (workspace || "default");
+  }
+
+  function readProjectSessionId(workspace) {
+    try {
+      return String(localStorage.getItem(projectSessionKey(workspace)) || "").trim();
+    } catch (_) {
+      return "";
+    }
+  }
+
+  function writeProjectSessionId(workspace, sessionId) {
+    if (!sessionId) return;
+    try {
+      localStorage.setItem(projectSessionKey(workspace), String(sessionId).trim());
+    } catch (_) {}
+  }
+
+  async function findProjectSessionId(workspace) {
+    const stored = readProjectSessionId(workspace);
+    if (stored) return stored;
+    try {
+      const page = await api.getSessions(20, 0, undefined, "recent", workspace);
+      const match = (page && page.sessions || [])
+        .filter((session) => session && session.id && session.cwd === workspace)
+        .sort((left, right) => (right.message_count || 0) - (left.message_count || 0))[0];
+      if (match) {
+        writeProjectSessionId(workspace, match.id);
+        return match.id;
+      }
+    } catch (_) {
+      // Older Lyra servers do not support workspace-filtered sessions. The
+      // project can still open; its next session.info event stores the id.
+    }
+    return "";
   }
 
   function joinPath(parent, name) {
@@ -344,6 +383,8 @@
           guided: "1",
           workspace,
         });
+        const sessionId = await findProjectSessionId(workspace);
+        if (sessionId) params.set("resume", sessionId);
         window.location.href = "/chat?" + params.toString();
       } catch (err) {
         setMode("existing");
@@ -450,7 +491,7 @@
     if (screen === "home") {
       return h("div", { className: "ub-page" },
         h("section", { className: "ub-welcome" },
-          h("p", { className: "ub-kicker" }, "LYRA · APP BUILDER · v 0.19.5 beta"),
+          h("p", { className: "ub-kicker" }, "LYRA · APP BUILDER · v 0.19.6 beta"),
           h("h1", null, "What would you like to work on?"),
           h("p", { className: "ub-subtitle" }, "Start something new or bring an existing folder. Lyra learns what you need, recommends the right agents, and stays with you through delivery."),
           h("button", {

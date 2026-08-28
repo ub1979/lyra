@@ -104,6 +104,8 @@ def test_dashboard_enforces_requirements_gate_with_real_skill_loading():
     assert 'defaultProjectsRoot(cwd)' in dashboard
     assert 'workspace-safety?path=' in dashboard
     assert 'workspace = await requireSafeWorkspace(workspace)' in dashboard
+    assert 'api.getSessions(20, 0, undefined, "recent", workspace)' in dashboard
+    assert 'params.set("resume", sessionId)' in dashboard
     assert 'window.location.href = "/chat?" + params.toString()' in dashboard
     assert 'disabled: starting || !selected.size' not in dashboard
     assert "Use ultimate-builder:ultimate-app-builder" not in dashboard

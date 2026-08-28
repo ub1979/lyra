@@ -8,6 +8,7 @@ import {
   isGuidedCancellationNotice,
   presentGuidedChatOutput,
   sanitizeGuidedResponse,
+  shouldAutoContinueGuidedWorkflow,
   stripGuidedCancellationNotice,
 } from "./guided-chat-output";
 
@@ -140,6 +141,23 @@ a//Users/u/funcoding/todo/index.html → b//Users/u/funcoding/todo/index.html
         "Quick preview ready — open .sdlc/preview/index.html. Does this look like what you want?",
       ),
     ).toBe(false);
+  });
+
+  it("never crosses a pending team-confirmation checkpoint", () => {
+    expect(
+      shouldAutoContinueGuidedWorkflow({
+        awaitingTeamConfirmation: true,
+        hasDeclaredNextPhase: true,
+        response: "Requirements are approved. Here is my recommended team.",
+      }),
+    ).toBe(false);
+    expect(
+      shouldAutoContinueGuidedWorkflow({
+        awaitingTeamConfirmation: false,
+        hasDeclaredNextPhase: true,
+        response: "Requirements are approved.",
+      }),
+    ).toBe(true);
   });
 
   it("prefers the delegated role over later artifact mentions", () => {

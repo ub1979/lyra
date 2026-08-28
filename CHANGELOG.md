@@ -9,6 +9,22 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.6] - 2026-08-29 — reliable project chat recovery
+
+### Fixed
+
+- **Existing projects can send messages after Lyra restarts.** Guided chat now
+  accepts the agent session event as the authoritative ready signal, visibly
+  explains a failed reconnection, and offers a one-click project-chat restart
+  instead of leaving Enter and Send silently disabled.
+- **Recent projects resume the same AI conversation.** Lyra records the durable
+  session for each workspace and can migrate older projects by finding their
+  matching saved conversation, so restored chat bubbles and agent context stay
+  together.
+- **Agent-team recommendations remain approval checkpoints.** A completed
+  requirements phase no longer starts the next recommended agent before the
+  user confirms the proposed team.
+
 ## [0.19.5] - 2026-08-28 — reliable long model waits
 
 ### Fixed

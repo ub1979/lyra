@@ -125,13 +125,17 @@ import {
   analyzeGuidedChatOutput,
   extractAppItSkillSelection,
   friendlyActivityLabel,
-  guidedResponseNeedsContinuation,
   isGuidedCancellationNotice,
   sanitizeGuidedResponse,
+  shouldAutoContinueGuidedWorkflow,
   type GuidedChatPresentation,
   type GuidedSpecialist,
 } from "@/lib/guided-chat-output";
 import { normalizeSessionTitle } from "@/lib/chat-title";
+import {
+  clearGuidedProjectSessionId,
+  writeGuidedProjectSessionId,
+} from "@/lib/guided-project-session";
 import {
   PTY_CONNECTING_TIMEOUT_MS,
   PTY_RECONNECT_INPUT_MESSAGE,
@@ -253,6 +257,7 @@ interface GuidedAgentEventEnvelope {
       result_text?: string;
       summary?: string;
       smart_denied?: boolean;
+      stored_session_id?: string;
       text?: string;
       tool_id?: string;
       usage?: unknown;
@@ -1431,6 +1436,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     useState(false);
   const [guidedPaused, setGuidedPaused] = useState(false);
   const [guidedAgentReady, setGuidedAgentReady] = useState(false);
+  const [guidedReadyTimedOut, setGuidedReadyTimedOut] = useState(false);
   const [telegramPlatform, setTelegramPlatform] =
     useState<MessagingPlatform | null>(null);
   const [telegramRemoteLoading, setTelegramRemoteLoading] = useState(false);
@@ -1533,6 +1539,12 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         },
       ];
     });
+  }, []);
+
+  const markGuidedAgentReady = useCallback(() => {
+    guidedAgentReadyRef.current = true;
+    setGuidedAgentReady(true);
+    setGuidedReadyTimedOut(false);
   }, []);
 
   useEffect(() => {
@@ -1797,6 +1809,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     mobileReplacementInputUntilRef.current = 0;
     setBanner(null);
     setLastCloseCode(null);
+    guidedAgentReadyRef.current = false;
+    setGuidedAgentReady(false);
+    setGuidedReadyTimedOut(false);
     setPtyState("connecting");
     setReconnectNonce((n) => n + 1);
   }, [clearReconnectTimer]);
@@ -1809,6 +1824,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     mobileReplacementInputUntilRef.current = 0;
     setBanner(null);
     setLastCloseCode(null);
+    guidedAgentReadyRef.current = false;
+    setGuidedAgentReady(false);
+    setGuidedReadyTimedOut(false);
     setPtyState("connecting");
     setReconnectNonce((n) => n + 1);
   }, [clearReconnectTimer]);
@@ -1844,6 +1862,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     try {
       window.localStorage.removeItem(guidedMessageStorageKey(workspaceParam));
       window.localStorage.removeItem(guidedPhaseStorageKey(workspaceParam));
+      clearGuidedProjectSessionId(workspaceParam);
     } catch {
       // State still clears when browser storage is unavailable.
     }
@@ -2018,6 +2037,18 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
 
         const { type, payload } = frame.params;
           if (type === "session.info") {
+            // The gateway has built the agent and published its durable
+            // session. This is a stronger readiness signal than scraping the
+            // hidden terminal for a prompt glyph, which can be lost during a
+            // server restart or terminal-width reflow.
+            markGuidedAgentReady();
+            const storedSessionId =
+              typeof payload?.stored_session_id === "string"
+                ? payload.stored_session_id.trim()
+                : "";
+            if (storedSessionId && workspaceParam) {
+              writeGuidedProjectSessionId(workspaceParam, storedSessionId);
+            }
             if (payload?.usage) {
               setGuidedUsage(normalizeGuidedUsage(payload.usage));
             }
@@ -2250,12 +2281,22 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             ).trim();
           streamedText = "";
           if (response) {
+            const teamRecommendation = extractAppItSkillSelection(
+              response,
+              GUIDED_SELECTABLE_SPECIALIST_IDS,
+            );
             finishGuidedResponse(response);
             // A declared [APP_IT_PHASE_DONE:...] is the reliable signal; the
             // prose test stays as a fallback for replies without markers.
             const advanceTo = guidedPhaseAdvanceRef.current;
             guidedPhaseAdvanceRef.current = null;
-            if (advanceTo || guidedResponseNeedsContinuation(response)) {
+            if (
+              shouldAutoContinueGuidedWorkflow({
+                awaitingTeamConfirmation: Boolean(teamRecommendation),
+                hasDeclaredNextPhase: Boolean(advanceTo),
+                response,
+              })
+            ) {
               const nextAttempt = guidedAutoContinueCountRef.current + 1;
               guidedAutoContinueCountRef.current = nextAttempt;
               if (nextAttempt > 24) {
@@ -2351,7 +2392,15 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
       ws?.close();
     };
-  }, [appendGuidedError, channel, finishGuidedResponse, guided, hasActivated]);
+  }, [
+    appendGuidedError,
+    channel,
+    finishGuidedResponse,
+    guided,
+    hasActivated,
+    markGuidedAgentReady,
+    workspaceParam,
+  ]);
 
   useEffect(() => {
     if (!isActive) {
@@ -3424,6 +3473,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     let builderSeedTimer: number | null = null;
     guidedAgentReadyRef.current = false;
     setGuidedAgentReady(false);
+    setGuidedReadyTimedOut(false);
     const forceFresh = forceFreshPtyRef.current;
     forceFreshPtyRef.current = false;
     // A connect attempt is now in flight — set synchronously (before the async
@@ -3532,12 +3582,16 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         const sendWhenReady = () => {
           const active = wsRef.current;
           if (!active || active.readyState !== WebSocket.OPEN) return;
-          if (!terminalComposerIsReady(term)) {
+          if (
+            !guidedAgentReadyRef.current &&
+            !terminalComposerIsReady(term)
+          ) {
             if (Date.now() < readyDeadline) {
               builderSeedTimer = window.setTimeout(sendWhenReady, 250);
             } else {
+              setGuidedReadyTimedOut(true);
               appendGuidedError(
-                "The project conversation did not finish preparing. Reconnect the chat and try again.",
+                "The project conversation did not finish preparing. Use Restart project chat below to reconnect it without losing this project’s saved conversation.",
               );
               guidedTurnSettledRef.current = true;
               setGuidedActivity({
@@ -3548,8 +3602,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             }
             return;
           }
-          guidedAgentReadyRef.current = true;
-          setGuidedAgentReady(true);
+          markGuidedAgentReady();
           guidedWelcomeStartedRef.current = true;
           const next = new URLSearchParams(searchParams);
           next.delete("builder");
@@ -3578,9 +3631,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             if (wsRef.current?.readyState !== WebSocket.OPEN || unmounting) {
             return;
           }
-          if (terminalComposerIsReady(term)) {
-            guidedAgentReadyRef.current = true;
-            setGuidedAgentReady(true);
+          if (
+            guidedAgentReadyRef.current ||
+            terminalComposerIsReady(term)
+          ) {
+            markGuidedAgentReady();
             if (
               guided &&
               guidedMessagesRef.current.length === 0 &&
@@ -3625,6 +3680,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           }
           if (Date.now() < readyDeadline) {
             builderSeedTimer = window.setTimeout(markReady, 250);
+          } else {
+            setGuidedReadyTimedOut(true);
+            appendGuidedError(
+              "The saved project conversation could not reconnect. Use Restart project chat below to resume it.",
+            );
           }
         };
         builderSeedTimer = window.setTimeout(markReady, 100);
@@ -3933,6 +3993,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     workspaceParam,
     appendGuidedError,
     finishGuidedResponse,
+    markGuidedAgentReady,
   ]);
 
   useEffect(() => {
@@ -4983,6 +5044,34 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                   </li>
                 ))}
               </ul>
+            )}
+            {(guidedReadyTimedOut ||
+              ptyState === "closed" ||
+              ptyState === "ended") && (
+              <div
+                role="alert"
+                className="mx-auto mb-2 flex max-w-3xl flex-wrap items-center justify-between gap-3 rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-text-primary"
+              >
+                <span>
+                  {lastCloseCode === 4401
+                    ? "Your dashboard session needs to be refreshed before messages can be sent."
+                    : "Lyra’s project connection stopped before it became ready. Your saved project conversation is still available."}
+                </span>
+                <Button
+                  outlined
+                  onClick={() => {
+                    if (lastCloseCode === 4401) {
+                      window.location.reload();
+                    } else {
+                      startFreshPty();
+                    }
+                  }}
+                >
+                  {lastCloseCode === 4401
+                    ? "Reload Lyra"
+                    : "Restart project chat"}
+                </Button>
+              </div>
             )}
             <div
               className={cn(

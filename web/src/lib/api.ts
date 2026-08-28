@@ -357,10 +357,13 @@ export const api = {
     offset = 0,
     profile = getManagementProfile(),
     order: "created" | "recent" = "created",
+    cwdPrefix = "",
   ) =>
     fetchJSON<PaginatedSessions>(
       appendProfileParam(
-        `/api/sessions?limit=${limit}&offset=${offset}&order=${order}`,
+        `/api/sessions?limit=${limit}&offset=${offset}&order=${order}${
+          cwdPrefix ? `&cwd_prefix=${encodeURIComponent(cwdPrefix)}` : ""
+        }`,
         profile,
       ),
     ),
@@ -1847,6 +1850,7 @@ export interface StatusResponse {
 
 export interface SessionInfo {
   id: string;
+  cwd?: string | null;
   source: string | null;
   model: string | null;
   title: string | null;

@@ -263,6 +263,18 @@ export function guidedResponseNeedsContinuation(raw: string): boolean {
   );
 }
 
+export function shouldAutoContinueGuidedWorkflow(options: {
+  awaitingTeamConfirmation: boolean;
+  hasDeclaredNextPhase: boolean;
+  response: string;
+}): boolean {
+  return (
+    !options.awaitingTeamConfirmation &&
+    (options.hasDeclaredNextPhase ||
+      guidedResponseNeedsContinuation(options.response))
+  );
+}
+
 /**
  * Turns the agent TUI transcript into a calm, user-facing chat message.
  * Tool calls, file diffs, paths, and internal reasoning stay in the terminal
