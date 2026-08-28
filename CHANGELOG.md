@@ -9,6 +9,15 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.7] - 2026-08-29 — automatic project chat resume
+
+### Fixed
+
+- **A refreshed project chat resolves its saved conversation before starting
+  an agent.** Direct `/chat` reloads now perform the same workspace migration
+  as the Recent projects launcher, preventing a fresh temporary session from
+  replacing a substantial existing conversation during recovery.
+
 ## [0.19.6] - 2026-08-29 — reliable project chat recovery
 
 ### Fixed

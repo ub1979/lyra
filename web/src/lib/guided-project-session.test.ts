@@ -4,6 +4,7 @@ import {
   clearGuidedProjectSessionId,
   guidedProjectSessionStorageKey,
   readGuidedProjectSessionId,
+  selectGuidedProjectSessionId,
   writeGuidedProjectSessionId,
 } from "./guided-project-session";
 
@@ -40,5 +41,18 @@ describe("guided project session persistence", () => {
     expect(guidedProjectSessionStorageKey("")).toBe(
       "idrak-it.guided-session.v1:default",
     );
+  });
+
+  it("migrates to the substantial matching conversation", () => {
+    expect(
+      selectGuidedProjectSessionId(
+        [
+          { cwd: "/projects/song", id: "temporary", message_count: 2 },
+          { cwd: "/projects/other", id: "other", message_count: 900 },
+          { cwd: "/projects/song", id: "real-chat", message_count: 137 },
+        ],
+        "/projects/song",
+      ),
+    ).toBe("real-chat");
   });
 });

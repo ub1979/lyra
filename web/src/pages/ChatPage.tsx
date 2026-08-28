@@ -134,6 +134,8 @@ import {
 import { normalizeSessionTitle } from "@/lib/chat-title";
 import {
   clearGuidedProjectSessionId,
+  readGuidedProjectSessionId,
+  selectGuidedProjectSessionId,
   writeGuidedProjectSessionId,
 } from "@/lib/guided-project-session";
 import {
@@ -1328,6 +1330,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const guided = searchParams.get("guided") === "1";
   const workspaceParam = searchParams.get("workspace")?.trim() ?? "";
+  const builderParam = searchParams.get("builder");
+  const resumeParam = searchParams.get("resume");
   const projectName =
     workspaceParam.split(/[\\/]/).filter(Boolean).pop() ?? "Project";
   const [guidedOutput, setGuidedOutput] = useState("");
@@ -1437,6 +1441,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const [guidedPaused, setGuidedPaused] = useState(false);
   const [guidedAgentReady, setGuidedAgentReady] = useState(false);
   const [guidedReadyTimedOut, setGuidedReadyTimedOut] = useState(false);
+  const [guidedSessionLookupWorkspace, setGuidedSessionLookupWorkspace] =
+    useState("");
   const [telegramPlatform, setTelegramPlatform] =
     useState<MessagingPlatform | null>(null);
   const [telegramRemoteLoading, setTelegramRemoteLoading] = useState(false);
@@ -1840,12 +1846,18 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     blockedInputNoticeRef.current = false;
     ptyInputLineRef.current = "";
     mobileReplacementInputUntilRef.current = 0;
+    setGuidedSessionLookupWorkspace(workspaceParam);
     setSearchParams(next, { replace: true });
     setBanner(null);
     setLastCloseCode(null);
     setPtyState("connecting");
     setReconnectNonce((n) => n + 1);
-  }, [clearReconnectTimer, searchParams, setSearchParams]);
+  }, [
+    clearReconnectTimer,
+    searchParams,
+    setSearchParams,
+    workspaceParam,
+  ]);
   const clearGuidedHistory = useCallback(() => {
     if (
       !window.confirm(
@@ -1939,11 +1951,62 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   // Sessions page relies on `/chat?resume=<id>` changing at runtime, so we must
   // treat the current resume target as part of the PTY identity and rebuild the
   // terminal session when it changes.
-  const resumeParam = searchParams.get("resume");
   // Profile-scoped chat: spawn the PTY under the globally selected
   // management profile. Changing it remounts the terminal (key below /
   // effect dep) so the user explicitly starts a fresh scoped session.
   const { profile: scopedProfile } = useProfileScope();
+  const guidedSessionLookupComplete =
+    !guided ||
+    !workspaceParam ||
+    Boolean(builderParam) ||
+    Boolean(resumeParam) ||
+    guidedSessionLookupWorkspace === workspaceParam;
+
+  useEffect(() => {
+    if (guidedSessionLookupComplete) return;
+    let cancelled = false;
+
+    const resolveProjectSession = async () => {
+      let sessionId = readGuidedProjectSessionId(workspaceParam);
+      if (!sessionId) {
+        try {
+          const page = await api.getSessions(
+            20,
+            0,
+            scopedProfile,
+            "recent",
+            workspaceParam,
+          );
+          sessionId = selectGuidedProjectSessionId(
+            page.sessions,
+            workspaceParam,
+          );
+        } catch {
+          // A new project chat remains available if session lookup fails.
+        }
+      }
+      if (cancelled) return;
+      if (sessionId) {
+        writeGuidedProjectSessionId(workspaceParam, sessionId);
+        const next = new URLSearchParams(searchParams);
+        next.set("resume", sessionId);
+        setSearchParams(next, { replace: true });
+        return;
+      }
+      setGuidedSessionLookupWorkspace(workspaceParam);
+    };
+
+    void resolveProjectSession();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    guidedSessionLookupComplete,
+    scopedProfile,
+    searchParams,
+    setSearchParams,
+    workspaceParam,
+  ]);
   useEffect(() => {
     if (!guided || !isActive) return;
     let cancelled = false;
@@ -1992,7 +2055,14 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   // fallback for older servers. This prevents a completed turn from looking
   // stuck merely because terminal wrapping hid the visual "Response" marker.
   useEffect(() => {
-    if (!guided || !channel || !hasActivated) return;
+    if (
+      !guided ||
+      !channel ||
+      !hasActivated ||
+      !guidedSessionLookupComplete
+    ) {
+      return;
+    }
 
     let unmounting = false;
     let ws: WebSocket | null = null;
@@ -2397,6 +2467,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     channel,
     finishGuidedResponse,
     guided,
+    guidedSessionLookupComplete,
     hasActivated,
     markGuidedAgentReady,
     workspaceParam,
@@ -3028,7 +3099,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     // until the chat tab has been activated. Prevents the persistently
     // mounted, hidden ChatPage from opening `/api/pty` on every dashboard
     // page. Sticky, so switching away from /chat keeps the PTY alive.
-    if (!hasActivated) return;
+    if (!hasActivated || !guidedSessionLookupComplete) return;
 
     const host = hostRef.current;
     if (!host) return;
@@ -3990,6 +4061,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     scopedProfile,
     reconnectNonce,
     guided,
+    guidedSessionLookupComplete,
     workspaceParam,
     appendGuidedError,
     finishGuidedResponse,
