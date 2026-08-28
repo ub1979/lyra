@@ -423,7 +423,7 @@
     if (screen === "home") {
       return h("div", { className: "ub-page" },
         h("section", { className: "ub-welcome" },
-          h("p", { className: "ub-kicker" }, "LYRA · APP BUILDER · v 0.19.4 beta"),
+          h("p", { className: "ub-kicker" }, "LYRA · APP BUILDER · v 0.19.5 beta"),
           h("h1", null, "What would you like to work on?"),
           h("p", { className: "ub-subtitle" }, "Start something new or bring an existing folder. Lyra learns what you need, recommends the right agents, and stays with you through delivery."),
           h("button", {

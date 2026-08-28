@@ -9,6 +9,16 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.5] - 2026-08-28 — reliable long model waits
+
+### Fixed
+
+- **Long model turns no longer get falsely stopped after two minutes.** Guided
+  chat now treats the backend's 30-second waiting heartbeat and streamed model
+  reasoning as genuine activity. The live card explains that the provider is
+  still working, and the silence watchdog remains available for requests that
+  actually stop reporting.
+
 ## [0.19.4] - 2026-08-28 — visual researcher agent
 
 ### Added

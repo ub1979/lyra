@@ -85,6 +85,7 @@ import {
   decideGuidedWatchdog,
   extendGuidedSubagentGrace,
   guidedWatchdogMessage,
+  isGuidedModelActivityEvent,
 } from "@/lib/guided-turn-watchdog";
 import {
   Activity,
@@ -2061,6 +2062,22 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             streamedText += payload.text;
           }
           setGuidedLastSignalAt(Date.now());
+          return;
+        }
+        if (isGuidedModelActivityEvent(type)) {
+          setGuidedLastSignalAt(Date.now());
+          if (type === "thinking.delta") {
+            const waitText =
+              typeof payload?.text === "string" ? payload.text.trim() : "";
+            if (waitText) {
+              setGuidedActivity((current) => ({
+                phase: "working",
+                text: waitText,
+                specialist:
+                  current.specialist ?? guidedDefaultSpecialistRef.current,
+              }));
+            }
+          }
           return;
         }
         if (

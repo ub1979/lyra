@@ -51,6 +51,21 @@ export const GUIDED_SUBAGENT_SILENCE_GRACE_MS = 120_000;
 export const GUIDED_SUBAGENT_SPAWN_GRACE_MS = 90_000;
 
 /**
+ * Model events that prove the provider request is alive even when no answer
+ * text is visible yet. `thinking.delta` carries the backend's 30-second wait
+ * heartbeat; `reasoning.delta` covers models that stream private reasoning
+ * before their user-facing response.
+ */
+const GUIDED_MODEL_ACTIVITY_EVENTS = new Set([
+  "thinking.delta",
+  "reasoning.delta",
+]);
+
+export function isGuidedModelActivityEvent(eventType: string): boolean {
+  return GUIDED_MODEL_ACTIVITY_EVENTS.has(eventType);
+}
+
+/**
  * Events that prove a specialist phase is genuinely running, as opposed to
  * merely requested.
  */

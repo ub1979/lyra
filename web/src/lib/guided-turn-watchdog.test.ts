@@ -8,9 +8,23 @@ import {
   extendGuidedSubagentGrace,
   guidedSubagentGraceMs,
   guidedWatchdogMessage,
+  isGuidedModelActivityEvent,
 } from "./guided-turn-watchdog";
 
 const NOW = 1_000_000;
+
+describe("isGuidedModelActivityEvent", () => {
+  it("counts provider wait heartbeats and reasoning as model activity", () => {
+    expect(isGuidedModelActivityEvent("thinking.delta")).toBe(true);
+    expect(isGuidedModelActivityEvent("reasoning.delta")).toBe(true);
+  });
+
+  it("does not mistake unrelated events for a model heartbeat", () => {
+    expect(isGuidedModelActivityEvent("message.start")).toBe(false);
+    expect(isGuidedModelActivityEvent("tool.progress")).toBe(false);
+    expect(isGuidedModelActivityEvent("error")).toBe(false);
+  });
+});
 
 describe("guidedSubagentGraceMs", () => {
   it("gives a running phase the long grace", () => {
