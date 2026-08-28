@@ -125,6 +125,7 @@ import {
   extractAppItSkillSelection,
   friendlyActivityLabel,
   guidedResponseNeedsContinuation,
+  isGuidedCancellationNotice,
   sanitizeGuidedResponse,
   type GuidedChatPresentation,
   type GuidedSpecialist,
@@ -1186,6 +1187,10 @@ function guidedTerminalSnapshot(
         : "The AI model could not complete this request. Check the selected model and retry.";
       continue;
     }
+    // Cancellation bookkeeping the conversation loop writes into history
+    // when a turn is cancelled mid-request. Not prose, and the next turn is
+    // already running — see stripGuidedCancellationNotice.
+    if (isGuidedCancellationNotice(trimmed)) continue;
     if (trimmed.includes("IDRAK_INTERNAL_SETUP_BEGIN")) {
       insideInternalSetup = !trimmed.includes("IDRAK_INTERNAL_SETUP_END");
       continue;

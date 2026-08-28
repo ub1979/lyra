@@ -35,6 +35,16 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ### Fixed
 
+- **"Operation interrupted: waiting for model response" is no longer shown as
+  Lyra's reply.** That sentence is internal bookkeeping the conversation loop
+  writes whenever a turn is cancelled mid-request — which happens every time a
+  message arrives while the previous turn is still running, including the
+  dashboard's own automatic continuation turns. ACP and the gateway chat
+  surfaces already dropped it; guided chat rendered it, so people read it as
+  "Lyra stopped", sent another message, cancelled the next turn, and saw it
+  again. It is now stripped at both the terminal-scrape and the response-text
+  stage.
+
 - **Startup no longer nags about an unhealthy venv it never checked.** Lyra
   looked for its virtual environment at `venv/`, but `start.sh` creates `.venv`
   (uv's default) — so on every install the health probe found no interpreter,

@@ -164,6 +164,40 @@ function cleanResponse(lines: string[]): string {
 }
 
 /**
+ * Cancellation bookkeeping, not something Lyra said.
+ *
+ * Whenever a turn is cancelled while waiting on the provider, the
+ * conversation loop stores
+ * ``Operation interrupted: waiting for model response (28.7s elapsed).``
+ * as that turn's final text so the message history stays well-formed
+ * (`INTERRUPT_WAITING_FOR_MODEL_PREFIX` in agent/conversation_loop.py).
+ *
+ * It is internal metadata. ACP and the gateway chat surfaces already drop it
+ * — `gateway/run.py` does so with the note "chat surfaces should too" —
+ * but guided chat never did, so it rendered as Lyra's reply.
+ *
+ * That turned a normal event into a trap. A turn is cancelled every time a
+ * message arrives while the previous one is still running, which in guided
+ * mode includes the dashboard's own automatic continuation turns. The user
+ * saw a sentence saying the operation was interrupted, read it as "Lyra
+ * stopped", and sent another message — cancelling the next turn and
+ * producing the notice again. Observed as a run of turns ending with a
+ * 66-character "reply" that was only ever this string.
+ */
+const INTERRUPT_WAITING_FOR_MODEL =
+  /Operation interrupted: waiting for model response \([^)]*\)\.?/gi;
+
+/** True when *line* is only the cancellation notice. */
+export function isGuidedCancellationNotice(line: string): boolean {
+  return stripGuidedCancellationNotice(line) === "" && line.trim() !== "";
+}
+
+/** Remove the cancellation notice wherever it appears in *text*. */
+export function stripGuidedCancellationNotice(text: string): string {
+  return text.replace(INTERRUPT_WAITING_FOR_MODEL, " ").replace(/\s{2,}/g, " ").trim();
+}
+
+/**
  * Removes internal TUI reasoning and tool transcript blocks that a provider
  * may fold into the final text payload. Guided chat must never expose these
  * implementation details, even when the structured event feed carries them.
@@ -171,6 +205,7 @@ function cleanResponse(lines: string[]): string {
 export function sanitizeGuidedResponse(raw: string): string {
   const withoutInlineBlocks = raw
     .replace(/\r/g, "")
+    .replace(INTERRUPT_WAITING_FOR_MODEL, " ")
     .replace(APP_IT_SKILLS_SET, " ")
     .replace(INLINE_REASONING_BLOCK, " ")
     .replace(INLINE_TOOL_BLOCK, " ")

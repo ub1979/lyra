@@ -5,8 +5,10 @@ import {
   extractAppItSkillSelection,
   friendlyActivityLabel,
   guidedResponseNeedsContinuation,
+  isGuidedCancellationNotice,
   presentGuidedChatOutput,
   sanitizeGuidedResponse,
+  stripGuidedCancellationNotice,
 } from "./guided-chat-output";
 
 describe("presentGuidedChatOutput", () => {
@@ -321,5 +323,50 @@ describe("friendlyActivityLabel", () => {
       true,
     );
     expect(label).toBe("Finished login page");
+  });
+});
+
+describe("cancellation notice", () => {
+  const NOTICE = "Operation interrupted: waiting for model response (28.7s elapsed).";
+
+  it("recognises the notice on its own line", () => {
+    expect(isGuidedCancellationNotice(NOTICE)).toBe(true);
+    expect(
+      isGuidedCancellationNotice(
+        "Operation interrupted: waiting for model response (140.2s elapsed)",
+      ),
+    ).toBe(true);
+  });
+
+  it("does not swallow a real reply that mentions being interrupted", () => {
+    expect(
+      isGuidedCancellationNotice("The build was interrupted, so I restarted it."),
+    ).toBe(false);
+    expect(isGuidedCancellationNotice("")).toBe(false);
+  });
+
+  it("never shows the notice as Lyra's reply", () => {
+    // The exact string a cancelled turn leaves behind. Rendering it made users
+    // think Lyra had stopped, so they sent another message — which cancelled
+    // the next turn and produced it again.
+    expect(sanitizeGuidedResponse(NOTICE)).toBe("");
+  });
+
+  it("keeps the real answer when a notice is glued to it", () => {
+    expect(
+      sanitizeGuidedResponse(`${NOTICE} What should the app be called?`),
+    ).toBe("What should the app be called?");
+  });
+
+  it("strips it wherever it lands in a longer message", () => {
+    expect(
+      stripGuidedCancellationNotice(`Before. ${NOTICE} After.`),
+    ).toBe("Before. After.");
+  });
+
+  it("leaves ordinary text untouched", () => {
+    expect(stripGuidedCancellationNotice("All good here.")).toBe(
+      "All good here.",
+    );
   });
 });
