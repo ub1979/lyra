@@ -31,6 +31,7 @@ export interface GuidedChatPresentation {
 const SPECIALISTS: Array<GuidedSpecialist & { patterns: RegExp }> = [
   { id: "app-it", label: "Lyra", patterns: /ultimate-builder:app-it|\bapp it\b|\blyra\b|project coordinator/i },
   { id: "req-engineer", label: "Requirements", patterns: /req-engineer|requirements\.md|acceptance criteria/i },
+  { id: "researcher", label: "Research", patterns: /ultimate-builder:researcher|research-report\.md|source verification/i },
   { id: "spec", label: "Technical specification", patterns: /ultimate-builder:spec|\bspec\.md\b/i },
   { id: "sw-architect", label: "Architecture", patterns: /sw-architect|plan\.md|system design/i },
   { id: "task-planner", label: "Task planning", patterns: /task-planner|task planning playbook|task-graph\.md/i },
@@ -56,6 +57,7 @@ const SPECIALIST_ROLE_PATTERNS: Array<{
 }> = [
   { specialist: { id: "app-it", label: "Lyra" }, pattern: /\byou are (?:the )?(?:app it|lyra)\b/i },
   { specialist: { id: "req-engineer", label: "Requirements" }, pattern: /\byou are (?:the )?requirements? engineer\b/i },
+  { specialist: { id: "researcher", label: "Research" }, pattern: /\byou are (?:the )?(?:web |internet )?research(?:er| agent)\b/i },
   { specialist: { id: "spec", label: "Technical specification" }, pattern: /\byou are (?:the )?(?:technical )?specification (?:engineer|specialist)\b/i },
   { specialist: { id: "sw-architect", label: "Architecture" }, pattern: /\byou are (?:the )?(?:software |system )?architect\b/i },
   { specialist: { id: "task-planner", label: "Task planning" }, pattern: /\byou are (?:the )?task planner\b/i },

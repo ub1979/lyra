@@ -9,6 +9,17 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.4] - 2026-08-28 — visual researcher agent
+
+### Added
+
+- **Researcher is now a full visual App Builder agent.** It appears in both
+  agent-selection screens with selected and unselected raccoon portraits, has
+  its own project phase and `research-report.md` handoff, and can be recommended
+  for markets, competitors, standards, unfamiliar domains, and technical
+  choices that need verified external evidence. Its project playbook reuses the
+  canonical Researcher skill so the research method has one source of truth.
+
 ## [0.19.3] - 2026-08-28 — researcher
 
 ### Added

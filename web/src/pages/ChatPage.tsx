@@ -280,6 +280,7 @@ const GUIDED_APPROVAL_LABELS: Record<GuidedApprovalChoice, string> = {
 const GUIDED_SPECIALIST_LABELS: Record<string, string> = {
   "app-it": "Lyra",
   "req-engineer": "Requirements",
+  researcher: "Research",
   spec: "Technical specification",
   "ui-designer": "Design",
   "sw-architect": "Architecture",
@@ -304,6 +305,8 @@ const GUIDED_SPECIALIST_LABELS: Record<string, string> = {
 
 const GUIDED_SPECIALIST_DESCRIPTIONS: Record<string, string> = {
   "req-engineer": "Clarify goals, users, scope, and acceptance criteria.",
+  researcher:
+    "Investigate markets, competitors, standards, and technical choices with verified sources.",
   spec: "Turn the request into detailed, testable behavior.",
   "ui-designer":
     "Set the look and feel from real references, then review the build against it.",
@@ -647,6 +650,7 @@ const GUIDED_SPECIALIST_ETA_SECONDS: Record<string, [number, number]> = {
   // "30s-2m" for a one-line answer.
   "app-it": [3, 20],
   "req-engineer": [20, 60],
+  researcher: [30, 180],
   spec: [45, 120],
   "ui-designer": [60, 180],
   "sw-architect": [45, 120],

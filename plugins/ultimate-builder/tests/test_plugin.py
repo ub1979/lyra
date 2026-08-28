@@ -43,7 +43,7 @@ def test_registers_skill_and_commands():
     skill_names = [row[0] for row in ctx.skills]
     assert skill_names[:2] == ["app-it", "ultimate-app-builder"]
     assert set(skill_names[2:]) == set(module._SPECIALIST_SKILLS)
-    assert len(skill_names) == 20
+    assert len(skill_names) == len(module._SPECIALIST_SKILLS) + 2
     assert all(row[1].is_file() for row in ctx.skills)
     assert {row[0] for row in ctx.commands} == {"ultimate-build", "ultimate-status"}
 

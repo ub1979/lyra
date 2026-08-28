@@ -30,6 +30,7 @@ WORKFLOWS = (
     / "workflows"
 )
 AVATARS = REPO / "web" / "public" / "skill-avatars"
+BUNDLED_AVATARS = REPO / "hermes_cli" / "web_dist" / "skill-avatars"
 
 # Coordinators, not delivery phases: they are excluded from the picker upstream.
 NON_SELECTABLE = {"app-it", "idk_it"}
@@ -103,3 +104,15 @@ def test_avatar_coverage_is_reported(selectable):
     ]
     if missing:
         print("\nagents still awaiting artwork:\n  " + "\n  ".join(missing))
+
+
+def test_researcher_ships_selected_and_unselected_portraits(selectable):
+    assert "researcher" in selectable
+    for filename in ("researcher.webp", "researcher-sad.webp"):
+        source = AVATARS / filename
+        bundled = BUNDLED_AVATARS / filename
+        assert source.is_file(), f"missing Researcher portrait: {filename}"
+        assert source.stat().st_size > 1_000, f"empty Researcher portrait: {filename}"
+        assert bundled.read_bytes() == source.read_bytes(), (
+            f"dashboard bundle has a stale Researcher portrait: {filename}"
+        )

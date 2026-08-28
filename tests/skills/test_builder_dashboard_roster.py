@@ -44,7 +44,7 @@ def test_both_screens_offer_the_same_agents():
 
 def test_the_new_agents_reached_the_launcher():
     ids = _dashboard_ids()
-    for expected in ("ui-designer", "ux-writer", "a11y-auditor"):
+    for expected in ("ui-designer", "ux-writer", "a11y-auditor", "researcher"):
         assert expected in ids, f"{expected} missing from the New project screen"
 
 

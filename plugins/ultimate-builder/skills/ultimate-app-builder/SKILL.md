@@ -83,6 +83,7 @@ skill does not count as running a specialist.
 | Phase | Playbook | Required artifact |
 |---|---|---|
 | Requirements | `req-engineer` | `requirements.md` |
+| Research | `researcher` | `research-report.md` |
 | Design (any UI) | `ui-designer` | `design-brief.md` |
 | Architecture | `sw-architect` | `plan.md` |
 | Agent task graph | `task-planner` | `task-graph.md` |

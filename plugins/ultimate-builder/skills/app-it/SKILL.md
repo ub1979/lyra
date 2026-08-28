@@ -123,6 +123,8 @@ it as optional and do not ask whether to include it. The rest is a judgement
 call:
 
 - formal, testable behavior spec on top of requirements: `spec`;
+- markets, competitors, current standards, unfamiliar domains, or technical
+  choices that need external evidence: `researcher`;
 - anything with a visible interface: `ui-designer` (look and feel from real
   references, then reviews the build against it);
 - the words users read — labels, empty states, errors: `ux-writer`;

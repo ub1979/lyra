@@ -68,6 +68,17 @@ a//Users/u/funcoding/todo/index.html → b//Users/u/funcoding/todo/index.html
     });
   });
 
+  it("identifies the Research agent from its project artifact", () => {
+    const presentation = analyzeGuidedChatOutput(
+      'Writing verified findings to research-report.md.',
+    );
+
+    expect(presentation.specialist).toEqual({
+      id: "researcher",
+      label: "Research",
+    });
+  });
+
   it("removes inline reasoning and tool transcripts from structured responses", () => {
     const response = sanitizeGuidedResponse(
       "I’m preparing the architecture. " +
