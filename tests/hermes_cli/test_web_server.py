@@ -1528,9 +1528,11 @@ class TestWebServerEndpoints:
     def test_lyra_version_carries_the_release_notes(self):
         resp = self.client.get("/api/lyra/version")
 
+        import lyra_version
+
         notes = resp.json()["notes"]
         assert notes, "the changelog entry should reach the dashboard"
-        assert any("telegram" in note.lower() for note in notes)
+        assert notes == lyra_version.changelog_entry()["notes"]
         # Wrapped bullets arrive whole, not cut at the first newline.
         assert all(not note.endswith(("and", "the", "a")) for note in notes)
 

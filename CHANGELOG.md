@@ -9,6 +9,17 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.3] - 2026-08-28 — researcher
+
+### Added
+
+- **Researcher — dependable internet research as one built-in skill.** It
+  plans searches from several angles, reads the underlying pages instead of
+  trusting snippets, prefers primary sources, verifies important claims,
+  reconciles contradictory evidence, checks freshness, and returns direct
+  citations with uncertainty made explicit. Native web tools are the default;
+  DuckDuckGo, SearXNG, arXiv, and Parallel remain focused supporting options.
+
 ## [0.19.2] - 2026-08-27 — safer remote projects
 
 ### Fixed
