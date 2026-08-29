@@ -519,7 +519,10 @@ export default function App() {
     <ProfileProvider>
     <div
       data-layout-variant={layoutVariant}
-      className="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden bg-background-base text-text-primary antialiased"
+      className={cn(
+        "flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden bg-background-base text-text-primary antialiased",
+        isSimpleExperience && "lyra-studio-shell",
+      )}
     >
       {!isSimpleExperience && <SelectionSwitcher />}
 

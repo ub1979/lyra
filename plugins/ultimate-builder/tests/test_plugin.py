@@ -89,7 +89,7 @@ def test_dashboard_enforces_requirements_gate_with_real_skill_loading():
     assert "ask permission before adding it" in dashboard
     assert "Do not write code before the team and requirements are approved" in dashboard
     assert "Start with the internal ultimate-builder:app-it skill" in dashboard
-    expected_version = f"LYRA · APP BUILDER · v {LYRA_VERSION} {LYRA_CHANNEL}"
+    expected_version = f"v{LYRA_VERSION} {LYRA_CHANNEL}"
     assert expected_version in dashboard
     assert "Meet App IT" not in dashboard
     assert "APP_IT_SKILLS_SET" in dashboard
@@ -113,12 +113,16 @@ def test_dashboard_enforces_requirements_gate_with_real_skill_loading():
     assert '"Move"' in dashboard
     assert '"Remove"' in dashboard
     assert '"Trash"' in dashboard
+    assert '"Lyra Studio"' in dashboard
+    assert '"Turn an idea into software."' in dashboard
+    assert '"Customize team"' in dashboard
+    assert "teamSizeLabel(template.skills)" in dashboard
     assert 'disabled: starting || !selected.size' not in dashboard
     assert "Use ultimate-builder:ultimate-app-builder" not in dashboard
 
 
 def test_built_dashboard_uses_the_same_product_version():
-    expected_version = f"LYRA · APP BUILDER · v {LYRA_VERSION} {LYRA_CHANNEL}"
+    expected_version = f"v{LYRA_VERSION} {LYRA_CHANNEL}"
     assert expected_version in DASHBOARD_DIST_ENTRY.read_text()
 
 

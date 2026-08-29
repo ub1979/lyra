@@ -95,7 +95,6 @@ import {
   CheckCircle2,
   CircleStop,
   Copy,
-  FolderOpen,
   MessageCircle,
   Map as MapIcon,
   Monitor,
@@ -4766,7 +4765,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     );
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2">
+    <div className={cn("flex min-h-0 flex-1 flex-col gap-2", guided && "lyra-studio-chat")}>
       <PluginSlot name="chat:top" />
       {mobileModelToolsPortal}
       {guidedSkillsPortal}
@@ -4778,14 +4777,19 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       )}
 
       {guided && (
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-current/15 bg-background-base shadow-xl">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-current/10 px-4 py-3 sm:px-5">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 text-sm font-semibold text-midground">
-                <FolderOpen className="h-4 w-4" />
-                <span className="truncate">{projectName}</span>
+        <div className="lyra-studio-workspace flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-current/15 bg-background-base shadow-xl">
+          <div className="lyra-studio-projectbar flex flex-wrap items-center justify-between gap-3 border-b border-current/10 px-4 py-3 sm:px-5">
+            <div className="lyra-studio-project-title min-w-0">
+              <div className="flex items-center gap-3">
+                <span className="lyra-studio-mark" aria-hidden="true">
+                  <Bot className="h-4 w-4" />
+                </span>
+                <div className="min-w-0">
+                  <span className="lyra-studio-label">Lyra Studio</span>
+                  <div className="truncate text-sm font-semibold text-midground">{projectName}</div>
+                </div>
               </div>
-              <div className="mt-1 truncate text-xs text-text-secondary">
+              <div className="lyra-studio-project-path mt-1 truncate text-xs text-text-secondary">
                 {workspaceParam || "Guided project chat"}
               </div>
             </div>
@@ -5015,7 +5019,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                   element.clientHeight <
                 80;
             }}
-            className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:px-7 sm:py-4"
+            className="lyra-studio-conversation min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:px-7 sm:py-4"
             aria-live="polite"
           >
             <div className="mx-auto max-w-3xl text-[15px] leading-7 text-text-primary">
@@ -5063,7 +5067,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                       className={cn(
                         // `group` so the copy button can reveal itself on
                         // hover over anywhere in the bubble, not just itself.
-                        "group max-w-[88%] rounded-2xl px-4 py-3 shadow-sm sm:max-w-[78%]",
+                        "lyra-studio-message group max-w-[88%] rounded-2xl px-4 py-3 shadow-sm sm:max-w-[78%]",
                         message.role === "user"
                           ? "whitespace-pre-wrap rounded-br-md bg-midground text-background-base"
                           : message.role === "error"
@@ -5210,7 +5214,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           </div>
 
           <div
-            className="border-t border-current/10 bg-background-base p-2 sm:p-3"
+            className="lyra-studio-composer border-t border-current/10 bg-background-base p-2 sm:p-3"
             onDragOver={(event) => {
               if (!event.dataTransfer?.types.includes("Files")) return;
               event.preventDefault();
