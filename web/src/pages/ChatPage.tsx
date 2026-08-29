@@ -91,15 +91,18 @@ import {
 } from "@/lib/guided-turn-watchdog";
 import {
   Activity,
+  ArrowLeft,
   Bot,
   CheckCircle2,
   CircleStop,
   Copy,
+  Cpu,
   MessageCircle,
   Map as MapIcon,
   Moon,
   Monitor,
   Paperclip,
+  PanelLeft,
   PanelRight,
   Pause,
   Play,
@@ -107,6 +110,8 @@ import {
   Send,
   Sun,
   Trash2,
+  Type,
+  Users,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -144,6 +149,12 @@ import {
   readLyraStudioTheme,
   writeLyraStudioTheme,
 } from "@/lib/lyra-studio-theme";
+import {
+  listenForLyraStudioTextSize,
+  readLyraStudioTextSize,
+  writeLyraStudioTextSize,
+  type LyraStudioTextSize,
+} from "@/lib/lyra-studio-text-size";
 import {
   clearGuidedProjectSessionId,
   readGuidedProjectSessionId,
@@ -225,6 +236,24 @@ const DEFAULT_TERMINAL_BACKGROUND = "#000000";
 const DEFAULT_TERMINAL_FOREGROUND = "#f0e6d2";
 const MODEL_CONNECTION_ERROR_MARKER = "[[IDRAK_MODEL_CONNECTION_ERROR]]";
 const GUIDED_SKILL_MODELS_STORAGE_KEY = "idrak-it.builder.skill-models.v1";
+const GUIDED_ACTIVITY_PANEL_STORAGE_KEY = "lyra-studio-activity-panel";
+const GUIDED_PROGRESS_PANEL_STORAGE_KEY = "lyra-studio-progress-panel";
+
+function readGuidedPanelPreference(key: string): boolean {
+  try {
+    return localStorage.getItem(key) !== "closed";
+  } catch {
+    return true;
+  }
+}
+
+function writeGuidedPanelPreference(key: string, open: boolean): void {
+  try {
+    localStorage.setItem(key, open ? "open" : "closed");
+  } catch {
+    // Keep the current session working when storage is unavailable.
+  }
+}
 
 interface GuidedMessage {
   id: string;
@@ -947,12 +976,12 @@ function GuidedProgressMap({
 
   return (
     <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-x-hidden p-3 text-xs">
-      <div className="flex min-w-0 items-center justify-between gap-2">
-        <span className="inline-flex min-w-0 shrink items-center gap-1.5 font-semibold uppercase tracking-[0.16em] text-text-secondary">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+        <span className="inline-flex shrink-0 items-center gap-1.5 font-semibold uppercase tracking-[0.16em] text-text-secondary">
           <MapIcon className="h-3.5 w-3.5" />
-          <span className="truncate">Project map</span>
+          <span>Project map</span>
         </span>
-        <strong className="min-w-0 max-w-[8.5rem] shrink truncate rounded-full border border-current/15 px-2 py-0.5 text-[9px] uppercase tracking-wider text-midground">
+        <strong className="shrink-0 whitespace-nowrap rounded-full border border-current/15 px-2 py-0.5 text-[9px] uppercase tracking-wider text-midground">
           {backgroundJobs
             ? "Saved project jobs"
             : durable
@@ -1360,8 +1389,15 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const guided = searchParams.get("guided") === "1";
   const [studioTheme, setStudioTheme] = useState(readLyraStudioTheme);
+  const [studioTextSize, setStudioTextSize] = useState(
+    readLyraStudioTextSize,
+  );
   useEffect(
     () => listenForLyraStudioTheme(setStudioTheme),
+    [],
+  );
+  useEffect(
+    () => listenForLyraStudioTextSize(setStudioTextSize),
     [],
   );
   const workspaceParam = searchParams.get("workspace")?.trim() ?? "";
@@ -1446,6 +1482,12 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   );
   const [guidedInput, setGuidedInput] = useState("");
   const [guidedPreviewOpen, setGuidedPreviewOpen] = useState(false);
+  const [guidedActivityPanelOpen, setGuidedActivityPanelOpen] = useState(() =>
+    readGuidedPanelPreference(GUIDED_ACTIVITY_PANEL_STORAGE_KEY),
+  );
+  const [guidedProgressPanelOpen, setGuidedProgressPanelOpen] = useState(() =>
+    readGuidedPanelPreference(GUIDED_PROGRESS_PANEL_STORAGE_KEY),
+  );
   const [guidedAttachments, setGuidedAttachments] = useState<File[]>([]);
   // What the model in use can actually accept. Drives the picker's accept list,
   // the refusals, and the composer hint.
@@ -4805,13 +4847,19 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 {workspaceParam || "Guided project chat"}
               </div>
             </div>
-            <div className="flex shrink-0 flex-wrap items-center justify-end gap-1 sm:gap-2">
+            <div className="lyra-studio-project-actions ml-auto flex max-w-full min-w-0 flex-wrap items-center justify-end gap-1.5">
               <details className="group relative lg:hidden">
-                <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-md border border-current/15 px-2 py-1.5 text-xs text-text-secondary">
-                  <Activity className="h-3.5 w-3.5" />
-                  {guidedActiveWorkers.length
-                    ? `${guidedActiveWorkers.length} working`
-                    : "Activity"}
+                <summary
+                  className="lyra-studio-icon-control"
+                  aria-label="Agent activity"
+                  title="Agent activity"
+                >
+                  <Activity className="h-4 w-4" />
+                  {guidedActiveWorkers.length > 0 && (
+                    <span className="lyra-studio-icon-badge">
+                      {guidedActiveWorkers.length}
+                    </span>
+                  )}
                 </summary>
                 <div className="fixed right-4 top-24 z-30 flex max-h-[70vh] w-[min(18rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-current/20 bg-background-base shadow-2xl">
                   <GuidedRuntimePanel
@@ -4835,10 +4883,12 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                   guidedPreviewOpen ? "2xl:hidden" : "xl:hidden",
                 )}
               >
-                <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-md border border-current/15 px-2 py-1.5 text-xs text-text-secondary">
-                  <MapIcon className="h-3.5 w-3.5" />
-                  Done {guidedProgressSummary.completed} · Open{" "}
-                  {guidedProgressSummary.remaining}
+                <summary
+                  className="lyra-studio-icon-control"
+                  aria-label={`Project map: ${guidedProgressSummary.completed} done, ${guidedProgressSummary.remaining} open`}
+                  title={`Project map · ${guidedProgressSummary.completed} done · ${guidedProgressSummary.remaining} open`}
+                >
+                  <MapIcon className="h-4 w-4" />
                 </summary>
                 <div className="fixed right-4 top-24 z-30 flex max-h-[72vh] w-[min(19rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-current/20 bg-background-base shadow-2xl">
                   <GuidedProgressMap
@@ -4848,21 +4898,30 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                   />
                 </div>
               </details>
-              <Button
-                ghost
-                size="sm"
+              <button
+                type="button"
+                className="lyra-studio-icon-control"
                 onClick={() => setGuidedPreviewOpen((value) => !value)}
                 aria-expanded={guidedPreviewOpen}
                 title="Open the local app and select rendered elements"
+                aria-label={guidedPreviewOpen ? "Close app preview" : "Open app preview"}
               >
-                <Monitor className="mr-1 h-3.5 w-3.5" />
-                {guidedPreviewOpen ? "Close preview" : "App preview"}
-              </Button>
-              <Button
-                ghost
-                size="sm"
+                <Monitor className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                className="lyra-studio-icon-control"
                 onClick={continueGuidedOnTelegram}
                 title={telegramRemoteHint(telegramReadiness)}
+                aria-label={
+                  telegramRemoteLoading
+                    ? "Checking remote control"
+                    : telegramHandoffStatus === "sending"
+                    ? "Connecting remote control"
+                    : telegramHandoffStatus === "sent"
+                    ? "Remote control active"
+                    : telegramRemoteButtonLabel(telegramReadiness)
+                }
                 disabled={
                   telegramRemoteLoading ||
                   guidedActivity.phase === "working" ||
@@ -4870,18 +4929,36 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                   telegramHandoffStatus === "sent"
                 }
               >
-                <MessageCircle className="mr-1 h-3.5 w-3.5" />
-                {telegramRemoteLoading
-                  ? "Checking remote…"
-                  : telegramHandoffStatus === "sending"
-                  ? "Connecting…"
-                  : telegramHandoffStatus === "sent"
-                  ? "Remote active"
-                  : telegramRemoteButtonLabel(telegramReadiness)}
-              </Button>
-              <Button
-                ghost
-                size="sm"
+                <MessageCircle className="h-4 w-4" />
+              </button>
+              <label
+                className="lyra-studio-icon-control lyra-studio-select-control"
+                title={`Text size: ${
+                  studioTextSize === "normal"
+                    ? "Normal"
+                    : studioTextSize === "large"
+                    ? "Large"
+                    : "Extra large"
+                }`}
+              >
+                <Type className="h-4 w-4" aria-hidden="true" />
+                <select
+                  value={studioTextSize}
+                  aria-label="Text size"
+                  onChange={(event) =>
+                    writeLyraStudioTextSize(
+                      event.target.value as LyraStudioTextSize,
+                    )
+                  }
+                >
+                  <option value="normal">Normal</option>
+                  <option value="large">Large</option>
+                  <option value="xlarge">Extra large</option>
+                </select>
+              </label>
+              <button
+                type="button"
+                className="lyra-studio-icon-control"
                 onClick={() =>
                   writeLyraStudioTheme(
                     studioTheme === "dark" ? "light" : "dark",
@@ -4891,77 +4968,146 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 title={
                   studioTheme === "dark" ? "Use light mode" : "Use dark mode"
                 }
+                aria-label={
+                  studioTheme === "dark" ? "Use light mode" : "Use dark mode"
+                }
               >
                 {studioTheme === "dark" ? (
-                  <Sun className="mr-1 h-3.5 w-3.5" />
+                  <Sun className="h-4 w-4" />
                 ) : (
-                  <Moon className="mr-1 h-3.5 w-3.5" />
+                  <Moon className="h-4 w-4" />
                 )}
-                {studioTheme === "dark" ? "Light mode" : "Dark mode"}
-              </Button>
-              <Button
-                ghost
-                size="sm"
+              </button>
+              <button
+                type="button"
+                className="lyra-studio-icon-control"
                 onClick={openGuidedSkills}
                 aria-expanded={guidedSkillsOpen}
+                aria-label={`Agents: ${guidedSelectedSpecialistIds.length}`}
+                title={`Agents (${guidedSelectedSpecialistIds.length})`}
                 disabled={!guidedAgentReady}
               >
-                Agents ({guidedSelectedSpecialistIds.length})
-              </Button>
-              <Button ghost size="sm" onClick={toggleGuidedPause}>
+                <Users className="h-4 w-4" />
+                <span className="lyra-studio-icon-badge">
+                  {guidedSelectedSpecialistIds.length}
+                </span>
+              </button>
+              <button
+                type="button"
+                className="lyra-studio-icon-control"
+                onClick={toggleGuidedPause}
+                aria-label={guidedPaused ? "Resume workers" : "Pause workers"}
+                title={guidedPaused ? "Resume workers" : "Pause workers"}
+              >
                 {guidedPaused ? (
-                  <Play className="mr-1 h-3.5 w-3.5" />
+                  <Play className="h-4 w-4" />
                 ) : (
-                  <Pause className="mr-1 h-3.5 w-3.5" />
+                  <Pause className="h-4 w-4" />
                 )}
-                {guidedPaused ? "Resume workers" : "Pause workers"}
-              </Button>
+              </button>
               {guidedActiveWorkers.length > 0 && (
-                <Button
-                  ghost
-                  size="sm"
+                <button
+                  type="button"
+                  className="lyra-studio-icon-control"
                   onClick={() => stopGuidedWorkers()}
                   title="Stop every active project agent"
+                  aria-label="Stop every active project agent"
                 >
-                  <CircleStop className="mr-1 h-3.5 w-3.5" />
-                  Stop workers
-                </Button>
+                  <CircleStop className="h-4 w-4" />
+                </button>
               )}
-              <Button
-                ghost
-                size="sm"
+              <button
+                type="button"
+                className="lyra-studio-icon-control"
                 onClick={clearGuidedHistory}
                 title="Clear chat history and start fresh"
+                aria-label="Clear chat history and start fresh"
               >
-                <Trash2 className="mr-1 h-3.5 w-3.5" />
-                Clear
-              </Button>
-              <Button
-                ghost
-                size="sm"
+                <Trash2 className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                className="lyra-studio-icon-control"
                 onClick={() => {
                   const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
                   window.location.href = `/models?returnTo=${encodeURIComponent(returnTo)}`;
                 }}
+                title="AI model settings"
+                aria-label="AI model settings"
               >
-                AI model
-              </Button>
-              <Button
-                ghost
-                size="sm"
+                <Cpu className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                className="lyra-studio-icon-control hidden lg:inline-grid"
+                onClick={() => {
+                  const next = !guidedActivityPanelOpen;
+                  setGuidedActivityPanelOpen(next);
+                  writeGuidedPanelPreference(
+                    GUIDED_ACTIVITY_PANEL_STORAGE_KEY,
+                    next,
+                  );
+                }}
+                aria-pressed={guidedActivityPanelOpen}
+                aria-label={
+                  guidedActivityPanelOpen
+                    ? "Hide agent activity panel"
+                    : "Show agent activity panel"
+                }
+                title={
+                  guidedActivityPanelOpen
+                    ? "Hide agent activity panel"
+                    : "Show agent activity panel"
+                }
+              >
+                <PanelLeft className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                className="lyra-studio-icon-control hidden xl:inline-grid"
+                onClick={() => {
+                  const next = !guidedProgressPanelOpen;
+                  setGuidedProgressPanelOpen(next);
+                  writeGuidedPanelPreference(
+                    GUIDED_PROGRESS_PANEL_STORAGE_KEY,
+                    next,
+                  );
+                }}
+                aria-pressed={guidedProgressPanelOpen}
+                aria-label={
+                  guidedProgressPanelOpen
+                    ? "Hide project map panel"
+                    : "Show project map panel"
+                }
+                title={
+                  guidedProgressPanelOpen
+                    ? "Hide project map panel"
+                    : "Show project map panel"
+                }
+              >
+                <PanelRight className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                className="lyra-studio-icon-control"
                 onClick={() => {
                   window.location.href = "/ultimate-builder";
                 }}
+                title="Back to projects"
+                aria-label="Back to projects"
               >
-                ← Projects
-              </Button>
+                <ArrowLeft className="h-4 w-4" />
+              </button>
             </div>
           </div>
 
           <div className="flex min-h-0 min-w-0 flex-1">
             <aside
               aria-label="Live agents and token usage"
-              className="hidden w-56 shrink-0 overflow-hidden border-r border-current/10 bg-midground/[0.025] lg:flex xl:w-60"
+              className={cn(
+                "w-56 shrink-0 overflow-hidden border-r border-current/10 bg-midground/[0.025] xl:w-60",
+                guidedActivityPanelOpen ? "hidden lg:flex" : "hidden",
+              )}
             >
               <GuidedRuntimePanel
                 activeWorkers={guidedActiveWorkers}
@@ -5423,7 +5569,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           aria-label="Project progress map"
           className={cn(
             "w-60 shrink-0 overflow-hidden border-l border-current/10 bg-midground/[0.025]",
-            guidedPreviewOpen ? "hidden 2xl:flex" : "hidden xl:flex",
+            !guidedProgressPanelOpen
+              ? "hidden"
+              : guidedPreviewOpen
+              ? "hidden 2xl:flex"
+              : "hidden xl:flex",
           )}
         >
           <GuidedProgressMap

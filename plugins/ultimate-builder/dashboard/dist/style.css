@@ -538,29 +538,48 @@
 .ub-project-status i { width: 7px; height: 7px; border-radius: 99px; background: #45b883; box-shadow: 0 0 0 4px rgba(69, 184, 131, .12); }
 .ub-model-settings {
   margin: 0;
-  padding: 9px 13px;
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  padding: 0;
   border-color: var(--ub-line);
-  border-radius: 10px;
+  border-radius: 50%;
   color: #4c556a;
   background: rgba(255, 255, 255, .78);
   box-shadow: 0 3px 12px rgba(42, 47, 65, .04);
   font: 600 11px/1.2 inherit;
 }
 .ub-model-settings:hover { border-color: #b9b1ff; color: #5747ef; background: #fff; }
-.ub-theme-toggle {
-  display: inline-flex;
+.ub-theme-toggle,
+.ub-text-size-control {
+  position: relative;
+  display: inline-grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  place-items: center;
   align-items: center;
-  gap: 6px;
-  padding: 8px 11px;
+  padding: 0;
   border: 1px solid var(--ub-line);
-  border-radius: 10px;
+  border-radius: 50%;
   color: #596174;
   background: rgba(255, 255, 255, .68);
   font: 650 11px/1.2 inherit;
   cursor: pointer;
 }
-.ub-theme-toggle:hover { border-color: #c7c1ff; color: #5747ef; background: #fff; }
-.ub-theme-toggle span { font-size: 14px; line-height: 1; }
+.ub-theme-toggle:hover,
+.ub-text-size-control:hover { border-color: #c7c1ff; color: #5747ef; background: #fff; }
+.ub-theme-toggle span { font-size: 16px; line-height: 1; }
+.ub-text-size-control span { font-size: 11px; font-weight: 760; letter-spacing: -.04em; }
+.ub-text-size-control select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  opacity: 0;
+}
 
 .ub-welcome {
   order: 2;
@@ -787,9 +806,8 @@
   .ub-recent-actions { flex-direction: row; }
   .ub-new-project-fields,
   .ub-skill-list { grid-template-columns: 1fr; }
-  .ub-theme-toggle { padding: 8px; }
-  .ub-theme-toggle:not(:focus) { font-size: 0; }
-  .ub-theme-toggle span { font-size: 14px; }
+  .ub-page-home .ub-studio-nav { flex-wrap: wrap; padding-block: 12px; }
+  .ub-page-home .ub-studio-nav-actions { width: 100%; justify-content: flex-end; }
 }
 
 @media (max-width: 520px) {
@@ -799,6 +817,7 @@
   .ub-studio-nav-config .ub-studio-brand { gap: 8px; }
   .ub-studio-nav-config .ub-studio-brand strong { font-size: 13px; }
   .ub-studio-nav-config .ub-brand-mark { width: 32px; height: 32px; }
+  .ub-studio-nav-config .ub-studio-brand > span:last-child { display: none; }
 }
 
 /* Dark mode keeps the Studio character: deep neutral surfaces with the
@@ -862,7 +881,8 @@
 .ub-theme-dark .ub-chat-note { color: #9da6b7; }
 
 .ub-theme-dark .ub-model-settings,
-.ub-theme-dark .ub-theme-toggle {
+.ub-theme-dark .ub-theme-toggle,
+.ub-theme-dark .ub-text-size-control {
   border-color: #343a4b;
   color: #b4bbca;
   background: #1b202c;
@@ -870,6 +890,7 @@
 }
 .ub-theme-dark .ub-model-settings:hover,
 .ub-theme-dark .ub-theme-toggle:hover,
+.ub-theme-dark .ub-text-size-control:hover,
 .ub-theme-dark .ub-back:hover {
   border-color: #595274;
   color: #d2ccff;
@@ -935,3 +956,46 @@
 .ub-theme-dark .ub-folder:hover { background: #27243a; }
 .ub-theme-dark .ub-home-message { border-color: #315947; color: #8ed9b4; background: #172820; }
 .ub-theme-dark .ub-error { border-color: #6b3d4b; color: #f0a8b9; background: #2a1920; }
+
+/* User-controlled readability. Most of the Studio deliberately uses compact
+   supporting text, so larger modes raise those sizes without zooming the
+   entire layout or causing horizontal clipping. */
+.ub-page { --ub-text-add: 0px; }
+.ub-page.ub-text-large { --ub-text-add: 2px; }
+.ub-page.ub-text-xlarge { --ub-text-add: 4px; }
+
+.ub-page .ub-studio-brand strong,
+.ub-page .ub-start-copy strong,
+.ub-page .ub-project-copy strong,
+.ub-page .ub-template-top strong,
+.ub-page .ub-form-card h2,
+.ub-page .ub-config-side h2 { font-size: calc(15px + var(--ub-text-add)); }
+
+.ub-page .ub-subtitle { font-size: calc(17px + var(--ub-text-add)); }
+.ub-page .ub-section-heading h2 { font-size: calc(20px + var(--ub-text-add)); }
+
+.ub-page .ub-trust-row,
+.ub-page .ub-section-heading p,
+.ub-page .ub-start-copy > span,
+.ub-page .ub-model-settings,
+.ub-page .ub-form-card label > span,
+.ub-page .ub-select-actions button,
+.ub-page .ub-chat-note { font-size: calc(12px + var(--ub-text-add)); }
+
+.ub-page .ub-studio-brand small,
+.ub-page .ub-version,
+.ub-page .ub-studio-ready,
+.ub-page .ub-build-loop > p,
+.ub-page .ub-build-loop li small,
+.ub-page .ub-project-copy small,
+.ub-page .ub-project-status,
+.ub-page .ub-open-label,
+.ub-page .ub-template-card p,
+.ub-page .ub-team-collapsed-copy small,
+.ub-page .ub-skill-copy small,
+.ub-page .ub-template-option small,
+.ub-page .ub-config-step { font-size: calc(11px + var(--ub-text-add)); }
+
+.ub-page .ub-build-loop li strong,
+.ub-page .ub-team-collapsed-copy strong,
+.ub-page .ub-skill-copy strong { font-size: calc(13px + var(--ub-text-add)); }

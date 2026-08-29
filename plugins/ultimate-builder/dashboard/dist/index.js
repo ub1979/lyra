@@ -88,6 +88,8 @@
   const SKILL_MODELS_KEY = "idrak-it.builder.skill-models.v1";
   const STUDIO_THEME_KEY = "lyra-studio-color-mode";
   const STUDIO_THEME_EVENT = "lyra-studio-theme-change";
+  const STUDIO_TEXT_SIZE_KEY = "lyra-studio-text-size";
+  const STUDIO_TEXT_SIZE_EVENT = "lyra-studio-text-size-change";
   const PROJECT_SESSION_KEY_PREFIX = "idrak-it.guided-session.v1:";
   const WORKSPACE_STORAGE_PREFIXES = [
     PROJECT_SESSION_KEY_PREFIX,
@@ -122,6 +124,20 @@
   function writeStudioTheme(theme) {
     try { localStorage.setItem(STUDIO_THEME_KEY, theme); } catch (_) {}
     window.dispatchEvent(new CustomEvent(STUDIO_THEME_EVENT, { detail: theme }));
+  }
+
+  function readStudioTextSize() {
+    try {
+      const value = localStorage.getItem(STUDIO_TEXT_SIZE_KEY);
+      return value === "large" || value === "xlarge" ? value : "normal";
+    } catch (_) {
+      return "normal";
+    }
+  }
+
+  function writeStudioTextSize(size) {
+    try { localStorage.setItem(STUDIO_TEXT_SIZE_KEY, size); } catch (_) {}
+    window.dispatchEvent(new CustomEvent(STUDIO_TEXT_SIZE_EVENT, { detail: size }));
   }
 
   function readStoredMap(key) {
@@ -326,6 +342,7 @@
     const [homeMessage, setHomeMessage] = useState("");
     const [homeError, setHomeError] = useState("");
     const [studioTheme, setStudioTheme] = useState(readStudioTheme);
+    const [studioTextSize, setStudioTextSize] = useState(readStudioTextSize);
 
     useEffect(function () {
       const onTheme = function (event) {
@@ -338,6 +355,22 @@
       window.addEventListener("storage", onStorage);
       return function () {
         window.removeEventListener(STUDIO_THEME_EVENT, onTheme);
+        window.removeEventListener("storage", onStorage);
+      };
+    }, []);
+
+    useEffect(function () {
+      const onSize = function (event) {
+        const value = event && event.detail;
+        setStudioTextSize(value === "large" || value === "xlarge" ? value : "normal");
+      };
+      const onStorage = function (event) {
+        if (event.key === STUDIO_TEXT_SIZE_KEY) setStudioTextSize(readStudioTextSize());
+      };
+      window.addEventListener(STUDIO_TEXT_SIZE_EVENT, onSize);
+      window.addEventListener("storage", onStorage);
+      return function () {
+        window.removeEventListener(STUDIO_TEXT_SIZE_EVENT, onSize);
         window.removeEventListener("storage", onStorage);
       };
     }, []);
@@ -356,7 +389,31 @@
         onClick: toggleStudioTheme,
         "aria-pressed": dark,
         "aria-label": dark ? "Use light mode" : "Use dark mode",
-      }, h("span", { "aria-hidden": "true" }, dark ? "☀" : "☾"), dark ? "Light mode" : "Dark mode");
+        title: dark ? "Use light mode" : "Use dark mode",
+      }, h("span", { "aria-hidden": "true" }, dark ? "☀" : "☾"));
+    };
+
+    const textSizeControl = function () {
+      const label = studioTextSize === "normal" ? "Normal" : studioTextSize === "large" ? "Large" : "Extra large";
+      return h("label", {
+        className: "ub-text-size-control",
+        title: "Text size: " + label,
+      },
+        h("span", { "aria-hidden": "true" }, "Aa"),
+        h("select", {
+          value: studioTextSize,
+          "aria-label": "Text size",
+          onChange: (event) => {
+            const value = event.target.value;
+            setStudioTextSize(value);
+            writeStudioTextSize(value);
+          },
+        },
+          h("option", { value: "normal" }, "Normal"),
+          h("option", { value: "large" }, "Large"),
+          h("option", { value: "xlarge" }, "Extra large"),
+        ),
+      );
     };
 
     const templates = useMemo(
@@ -640,7 +697,7 @@
     };
 
     if (pickerTarget) {
-      return h("div", { className: "ub-page ub-page-picker ub-theme-" + studioTheme },
+      return h("div", { className: "ub-page ub-page-picker ub-theme-" + studioTheme + " ub-text-" + studioTextSize },
         h(DirectoryPicker, {
           initialPath: pickerTarget === "parent"
             ? parentPath
@@ -661,7 +718,7 @@
     }
 
     if (screen === "home") {
-      return h("div", { className: "ub-page ub-page-home ub-theme-" + studioTheme },
+      return h("div", { className: "ub-page ub-page-home ub-theme-" + studioTheme + " ub-text-" + studioTextSize },
         h("header", { className: "ub-studio-nav" },
           h("div", { className: "ub-studio-brand" },
             h("span", { className: "ub-brand-mark", "aria-hidden": "true" }, "L"),
@@ -670,12 +727,15 @@
           h("div", { className: "ub-studio-nav-actions" },
             h("span", { className: "ub-studio-ready" }, h("i", null), "Ready"),
             h("span", { className: "ub-version" }, "v0.19.13 beta"),
+            textSizeControl(),
             themeToggle(),
             h("button", {
               className: "ub-model-settings",
               type: "button",
               onClick: () => { window.location.href = "/models"; },
-            }, "AI model"),
+              "aria-label": "AI model settings",
+              title: "AI model settings",
+            }, "AI"),
           ),
         ),
         h("section", { className: "ub-welcome" },
@@ -767,7 +827,7 @@
       );
     }
 
-    return h("div", { className: "ub-page ub-page-config ub-theme-" + studioTheme },
+    return h("div", { className: "ub-page ub-page-config ub-theme-" + studioTheme + " ub-text-" + studioTextSize },
       h("header", { className: "ub-studio-nav ub-studio-nav-config" },
         h("button", { className: "ub-back", type: "button", onClick: () => setScreen("home") }, "←", h("span", null, "Projects")),
         h("div", { className: "ub-studio-brand" },
@@ -776,6 +836,7 @@
         ),
         h("div", { className: "ub-config-nav-end" },
           h("span", { className: "ub-config-step" }, "Set up · 1 of 1"),
+          textSizeControl(),
           themeToggle(),
         ),
       ),
