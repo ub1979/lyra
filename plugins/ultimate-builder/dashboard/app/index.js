@@ -86,6 +86,8 @@
   const CUSTOM_TEMPLATES_KEY = "idrak-it.builder.templates.v1";
   const RECENT_PROJECTS_KEY = "idrak-it.builder.projects.v1";
   const SKILL_MODELS_KEY = "idrak-it.builder.skill-models.v1";
+  const STUDIO_THEME_KEY = "lyra-studio-color-mode";
+  const STUDIO_THEME_EVENT = "lyra-studio-theme-change";
   const PROJECT_SESSION_KEY_PREFIX = "idrak-it.guided-session.v1:";
   const WORKSPACE_STORAGE_PREFIXES = [
     PROJECT_SESSION_KEY_PREFIX,
@@ -107,6 +109,19 @@
     try {
       localStorage.setItem(key, JSON.stringify(value));
     } catch (_) {}
+  }
+
+  function readStudioTheme() {
+    try {
+      return localStorage.getItem(STUDIO_THEME_KEY) === "dark" ? "dark" : "light";
+    } catch (_) {
+      return "light";
+    }
+  }
+
+  function writeStudioTheme(theme) {
+    try { localStorage.setItem(STUDIO_THEME_KEY, theme); } catch (_) {}
+    window.dispatchEvent(new CustomEvent(STUDIO_THEME_EVENT, { detail: theme }));
   }
 
   function readStoredMap(key) {
@@ -310,6 +325,39 @@
     const [managingPath, setManagingPath] = useState("");
     const [homeMessage, setHomeMessage] = useState("");
     const [homeError, setHomeError] = useState("");
+    const [studioTheme, setStudioTheme] = useState(readStudioTheme);
+
+    useEffect(function () {
+      const onTheme = function (event) {
+        setStudioTheme(event && event.detail === "dark" ? "dark" : "light");
+      };
+      const onStorage = function (event) {
+        if (event.key === STUDIO_THEME_KEY) setStudioTheme(readStudioTheme());
+      };
+      window.addEventListener(STUDIO_THEME_EVENT, onTheme);
+      window.addEventListener("storage", onStorage);
+      return function () {
+        window.removeEventListener(STUDIO_THEME_EVENT, onTheme);
+        window.removeEventListener("storage", onStorage);
+      };
+    }, []);
+
+    const toggleStudioTheme = function () {
+      const next = studioTheme === "dark" ? "light" : "dark";
+      setStudioTheme(next);
+      writeStudioTheme(next);
+    };
+
+    const themeToggle = function () {
+      const dark = studioTheme === "dark";
+      return h("button", {
+        className: "ub-theme-toggle",
+        type: "button",
+        onClick: toggleStudioTheme,
+        "aria-pressed": dark,
+        "aria-label": dark ? "Use light mode" : "Use dark mode",
+      }, h("span", { "aria-hidden": "true" }, dark ? "☀" : "☾"), dark ? "Light mode" : "Dark mode");
+    };
 
     const templates = useMemo(
       () => BUILTIN_TEMPLATES.concat(customTemplates.map((template) => ({ ...template, accent: "custom" }))),
@@ -592,7 +640,7 @@
     };
 
     if (pickerTarget) {
-      return h("div", { className: "ub-page ub-page-picker" },
+      return h("div", { className: "ub-page ub-page-picker ub-theme-" + studioTheme },
         h(DirectoryPicker, {
           initialPath: pickerTarget === "parent"
             ? parentPath
@@ -613,7 +661,7 @@
     }
 
     if (screen === "home") {
-      return h("div", { className: "ub-page ub-page-home" },
+      return h("div", { className: "ub-page ub-page-home ub-theme-" + studioTheme },
         h("header", { className: "ub-studio-nav" },
           h("div", { className: "ub-studio-brand" },
             h("span", { className: "ub-brand-mark", "aria-hidden": "true" }, "L"),
@@ -622,6 +670,7 @@
           h("div", { className: "ub-studio-nav-actions" },
             h("span", { className: "ub-studio-ready" }, h("i", null), "Ready"),
             h("span", { className: "ub-version" }, "v0.19.13 beta"),
+            themeToggle(),
             h("button", {
               className: "ub-model-settings",
               type: "button",
@@ -718,14 +767,17 @@
       );
     }
 
-    return h("div", { className: "ub-page ub-page-config" },
+    return h("div", { className: "ub-page ub-page-config ub-theme-" + studioTheme },
       h("header", { className: "ub-studio-nav ub-studio-nav-config" },
         h("button", { className: "ub-back", type: "button", onClick: () => setScreen("home") }, "←", h("span", null, "Projects")),
         h("div", { className: "ub-studio-brand" },
           h("span", { className: "ub-brand-mark", "aria-hidden": "true" }, "L"),
           h("span", null, h("strong", null, "Lyra Studio"), h("small", null, mode === "new" ? "New project" : "Existing project")),
         ),
-        h("span", { className: "ub-config-step" }, "Set up · 1 of 1"),
+        h("div", { className: "ub-config-nav-end" },
+          h("span", { className: "ub-config-step" }, "Set up · 1 of 1"),
+          themeToggle(),
+        ),
       ),
       h("div", { className: "ub-config-head" },
         h("div", null,

@@ -547,6 +547,20 @@
   font: 600 11px/1.2 inherit;
 }
 .ub-model-settings:hover { border-color: #b9b1ff; color: #5747ef; background: #fff; }
+.ub-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 11px;
+  border: 1px solid var(--ub-line);
+  border-radius: 10px;
+  color: #596174;
+  background: rgba(255, 255, 255, .68);
+  font: 650 11px/1.2 inherit;
+  cursor: pointer;
+}
+.ub-theme-toggle:hover { border-color: #c7c1ff; color: #5747ef; background: #fff; }
+.ub-theme-toggle span { font-size: 14px; line-height: 1; }
 
 .ub-welcome {
   order: 2;
@@ -685,10 +699,11 @@
 .ub-error { border: 1px solid #f1c9d2; border-left-width: 3px; border-radius: 11px; color: #87354a; background: #fff3f5; }
 
 /* Project setup */
-.ub-studio-nav-config { display: grid; grid-template-columns: 1fr auto 1fr; }
+.ub-studio-nav-config { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
 .ub-back { display: inline-flex; width: max-content; align-items: center; gap: 9px; padding: 8px 11px; border: 1px solid transparent; border-radius: 10px; color: #646c7e; background: transparent; cursor: pointer; }
 .ub-back:hover { border-color: #e0e2ea; color: #3c4558; background: #fff; }
-.ub-config-step { justify-self: end; color: #7e8493; font-size: 11px; font-weight: 650; }
+.ub-config-step { color: #7e8493; font-size: 11px; font-weight: 650; white-space: nowrap; }
+.ub-config-nav-end { display: flex; min-width: 0; justify-self: end; align-items: center; gap: 14px; }
 .ub-config-head { display: block; max-width: 820px; padding: 64px 0 42px; }
 .ub-config-head h1 { font-size: clamp(38px, 5vw, 62px); line-height: 1.02; }
 .ub-config-layout { grid-template-columns: minmax(0, 1fr) 350px; gap: 24px; padding-bottom: 24px; }
@@ -742,6 +757,7 @@
 @media (max-width: 1100px) {
   .ub-template-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .ub-recent-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ub-config-step { display: none; }
 }
 
 @media (max-width: 820px) {
@@ -750,8 +766,6 @@
   .ub-build-loop { max-width: 520px; }
   .ub-studio-ready,
   .ub-version { display: none; }
-  .ub-studio-nav-config { grid-template-columns: 1fr auto; }
-  .ub-studio-nav-config .ub-studio-brand { display: none; }
   .ub-config-layout { grid-template-columns: 1fr; }
 }
 
@@ -773,4 +787,151 @@
   .ub-recent-actions { flex-direction: row; }
   .ub-new-project-fields,
   .ub-skill-list { grid-template-columns: 1fr; }
+  .ub-theme-toggle { padding: 8px; }
+  .ub-theme-toggle:not(:focus) { font-size: 0; }
+  .ub-theme-toggle span { font-size: 14px; }
 }
+
+@media (max-width: 520px) {
+  .ub-studio-nav-config { gap: 10px; }
+  .ub-studio-nav-config .ub-back span,
+  .ub-studio-nav-config .ub-studio-brand small { display: none; }
+  .ub-studio-nav-config .ub-studio-brand { gap: 8px; }
+  .ub-studio-nav-config .ub-studio-brand strong { font-size: 13px; }
+  .ub-studio-nav-config .ub-brand-mark { width: 32px; height: 32px; }
+}
+
+/* Dark mode keeps the Studio character: deep neutral surfaces with the
+   same lavender product accent, never the old terminal-green appearance. */
+.ub-page.ub-theme-dark {
+  --ub-ink: #eef1f8;
+  --ub-muted: #a4acbc;
+  --ub-line: #303646;
+  --ub-surface: #191e29;
+  --ub-canvas: #0f121a;
+  --background: #0f121a;
+  --background-base: #0f121a;
+  --midground: #9b8eff;
+  --midground-base: #9b8eff;
+  --foreground: #eef1f8;
+  --foreground-base: #eef1f8;
+  --color-text-primary: #eef1f8;
+  --color-text-secondary: #a4acbc;
+  --color-text-tertiary: #7f889a;
+  --color-card: #191e29;
+  --color-card-foreground: #eef1f8;
+  --color-border: #303646;
+  --color-input: #343a4b;
+  --color-popover: #1b202c;
+  --color-popover-foreground: #eef1f8;
+  color-scheme: dark;
+  background:
+    radial-gradient(circle at 13% 8%, rgba(111, 91, 247, .2), transparent 29rem),
+    radial-gradient(circle at 90% 24%, rgba(43, 139, 194, .14), transparent 32rem),
+    linear-gradient(180deg, #121620 0%, #0f121a 52%, #0c0f16 100%);
+  scrollbar-color: #414859 transparent;
+}
+
+.ub-theme-dark .ub-studio-nav { border-color: rgba(238, 241, 248, .09); }
+.ub-theme-dark .ub-studio-brand strong,
+.ub-theme-dark .ub-welcome h1,
+.ub-theme-dark .ub-config-head h1,
+.ub-theme-dark .ub-section-heading h2,
+.ub-theme-dark .ub-start-copy strong,
+.ub-theme-dark .ub-project-copy strong,
+.ub-theme-dark .ub-template-top strong,
+.ub-theme-dark .ub-form-card h2,
+.ub-theme-dark .ub-config-side h2,
+.ub-theme-dark .ub-team-collapsed-copy strong,
+.ub-theme-dark .ub-skill-copy strong,
+.ub-theme-dark .ub-template-option strong { color: #eef1f8; }
+
+.ub-theme-dark .ub-version,
+.ub-theme-dark .ub-config-step,
+.ub-theme-dark .ub-build-loop > p,
+.ub-theme-dark .ub-build-loop li small,
+.ub-theme-dark .ub-section-heading p,
+.ub-theme-dark .ub-start-copy > span,
+.ub-theme-dark .ub-project-copy small,
+.ub-theme-dark .ub-template-card p,
+.ub-theme-dark .ub-form-card label > span,
+.ub-theme-dark .ub-team-collapsed-copy small,
+.ub-theme-dark .ub-skill-copy small,
+.ub-theme-dark .ub-template-option small,
+.ub-theme-dark .ub-summary span,
+.ub-theme-dark .ub-chat-note { color: #9da6b7; }
+
+.ub-theme-dark .ub-model-settings,
+.ub-theme-dark .ub-theme-toggle {
+  border-color: #343a4b;
+  color: #b4bbca;
+  background: #1b202c;
+  box-shadow: none;
+}
+.ub-theme-dark .ub-model-settings:hover,
+.ub-theme-dark .ub-theme-toggle:hover,
+.ub-theme-dark .ub-back:hover {
+  border-color: #595274;
+  color: #d2ccff;
+  background: #25293a;
+}
+.ub-theme-dark .ub-back { color: #aeb5c4; }
+
+.ub-theme-dark .ub-build-loop {
+  border-color: rgba(255, 255, 255, .08);
+  background: rgba(25, 30, 42, .82);
+  box-shadow: 0 28px 70px rgba(0, 0, 0, .3), inset 0 1px 0 rgba(255, 255, 255, .04);
+}
+.ub-theme-dark .ub-build-loop li { border-color: #303646; background: rgba(30, 35, 49, .94); }
+.ub-theme-dark .ub-build-loop li b { color: #b8afff; background: #2b2942; }
+.ub-theme-dark .ub-build-loop li strong { color: #eef1f8; }
+.ub-theme-dark .ub-section-index { border-color: #45405f; color: #b8afff; background: #29263d; }
+
+.ub-theme-dark .ub-start-card,
+.ub-theme-dark .ub-template-card,
+.ub-theme-dark .ub-recent-row,
+.ub-theme-dark .ub-form-card,
+.ub-theme-dark .ub-config-side,
+.ub-theme-dark .ub-picker {
+  border-color: #303646 !important;
+  color: #eef1f8;
+  background: rgba(25, 30, 41, .92) !important;
+  box-shadow: 0 14px 38px rgba(0, 0, 0, .22);
+}
+.ub-theme-dark .ub-start-new { background: linear-gradient(135deg, #27243d, #191e29 72%) !important; }
+.ub-theme-dark .ub-start-card:hover,
+.ub-theme-dark .ub-template-card:hover,
+.ub-theme-dark .ub-recent-row:hover { border-color: #5b547b !important; background: #1e2330 !important; }
+.ub-theme-dark .ub-start-card:not(.ub-start-new) .ub-start-symbol { color: #91c9ed; background: #203242; }
+.ub-theme-dark .ub-project-status { color: #7ed3a8 !important; }
+.ub-theme-dark .ub-open-label { border-color: #2d3342; color: #afa6ff !important; }
+.ub-theme-dark .ub-recent-actions { border-color: #2d3342; background: #161b25; }
+.ub-theme-dark .ub-recent-actions button { color: #a5adbd; }
+.ub-theme-dark .ub-recent-actions button:hover { border-color: #3b4254; color: #eef1f8; background: #222735; }
+.ub-theme-dark .ub-template-top > span { color: #b8afff !important; background: #2b2942 !important; }
+
+.ub-theme-dark .ub-brief,
+.ub-theme-dark .ub-page input,
+.ub-theme-dark .ub-skill-model select {
+  border-color: #353b4c;
+  color: #eef1f8;
+  background: #151a24;
+}
+.ub-theme-dark .ub-select-actions .ub-team-toggle { border-color: #494461; color: #c1baff; background: #29263d; }
+.ub-theme-dark .ub-team-collapsed,
+.ub-theme-dark .ub-skill { border-color: #303646; color: #eef1f8; background: #171c27; }
+.ub-theme-dark .ub-team-collapsed:hover,
+.ub-theme-dark .ub-skill:has(input:checked),
+.ub-theme-dark .ub-template-option.is-selected { border-color: #554e73; background: #27243a; }
+.ub-theme-dark .ub-team-orbs i { border-color: #171c27; }
+.ub-theme-dark .ub-skill-check { border-color: #41485a; }
+.ub-theme-dark .ub-skill-model select { color-scheme: dark; }
+.ub-theme-dark .ub-template-option { border-color: #2c3241; }
+.ub-theme-dark .ub-summary { border-color: #45405e; background: #27243a; }
+.ub-theme-dark .ub-summary strong,
+.ub-theme-dark .ub-team-change,
+.ub-theme-dark .ub-skill-model-label { color: #b6adff; }
+.ub-theme-dark .ub-folder { border-color: #2d3342; color: #d8dce6; }
+.ub-theme-dark .ub-folder:hover { background: #27243a; }
+.ub-theme-dark .ub-home-message { border-color: #315947; color: #8ed9b4; background: #172820; }
+.ub-theme-dark .ub-error { border-color: #6b3d4b; color: #f0a8b9; background: #2a1920; }

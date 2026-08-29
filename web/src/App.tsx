@@ -99,6 +99,10 @@ import { PluginPage, PluginSlot, usePlugins } from "@/plugins";
 import type { PluginManifest } from "@/plugins";
 import { useTheme } from "@/themes";
 import { isDashboardEmbeddedChatEnabled } from "@/lib/dashboard-flags";
+import {
+  listenForLyraStudioTheme,
+  readLyraStudioTheme,
+} from "@/lib/lyra-studio-theme";
 import { api } from "@/lib/api";
 import type { StatusResponse } from "@/lib/api";
 
@@ -355,7 +359,13 @@ export default function App() {
   const { manifests, loading: pluginsLoading } = usePlugins();
   const { theme } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [studioTheme, setStudioTheme] = useState(readLyraStudioTheme);
   const closeMobile = useCallback(() => setMobileOpen(false), []);
+
+  useEffect(
+    () => listenForLyraStudioTheme(setStudioTheme),
+    [],
+  );
 
   const [collapsed, setCollapsed] = useState(() => {
     try {
@@ -519,6 +529,7 @@ export default function App() {
     <ProfileProvider>
     <div
       data-layout-variant={layoutVariant}
+      data-studio-theme={isSimpleExperience ? studioTheme : undefined}
       className={cn(
         "flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden bg-background-base text-text-primary antialiased",
         isSimpleExperience && "lyra-studio-shell",

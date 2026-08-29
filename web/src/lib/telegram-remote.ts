@@ -18,10 +18,8 @@ export function telegramRemoteReadiness(platform: MessagingPlatform | null | und
 }
 
 export function telegramRemoteButtonLabel(readiness: TelegramRemoteReadiness): string {
-  if (readiness === 'ready') return 'Continue on Telegram'
-  if (readiness === 'start-gateway') return 'Start Telegram remote'
-  if (readiness === 'set-home') return 'Choose Telegram phone'
-  return 'Connect phone'
+  void readiness
+  return 'Remote control'
 }
 
 export function telegramRemoteHint(readiness: TelegramRemoteReadiness): string {
