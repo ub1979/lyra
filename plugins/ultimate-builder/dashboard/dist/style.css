@@ -142,20 +142,44 @@
 .ub-template-card p { margin: 25px 0 0; color: var(--color-text-secondary); font-size: 13px; line-height: 1.5; }
 
 .ub-recent-list { display: grid; gap: 1px; overflow: hidden; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-border); }
-.ub-recent-list button {
+.ub-recent-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
-  padding: 15px 18px;
-  border: 0;
+  gap: 12px;
+  padding: 8px 10px 8px 18px;
   background: var(--color-card);
+}
+.ub-recent-open {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 7px 0;
+  border: 0;
+  background: transparent;
   color: inherit;
   text-align: left;
   cursor: pointer;
 }
-.ub-recent-list button:hover { background: color-mix(in srgb, var(--color-card) 92%, var(--ub-lime)); }
+.ub-recent-row:hover { background: color-mix(in srgb, var(--color-card) 92%, var(--ub-lime)); }
 .ub-recent-list span { overflow: hidden; color: var(--color-text-secondary); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.ub-recent-actions { display: flex; flex: 0 0 auto; gap: 4px; }
+.ub-recent-actions button {
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+.ub-recent-actions button:hover { border-color: var(--color-border); color: inherit; }
+.ub-recent-actions button:disabled { cursor: wait; opacity: .5; }
+.ub-recent-actions .ub-recent-trash:hover { border-color: color-mix(in srgb, var(--ub-coral) 60%, var(--color-border)); color: var(--ub-coral); }
+.ub-home-message { margin: 18px 0; padding: 12px 14px; border: 1px solid color-mix(in srgb, var(--ub-lime) 45%, var(--color-border)); border-radius: 10px; background: color-mix(in srgb, var(--ub-lime) 8%, transparent); font-size: 13px; }
 
 .ub-config-head {
   display: grid;
@@ -411,8 +435,10 @@
   .ub-start-card { min-height: 185px; }
   .ub-inline-field,
   .ub-save-template { align-items: stretch; flex-direction: column; }
-  .ub-recent-list button,
+  .ub-recent-row,
+  .ub-recent-open,
   .ub-picker-actions { align-items: flex-start; flex-direction: column; }
+  .ub-recent-actions { width: 100%; }
 }
 
 /* Agent without artwork yet: an initial on a tinted tile, same box as the

@@ -11,6 +11,7 @@
 
   const SKILLS = [
     ["req-engineer", "Requirements", "Clarify goals, users, scope, and acceptance criteria."],
+    ["researcher", "Research", "Investigate markets, competitors, standards, and technical choices with verified sources."],
     ["spec", "Technical specification", "Turn the request into detailed, testable behavior."],
     ["ui-designer", "Design", "Set the look and feel from real references, then review the build against it."],
     ["sw-architect", "Architecture", "Design the system, data, APIs, and boundaries."],
@@ -82,6 +83,12 @@
   const RECENT_PROJECTS_KEY = "idrak-it.builder.projects.v1";
   const SKILL_MODELS_KEY = "idrak-it.builder.skill-models.v1";
   const PROJECT_SESSION_KEY_PREFIX = "idrak-it.guided-session.v1:";
+  const WORKSPACE_STORAGE_PREFIXES = [
+    PROJECT_SESSION_KEY_PREFIX,
+    "idrak-it.guided-specialists.v1:",
+    "idrak-it.guided-messages.v1:",
+    "idrak-it.guided-phases.v1:",
+  ];
 
   function readStored(key, fallback) {
     try {
@@ -126,6 +133,22 @@
     } catch (_) {}
   }
 
+  function relocateWorkspaceStorage(source, destination) {
+    WORKSPACE_STORAGE_PREFIXES.forEach((prefix) => {
+      try {
+        const value = localStorage.getItem(prefix + source);
+        if (value !== null) localStorage.setItem(prefix + destination, value);
+        localStorage.removeItem(prefix + source);
+      } catch (_) {}
+    });
+  }
+
+  function removeWorkspaceStorage(workspace) {
+    WORKSPACE_STORAGE_PREFIXES.forEach((prefix) => {
+      try { localStorage.removeItem(prefix + workspace); } catch (_) {}
+    });
+  }
+
   async function findProjectSessionId(workspace) {
     const stored = readProjectSessionId(workspace);
     if (stored) return stored;
@@ -138,13 +161,49 @@
         writeProjectSessionId(workspace, match.id);
         return match.id;
       }
-    } catch (_) {}
+    } catch (_) {
+      // Older Lyra servers do not support workspace-filtered sessions. The
+      // project can still open; its next session.info event stores the id.
+    }
     return "";
   }
 
   function joinPath(parent, name) {
     const separator = parent && parent.includes("\\") && !parent.includes("/") ? "\\" : "/";
     return String(parent || "").replace(/[\\/]+$/, "") + separator + name;
+  }
+
+  function parentDirectory(path) {
+    const value = String(path || "").replace(/[\\/]+$/, "");
+    const separator = value.includes("\\") && !value.includes("/") ? "\\" : "/";
+    const parts = value.split(/[\\/]/);
+    parts.pop();
+    const joined = parts.join(separator);
+    return joined || separator;
+  }
+
+  function defaultProjectsRoot(cwd) {
+    const trimmed = String(cwd || "").replace(/[\\/]+$/, "");
+    const leaf = trimmed.split(/[\\/]/).filter(Boolean).pop() || "";
+    return leaf === "my_projects" ? trimmed : joinPath(trimmed, "my_projects");
+  }
+
+  async function requireSafeWorkspace(path) {
+    const result = await SDK.fetchJSON(
+      "/api/plugins/ultimate-builder/workspace-safety?path=" + encodeURIComponent(path),
+    );
+    if (!result || !result.allowed) {
+      throw new Error((result && result.reason) || "Choose a project folder outside Lyra's application files.");
+    }
+    return result.path || path;
+  }
+
+  function postProjectAction(endpoint, body) {
+    return SDK.fetchJSON("/api/plugins/ultimate-builder" + endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
   }
 
   function defaultBrief(templateId, existing) {
@@ -242,6 +301,10 @@
     const [modelInfo, setModelInfo] = useState({ provider: "", model: "" });
     const [modelOptions, setModelOptions] = useState([]);
     const [modelsLoading, setModelsLoading] = useState(true);
+    const [movingProject, setMovingProject] = useState(null);
+    const [managingPath, setManagingPath] = useState("");
+    const [homeMessage, setHomeMessage] = useState("");
+    const [homeError, setHomeError] = useState("");
 
     const templates = useMemo(
       () => BUILTIN_TEMPLATES.concat(customTemplates.map((template) => ({ ...template, accent: "custom" }))),
@@ -276,7 +339,7 @@
         .then((info) => api.listFiles(info && info.cwd).then(() => info.cwd))
         .catch(() => api.listFiles().then((listing) => listing.path))
         .then((cwd) => {
-          if (active && cwd) setParentPath(joinPath(cwd, "my_projects"));
+          if (active && cwd) setParentPath(defaultProjectsRoot(cwd));
         })
         .catch(() => {});
       return () => { active = false; };
@@ -357,13 +420,84 @@
     };
 
     const openRecent = async function (item) {
-      const params = new URLSearchParams({
-        guided: "1",
-        workspace: item.path,
-      });
-      const sessionId = await findProjectSessionId(item.path);
-      if (sessionId) params.set("resume", sessionId);
-      window.location.href = "/chat?" + params.toString();
+      try {
+        const workspace = await requireSafeWorkspace(item.path);
+        const params = new URLSearchParams({
+          guided: "1",
+          workspace,
+        });
+        const sessionId = await findProjectSessionId(workspace);
+        if (sessionId) params.set("resume", sessionId);
+        window.location.href = "/chat?" + params.toString();
+      } catch (err) {
+        setMode("existing");
+        setProjectPath(item.path);
+        setError(err && err.message ? err.message : String(err));
+        setScreen("configure");
+      }
+    };
+
+    const saveRecentProjects = function (projects) {
+      setRecentProjects(projects);
+      writeStored(RECENT_PROJECTS_KEY, projects);
+    };
+
+    const removeRecent = function (item) {
+      saveRecentProjects(recentProjects.filter((project) => project.path !== item.path));
+      setHomeError("");
+      setHomeMessage(item.name + " was removed from Lyra. Its files and chats are unchanged.");
+    };
+
+    const chooseMoveDestination = function (item) {
+      setHomeError("");
+      setHomeMessage("");
+      setMovingProject(item);
+      setPickerTarget("move");
+    };
+
+    const finishMove = async function (destinationParent) {
+      const item = movingProject;
+      if (!item) return;
+      setPickerTarget("");
+      setManagingPath(item.path);
+      setHomeError("");
+      try {
+        const result = await postProjectAction("/project/move", {
+          source: item.path,
+          destination_parent: destinationParent,
+        });
+        const destination = result.destination;
+        relocateWorkspaceStorage(item.path, destination);
+        saveRecentProjects(recentProjects.map((project) => project.path === item.path
+          ? { ...project, path: destination }
+          : project));
+        setHomeMessage(item.name + " moved successfully. Its saved chat will continue with it.");
+      } catch (err) {
+        setHomeError(err && err.message ? err.message : String(err));
+      } finally {
+        setMovingProject(null);
+        setManagingPath("");
+      }
+    };
+
+    const trashRecent = async function (item) {
+      const confirmed = window.confirm(
+        'Move "' + item.name + '" to Lyra Trash? This moves the whole project folder, but does not permanently delete it.',
+      );
+      if (!confirmed) return;
+      setManagingPath(item.path);
+      setHomeError("");
+      setHomeMessage("");
+      try {
+        await postProjectAction("/project/delete", { workspace: item.path });
+        removeWorkspaceStorage(item.path);
+        saveRecentProjects(recentProjects.filter((project) => project.path !== item.path));
+        setHomeMessage(item.name + " was moved to Lyra Trash and can be recovered later.");
+      } catch (err) {
+        setHomeError(err && err.message ? err.message : String(err));
+      } finally {
+        setManagingPath("");
+      }
     };
 
     const startChat = async function () {
@@ -385,11 +519,14 @@
             throw new Error("Use a simple project name without slashes.");
           }
           workspace = joinPath(parentPath.trim(), name);
+          workspace = await requireSafeWorkspace(workspace);
           await api.createDirectory(workspace);
         } else {
           if (!workspace) throw new Error("Choose the existing project folder.");
+          workspace = await requireSafeWorkspace(workspace);
           await api.listFiles(workspace);
         }
+        await postProjectAction("/project/register", { workspace });
         const enabled = SKILLS.filter((skill) => selected.has(skill[0])).map((skill) => skill[0]);
         const enabledLabels = SKILLS.filter((skill) => selected.has(skill[0])).map((skill) => skill[1]);
         const disabled = SKILLS.filter((skill) => !selected.has(skill[0])).map((skill) => skill[0]);
@@ -447,11 +584,18 @@
     if (pickerTarget) {
       return h("div", { className: "ub-page ub-page-picker" },
         h(DirectoryPicker, {
-          initialPath: pickerTarget === "parent" ? parentPath : projectPath,
-          onCancel: () => setPickerTarget(""),
+          initialPath: pickerTarget === "parent"
+            ? parentPath
+            : pickerTarget === "move" && movingProject
+              ? parentDirectory(movingProject.path)
+              : projectPath,
+          onCancel: () => { setPickerTarget(""); setMovingProject(null); },
           onSelect: (value) => {
             if (pickerTarget === "parent") setParentPath(value);
-            else setProjectPath(value);
+            else if (pickerTarget === "move") {
+              void finishMove(value);
+              return;
+            } else setProjectPath(value);
             setPickerTarget("");
           },
         }),
@@ -461,7 +605,7 @@
     if (screen === "home") {
       return h("div", { className: "ub-page" },
         h("section", { className: "ub-welcome" },
-          h("p", { className: "ub-kicker" }, "LYRA · APP BUILDER · v 0.19.12 beta"),
+          h("p", { className: "ub-kicker" }, "LYRA · APP BUILDER · v 0.19.13 beta"),
           h("h1", null, "What would you like to work on?"),
           h("p", { className: "ub-subtitle" }, "Start something new or bring an existing folder. Lyra learns what you need, recommends the right agents, and stays with you through delivery."),
           h("button", {
@@ -498,11 +642,20 @@
             )),
           ),
         ),
+        homeMessage && h("div", { className: "ub-home-message", role: "status" }, homeMessage),
+        homeError && h("div", { className: "ub-error", role: "alert" }, homeError),
         recentProjects.length > 0 && h("section", { className: "ub-recents" },
           h("div", { className: "ub-section-heading" }, h("div", null, h("h2", null, "Recent projects"), h("p", null, "Continue with a previous folder."))),
           h("div", { className: "ub-recent-list" },
-            recentProjects.map((item) => h("button", { key: item.path, type: "button", onClick: () => openRecent(item) },
-              h("strong", null, item.name), h("span", null, item.path),
+            recentProjects.map((item) => h("div", { className: "ub-recent-row", key: item.path },
+              h("button", { className: "ub-recent-open", type: "button", onClick: () => openRecent(item), disabled: managingPath === item.path },
+                h("strong", null, item.name), h("span", null, item.path),
+              ),
+              h("div", { className: "ub-recent-actions", "aria-label": "Manage " + item.name },
+                h("button", { type: "button", onClick: () => chooseMoveDestination(item), disabled: Boolean(managingPath) }, "Move"),
+                h("button", { type: "button", onClick: () => removeRecent(item), disabled: Boolean(managingPath) }, "Remove"),
+                h("button", { className: "ub-recent-trash", type: "button", onClick: () => void trashRecent(item), disabled: Boolean(managingPath) }, managingPath === item.path ? "Working…" : "Trash"),
+              ),
             )),
           ),
         ),

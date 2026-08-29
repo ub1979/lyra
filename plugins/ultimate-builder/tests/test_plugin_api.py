@@ -3,6 +3,9 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
+import pytest
+from fastapi import HTTPException
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -106,3 +109,112 @@ def test_saved_project_jobs_override_stale_progress_claims():
         ("sw-architect", "blocked"),
         ("sw-developer", "blocked"),
     ]
+
+
+class _IdleProjectRuns:
+    @staticmethod
+    def project_run_state(_project):
+        return {"active": False}
+
+    @staticmethod
+    def control_project_run(_project, _action):
+        return {"ok": True}
+
+    @staticmethod
+    def relocate_project_runs(_source, _destination):
+        return {"ok": True}
+
+
+def test_register_and_move_project_without_overwriting(tmp_path, monkeypatch):
+    module = load_plugin_api()
+    source_parent = tmp_path / "source"
+    destination_parent = tmp_path / "destination"
+    project = source_parent / "music-app"
+    project.mkdir(parents=True)
+    destination_parent.mkdir()
+    monkeypatch.setattr(module, "_project_runs_module", lambda: _IdleProjectRuns)
+    monkeypatch.setattr(module, "_relocate_saved_sessions", lambda *_args: 0)
+
+    registered = module.register_project(
+        module.ProjectRegisterRequest(workspace=str(project))
+    )
+    moved = module.move_project(
+        module.ProjectMoveRequest(
+            source=str(project), destination_parent=str(destination_parent)
+        )
+    )
+
+    destination = destination_parent / "music-app"
+    assert registered["ok"] is True
+    assert moved["destination"] == str(destination)
+    assert not project.exists()
+    assert (destination / module._PROJECT_MARKER).is_file()
+
+    project = source_parent / "music-app"
+    project.mkdir(parents=True)
+    (project / module._PROJECT_MARKER).write_text("Managed by Lyra\n")
+    with pytest.raises(HTTPException, match="already exists") as error:
+        module.move_project(
+            module.ProjectMoveRequest(
+                source=str(project), destination_parent=str(destination_parent)
+            )
+        )
+    assert error.value.status_code == 409
+
+
+def test_project_actions_reject_unverified_folder(tmp_path):
+    module = load_plugin_api()
+    project = tmp_path / "ordinary-folder"
+    project.mkdir()
+
+    with pytest.raises(HTTPException, match="cannot verify") as error:
+        module._managed_project(str(project))
+
+    assert error.value.status_code == 403
+
+
+def test_move_refuses_while_project_worker_is_active(tmp_path, monkeypatch):
+    module = load_plugin_api()
+    project = tmp_path / "working-project"
+    destination = tmp_path / "destination"
+    project.mkdir()
+    destination.mkdir()
+    (project / module._PROJECT_MARKER).write_text("Managed by Lyra\n")
+
+    class ActiveProjectRuns(_IdleProjectRuns):
+        @staticmethod
+        def project_run_state(_project):
+            return {"active": True}
+
+    monkeypatch.setattr(module, "_project_runs_module", lambda: ActiveProjectRuns)
+
+    with pytest.raises(HTTPException, match="still working") as error:
+        module.move_project(
+            module.ProjectMoveRequest(
+                source=str(project), destination_parent=str(destination)
+            )
+        )
+
+    assert error.value.status_code == 409
+    assert project.is_dir()
+
+
+def test_delete_moves_project_to_recoverable_lyra_trash(tmp_path, monkeypatch):
+    module = load_plugin_api()
+    project = tmp_path / "old-project"
+    project.mkdir()
+    (project / module._PROJECT_MARKER).write_text("Managed by Lyra\n")
+    trash = tmp_path / "lyra-trash"
+    monkeypatch.setattr(module, "_project_runs_module", lambda: _IdleProjectRuns)
+    monkeypatch.setattr(module, "_relocate_saved_sessions", lambda *_args: 0)
+    monkeypatch.setattr(module, "_project_trash_root", lambda: trash)
+
+    result = module.delete_project(
+        module.ProjectDeleteRequest(workspace=str(project))
+    )
+
+    trashed = Path(result["trash_path"])
+    assert result["message"].startswith("Project moved to Lyra Trash")
+    assert not project.exists()
+    assert trashed.parent == trash
+    assert (trashed / module._PROJECT_MARKER).is_file()

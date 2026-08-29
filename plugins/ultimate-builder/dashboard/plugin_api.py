@@ -6,6 +6,8 @@ import importlib.util
 import json
 import re
 import secrets
+import shutil
+import time
 from functools import lru_cache
 from html import escape
 from pathlib import Path
@@ -15,6 +17,9 @@ from urllib.parse import urljoin, urlparse
 import httpx
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
+
+from hermes_constants import get_hermes_home
+from hermes_state import SessionDB
 
 
 router = APIRouter()
@@ -41,6 +46,16 @@ _ARTIFACTS = (
 _PREVIEW_MAX_BYTES = 4 * 1024 * 1024
 _PREVIEW_REDIRECT_LIMIT = 4
 _LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+_PROJECT_MARKER = ".lyra-project"
+_PROJECT_EVIDENCE = frozenset({
+    ".git",
+    ".sdlc",
+    "Cargo.toml",
+    "go.mod",
+    "package.json",
+    "pyproject.toml",
+    "requirements.md",
+})
 _HTML_URL_ATTRIBUTE = re.compile(
     r"(?P<prefix>\b(?:src|href|action|poster)\s*=\s*[\"'])(?P<path>/[^/][^\"']*)",
     re.IGNORECASE,
@@ -136,6 +151,19 @@ class PreviewDocumentRequest(BaseModel):
 class ProjectRunControlRequest(BaseModel):
     workspace: str = Field(min_length=1, max_length=8_192)
     action: str = Field(pattern=r"^(pause|resume|stop)$")
+
+
+class ProjectRegisterRequest(BaseModel):
+    workspace: str = Field(min_length=1, max_length=8_192)
+
+
+class ProjectMoveRequest(BaseModel):
+    source: str = Field(min_length=1, max_length=8_192)
+    destination_parent: str = Field(min_length=1, max_length=8_192)
+
+
+class ProjectDeleteRequest(BaseModel):
+    workspace: str = Field(min_length=1, max_length=8_192)
 
 
 @lru_cache(maxsize=1)
@@ -246,6 +274,112 @@ def _project(path: str) -> Path:
     if not candidate.is_dir():
         raise HTTPException(status_code=404, detail="Project directory not found")
     return candidate
+
+
+def _managed_project(path: str) -> Path:
+    """Resolve a project that Lyra may safely move out of the user's way."""
+    project = _project(path)
+    protected_roots = {
+        _LYRA_CHECKOUT,
+        Path.home().resolve(),
+        Path(project.anchor).resolve(),
+        *_ALLOWED_CHECKOUT_WORKSPACES,
+    }
+    if project in protected_roots:
+        raise HTTPException(status_code=403, detail="That folder is protected.")
+    in_project_area = any(
+        project != root and project.is_relative_to(root)
+        for root in _ALLOWED_CHECKOUT_WORKSPACES
+    )
+    has_evidence = any((project / name).exists() for name in _PROJECT_EVIDENCE)
+    if not in_project_area and not has_evidence and not (project / _PROJECT_MARKER).is_file():
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Lyra cannot verify that this is one of your projects. "
+                "Open it in Lyra once before moving or deleting it."
+            ),
+        )
+    return project
+
+
+def _ensure_project_idle(project: Path) -> None:
+    try:
+        state = _project_runs_module().project_run_state(project)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Lyra could not safely check this project's workers. Try again shortly.",
+        ) from exc
+    if state.get("active"):
+        raise HTTPException(
+            status_code=409,
+            detail="This project is still working. Pause or stop it before moving it.",
+        )
+
+
+def _remap_path(value: str, source: Path, destination: Path) -> str | None:
+    candidate = Path(value).expanduser().resolve(strict=False)
+    if candidate != source and not candidate.is_relative_to(source):
+        return None
+    return str(destination / candidate.relative_to(source))
+
+
+def _relocate_saved_sessions(source: Path, destination: Path) -> int:
+    database = SessionDB()
+    changed = 0
+    try:
+        sessions = database.list_sessions_rich(
+            cwd_prefix=str(source),
+            limit=10_000,
+            include_children=True,
+            include_archived=True,
+            project_compression_tips=False,
+            compact_rows=True,
+        )
+        for session in sessions:
+            cwd = _remap_path(str(session.get("cwd") or ""), source, destination)
+            if not cwd:
+                continue
+            repo_root = _remap_path(
+                str(session.get("git_repo_root") or ""), source, destination
+            )
+            database.update_session_cwd(
+                str(session["id"]), cwd, git_repo_root=repo_root
+            )
+            changed += 1
+    finally:
+        database.close()
+    return changed
+
+
+def _relocate_project_metadata(source: Path, destination: Path) -> list[str]:
+    warnings: list[str] = []
+    try:
+        _project_runs_module().relocate_project_runs(source, destination)
+    except Exception:
+        warnings.append("Background job history could not be updated automatically.")
+    try:
+        _relocate_saved_sessions(source, destination)
+    except Exception:
+        warnings.append("Saved chat locations could not be updated automatically.")
+    return warnings
+
+
+def _project_trash_root() -> Path:
+    return get_hermes_home() / "trash" / "projects"
+
+
+def _unique_destination(parent: Path, name: str) -> Path:
+    destination = parent / name
+    if not destination.exists():
+        return destination
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    for suffix in range(1_000):
+        candidate = parent / f"{name}-{stamp}-{suffix + 1}"
+        if not candidate.exists():
+            return candidate
+    raise HTTPException(status_code=409, detail="Could not create a unique Trash name.")
 
 
 def _safe_text(path: Path, limit: int = 120_000) -> str:
@@ -540,6 +674,91 @@ def control_project_run(payload: ProjectRunControlRequest) -> dict[str, Any]:
         return _project_runs_module().control_project_run(project, payload.action)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/project/register")
+def register_project(payload: ProjectRegisterRequest) -> dict[str, Any]:
+    safety = _workspace_safety(payload.workspace)
+    if not safety["allowed"]:
+        raise HTTPException(status_code=403, detail=safety["reason"])
+    project = _project(payload.workspace)
+    protected_roots = {
+        _LYRA_CHECKOUT,
+        Path.home().resolve(),
+        Path(project.anchor).resolve(),
+        *_ALLOWED_CHECKOUT_WORKSPACES,
+    }
+    if project in protected_roots:
+        raise HTTPException(status_code=403, detail="Choose the project folder itself.")
+    marker = project / _PROJECT_MARKER
+    try:
+        marker.write_text("Managed by Lyra\n", encoding="utf-8")
+    except OSError as exc:
+        raise HTTPException(
+            status_code=500, detail="Lyra could not prepare this project folder."
+        ) from exc
+    return {"ok": True, "project": str(project)}
+
+
+@router.post("/project/move")
+def move_project(payload: ProjectMoveRequest) -> dict[str, Any]:
+    source = _managed_project(payload.source)
+    _ensure_project_idle(source)
+    parent_safety = _workspace_safety(payload.destination_parent)
+    if not parent_safety["allowed"]:
+        raise HTTPException(status_code=403, detail=parent_safety["reason"])
+    parent = _project(payload.destination_parent)
+    if parent == source or parent.is_relative_to(source):
+        raise HTTPException(
+            status_code=400, detail="Choose a folder outside the project itself."
+        )
+    destination = parent / source.name
+    if destination.exists():
+        raise HTTPException(
+            status_code=409,
+            detail=f'A folder named "{source.name}" already exists there.',
+        )
+    try:
+        shutil.move(str(source), str(destination))
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail="Lyra could not move the project.") from exc
+    warnings = _relocate_project_metadata(source, destination)
+    return {
+        "ok": True,
+        "source": str(source),
+        "destination": str(destination),
+        "warnings": warnings,
+    }
+
+
+@router.post("/project/delete")
+def delete_project(payload: ProjectDeleteRequest) -> dict[str, Any]:
+    source = _managed_project(payload.workspace)
+    _ensure_project_idle(source)
+    try:
+        _project_runs_module().control_project_run(source, "stop")
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Lyra could not safely stop this project's saved workers.",
+        ) from exc
+    trash_root = _project_trash_root()
+    try:
+        trash_root.mkdir(parents=True, exist_ok=True)
+        destination = _unique_destination(trash_root, source.name)
+        shutil.move(str(source), str(destination))
+    except OSError as exc:
+        raise HTTPException(
+            status_code=500, detail="Lyra could not move the project to Trash."
+        ) from exc
+    warnings = _relocate_project_metadata(source, destination)
+    return {
+        "ok": True,
+        "source": str(source),
+        "trash_path": str(destination),
+        "warnings": warnings,
+        "message": "Project moved to Lyra Trash. It was not permanently deleted.",
+    }
 
 
 @router.post("/preview/document")

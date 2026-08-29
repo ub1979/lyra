@@ -75,3 +75,24 @@ def test_pause_and_resume_only_touch_user_paused_jobs(tmp_path, monkeypatch):
     resumed = module.control_project_run(project, "resume")
     assert resumed["changed"] == [task_id]
     assert module.project_run_state(project)["tasks"][0]["status"] == "ready"
+
+
+def test_moving_project_keeps_saved_jobs_attached(tmp_path, monkeypatch):
+    monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
+    project = tmp_path / "old" / "project"
+    project.mkdir(parents=True)
+    module = load_project_runs()
+    queued = module.queue_project_run(project, ["sw-developer"])
+    destination = tmp_path / "new" / "project"
+    destination.parent.mkdir()
+    project.rename(destination)
+
+    result = module.relocate_project_runs(project, destination)
+
+    assert result["changed"] == [queued["tasks"][0]["task_id"]]
+    assert module.project_run_state(destination)["task_count"] == 1
+    with module.kb.connect_closing() as conn:
+        task = module.kb.get_task(conn, queued["tasks"][0]["task_id"])
+    assert task is not None
+    assert task.workspace_path == str(destination)
+    assert f"Workspace: {destination}" in (task.body or "")

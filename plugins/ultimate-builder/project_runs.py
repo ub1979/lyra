@@ -315,5 +315,32 @@ def control_project_run(workspace: str | Path, action: str) -> dict[str, Any]:
     return {"ok": True, "action": action, "changed": changed, "project": str(project)}
 
 
+def relocate_project_runs(
+    source: str | Path, destination: str | Path
+) -> dict[str, Any]:
+    """Keep durable project jobs attached when their project folder moves."""
+    old = Path(source).expanduser().resolve(strict=False)
+    new = Path(destination).expanduser().resolve(strict=False)
+    changed: list[str] = []
+    for board, snapshot in _project_tasks(old, include_archived=True):
+        with kb.connect_closing(board=board) as conn:
+            task = kb.get_task(conn, snapshot.id)
+            if task is None:
+                continue
+            body = (task.body or "").replace(str(old), str(new))
+            with kb.write_txn(conn):
+                conn.execute(
+                    "UPDATE tasks SET workspace_path = ?, body = ? WHERE id = ?",
+                    (str(new), body, task.id),
+                )
+            changed.append(task.id)
+    return {
+        "ok": True,
+        "source": str(old),
+        "destination": str(new),
+        "changed": changed,
+    }
+
+
 def print_json(value: dict[str, Any]) -> None:
     print(json.dumps(value, ensure_ascii=False, indent=2))

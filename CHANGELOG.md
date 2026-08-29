@@ -9,6 +9,18 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.13] - 2026-08-29 — safe project moving and Trash
+
+### Added
+
+- **Recent projects can now be moved, removed from Lyra, or sent to Lyra
+  Trash.** Moving preserves the project's saved chat and background-job
+  history; removing only hides the shortcut and never touches project files.
+- **Project deletion is recoverable and clearly confirmed.** Lyra moves the
+  entire folder into its own Trash instead of permanently erasing it, refuses
+  to overwrite an existing destination, and will not move a project while an
+  agent is actively working in it.
+
 ## [0.19.12] - 2026-08-29 — recoverable project agents
 
 ### Changed
