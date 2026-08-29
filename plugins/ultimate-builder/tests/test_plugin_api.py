@@ -41,3 +41,38 @@ def test_workspace_safety_supports_new_nonexistent_projects():
     )
     assert result["allowed"] is True
     assert result["path"].endswith("not-created-yet")
+
+
+def test_progress_ledger_is_the_structured_phase_source_of_truth():
+    module = load_plugin_api()
+    result = module._parse_progress_ledger(
+        """# Progress
+
+| Phase | Status | Evidence |
+|---|---|---|
+| Requirements | Complete | approved |
+| Architecture | In progress | plan.md |
+| Development R01-R10 | Complete for Wave A | tests pass |
+| Roadmap R11-R48 | Not started | later |
+| Release/signing/notarization | Blocked | certificate missing |
+"""
+    )
+
+    assert result["available"] is True
+    assert [(phase["id"], phase["state"]) for phase in result["phases"]] == [
+        ("req-engineer", "done"),
+        ("sw-architect", "now"),
+        ("sw-developer", "done"),
+        ("ledger:roadmap-r11-r48", "pending"),
+        ("devops-engineer", "blocked"),
+    ]
+
+
+def test_progress_ledger_without_a_phase_table_is_unavailable():
+    module = load_plugin_api()
+    result = module._parse_progress_ledger("# Progress\nNo ledger yet.\n")
+    assert result == {
+        "available": False,
+        "source": ".sdlc/progress.md",
+        "phases": [],
+    }

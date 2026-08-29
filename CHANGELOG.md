@@ -9,6 +9,18 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.9] - 2026-08-29 — truthful project progress
+
+### Fixed
+
+- **The project map now reports durable, verified project state.** It reads the
+  project's `.sdlc/progress.md` ledger, preserves its phase labels and statuses,
+  refreshes while work continues, and no longer presents a guessed completion
+  percentage based on browser-only chat markers.
+- **Background agents can no longer replace the main project conversation.**
+  Project recovery validates saved sessions, prefers the top-level project chat,
+  and excludes delegated worker sessions from continuation resolution.
+
 ## [0.19.8] - 2026-08-29 — compression-aware project chat
 
 ### Fixed

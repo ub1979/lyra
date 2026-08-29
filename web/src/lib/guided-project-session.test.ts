@@ -55,4 +55,41 @@ describe("guided project session persistence", () => {
       ),
     ).toBe("real-chat");
   });
+
+  it("never replaces the project chat with a delegated agent session", () => {
+    expect(
+      selectGuidedProjectSessionId(
+        [
+          {
+            cwd: "/projects/song",
+            id: "project-chat",
+            message_count: 80,
+            source: "desktop",
+          },
+          {
+            cwd: "/projects/song",
+            id: "architecture-worker",
+            message_count: 200,
+            parent_session_id: "project-chat",
+            source: "subagent",
+          },
+        ],
+        "/projects/song",
+        "architecture-worker",
+      ),
+    ).toBe("project-chat");
+  });
+
+  it("keeps a saved top-level project chat when it is still valid", () => {
+    expect(
+      selectGuidedProjectSessionId(
+        [
+          { cwd: "/projects/song", id: "newer", message_count: 90 },
+          { cwd: "/projects/song", id: "saved", message_count: 40 },
+        ],
+        "/projects/song",
+        "saved",
+      ),
+    ).toBe("saved");
+  });
 });

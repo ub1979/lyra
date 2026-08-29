@@ -117,10 +117,12 @@ export function nextGuidedPhase({
   return ordered.find((id) => !done.has(id)) ?? null;
 }
 
-export type GuidedPhaseState = "done" | "now" | "pending";
+export type GuidedPhaseState = "done" | "now" | "pending" | "blocked";
 
 export type GuidedPhaseStep = {
   id: string;
+  label?: string;
+  status?: string;
   state: GuidedPhaseState;
 };
 

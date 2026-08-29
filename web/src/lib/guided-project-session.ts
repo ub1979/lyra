@@ -4,6 +4,8 @@ interface GuidedProjectSessionCandidate {
   cwd?: string | null;
   id?: string | null;
   message_count?: number | null;
+  parent_session_id?: string | null;
+  source?: string | null;
 }
 
 export function guidedProjectSessionStorageKey(workspace: string): string {
@@ -49,13 +51,26 @@ export function clearGuidedProjectSessionId(workspace: string): void {
 export function selectGuidedProjectSessionId(
   sessions: readonly GuidedProjectSessionCandidate[],
   workspace: string,
+  preferredId = "",
 ): string {
+  const matching = sessions.filter(
+    (session) =>
+      session.cwd === workspace && Boolean(session.id?.trim()),
+  );
+  const projectChats = matching.filter(
+    (session) =>
+      session.source !== "subagent" && !session.parent_session_id?.trim(),
+  );
+  const candidates = projectChats.length ? projectChats : matching;
+  const preferred = preferredId.trim();
+  if (preferred) {
+    const saved = candidates.find(
+      (session) => session.id?.trim() === preferred,
+    );
+    if (saved) return preferred;
+  }
   return (
-    sessions
-      .filter(
-        (session) =>
-          session.cwd === workspace && Boolean(session.id?.trim()),
-      )
+    [...candidates]
       .sort(
         (left, right) =>
           (right.message_count ?? 0) - (left.message_count ?? 0),

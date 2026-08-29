@@ -2343,6 +2343,31 @@ class TestWebServerEndpoints:
         assert worker_resp.status_code == 200
         assert worker_resp.json()["session_id"] == "worker-tip"
 
+    def test_latest_descendant_ignores_delegated_agent_sessions(self):
+        """A background worker is not the continuation of the user's chat."""
+        from hermes_state import SessionDB
+
+        db = SessionDB()
+        try:
+            db.create_session(session_id="project-root", source="desktop")
+            db.create_session(
+                session_id="compression-tip",
+                source="desktop",
+                parent_session_id="project-root",
+            )
+            db.create_session(
+                session_id="architecture-worker",
+                source="subagent",
+                parent_session_id="project-root",
+            )
+        finally:
+            db.close()
+
+        resp = self.client.get("/api/sessions/project-root/latest-descendant")
+        assert resp.status_code == 200
+        assert resp.json()["session_id"] == "compression-tip"
+        assert "architecture-worker" not in resp.json()["path"]
+
     def test_latest_descendant_survives_parent_cycle(self):
         """Regression for the #39140 CTE salvage: a corrupted parent chain
         that loops (a -> b -> a) must terminate (UNION dedup) instead of

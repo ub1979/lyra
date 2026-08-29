@@ -11602,10 +11602,11 @@ async def cancel_oauth_session(
 
 
 def _session_latest_descendant(session_id: str, db):
-    """Resolve a session id to the newest child leaf session.
+    """Resolve a session id to the newest continuation leaf session.
 
-    /model may create child sessions. Dashboard refresh should continue the
-    newest child instead of reopening the old parent.
+    /model and compression may create continuation sessions. Delegated agents
+    also have ``parent_session_id`` links, but they are parallel workers, not a
+    replacement for the user's project chat, and must never hijack resume.
     """
     def row_get(row, key, index):
         if isinstance(row, dict):
@@ -11633,14 +11634,15 @@ def _session_latest_descendant(session_id: str, db):
     if conn is not None:
         raw_rows = conn.execute(
             """
-            WITH RECURSIVE descendants(id, parent_session_id, started_at) AS (
-                SELECT id, parent_session_id, started_at FROM sessions WHERE id = ?
+            WITH RECURSIVE descendants(id, parent_session_id, started_at, source) AS (
+                SELECT id, parent_session_id, started_at, source FROM sessions WHERE id = ?
                 UNION
-                SELECT s.id, s.parent_session_id, s.started_at
+                SELECT s.id, s.parent_session_id, s.started_at, s.source
                 FROM sessions s
                 JOIN descendants d ON s.parent_session_id = d.id
+                WHERE COALESCE(s.source, '') != 'subagent'
             )
-            SELECT id, parent_session_id, started_at FROM descendants
+            SELECT id, parent_session_id, started_at, source FROM descendants
             """,
             (sid,),
         ).fetchall()
@@ -11649,6 +11651,7 @@ def _session_latest_descendant(session_id: str, db):
                 "id": row_get(row, "id", 0),
                 "parent_session_id": row_get(row, "parent_session_id", 1),
                 "started_at": row_get(row, "started_at", 2),
+                "source": row_get(row, "source", 3),
             })
     else:
         rows = db.list_sessions_rich(limit=10000, offset=0, compact_rows=True)
@@ -11657,7 +11660,7 @@ def _session_latest_descendant(session_id: str, db):
     for row in rows:
         rid = row.get("id")
         parent = row.get("parent_session_id")
-        if rid and parent:
+        if rid and parent and row.get("source") != "subagent":
             children.setdefault(parent, []).append(row)
 
     def started(row):

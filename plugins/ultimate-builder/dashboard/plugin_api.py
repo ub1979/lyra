@@ -49,6 +49,82 @@ _CSP_META = re.compile(
     re.IGNORECASE,
 )
 
+_PHASE_IDS = (
+    (re.compile(r"\brequirements?\b", re.I), "req-engineer"),
+    (re.compile(r"\bresearch\b", re.I), "researcher"),
+    (re.compile(r"\b(?:ui|ux|visual)?\s*design\b", re.I), "ui-designer"),
+    (re.compile(r"\barchitecture\b", re.I), "sw-architect"),
+    (re.compile(r"\b(?:development|implementation)\b", re.I), "sw-developer"),
+    (re.compile(r"\bdebug(?:ging)?\b", re.I), "debugger"),
+    (re.compile(r"\bux writing\b", re.I), "ux-writer"),
+    (re.compile(r"\b(?:quality assurance|qa|verification)\b", re.I), "qa-engineer"),
+    (re.compile(r"\bsecurity\b", re.I), "security-auditor"),
+    (re.compile(r"\baccessibility\b", re.I), "a11y-auditor"),
+    (re.compile(r"\bdocumentation\b", re.I), "tech-writer"),
+    (re.compile(r"\bcontext preservation\b", re.I), "context-save"),
+    (re.compile(r"\b(?:release|deployment|signing|notarization)\b", re.I), "devops-engineer"),
+)
+
+
+def _phase_id(label: str) -> str:
+    for pattern, phase_id in _PHASE_IDS:
+        if pattern.search(label):
+            return phase_id
+    slug = re.sub(r"[^a-z0-9]+", "-", label.lower()).strip("-")
+    return f"ledger:{slug or 'phase'}"
+
+
+def _phase_state(status: str) -> str:
+    normalized = status.strip().lower()
+    if re.search(r"\b(blocked|failed|error)\b", normalized):
+        return "blocked"
+    if re.search(r"\b(running|in progress|active|underway)\b", normalized):
+        return "now"
+    if re.search(r"\b(verified|complete|completed|done|passed|green|approved)\b", normalized):
+        return "done"
+    return "pending"
+
+
+def _parse_progress_ledger(markdown: str) -> dict[str, Any]:
+    """Turn the durable progress table into a UI-safe project map."""
+    lines = markdown.splitlines()
+    phases: list[dict[str, str]] = []
+    for index in range(len(lines) - 2):
+        header = [cell.strip().lower() for cell in lines[index].strip().strip("|").split("|")]
+        divider = lines[index + 1].strip()
+        if "phase" not in header or "status" not in header:
+            continue
+        if not re.fullmatch(r"\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?", divider):
+            continue
+        phase_col = header.index("phase")
+        status_col = header.index("status")
+        evidence_col = header.index("evidence") if "evidence" in header else -1
+        for row in lines[index + 2 :]:
+            if not row.lstrip().startswith("|"):
+                break
+            cells = [cell.strip() for cell in row.strip().strip("|").split("|")]
+            if max(phase_col, status_col) >= len(cells):
+                continue
+            label = re.sub(r"[*_`]", "", cells[phase_col]).strip()
+            status = re.sub(r"[*_`]", "", cells[status_col]).strip()
+            if not label or not status:
+                continue
+            phases.append(
+                {
+                    "id": _phase_id(label),
+                    "label": label,
+                    "status": status,
+                    "state": _phase_state(status),
+                    "evidence": cells[evidence_col] if 0 <= evidence_col < len(cells) else "",
+                }
+            )
+        break
+    return {
+        "available": bool(phases),
+        "source": ".sdlc/progress.md",
+        "phases": phases,
+    }
+
 
 class PreviewDocumentRequest(BaseModel):
     url: str = Field(min_length=1, max_length=2_048)
@@ -353,10 +429,12 @@ def state(path: str = Query(..., min_length=1)) -> dict[str, Any]:
                     }
                 )
 
+    progress_text = _safe_text(progress)
     return {
         "project": str(project),
         "has_sdlc": sdlc.is_dir(),
-        "progress": _safe_text(progress),
+        "progress": progress_text,
+        "phase_state": _parse_progress_ledger(progress_text),
         "artifacts": artifacts,
         "learning_candidates": candidates,
     }

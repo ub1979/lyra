@@ -367,6 +367,10 @@ export const api = {
         profile,
       ),
     ),
+  getUltimateBuilderState: (path: string) =>
+    fetchJSON<UltimateBuilderState>(
+      `/api/plugins/ultimate-builder/state?path=${encodeURIComponent(path)}`,
+    ),
   getSessionMessages: (id: string, profile = getManagementProfile()) =>
     fetchJSON<SessionMessagesResponse>(
       appendProfileParam(`/api/sessions/${encodeURIComponent(id)}/messages`, profile),
@@ -1864,6 +1868,25 @@ export interface SessionInfo {
   output_tokens: number;
   preview: string | null;
   parent_session_id?: string | null;
+}
+
+export interface UltimateBuilderPhase {
+  id: string;
+  label: string;
+  status: string;
+  state: "done" | "now" | "pending" | "blocked";
+  evidence: string;
+}
+
+export interface UltimateBuilderState {
+  project: string;
+  has_sdlc: boolean;
+  progress: string;
+  phase_state: {
+    available: boolean;
+    source: string;
+    phases: UltimateBuilderPhase[];
+  };
 }
 
 export interface SessionLatestDescendantResponse {

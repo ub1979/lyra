@@ -922,12 +922,15 @@ function GuidedRuntimePanel({
 }
 
 function GuidedProgressMap({
+  durable,
   steps,
 }: {
+  durable: boolean;
   steps: readonly GuidedPhaseStep[];
 }) {
   const summary = guidedPhaseSummary(steps);
   const current = steps.find((step) => step.state === "now") ?? null;
+  const blocked = steps.filter((step) => step.state === "blocked").length;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col p-3 text-xs">
@@ -936,22 +939,14 @@ function GuidedProgressMap({
           <MapIcon className="h-3.5 w-3.5" />
           Project map
         </span>
-        <strong className="text-sm text-midground">{summary.percent}%</strong>
+        <strong className="rounded-full border border-current/15 px-2 py-0.5 text-[9px] uppercase tracking-wider text-midground">
+          {durable ? "Live ledger" : "Chat signals"}
+        </strong>
       </div>
-
-      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-current/10">
-        <div
-          className="h-full rounded-full bg-emerald-400 transition-[width] duration-500"
-          style={{ width: `${summary.percent}%` }}
-          role="progressbar"
-          aria-label="Verified project completion"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={summary.percent}
-        />
-      </div>
-      <p className="mt-1.5 text-[9px] leading-3 text-text-secondary">
-        Based on verified phases, not elapsed time.
+      <p className="mt-2 text-[9px] leading-3 text-text-secondary">
+        {durable
+          ? "Read from the project's verified progress record. No estimated percentage."
+          : "Waiting for a project progress record; these are conversation signals only."}
       </p>
 
       <div className="mt-3 grid grid-cols-2 gap-2">
@@ -960,18 +955,24 @@ function GuidedProgressMap({
             Done
           </span>
           <strong className="mt-0.5 block text-base text-emerald-400">
-            {summary.completed}/{summary.total}
+            {summary.completed}
           </strong>
         </div>
         <div className="rounded-lg border border-current/15 bg-background-base/60 p-2">
           <span className="block text-[9px] uppercase tracking-wider text-text-secondary">
-            Work left
+            Open
           </span>
           <strong className="mt-0.5 block text-base text-midground">
-            {summary.remaining} {summary.remaining === 1 ? "phase" : "phases"}
+            {summary.remaining}
           </strong>
         </div>
       </div>
+
+      {blocked > 0 && (
+        <p className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/[0.08] px-2 py-1.5 text-[10px] text-amber-300">
+          {blocked} {blocked === 1 ? "phase is" : "phases are"} blocked
+        </p>
+      )}
 
       {current && (
         <div className="mt-2 rounded-lg border border-midground/30 bg-midground/[0.07] p-2.5">
@@ -983,7 +984,9 @@ function GuidedProgressMap({
               id={current.id}
               className="h-6 w-6 shrink-0 rounded-md object-cover"
             />
-            <span className="truncate">{guidedAgentName(current.id)}</span>
+            <span className="truncate">
+              {current.label ?? guidedAgentName(current.id)}
+            </span>
           </strong>
         </div>
       )}
@@ -1000,6 +1003,8 @@ function GuidedProgressMap({
                     ? "border-emerald-500/20 bg-emerald-500/[0.05]"
                     : step.state === "now"
                       ? "border-midground/35 bg-midground/[0.08]"
+                      : step.state === "blocked"
+                        ? "border-amber-500/25 bg-amber-500/[0.07]"
                       : "border-current/10 bg-background-base/45",
                 )}
               >
@@ -1008,19 +1013,19 @@ function GuidedProgressMap({
                 ) : (
                   <GuidedAgentAvatar
                     id={step.id}
-                    muted={step.state === "pending"}
+                    muted={step.state === "pending" || step.state === "blocked"}
                     className="h-4 w-4 shrink-0 rounded object-cover"
                   />
                 )}
                 <span
                   className={cn(
                     "min-w-0 flex-1 truncate text-[10px]",
-                    step.state === "pending"
+                    step.state === "pending" || step.state === "blocked"
                       ? "text-text-secondary"
                       : "font-semibold text-midground",
                   )}
                 >
-                  {GUIDED_SPECIALIST_LABELS[step.id] ?? step.id}
+                  {step.label ?? GUIDED_SPECIALIST_LABELS[step.id] ?? step.id}
                 </span>
                 <span
                   className={cn(
@@ -1029,6 +1034,8 @@ function GuidedProgressMap({
                       ? "text-emerald-400"
                       : step.state === "now"
                         ? "text-midground"
+                        : step.state === "blocked"
+                          ? "text-amber-300"
                         : "text-text-secondary/70",
                   )}
                 >
@@ -1036,7 +1043,9 @@ function GuidedProgressMap({
                     ? "Done"
                     : step.state === "now"
                       ? "Now"
-                      : "Next"}
+                      : step.state === "blocked"
+                        ? "Blocked"
+                        : step.status ?? "Next"}
                 </span>
               </li>
             ))}
@@ -1398,6 +1407,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const [guidedPhasesCompleted, setGuidedPhasesCompleted] = useState<string[]>(
     initialGuidedPhaseState.completed,
   );
+  const [guidedLedger, setGuidedLedger] = useState<{
+    workspace: string;
+    steps: GuidedPhaseStep[] | null;
+  } | null>(null);
   const guidedPhaseCurrentRef = useRef<string | null>(
     initialGuidedPhaseState.current,
   );
@@ -1485,11 +1498,15 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     guidedSkillDraftIds,
     guidedModelOptions,
   );
-  const guidedPhaseSteps = guidedPhaseProgress({
-    completed: guidedPhasesCompleted,
-    current: guidedPhaseCurrent,
-    ordered: orderGuidedPhases(guidedSelectedSpecialistIds),
-  });
+  const guidedLedgerSteps =
+    guidedLedger?.workspace === workspaceParam ? guidedLedger.steps : null;
+  const guidedPhaseSteps =
+    guidedLedgerSteps ??
+    guidedPhaseProgress({
+      completed: guidedPhasesCompleted,
+      current: guidedPhaseCurrent,
+      ordered: orderGuidedPhases(guidedSelectedSpecialistIds),
+    });
   const guidedProgressSummary = guidedPhaseSummary(guidedPhaseSteps);
   const latestGuidedMessage = guidedMessages[guidedMessages.length - 1] ?? null;
   const showRequirementsApproval =
@@ -1963,7 +1980,6 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     !guided ||
     !workspaceParam ||
     Boolean(builderParam) ||
-    Boolean(resumeParam) ||
     guidedSessionLookupWorkspace === workspaceParam;
 
   useEffect(() => {
@@ -1971,27 +1987,28 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     let cancelled = false;
 
     const resolveProjectSession = async () => {
-      let sessionId = readGuidedProjectSessionId(workspaceParam);
-      if (!sessionId) {
-        try {
-          const page = await api.getSessions(
-            20,
-            0,
-            scopedProfile,
-            "recent",
-            workspaceParam,
-          );
-          sessionId = selectGuidedProjectSessionId(
-            page.sessions,
-            workspaceParam,
-          );
-        } catch {
-          // A new project chat remains available if session lookup fails.
-        }
+      const storedSessionId = readGuidedProjectSessionId(workspaceParam);
+      let sessionId = storedSessionId;
+      try {
+        const page = await api.getSessions(
+          100,
+          0,
+          scopedProfile,
+          "recent",
+          workspaceParam,
+        );
+        sessionId = selectGuidedProjectSessionId(
+          page.sessions,
+          workspaceParam,
+          storedSessionId,
+        );
+      } catch {
+        // A saved project chat remains available if validation fails.
       }
       if (cancelled) return;
       if (sessionId) {
         writeGuidedProjectSessionId(workspaceParam, sessionId);
+        setGuidedSessionLookupWorkspace(workspaceParam);
         const next = new URLSearchParams(searchParams);
         next.set("resume", sessionId);
         setSearchParams(next, { replace: true });
@@ -2011,6 +2028,39 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     setSearchParams,
     workspaceParam,
   ]);
+
+  useEffect(() => {
+    if (!guided || !workspaceParam) return;
+    let cancelled = false;
+
+    const refreshLedger = async () => {
+      try {
+        const state = await api.getUltimateBuilderState(workspaceParam);
+        if (cancelled) return;
+        setGuidedLedger({
+          workspace: workspaceParam,
+          steps: state.phase_state.available
+            ? state.phase_state.phases.map((phase) => ({
+                id: phase.id,
+                label: phase.label,
+                state: phase.state,
+                status: phase.status,
+              }))
+            : null,
+        });
+      } catch {
+        // The builder plugin may be disabled; keep conversation signals as a
+        // clearly labelled fallback instead of claiming verified progress.
+      }
+    };
+
+    void refreshLedger();
+    const timer = window.setInterval(() => void refreshLedger(), 5_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [guided, workspaceParam]);
   useEffect(() => {
     if (!guided || !isActive) return;
     let cancelled = false;
@@ -4730,10 +4780,14 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               >
                 <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-md border border-current/15 px-2 py-1.5 text-xs text-text-secondary">
                   <MapIcon className="h-3.5 w-3.5" />
-                  Progress {guidedProgressSummary.percent}%
+                  Done {guidedProgressSummary.completed} · Open{" "}
+                  {guidedProgressSummary.remaining}
                 </summary>
                 <div className="fixed right-4 top-24 z-30 flex max-h-[72vh] w-[min(19rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-current/20 bg-background-base shadow-2xl">
-                  <GuidedProgressMap steps={guidedPhaseSteps} />
+                  <GuidedProgressMap
+                    durable={guidedLedgerSteps !== null}
+                    steps={guidedPhaseSteps}
+                  />
                 </div>
               </details>
               <Button
@@ -5294,7 +5348,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             guidedPreviewOpen ? "hidden 2xl:flex" : "hidden xl:flex",
           )}
         >
-          <GuidedProgressMap steps={guidedPhaseSteps} />
+          <GuidedProgressMap
+            durable={guidedLedgerSteps !== null}
+            steps={guidedPhaseSteps}
+          />
         </aside>
         </div>
         </div>
