@@ -65,6 +65,42 @@ export function isGuidedModelActivityEvent(eventType: string): boolean {
   return GUIDED_MODEL_ACTIVITY_EVENTS.has(eventType);
 }
 
+export type GuidedCompressionTransition = "start" | "finish" | null;
+
+/**
+ * Interpret the gateway's explicit context-compression lifecycle.
+ *
+ * A `compacting` status is emitted at phase start and by the backend's real
+ * 60-second activity heartbeat. `compacted` is the terminal edge. Normal
+ * model/tool output also proves compression has finished if an older backend
+ * omitted or a reconnect lost that terminal status frame.
+ */
+export function guidedCompressionTransition(
+  eventType: string,
+  statusKind?: unknown,
+): GuidedCompressionTransition {
+  if (eventType === "status.update") {
+    if (statusKind === "compacting") return "start";
+    if (statusKind === "compacted") return "finish";
+    return null;
+  }
+  if (
+    eventType === "message.start" ||
+    eventType === "message.delta" ||
+    eventType === "message.complete" ||
+    eventType === "reasoning.delta" ||
+    eventType === "thinking.delta" ||
+    eventType === "tool.start" ||
+    eventType === "tool.progress" ||
+    eventType === "tool.generating" ||
+    eventType === "tool.complete" ||
+    eventType === "error"
+  ) {
+    return "finish";
+  }
+  return null;
+}
+
 /**
  * Events that prove a specialist phase is genuinely running, as opposed to
  * merely requested.

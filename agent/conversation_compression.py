@@ -61,6 +61,9 @@ COMPACTION_STATUS = (
 )
 
 COMPACTION_DONE_STATUS = "✓ Context compaction complete — continuing turn..."
+COMPACTION_HEARTBEAT_STATUS = (
+    "🗜️ Compacting context — still summarizing earlier conversation..."
+)
 
 
 def _emit_compaction_done(agent: Any) -> None:
@@ -609,6 +612,26 @@ class _CompressionActivityHeartbeat:
                 touch(desc)
         except Exception:
             logger.debug("compression activity heartbeat touch failed", exc_info=True)
+        # The dashboard's guided chat consumes structured TUI lifecycle
+        # updates, not the agent's private inactivity timestamp. Forward the
+        # real compression heartbeat so its silence watchdog and visible
+        # activity counter both know that summarization is still alive. Keep
+        # messaging platforms quiet: their status callback may create or edit
+        # a chat message, while this heartbeat is intended for persistent local
+        # status surfaces only.
+        if (
+            desc == "context compression in progress"
+            and getattr(self._agent, "platform", "") in {"tui", "desktop"}
+        ):
+            status_callback = getattr(self._agent, "status_callback", None)
+            if callable(status_callback):
+                try:
+                    status_callback("compacting", COMPACTION_HEARTBEAT_STATUS)
+                except Exception:
+                    logger.debug(
+                        "compression status heartbeat callback failed",
+                        exc_info=True,
+                    )
 
     def _run(self) -> None:
         while not self._stop.wait(self._interval_seconds):

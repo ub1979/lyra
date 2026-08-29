@@ -6,6 +6,7 @@ import {
   GUIDED_TOOL_SILENCE_GRACE_MS,
   decideGuidedWatchdog,
   extendGuidedSubagentGrace,
+  guidedCompressionTransition,
   guidedSubagentGraceMs,
   guidedWatchdogMessage,
   isGuidedModelActivityEvent,
@@ -23,6 +24,38 @@ describe("isGuidedModelActivityEvent", () => {
     expect(isGuidedModelActivityEvent("message.start")).toBe(false);
     expect(isGuidedModelActivityEvent("tool.progress")).toBe(false);
     expect(isGuidedModelActivityEvent("error")).toBe(false);
+  });
+});
+
+describe("guidedCompressionTransition", () => {
+  it("keeps compression active on its start and heartbeat statuses", () => {
+    expect(
+      guidedCompressionTransition("status.update", "compacting"),
+    ).toBe("start");
+  });
+
+  it("finishes on the explicit terminal status", () => {
+    expect(
+      guidedCompressionTransition("status.update", "compacted"),
+    ).toBe("finish");
+  });
+
+  it("recovers from a lost terminal status when normal turn output resumes", () => {
+    for (const type of [
+      "message.delta",
+      "thinking.delta",
+      "reasoning.delta",
+      "tool.start",
+      "message.complete",
+      "error",
+    ]) {
+      expect(guidedCompressionTransition(type)).toBe("finish");
+    }
+  });
+
+  it("ignores unrelated statuses and specialist events", () => {
+    expect(guidedCompressionTransition("status.update", "warn")).toBeNull();
+    expect(guidedCompressionTransition("subagent.progress")).toBeNull();
   });
 });
 

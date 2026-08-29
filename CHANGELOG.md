@@ -9,6 +9,16 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.8] - 2026-08-29 — compression-aware project chat
+
+### Fixed
+
+- **Long context compression no longer looks like a failed AI response.**
+  Guided project chat now recognizes the explicit compression lifecycle,
+  displays a clear summarizing status, receives the backend's real 60-second
+  compression heartbeat, and pauses the model-silence watchdog until normal
+  turn activity resumes.
+
 ## [0.19.7] - 2026-08-29 — automatic project chat resume
 
 ### Fixed

@@ -9,20 +9,20 @@ import {
 function version(overrides: Partial<LyraVersion> = {}): LyraVersion {
   return {
     channel: "beta",
-    display: "beta v0.19.7",
+    display: "beta v0.19.8",
     notes: ["Researcher is now selectable."],
-    release_name: "automatic project chat resume",
+    release_name: "compression-aware project chat",
     released: "2026-08-29",
-    title: "automatic project chat resume",
+    title: "compression-aware project chat",
     update: { behind: 0, branch: "main", checked: true, update_available: false },
-    version: "0.19.7",
+    version: "0.19.8",
     ...overrides,
   };
 }
 
 describe("versionLabel", () => {
   it("shows Lyra's own version", () => {
-    expect(versionLabel(version())).toBe("beta v0.19.7");
+    expect(versionLabel(version())).toBe("beta v0.19.8");
   });
 
   it("never shows the upstream CLI number in its place", () => {
@@ -34,7 +34,7 @@ describe("versionLabel", () => {
 describe("versionTooltip", () => {
   it("names the release and says it is current", () => {
     const text = versionTooltip(version());
-    expect(text).toContain("beta v0.19.7 — automatic project chat resume");
+    expect(text).toContain("beta v0.19.8 — compression-aware project chat");
     expect(text).toContain("Released 2026-08-29");
     expect(text).toContain("Up to date");
   });

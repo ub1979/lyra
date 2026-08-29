@@ -84,6 +84,7 @@ import {
   GUIDED_TOOL_SILENCE_GRACE_MS,
   decideGuidedWatchdog,
   extendGuidedSubagentGrace,
+  guidedCompressionTransition,
   guidedWatchdogMessage,
   isGuidedModelActivityEvent,
 } from "@/lib/guided-turn-watchdog";
@@ -252,6 +253,7 @@ interface GuidedAgentEventEnvelope {
       description?: string;
       failure_reason?: string;
       goal?: string;
+      kind?: string;
       message?: string;
       name?: string;
       preview?: string;
@@ -1341,6 +1343,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     specialist: null,
   });
   const [guidedLastSignalAt, setGuidedLastSignalAt] = useState(Date.now);
+  const [guidedCompacting, setGuidedCompacting] = useState(false);
   const [guidedMessages, setGuidedMessages] = useState<GuidedMessage[]>(() =>
     typeof window === "undefined" ? [] : readGuidedMessages(workspaceParam),
   );
@@ -1895,6 +1898,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     guidedPhasesCompletedRef.current = [];
     guidedSubagentGraceUntilRef.current = 0;
     guidedActiveToolsRef.current = new Map();
+    setGuidedCompacting(false);
     setGuidedRunningTool(null);
     setGuidedActivity({ phase: "idle", text: "", specialist: null });
     lastGuidedResponseRef.current = "";
@@ -2106,6 +2110,35 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         if (frame.method !== "event" || !frame.params?.type) return;
 
         const { type, payload } = frame.params;
+        const compressionTransition = guidedCompressionTransition(
+          type,
+          payload?.kind,
+        );
+        if (compressionTransition === "start") {
+          guidedTurnSettledRef.current = false;
+          setGuidedCompacting(true);
+          setGuidedLastSignalAt(Date.now());
+          setGuidedActivity((current) => ({
+            phase: "working",
+            text: "Summarizing the conversation so Lyra can continue…",
+            specialist:
+              current.specialist ?? guidedDefaultSpecialistRef.current,
+          }));
+          return;
+        }
+        if (compressionTransition === "finish") {
+          setGuidedCompacting(false);
+          if (type === "status.update") {
+            setGuidedLastSignalAt(Date.now());
+            setGuidedActivity((current) => ({
+              phase: "working",
+              text: "Conversation summarized. Continuing…",
+              specialist:
+                current.specialist ?? guidedDefaultSpecialistRef.current,
+            }));
+            return;
+          }
+        }
           if (type === "session.info") {
             // The gateway has built the agent and published its durable
             // session. This is a stronger readiness signal than scraping the
@@ -2340,6 +2373,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           // child phase, even when a provider omitted subagent.complete.
           guidedSubagentGraceUntilRef.current = 0;
           guidedActiveToolsRef.current = new Map();
+          setGuidedCompacting(false);
           setGuidedRunningTool(null);
             if (payload?.usage) {
               setGuidedUsage(normalizeGuidedUsage(payload.usage));
@@ -2646,6 +2680,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     guidedTurnSettledRef.current = false;
     guidedSubagentGraceUntilRef.current = 0;
     guidedActiveToolsRef.current = new Map();
+    setGuidedCompacting(false);
     setGuidedRunningTool(null);
     guidedAutoContinueCountRef.current = 0;
     lastGuidedResponseRef.current = "";
@@ -3044,6 +3079,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     );
     lastGuidedResponseRef.current = "";
     guidedActiveToolsRef.current = new Map();
+    setGuidedCompacting(false);
     setGuidedRunningTool(null);
     setGuidedOutput("");
     setGuidedLastSignalAt(Date.now());
@@ -4114,7 +4150,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   ]);
 
   useEffect(() => {
-    if (!guided || guidedActivity.phase !== "working") return;
+    if (!guided || guidedActivity.phase !== "working" || guidedCompacting) {
+      return;
+    }
     const toolGraceDeadline = Math.max(
       0,
       ...Array.from(
@@ -4171,6 +4209,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     appendGuidedError,
     guided,
     guidedActivity.phase,
+    guidedCompacting,
     guidedLastSignalAt,
     sendGuidedControlCommand,
   ]);
