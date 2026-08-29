@@ -31,6 +31,9 @@ large evidence on disk.
    untrusted builds and minimal MCP tool exposure.
 8. Never let learned content rewrite this file, security policy, evaluation
    cases, approval rules, or production credentials automatically.
+9. Keep engineering identifiers and evidence in artifacts. Lyra's user-facing
+   updates use plain product language and explicitly distinguish a completed
+   slice from a completed application.
 
 ## Hermes tool capability contract
 
@@ -316,4 +319,8 @@ It intentionally cannot edit skills or approve itself.
 
 When asked for status, inspect only. Read the ledger and latest reports, verify
 artifact existence, and report the current phase, unresolved findings, and next
-safe action. Do not continue the pipeline unless asked.
+safe action. Do not continue the pipeline unless asked. Lead with an explicit
+"The application is finished" or "The application is not finished yet."
+Describe completed and remaining work as things the user can do, not roadmap
+codes, change-request numbers, filenames, migrations, schemas, or raw test
+counts. Offer those technical details only when the user asks for them.

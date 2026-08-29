@@ -154,3 +154,17 @@ def test_skills_define_chat_first_tool_recovery_and_website_research():
     assert "browser_navigate" in site_research
     assert "Never silently skip source research" in site_research
     assert "Never claim “the whole website was analysed.”" in site_research
+
+
+def test_project_guide_translates_engineering_progress_for_nontechnical_users():
+    skill_root = ROOT / "skills"
+    umbrella = (skill_root / "ultimate-app-builder" / "SKILL.md").read_text()
+    guide = (skill_root / "app-it" / "SKILL.md").read_text()
+    chat = (ROOT.parents[1] / "web" / "src" / "pages" / "ChatPage.tsx").read_text()
+
+    assert "Assume the user is not technical" in guide
+    assert "Is the whole application finished" in guide
+    assert "This part is done;\nthe application is not finished yet." in guide
+    assert "The application is not finished yet" in umbrella
+    assert "Never show roadmap codes such as R16" in chat
+    assert "what now works, what remains" in chat

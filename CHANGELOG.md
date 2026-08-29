@@ -9,6 +9,16 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.10] - 2026-08-29 — plain-language project updates
+
+### Changed
+
+- **Project updates now speak to non-technical users.** Lyra translates
+  internal roadmap codes, change identifiers, schemas, migrations, filenames,
+  and raw test evidence into what now works, what remains, and whether anything
+  is blocked. Every progress update explicitly distinguishes a completed part
+  from a completed application.
+
 ## [0.19.9] - 2026-08-29 — truthful project progress
 
 ### Fixed
