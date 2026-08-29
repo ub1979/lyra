@@ -74,6 +74,7 @@ import {
 import {
   guidedApprovalChoices,
   guidedApprovalKey,
+  guidedPlainLanguageTurnDirective,
   guidedRequirementsTurnDirective,
   unavailableGuidedModelAssignments,
   type GuidedApprovalChoice,
@@ -2485,9 +2486,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 );
                 lastGuidedResponseRef.current = "";
                 writeGuidedPrompt(
-                  advanceTo
+                  `${guidedPlainLanguageTurnDirective()}\n${advanceTo
                     ? `IDRAK_INTERNAL_CONTINUE: Start the ${advanceLabel} phase now. Load skill_view(name="ultimate-builder:${advanceTo}"), emit [APP_IT_PHASE:${advanceTo}] in your next reply, run or delegate that phase, verify its artifact, then emit [APP_IT_PHASE_DONE:${advanceTo}] and continue with the next enabled phase. Do not merely describe the next action. Stop for: any approval checkpoint (requirements summary, visual preview, final delivery), a real user decision, permission request, blocker, or final completion. At approval checkpoints, present options (Approve / Change / Skip) and wait.`
-                    : "IDRAK_INTERNAL_CONTINUE: Continue the selected workflow now. Perform the promised tool call or specialist delegation, verify its artifact, and then advance through later enabled phases. Do not merely describe the next action. Stop for: any approval checkpoint (requirements summary, visual preview, final delivery), a real user decision, permission request, blocker, or final completion. At approval checkpoints, present options (Approve / Change / Skip) and wait.",
+                    : "IDRAK_INTERNAL_CONTINUE: Continue the selected workflow now. Perform the promised tool call or specialist delegation, verify its artifact, and then advance through later enabled phases. Do not merely describe the next action. Stop for: any approval checkpoint (requirements summary, visual preview, final delivery), a real user decision, permission request, blocker, or final completion. At approval checkpoints, present options (Approve / Change / Skip) and wait."}`,
                   {
                     isOpen: () =>
                       wsRef.current?.readyState === WebSocket.OPEN,
@@ -2749,7 +2750,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       specialist: guidedDefaultSpecialistRef.current,
     });
     setGuidedOutput("");
-    const routing: string[] = [];
+    const routing: string[] = [guidedPlainLanguageTurnDirective()];
     if (options.applyAgentRouting !== false) {
       routing.push(
         guidedRequirementsTurnDirective({
@@ -3153,11 +3154,14 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     window.setTimeout(() => {
       const active = wsRef.current;
       if (!active || active.readyState !== WebSocket.OPEN) return;
-      writeGuidedPrompt(lastUserMessage.content, {
+      writeGuidedPrompt(
+        `${guidedPlainLanguageTurnDirective()}\n${lastUserMessage.content}`,
+        {
         isOpen: () => wsRef.current?.readyState === WebSocket.OPEN,
         schedule: (run, delayMs) => window.setTimeout(run, delayMs),
         send: (data) => active.send(data),
-      });
+        },
+      );
     }, 300);
   }, [guidedMessages]);
 

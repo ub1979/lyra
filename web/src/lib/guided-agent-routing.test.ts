@@ -2,9 +2,19 @@ import { describe, expect, it } from "vitest";
 import {
   guidedApprovalChoices,
   guidedApprovalKey,
+  guidedPlainLanguageTurnDirective,
   guidedRequirementsTurnDirective,
   unavailableGuidedModelAssignments,
 } from "./guided-agent-routing";
+
+describe("guidedPlainLanguageTurnDirective", () => {
+  it("repairs technical status language in existing project conversations", () => {
+    const directive = guidedPlainLanguageTurnDirective();
+    expect(directive).toMatch(/non-technical user/i);
+    expect(directive).toMatch(/whether the whole application is finished/i);
+    expect(directive).toMatch(/does not mean the whole application is finished/i);
+  });
+});
 
 describe("guidedRequirementsTurnDirective", () => {
   it("activates requirements selectively before discovery starts", () => {

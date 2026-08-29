@@ -4,6 +4,24 @@ export type GuidedRequirementsRoutingState = {
 };
 
 /**
+ * Per-turn communication guard for both new and already-saved project chats.
+ *
+ * Saved conversations retain their original cached setup message, so changing
+ * the project skill alone cannot repair their user-facing vocabulary. This
+ * compact suffix applies the current product language without mutating history.
+ */
+export function guidedPlainLanguageTurnDirective(): string {
+  return (
+    "IDRAK_INTERNAL_PLAIN_LANGUAGE: Speak for a non-technical user. " +
+    "Do not show roadmap or change-request codes, migrations, schemas, filenames, " +
+    "raw test counts, or engineering gate jargon unless the user asks for technical details. " +
+    "Translate progress into what now works. Explicitly say whether the whole application " +
+    "is finished, what remains, and whether anything is blocked or partially implemented. " +
+    "A completed task or milestone does not mean the whole application is finished."
+  );
+}
+
+/**
  * Per-turn guard for the guided coordinator.
  *
  * Requirements is a permanent team capability, not the speaker for every

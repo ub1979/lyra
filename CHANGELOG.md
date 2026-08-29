@@ -9,6 +9,15 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.11] - 2026-08-29 — plain-language existing project chats
+
+### Fixed
+
+- **Saved project conversations now receive the non-technical communication
+  rule on every turn.** Normal messages, retries, and automatic workflow
+  continuation no longer depend on the instructions present when an older
+  conversation was first created.
+
 ## [0.19.10] - 2026-08-29 — plain-language project updates
 
 ### Changed
