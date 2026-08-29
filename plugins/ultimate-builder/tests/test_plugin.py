@@ -107,6 +107,14 @@ def test_dashboard_enforces_requirements_gate_with_real_skill_loading():
     assert 'workspace-safety?path=' in dashboard
     assert 'workspace = await requireSafeWorkspace(workspace)' in dashboard
     assert 'window.location.href = "/chat?" + params.toString()' in dashboard
+    assert '"Lyra Studio"' in dashboard
+    assert '"Turn an idea into software."' in dashboard
+    assert '"Customize team"' in dashboard
+    assert '"Dark mode"' in dashboard
+    assert '"Light mode"' in dashboard
+    assert '"lyra-studio-color-mode"' in dashboard
+    assert 'ub-theme-" + studioTheme' in dashboard
+    assert "teamSizeLabel(template.skills)" in dashboard
     assert 'disabled: starting || !selected.size' not in dashboard
     assert "Use ultimate-builder:ultimate-app-builder" not in dashboard
 

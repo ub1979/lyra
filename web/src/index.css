@@ -460,8 +460,107 @@ button.text-display .arc-border {
 }
 
 .lyra-studio-chat aside {
+  min-width: 0;
   border-color: #e8e9ef !important;
   background: rgba(249, 249, 252, .9) !important;
+}
+
+.lyra-studio-shell[data-studio-theme="dark"] {
+  --background: #0f121a;
+  --background-base: #0f121a;
+  --midground: #9a8cff;
+  --midground-base: #9a8cff;
+  --foreground: #eef1f8;
+  --foreground-base: #eef1f8;
+  --color-text-primary: #eef1f8;
+  --color-text-secondary: #a5adbd;
+  --color-text-tertiary: #7d8698;
+  --color-card: #191d28;
+  --color-card-foreground: #eef1f8;
+  --color-primary: #8b7cf6;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #242235;
+  --color-secondary-foreground: #c5bdff;
+  --color-muted: #202430;
+  --color-muted-foreground: #a5adbd;
+  --color-accent: #27243b;
+  --color-accent-foreground: #c7c0ff;
+  --color-border: #303544;
+  --color-input: #343949;
+  --color-ring: #9a8cff;
+  --color-popover: #1a1e29;
+  --color-popover-foreground: #eef1f8;
+  color: #eef1f8;
+  color-scheme: dark;
+  background:
+    radial-gradient(circle at 10% 0%, rgba(111, 91, 247, .19), transparent 30rem),
+    radial-gradient(circle at 95% 15%, rgba(40, 128, 180, .14), transparent 32rem),
+    #0f121a;
+}
+
+.lyra-studio-shell[data-studio-theme="dark"] .lyra-studio-workspace {
+  border-color: #2b3040 !important;
+  background: rgba(22, 26, 36, .91) !important;
+  box-shadow: 0 26px 75px rgba(0, 0, 0, .38) !important;
+}
+
+.lyra-studio-shell[data-studio-theme="dark"] .lyra-studio-projectbar {
+  border-color: #292e3c !important;
+  background: rgba(24, 28, 39, .94);
+}
+
+.lyra-studio-shell[data-studio-theme="dark"] .lyra-studio-project-title .text-midground {
+  color: #f1f3f8;
+}
+
+.lyra-studio-shell[data-studio-theme="dark"] .lyra-studio-label {
+  color: #aa9fff;
+}
+
+.lyra-studio-shell[data-studio-theme="dark"] .lyra-studio-projectbar summary,
+.lyra-studio-shell[data-studio-theme="dark"] .lyra-studio-projectbar button {
+  border-color: transparent !important;
+  color: #aeb5c4 !important;
+  background: #202430 !important;
+}
+
+.lyra-studio-shell[data-studio-theme="dark"] .lyra-studio-projectbar summary:hover,
+.lyra-studio-shell[data-studio-theme="dark"] .lyra-studio-projectbar button:hover {
+  border-color: transparent !important;
+  color: #d5d0ff !important;
+  background: #2a2b3d !important;
+}
+
+.lyra-studio-shell[data-studio-theme="dark"] .lyra-studio-conversation {
+  background:
+    radial-gradient(circle at 25% 0%, rgba(112, 92, 248, .1), transparent 28rem),
+    linear-gradient(180deg, #141823 0%, #11151e 100%);
+  scrollbar-color: #3d4353 transparent;
+}
+
+.lyra-studio-shell[data-studio-theme="dark"] .lyra-studio-message:not(.bg-midground):not([class*="bg-warning"]) {
+  border-color: #2d3341 !important;
+  background: rgba(27, 32, 44, .96) !important;
+}
+
+.lyra-studio-shell[data-studio-theme="dark"] .lyra-studio-composer {
+  border-color: #292e3c !important;
+  background: rgba(22, 26, 36, .97) !important;
+}
+
+.lyra-studio-shell[data-studio-theme="dark"] .lyra-studio-composer div:has(> textarea) {
+  border-color: #343a49 !important;
+  background: #1b202b !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .22);
+}
+
+.lyra-studio-shell[data-studio-theme="dark"] .lyra-studio-composer textarea {
+  color: #eef1f8;
+}
+
+.lyra-studio-shell[data-studio-theme="dark"] .lyra-studio-chat aside {
+  border-color: #292e3c !important;
+  background: rgba(20, 24, 34, .94) !important;
 }
 
 @media (max-width: 720px) {

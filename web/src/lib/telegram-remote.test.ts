@@ -44,6 +44,7 @@ describe('telegramRemoteReadiness', () => {
 
   it('offers the phone handoff only when the full route is ready', () => {
     expect(telegramRemoteReadiness(platform())).toBe('ready')
-    expect(telegramRemoteButtonLabel('ready')).toBe('Continue on Telegram')
+    expect(telegramRemoteButtonLabel('ready')).toBe('Remote control')
+    expect(telegramRemoteButtonLabel('connect')).toBe('Remote control')
   })
 })

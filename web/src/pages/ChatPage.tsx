@@ -95,6 +95,7 @@ import {
   Copy,
   MessageCircle,
   Map as MapIcon,
+  Moon,
   Monitor,
   Paperclip,
   PanelRight,
@@ -102,6 +103,7 @@ import {
   Play,
   RotateCcw,
   Send,
+  Sun,
   Trash2,
   X,
 } from "lucide-react";
@@ -131,6 +133,11 @@ import {
   type GuidedSpecialist,
 } from "@/lib/guided-chat-output";
 import { normalizeSessionTitle } from "@/lib/chat-title";
+import {
+  listenForLyraStudioTheme,
+  readLyraStudioTheme,
+  writeLyraStudioTheme,
+} from "@/lib/lyra-studio-theme";
 import {
   PTY_CONNECTING_TIMEOUT_MS,
   PTY_RECONNECT_INPUT_MESSAGE,
@@ -920,11 +927,11 @@ function GuidedProgressMap({
   const current = steps.find((step) => step.state === "now") ?? null;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col p-3 text-xs">
-      <div className="flex items-center justify-between gap-2">
-        <span className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-[0.16em] text-text-secondary">
+    <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-x-hidden p-3 text-xs">
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <span className="inline-flex min-w-0 shrink items-center gap-1.5 font-semibold uppercase tracking-[0.16em] text-text-secondary">
           <MapIcon className="h-3.5 w-3.5" />
-          Project map
+          <span className="truncate">Project map</span>
         </span>
         <strong className="text-sm text-midground">{summary.percent}%</strong>
       </div>
@@ -944,8 +951,8 @@ function GuidedProgressMap({
         Based on verified phases, not elapsed time.
       </p>
 
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/[0.07] p-2">
+      <div className="mt-3 grid min-w-0 grid-cols-2 gap-2">
+        <div className="min-w-0 rounded-lg border border-emerald-500/25 bg-emerald-500/[0.07] p-2">
           <span className="block text-[9px] uppercase tracking-wider text-text-secondary">
             Done
           </span>
@@ -953,7 +960,7 @@ function GuidedProgressMap({
             {summary.completed}/{summary.total}
           </strong>
         </div>
-        <div className="rounded-lg border border-current/15 bg-background-base/60 p-2">
+        <div className="min-w-0 rounded-lg border border-current/15 bg-background-base/60 p-2">
           <span className="block text-[9px] uppercase tracking-wider text-text-secondary">
             Work left
           </span>
@@ -1321,6 +1328,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   }, [isActive]);
   const [searchParams, setSearchParams] = useSearchParams();
   const guided = searchParams.get("guided") === "1";
+  const [studioTheme, setStudioTheme] = useState(readLyraStudioTheme);
+  useEffect(
+    () => listenForLyraStudioTheme(setStudioTheme),
+    [],
+  );
   const workspaceParam = searchParams.get("workspace")?.trim() ?? "";
   const projectName =
     workspaceParam.split(/[\\/]/).filter(Boolean).pop() ?? "Project";
@@ -4569,7 +4581,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 </div>
               </details>
               <Button
-                outlined
+                ghost
                 size="sm"
                 onClick={() => setGuidedPreviewOpen((value) => !value)}
                 aria-expanded={guidedPreviewOpen}
@@ -4579,7 +4591,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 {guidedPreviewOpen ? "Close preview" : "App preview"}
               </Button>
               <Button
-                outlined
+                ghost
                 size="sm"
                 onClick={continueGuidedOnTelegram}
                 title={telegramRemoteHint(telegramReadiness)}
@@ -4592,12 +4604,32 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               >
                 <MessageCircle className="mr-1 h-3.5 w-3.5" />
                 {telegramRemoteLoading
-                  ? "Checking phone…"
+                  ? "Checking remote…"
                   : telegramHandoffStatus === "sending"
-                  ? "Moving to Telegram…"
+                  ? "Connecting…"
                   : telegramHandoffStatus === "sent"
-                  ? "On Telegram"
+                  ? "Remote active"
                   : telegramRemoteButtonLabel(telegramReadiness)}
+              </Button>
+              <Button
+                ghost
+                size="sm"
+                onClick={() =>
+                  writeLyraStudioTheme(
+                    studioTheme === "dark" ? "light" : "dark",
+                  )
+                }
+                aria-pressed={studioTheme === "dark"}
+                title={
+                  studioTheme === "dark" ? "Use light mode" : "Use dark mode"
+                }
+              >
+                {studioTheme === "dark" ? (
+                  <Sun className="mr-1 h-3.5 w-3.5" />
+                ) : (
+                  <Moon className="mr-1 h-3.5 w-3.5" />
+                )}
+                {studioTheme === "dark" ? "Light mode" : "Dark mode"}
               </Button>
               <Button
                 ghost
