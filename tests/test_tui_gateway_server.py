@@ -12172,6 +12172,46 @@ def test_notification_event_dedup_key_keeps_completions_one_shot():
     )
 
 
+def test_resumed_tui_claims_saved_project_completion(monkeypatch, tmp_path):
+    from hermes_cli import kanban_db as kb
+
+    monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
+    monkeypatch.setattr(server, "_get_db", lambda: None)
+    workspace = tmp_path / "project"
+    workspace.mkdir()
+    with kb.connect_closing() as conn:
+        task_id = kb.create_task(
+            conn,
+            title="Lyra project: Development",
+            assignee="default",
+            workspace_kind="dir",
+            workspace_path=str(workspace),
+        )
+        kb.add_notify_sub(
+            conn,
+            task_id=task_id,
+            platform="tui",
+            chat_id="saved-project-chat",
+        )
+        assert kb.complete_task(conn, task_id, summary="The feature is ready")
+
+    event = server._claim_kanban_tui_notification(
+        "ui-session",
+        {
+            "session_key": "saved-project-chat",
+            "running": False,
+            "_finalized": False,
+        },
+    )
+
+    assert event is not None
+    assert event["type"] == "kanban_task"
+    assert event["task_id"] == task_id
+    visible, internal = server._kanban_tui_notification_text(event)
+    assert "finished" in visible
+    assert "whether the whole application is finished" in internal
+
+
 # --- image.attach_bytes / pdf.attach (remote-client byte upload) -------------
 
 # Smallest valid 1x1 PNG, base64-encoded.

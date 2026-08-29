@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 from pathlib import Path
 
 
@@ -15,6 +16,9 @@ _ALLOWED_CHECKOUT_WORKSPACES = (
 _SPECIALIST_SKILLS = {
     "req-engineer": "Requirements engineering",
     "researcher": "Internet research and source verification",
+    "ui-designer": "Visual and interaction design",
+    "ux-writer": "User-interface writing",
+    "a11y-auditor": "Accessibility auditing",
     "spec": "Technical specification",
     "sw-architect": "Software architecture",
     "task-planner": "Implementation task planning",
@@ -85,6 +89,15 @@ def _status_prompt(raw_args: str) -> str:
 
 
 def register(ctx) -> None:
+    cli_path = _ROOT / "project_run_cli.py"
+    spec = importlib.util.spec_from_file_location(
+        "lyra_ultimate_builder_project_run_cli", cli_path
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Could not load durable project jobs")
+    cli_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cli_module)
+
     def start_build(raw_args: str) -> str:
         prompt = _command_prompt(raw_args)
         if prompt.startswith("Usage:") or prompt.startswith("Lyra protected"):
@@ -142,3 +155,11 @@ def register(ctx) -> None:
         description="Inspect an Ultimate Builder project's current SDLC status.",
         args_hint="[project path]",
     )
+    if hasattr(ctx, "register_cli_command"):
+        ctx.register_cli_command(
+            "project-run",
+            help="Manage Lyra's recoverable project agents.",
+            setup_fn=cli_module.setup_parser,
+            handler_fn=cli_module.handle,
+            description="Queue, inspect, pause, resume, or stop durable project work.",
+        )

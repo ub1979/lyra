@@ -119,7 +119,11 @@ import { Markdown } from "@/components/Markdown";
 import { ChatSessionList } from "@/components/ChatSessionList";
 import { usePageHeader } from "@/contexts/usePageHeader";
 import { useI18n } from "@/i18n";
-import { api, type MessagingPlatform } from "@/lib/api";
+import {
+  api,
+  type MessagingPlatform,
+  type UltimateBuilderRunState,
+} from "@/lib/api";
 import { latchChatActivation } from "@/lib/chat-activation";
 import { chatMessageCopyText } from "@/lib/chat-copy";
 import { useModalBehavior } from "@/hooks/useModalBehavior";
@@ -924,9 +928,11 @@ function GuidedRuntimePanel({
 
 function GuidedProgressMap({
   durable,
+  backgroundJobs,
   steps,
 }: {
   durable: boolean;
+  backgroundJobs: boolean;
   steps: readonly GuidedPhaseStep[];
 }) {
   const summary = guidedPhaseSummary(steps);
@@ -941,11 +947,17 @@ function GuidedProgressMap({
           Project map
         </span>
         <strong className="rounded-full border border-current/15 px-2 py-0.5 text-[9px] uppercase tracking-wider text-midground">
-          {durable ? "Live ledger" : "Chat signals"}
+          {backgroundJobs
+            ? "Saved project jobs"
+            : durable
+              ? "Project record"
+              : "Chat signals"}
         </strong>
       </div>
       <p className="mt-2 text-[9px] leading-3 text-text-secondary">
-        {durable
+        {backgroundJobs
+          ? "Read from saved background jobs and the project's verified record. Browser disconnects do not erase this work."
+          : durable
           ? "Read from the project's verified progress record. No estimated percentage."
           : "Waiting for a project progress record; these are conversation signals only."}
       </p>
@@ -1411,6 +1423,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const [guidedLedger, setGuidedLedger] = useState<{
     workspace: string;
     steps: GuidedPhaseStep[] | null;
+    runState: UltimateBuilderRunState | null;
   } | null>(null);
   const guidedPhaseCurrentRef = useRef<string | null>(
     initialGuidedPhaseState.current,
@@ -1501,6 +1514,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   );
   const guidedLedgerSteps =
     guidedLedger?.workspace === workspaceParam ? guidedLedger.steps : null;
+  const guidedRunState =
+    guidedLedger?.workspace === workspaceParam ? guidedLedger.runState : null;
   const guidedPhaseSteps =
     guidedLedgerSteps ??
     guidedPhaseProgress({
@@ -2048,6 +2063,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 status: phase.status,
               }))
             : null,
+          runState: state.run_state ?? null,
         });
       } catch {
         // The builder plugin may be disabled; keep conversation signals as a
@@ -3035,8 +3051,23 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     return true;
   }, []);
 
-  const toggleGuidedPause = useCallback(() => {
+  const toggleGuidedPause = useCallback(async () => {
     const nextPaused = !guidedPaused;
+    if (guidedRunState?.available && workspaceParam) {
+      try {
+        await api.controlUltimateBuilderRun(
+          workspaceParam,
+          nextPaused ? "pause" : "resume",
+        );
+        setGuidedPaused(nextPaused);
+        return;
+      } catch {
+        appendGuidedError(
+          "Saved project jobs could not be updated. Lyra left their current state unchanged.",
+        );
+        return;
+      }
+    }
     if (
       !sendGuidedControlCommand(nextPaused ? "/agents pause" : "/agents resume")
     ) {
@@ -3050,7 +3081,13 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       setGuidedWorkers((current) => markGuidedWorkerStopping(current));
     }
     setGuidedPaused(nextPaused);
-  }, [appendGuidedError, guidedPaused, sendGuidedControlCommand]);
+  }, [
+    appendGuidedError,
+    guidedPaused,
+    guidedRunState?.available,
+    sendGuidedControlCommand,
+    workspaceParam,
+  ]);
 
   const stopGuidedWorkers = useCallback(
     (subagentId?: string) => {
@@ -4790,6 +4827,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 <div className="fixed right-4 top-24 z-30 flex max-h-[72vh] w-[min(19rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-current/20 bg-background-base shadow-2xl">
                   <GuidedProgressMap
                     durable={guidedLedgerSteps !== null}
+                    backgroundJobs={Boolean(guidedRunState?.available)}
                     steps={guidedPhaseSteps}
                   />
                 </div>
@@ -5354,6 +5392,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         >
           <GuidedProgressMap
             durable={guidedLedgerSteps !== null}
+            backgroundJobs={Boolean(guidedRunState?.available)}
             steps={guidedPhaseSteps}
           />
         </aside>

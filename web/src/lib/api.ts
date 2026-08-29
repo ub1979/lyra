@@ -371,6 +371,18 @@ export const api = {
     fetchJSON<UltimateBuilderState>(
       `/api/plugins/ultimate-builder/state?path=${encodeURIComponent(path)}`,
     ),
+  controlUltimateBuilderRun: (
+    workspace: string,
+    action: "pause" | "resume" | "stop",
+  ) =>
+    fetchJSON<UltimateBuilderRunControl>(
+      "/api/plugins/ultimate-builder/run/control",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workspace, action }),
+      },
+    ),
   getSessionMessages: (id: string, profile = getManagementProfile()) =>
     fetchJSON<SessionMessagesResponse>(
       appendProfileParam(`/api/sessions/${encodeURIComponent(id)}/messages`, profile),
@@ -1887,6 +1899,35 @@ export interface UltimateBuilderState {
     source: string;
     phases: UltimateBuilderPhase[];
   };
+  run_state?: UltimateBuilderRunState;
+}
+
+export interface UltimateBuilderRunTask {
+  phase: string;
+  label: string;
+  task_id: string;
+  board: string;
+  status: string;
+  attempts: number;
+  last_error: string;
+  last_activity_at: number | null;
+}
+
+export interface UltimateBuilderRunState {
+  available: boolean;
+  state: "working" | "needs_attention" | "idle" | "unavailable";
+  active: boolean;
+  task_count: number;
+  active_task_count: number;
+  last_activity_at: number | null;
+  tasks: UltimateBuilderRunTask[];
+}
+
+export interface UltimateBuilderRunControl {
+  ok: boolean;
+  action: "pause" | "resume" | "stop";
+  changed: string[];
+  project: string;
 }
 
 export interface SessionLatestDescendantResponse {

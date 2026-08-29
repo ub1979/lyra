@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import re
 import secrets
+from functools import lru_cache
 from html import escape
 from pathlib import Path
 from typing import Any
@@ -129,6 +131,80 @@ def _parse_progress_ledger(markdown: str) -> dict[str, Any]:
 class PreviewDocumentRequest(BaseModel):
     url: str = Field(min_length=1, max_length=2_048)
     workspace: str = Field(min_length=1, max_length=8_192)
+
+
+class ProjectRunControlRequest(BaseModel):
+    workspace: str = Field(min_length=1, max_length=8_192)
+    action: str = Field(pattern=r"^(pause|resume|stop)$")
+
+
+@lru_cache(maxsize=1)
+def _project_runs_module():
+    """Load the sibling module without relying on the hyphenated plugin name."""
+    path = Path(__file__).resolve().parents[1] / "project_runs.py"
+    spec = importlib.util.spec_from_file_location(
+        "lyra_ultimate_builder_project_runs", path
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Could not load durable project jobs")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _merge_project_run_state(
+    ledger: dict[str, Any], run_state: dict[str, Any]
+) -> dict[str, Any]:
+    """Overlay persisted worker truth onto the project's phase ledger."""
+    phases = [dict(phase) for phase in ledger.get("phases", [])]
+    by_id = {phase["id"]: phase for phase in phases}
+    task_by_phase = {
+        task["phase"]: task for task in run_state.get("tasks", [])
+        if task.get("phase")
+    }
+    for phase_id, task in task_by_phase.items():
+        phase = by_id.get(phase_id)
+        if phase is None:
+            phase = {
+                "id": phase_id,
+                "label": task.get("label") or phase_id,
+                "status": "Not started",
+                "state": "pending",
+                "evidence": "",
+            }
+            phases.append(phase)
+            by_id[phase_id] = phase
+        status = task.get("status")
+        if status == "running":
+            phase.update(state="now", status="Working safely in the background")
+        elif status in {"ready", "todo", "scheduled"}:
+            phase.update(state="pending", status="Queued safely")
+        elif status in {"blocked", "triage"}:
+            phase.update(state="blocked", status="Needs your attention")
+        elif status == "done":
+            phase.update(state="done", status="Verified")
+
+    # A ledger can be left saying "running" after an old browser-owned worker
+    # vanished. Do not keep presenting that as live work when no saved job owns it.
+    for phase in phases:
+        if (
+            run_state.get("state") != "unavailable"
+            and phase.get("state") == "now"
+            and phase.get("id") not in task_by_phase
+        ):
+            phase.update(
+                state="blocked",
+                status="No active agent — Lyra can safely continue this phase",
+            )
+    return {
+        "available": bool(phases),
+        "source": (
+            "durable-project-jobs"
+            if run_state.get("available")
+            else ledger.get("source", ".sdlc/progress.md")
+        ),
+        "phases": phases,
+    }
 
 
 def _workspace_safety(path: str) -> dict[str, Any]:
@@ -430,14 +506,40 @@ def state(path: str = Query(..., min_length=1)) -> dict[str, Any]:
                 )
 
     progress_text = _safe_text(progress)
+    ledger = _parse_progress_ledger(progress_text)
+    try:
+        run_state = _project_runs_module().project_run_state(project)
+    except Exception:
+        run_state = {
+            "available": False,
+            "state": "unavailable",
+            "active": False,
+            "task_count": 0,
+            "active_task_count": 0,
+            "last_activity_at": None,
+            "tasks": [],
+        }
     return {
         "project": str(project),
         "has_sdlc": sdlc.is_dir(),
         "progress": progress_text,
-        "phase_state": _parse_progress_ledger(progress_text),
+        "phase_state": _merge_project_run_state(ledger, run_state),
+        "run_state": run_state,
         "artifacts": artifacts,
         "learning_candidates": candidates,
     }
+
+
+@router.post("/run/control")
+def control_project_run(payload: ProjectRunControlRequest) -> dict[str, Any]:
+    safety = _workspace_safety(payload.workspace)
+    if not safety["allowed"]:
+        raise HTTPException(status_code=403, detail=safety["reason"])
+    project = _project(payload.workspace)
+    try:
+        return _project_runs_module().control_project_run(project, payload.action)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/preview/document")

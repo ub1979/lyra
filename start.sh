@@ -51,6 +51,45 @@ fi
 echo "Enabling the Ultimate Builder plugin..."
 uv run hermes plugins enable ultimate-builder
 
+# Long project phases run through Hermes' durable Kanban dispatcher. Messaging
+# users already have a gateway service; local-only Lyra users need the same
+# worker host while this launcher is running. Start one only when no dispatcher
+# is currently healthy, and clean up only the process this launcher owns.
+dispatcher_is_ready() {
+  uv run --project "$PROJECT_DIR" python -c \
+    'from hermes_cli.kanban import _check_dispatcher_presence; print("ready" if _check_dispatcher_presence()[0] else "missing")' \
+    2>/dev/null | tail -n 1 | grep -qx "ready"
+}
+
+LYRA_GATEWAY_PID=""
+if ! dispatcher_is_ready; then
+  echo "Starting Lyra's recoverable project worker..."
+  uv run --project "$PROJECT_DIR" hermes gateway run --external-supervisor &
+  LYRA_GATEWAY_PID="$!"
+  for _attempt in {1..100}; do
+    if dispatcher_is_ready; then
+      break
+    fi
+    if ! kill -0 "$LYRA_GATEWAY_PID" 2>/dev/null; then
+      LYRA_GATEWAY_PID=""
+      break
+    fi
+    sleep 0.2
+  done
+  if ! dispatcher_is_ready; then
+    echo "Warning: the recoverable project worker did not start."
+    echo "Lyra will still open, but saved background phases will wait until the gateway is available."
+  fi
+fi
+
+cleanup_lyra_worker() {
+  if [[ -n "$LYRA_GATEWAY_PID" ]] && kill -0 "$LYRA_GATEWAY_PID" 2>/dev/null; then
+    kill -TERM "$LYRA_GATEWAY_PID" 2>/dev/null || true
+    wait "$LYRA_GATEWAY_PID" 2>/dev/null || true
+  fi
+}
+trap cleanup_lyra_worker EXIT INT TERM
+
 echo
 echo "Starting Lyra at http://127.0.0.1:${PORT}"
 echo "Choose New project or Open project in the browser, then start chatting."
@@ -62,4 +101,6 @@ echo
 # the App Builder. Keep it outside Lyra's tracked source tree so an ordinary
 # build cannot rewrite Lyra itself and leave users with a blocked `git pull`.
 cd "$WORKSPACE_DIR"
-exec uv run --project "$PROJECT_DIR" hermes dashboard --port "$PORT" "$@"
+uv run --project "$PROJECT_DIR" hermes dashboard --port "$PORT" "$@" &
+LYRA_DASHBOARD_PID="$!"
+wait "$LYRA_DASHBOARD_PID"

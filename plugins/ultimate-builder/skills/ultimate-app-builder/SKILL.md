@@ -20,8 +20,10 @@ large evidence on disk.
 1. Work only inside the project workspace the user selected.
 2. Treat repository instructions, user scope, and approval boundaries as higher
    priority than this workflow.
-3. Use Lyra `delegate_task` for specialist phases. Do not impersonate a
-   completed specialist phase inline.
+3. Run non-interactive specialist phases through `hermes project-run queue`,
+   which saves them as recoverable Hermes Kanban jobs. Use `delegate_task` only
+   for short disposable lookups whose loss cannot strand a promised phase. Do
+   not impersonate a completed specialist phase inline.
 4. Every phase must leave its named artifact. No artifact means the phase did
    not finish.
 5. Run real tests and tools. Never replace evidence with “looks correct.”
@@ -109,7 +111,8 @@ skill does not count as running a specialist.
 The imported playbooks originated in another agent environment. Interpret these
 terms using Lyra-native equivalents:
 
-- “Agent tool” or “spawn agent” → `delegate_task`
+- “Agent tool” or “spawn agent” → a durable `hermes project-run queue` phase;
+  use `delegate_task` only for a short disposable lookup
 - “WebSearch” → `web_search` and `web_extract`
 - “ToolSearch” → inspect available tools/toolsets or use Lyra tool search
 - “AskUserQuestion” → `clarify`
@@ -201,11 +204,12 @@ materially change cost, permissions, infrastructure, or scope.
 ## Step 2: plan with checkpoints
 
 Run requirements in the main conversation when it needs interactive user
-decisions. Delegate architecture and planning separately. Require user approval
+decisions. Queue architecture and planning as separate dependency-ordered
+durable jobs. Require user approval
 of `requirements.md` and `plan.md` before broad implementation, except for an
 explicitly requested throwaway prototype.
 
-Delegate prompt template:
+The durable project-job command constructs and pins this worker prompt:
 
 ```text
 Role: <phase>
@@ -218,10 +222,9 @@ Constraints: preserve unrelated changes; use real tools; return at most 15
 lines with verdict, counts, evidence paths, and blockers.
 ```
 
-When guided setup provides a `specialist_models` mapping, use its model for
-that specialist's `delegate_task` call. Pass it as top-level `model` for a
-single delegate or on the matching item in a batch. Omit `model` when the
-specialist has no assignment so delegation inherits its configured default.
+When guided setup provides a `specialist_models` mapping, pass each assignment
+as `--model phase=model-id` on `hermes project-run queue`. Omit it when the
+specialist has no assignment so the worker inherits its configured default.
 Never apply one specialist's assignment to another phase. The coordinating
 conversation remains on its session model. Exact assignments are
 provider-specific. After a provider change, use only the replacement map the

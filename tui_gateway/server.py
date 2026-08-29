@@ -10967,7 +10967,7 @@ def _session_owns_notification_event(sid: str, session: dict, evt: dict) -> bool
 
 def _notification_event_requires_owner(evt: dict) -> bool:
     """Whether ``evt`` must be positively claimed before TUI delivery."""
-    return evt.get("type") == "async_delegation" or bool(
+    return evt.get("type") in {"async_delegation", "kanban_task"} or bool(
         str(evt.get("origin_ui_session_id") or "")
         or str(evt.get("session_key") or "")
     )
@@ -11007,7 +11007,124 @@ def _notification_event_dedup_key(evt: dict) -> tuple:
         # this the fallthrough keys every one as ("", "async_delegation")
         # and the second completion's status update is suppressed forever.
         return (evt.get("delegation_id", ""), evt_type)
+    if evt_type == "kanban_task":
+        return (evt.get("task_id", ""), evt.get("event_cursor", 0), evt_type)
     return (evt_sid, evt_type)
+
+
+_KANBAN_TUI_EVENT_KINDS = (
+    "completed",
+    "blocked",
+    "block_loop_detected",
+    "gave_up",
+    "crashed",
+    "timed_out",
+)
+
+
+def _claim_kanban_tui_notification(sid: str, session: dict) -> dict | None:
+    """Claim one durable task event addressed to this resumed TUI session."""
+    if session.get("running") or session.get("_finalized"):
+        return None
+    now = time.monotonic()
+    if now < float(session.get("_kanban_notification_next_poll") or 0):
+        return None
+    session["_kanban_notification_next_poll"] = now + 2.0
+    session_keys = {
+        str(session.get("session_key") or ""),
+        _session_lookup_key(session, fallback=sid),
+    }
+    try:
+        db = _get_db()
+        if db is not None:
+            session_keys.update(
+                str(db.resolve_resume_session_id(key) or key)
+                for key in tuple(session_keys)
+                if key
+            )
+    except Exception:
+        pass
+    session_keys.discard("")
+    if not session_keys:
+        return None
+
+    try:
+        from hermes_cli import kanban_db as _kb
+
+        for board_meta in _kb.list_boards(include_archived=False):
+            board = str(board_meta.get("slug") or board_meta.get("id") or "default")
+            with _kb.connect_closing(board=board) as conn:
+                for sub in _kb.list_notify_subs(conn):
+                    if (
+                        sub.get("platform") != "tui"
+                        or str(sub.get("chat_id") or "") not in session_keys
+                    ):
+                        continue
+                    task_id = str(sub.get("task_id") or "")
+                    old_cursor, new_cursor, events = _kb.claim_unseen_events_for_sub(
+                        conn,
+                        task_id=task_id,
+                        platform="tui",
+                        chat_id=str(sub.get("chat_id") or ""),
+                        thread_id=str(sub.get("thread_id") or "") or None,
+                        kinds=_KANBAN_TUI_EVENT_KINDS,
+                    )
+                    if not events:
+                        continue
+                    task = _kb.get_task(conn, task_id)
+                    return {
+                        "type": "kanban_task",
+                        "task_id": task_id,
+                        "task_title": task.title if task else "Project agent",
+                        "task_status": task.status if task else events[-1].kind,
+                        "workspace_path": task.workspace_path if task else "",
+                        "session_key": str(sub.get("chat_id") or ""),
+                        "board": board,
+                        "thread_id": str(sub.get("thread_id") or ""),
+                        "old_cursor": old_cursor,
+                        "event_cursor": new_cursor,
+                    }
+    except Exception:
+        logger.exception("TUI durable project notification poll failed")
+    return None
+
+
+def _rewind_kanban_tui_notification(evt: dict) -> None:
+    try:
+        from hermes_cli import kanban_db as _kb
+
+        with _kb.connect_closing(board=str(evt.get("board") or "default")) as conn:
+            _kb.rewind_notify_cursor(
+                conn,
+                task_id=str(evt.get("task_id") or ""),
+                platform="tui",
+                chat_id=str(evt.get("session_key") or ""),
+                thread_id=str(evt.get("thread_id") or "") or None,
+                old_cursor=int(evt.get("old_cursor") or 0),
+                claimed_cursor=int(evt.get("event_cursor") or 0),
+            )
+    except Exception:
+        logger.exception("Could not return a durable project notification for retry")
+
+
+def _kanban_tui_notification_text(evt: dict) -> tuple[str, str]:
+    status = str(evt.get("task_status") or "")
+    title = str(evt.get("task_title") or "Project agent")
+    visible = (
+        f"{title} needs your attention. Lyra is checking what is needed."
+        if status in {"blocked", "triage"}
+        else f"{title} finished. Lyra is checking the result and what comes next."
+    )
+    internal = (
+        "IDRAK_INTERNAL_PROJECT_TASK_UPDATE: A saved project agent has changed "
+        f"state. Title: {title}. Status: {status}. Workspace: "
+        f"{evt.get('workspace_path') or 'the current project'}. Inspect the "
+        "workspace and .sdlc/progress.md, verify the result, then explain it in "
+        "plain language. Say whether the whole application is finished and what "
+        "remains. Continue only through approved checkpoints and saved durable "
+        "project jobs. Do not expose task ids or internal roadmap codes."
+    )
+    return visible, internal
 
 
 def _notification_poller_loop(
@@ -11030,7 +11147,9 @@ def _notification_poller_loop(
         try:
             evt = process_registry.completion_queue.get(timeout=0.5)
         except Exception:
-            continue
+            evt = _claim_kanban_tui_notification(sid, session)
+            if evt is None:
+                continue
 
         # Multiple desktop sessions share this one process-wide queue. Only
         # consume events that belong to *this* session — otherwise a background
@@ -11068,7 +11187,11 @@ def _notification_poller_loop(
         if evt.get("type") == "completion" and process_registry.is_completion_consumed(_evt_sid):
             continue
 
-        text = format_process_notification(evt)
+        if evt.get("type") == "kanban_task":
+            visible_text, text = _kanban_tui_notification_text(evt)
+        else:
+            visible_text = ""
+            text = format_process_notification(evt)
         if not text:
             continue
 
@@ -11078,7 +11201,11 @@ def _notification_poller_loop(
         # visible independently.
         _dedup_key = _notification_event_dedup_key(evt)
         if _dedup_key not in _emitted:
-            _emit("status.update", sid, {"kind": "process", "text": text})
+            _emit(
+                "status.update",
+                sid,
+                {"kind": "process", "text": visible_text or text},
+            )
             _emitted.add(_dedup_key)
 
         _requeued = False
@@ -11117,6 +11244,8 @@ def _notification_poller_loop(
                 _run_prompt_submit(rid, sid, session, text)
             complete_event_delivery(evt, _claim)
         except Exception as exc:
+            if evt.get("type") == "kanban_task":
+                _rewind_kanban_tui_notification(evt)
             release_event_delivery(evt, _claim)
             print(
                 f"[tui_gateway] notification poller dispatch failed: "

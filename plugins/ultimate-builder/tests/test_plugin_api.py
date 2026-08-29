@@ -76,3 +76,33 @@ def test_progress_ledger_without_a_phase_table_is_unavailable():
         "source": ".sdlc/progress.md",
         "phases": [],
     }
+
+
+def test_saved_project_jobs_override_stale_progress_claims():
+    module = load_plugin_api()
+    ledger = module._parse_progress_ledger(
+        """| Phase | Status | Evidence |
+|---|---|---|
+| Architecture | In progress | plan.md |
+| Development | In progress | source |
+"""
+    )
+    merged = module._merge_project_run_state(
+        ledger,
+        {
+            "available": True,
+            "tasks": [
+                {
+                    "phase": "sw-architect",
+                    "label": "Architecture",
+                    "status": "blocked",
+                }
+            ],
+        },
+    )
+
+    assert merged["source"] == "durable-project-jobs"
+    assert [(phase["id"], phase["state"]) for phase in merged["phases"]] == [
+        ("sw-architect", "blocked"),
+        ("sw-developer", "blocked"),
+    ]

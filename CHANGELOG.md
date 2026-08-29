@@ -9,6 +9,25 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.12] - 2026-08-29 — recoverable project agents
+
+### Changed
+
+- **Long project phases now run as saved background jobs.** Research,
+  architecture, development, testing, and other non-interactive agents survive
+  a closed or disconnected browser, use heartbeats and bounded retries, and
+  recover unfinished work through Hermes' durable Kanban engine.
+- **Saved project chats wake when a background agent finishes or needs help.**
+  Lyra verifies the project record, explains the result in plain language, and
+  continues only through the user's approved checkpoints.
+- **The project map and worker controls now use real saved-job state.** Stale
+  “working” ledger entries become an honest recovery warning; queued, running,
+  blocked, paused, resumed, and completed work are no longer inferred from chat
+  activity alone.
+- **Starting Lyra also starts a recoverable local project worker when no
+  messaging gateway is already available.** It is owned by the launcher and
+  safely cleaned up with the application.
+
 ## [0.19.11] - 2026-08-29 — plain-language existing project chats
 
 ### Fixed
