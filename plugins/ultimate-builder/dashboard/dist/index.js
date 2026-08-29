@@ -11,6 +11,7 @@
 
   const SKILLS = [
     ["req-engineer", "Requirements", "Clarify goals, users, scope, and acceptance criteria."],
+    ["researcher", "Research", "Investigate markets, competitors, standards, and technical choices with verified sources."],
     ["spec", "Technical specification", "Turn the request into detailed, testable behavior."],
     ["ui-designer", "Design", "Set the look and feel from real references, then review the build against it."],
     ["sw-architect", "Architecture", "Design the system, data, APIs, and boundaries."],
@@ -40,39 +41,43 @@
     REQUIRED_SKILL_IDS.forEach((id) => next.add(id));
     return next;
   };
+  const teamSizeLabel = function (ids) {
+    const count = withRequired(ids).size;
+    return count + (count === 1 ? " agent" : " agents");
+  };
   const BUILTIN_TEMPLATES = [
     {
       id: "app-it",
       name: "Let Lyra guide me",
-      description: "Start with your idea. Lyra asks a few questions and recommends the smallest useful specialist team.",
+      description: "Start with your idea. Lyra asks a few questions and recommends the smallest useful team.",
       skills: [],
       accent: "lime",
     },
     {
       id: "sdlc",
-      name: "Full SDLC",
-      description: "End-to-end delivery with a focused core team; Lyra recommends extra agents only when the project needs them.",
+      name: "Complete build",
+      description: "Take the product from a clear idea through building, checks, documentation, and launch preparation.",
       skills: ["req-engineer", "sw-architect", "sw-developer", "qa-engineer", "security-auditor", "devops-engineer"],
       accent: "lime",
     },
     {
       id: "mvp",
-      name: "MVP",
-      description: "A fast path from clear requirements to a useful, tested, documented first release.",
+      name: "Fast first version",
+      description: "Build the smallest useful version quickly, test it, and leave clear instructions for using it.",
       skills: ["req-engineer", "sw-developer", "qa-engineer", "tech-writer"],
       accent: "coral",
     },
     {
       id: "planning",
-      name: "Plan only",
-      description: "Requirements, specification, architecture, and project planning—no coding.",
+      name: "Plan before building",
+      description: "Work out the product, structure, and delivery plan without writing application code yet.",
       skills: ["req-engineer", "spec", "sw-architect", "task-planner", "proj-manager", "context-save"],
       accent: "blue",
     },
     {
       id: "review",
-      name: "Review & QA",
-      description: "Open an existing folder for independent review, testing, debugging, and security.",
+      name: "Review and improve",
+      description: "Open an existing project to find problems, test important journeys, and recommend improvements.",
       skills: ["code-reviewer", "qa-engineer", "debugger", "security-auditor", "tech-writer"],
       accent: "violet",
     },
@@ -81,6 +86,7 @@
   const CUSTOM_TEMPLATES_KEY = "idrak-it.builder.templates.v1";
   const RECENT_PROJECTS_KEY = "idrak-it.builder.projects.v1";
   const SKILL_MODELS_KEY = "idrak-it.builder.skill-models.v1";
+  const PROJECT_SESSION_KEY_PREFIX = "idrak-it.guided-session.v1:";
 
   function readStored(key, fallback) {
     try {
@@ -106,15 +112,69 @@
     }
   }
 
+  function projectSessionKey(workspace) {
+    return PROJECT_SESSION_KEY_PREFIX + (workspace || "default");
+  }
+
+  function readProjectSessionId(workspace) {
+    try {
+      return String(localStorage.getItem(projectSessionKey(workspace)) || "").trim();
+    } catch (_) {
+      return "";
+    }
+  }
+
+  function writeProjectSessionId(workspace, sessionId) {
+    if (!sessionId) return;
+    try {
+      localStorage.setItem(projectSessionKey(workspace), String(sessionId).trim());
+    } catch (_) {}
+  }
+
+  async function findProjectSessionId(workspace) {
+    const stored = readProjectSessionId(workspace);
+    if (stored) return stored;
+    try {
+      const page = await api.getSessions(20, 0, undefined, "recent", workspace);
+      const match = (page && page.sessions || [])
+        .filter((session) => session && session.id && session.cwd === workspace)
+        .sort((left, right) => (right.message_count || 0) - (left.message_count || 0))[0];
+      if (match) {
+        writeProjectSessionId(workspace, match.id);
+        return match.id;
+      }
+    } catch (_) {
+      // Older Lyra servers do not support workspace-filtered sessions. The
+      // project can still open; its next session.info event stores the id.
+    }
+    return "";
+  }
+
   function joinPath(parent, name) {
     const separator = parent && parent.includes("\\") && !parent.includes("/") ? "\\" : "/";
     return String(parent || "").replace(/[\\/]+$/, "") + separator + name;
   }
 
+  function defaultProjectsRoot(cwd) {
+    const trimmed = String(cwd || "").replace(/[\\/]+$/, "");
+    const leaf = trimmed.split(/[\\/]/).filter(Boolean).pop() || "";
+    return leaf === "my_projects" ? trimmed : joinPath(trimmed, "my_projects");
+  }
+
+  async function requireSafeWorkspace(path) {
+    const result = await SDK.fetchJSON(
+      "/api/plugins/ultimate-builder/workspace-safety?path=" + encodeURIComponent(path),
+    );
+    if (!result || !result.allowed) {
+      throw new Error((result && result.reason) || "Choose a project folder outside Lyra's application files.");
+    }
+    return result.path || path;
+  }
+
   function defaultBrief(templateId, existing) {
     if (templateId === "app-it") return existing
       ? "Help me understand this project and decide which agents should work on what I need next."
-      : "Help me shape my idea and recommend the smallest useful specialist team.";
+      : "Help me shape my idea and recommend the smallest useful agent team.";
     if (templateId === "planning") return "Understand this project and create a clear requirements, architecture, and project plan. Do not implement code.";
     if (templateId === "review") return "Review this existing project, run appropriate QA checks, identify important defects, and recommend verified fixes.";
     if (existing) return "Improve this existing project using the selected agents. Inspect it first, preserve unrelated work, and confirm the plan before broad changes.";
@@ -206,6 +266,8 @@
     const [modelInfo, setModelInfo] = useState({ provider: "", model: "" });
     const [modelOptions, setModelOptions] = useState([]);
     const [modelsLoading, setModelsLoading] = useState(true);
+    const [teamExpanded, setTeamExpanded] = useState(false);
+    const [homeMessage, setHomeMessage] = useState("");
 
     const templates = useMemo(
       () => BUILTIN_TEMPLATES.concat(customTemplates.map((template) => ({ ...template, accent: "custom" }))),
@@ -240,7 +302,7 @@
         .then((info) => api.listFiles(info && info.cwd).then(() => info.cwd))
         .catch(() => api.listFiles().then((listing) => listing.path))
         .then((cwd) => {
-          if (active && cwd) setParentPath(joinPath(cwd, "my_projects"));
+          if (active && cwd) setParentPath(defaultProjectsRoot(cwd));
         })
         .catch(() => {});
       return () => { active = false; };
@@ -279,7 +341,12 @@
       applyTemplate(template || BUILTIN_TEMPLATES[0]);
       setBrief("");
       setError("");
+      setTeamExpanded(false);
       setScreen("configure");
+      requestAnimationFrame(() => {
+        const page = document.querySelector(".ub-page");
+        if (page) page.scrollTop = 0;
+      });
     };
 
     const toggleSkill = function (id) {
@@ -320,12 +387,32 @@
       if (templateId === id) applyTemplate(BUILTIN_TEMPLATES[0]);
     };
 
-    const openRecent = function (item) {
-      const params = new URLSearchParams({
-        guided: "1",
-        workspace: item.path,
-      });
-      window.location.href = "/chat?" + params.toString();
+    const openRecent = async function (item) {
+      try {
+        const workspace = await requireSafeWorkspace(item.path);
+        const params = new URLSearchParams({
+          guided: "1",
+          workspace,
+        });
+        const sessionId = await findProjectSessionId(workspace);
+        if (sessionId) params.set("resume", sessionId);
+        window.location.href = "/chat?" + params.toString();
+      } catch (err) {
+        setMode("existing");
+        setProjectPath(item.path);
+        setError(err && err.message ? err.message : String(err));
+        setScreen("configure");
+      }
+    };
+
+    const saveRecentProjects = function (projects) {
+      setRecentProjects(projects);
+      writeStored(RECENT_PROJECTS_KEY, projects);
+    };
+
+    const removeRecent = function (item) {
+      saveRecentProjects(recentProjects.filter((project) => project.path !== item.path));
+      setHomeMessage(item.name + " was removed from Lyra. Its files and chats are unchanged.");
     };
 
     const startChat = async function () {
@@ -347,9 +434,11 @@
             throw new Error("Use a simple project name without slashes.");
           }
           workspace = joinPath(parentPath.trim(), name);
+          workspace = await requireSafeWorkspace(workspace);
           await api.createDirectory(workspace);
         } else {
           if (!workspace) throw new Error("Choose the existing project folder.");
+          workspace = await requireSafeWorkspace(workspace);
           await api.listFiles(workspace);
         }
         const enabled = SKILLS.filter((skill) => selected.has(skill[0])).map((skill) => skill[0]);
@@ -410,7 +499,7 @@
       return h("div", { className: "ub-page ub-page-picker" },
         h(DirectoryPicker, {
           initialPath: pickerTarget === "parent" ? parentPath : projectPath,
-          onCancel: () => setPickerTarget(""),
+          onCancel: () => { setPickerTarget(""); },
           onSelect: (value) => {
             if (pickerTarget === "parent") setParentPath(value);
             else setProjectPath(value);
@@ -421,32 +510,65 @@
     }
 
     if (screen === "home") {
-      return h("div", { className: "ub-page" },
+      return h("div", { className: "ub-page ub-page-home" },
+        h("header", { className: "ub-studio-nav" },
+          h("div", { className: "ub-studio-brand" },
+            h("span", { className: "ub-brand-mark", "aria-hidden": "true" }, "L"),
+            h("span", null, h("strong", null, "Lyra Studio"), h("small", null, "Your software workspace")),
+          ),
+          h("div", { className: "ub-studio-nav-actions" },
+            h("span", { className: "ub-studio-ready" }, h("i", null), "Ready"),
+            h("span", { className: "ub-version" }, "v0.19.5 beta"),
+            h("button", {
+              className: "ub-model-settings",
+              type: "button",
+              onClick: () => { window.location.href = "/models"; },
+            }, "AI model"),
+          ),
+        ),
         h("section", { className: "ub-welcome" },
-          h("p", { className: "ub-kicker" }, "LYRA · APP BUILDER · v 0.19.5 beta"),
-          h("h1", null, "What would you like to work on?"),
-          h("p", { className: "ub-subtitle" }, "Start something new or bring an existing folder. Lyra learns what you need, recommends the right agents, and stays with you through delivery."),
-          h("button", {
-            className: "ub-model-settings",
-            type: "button",
-            onClick: () => { window.location.href = "/models"; },
-          }, "⚙ AI model settings"),
+          h("div", { className: "ub-welcome-copy" },
+            h("p", { className: "ub-kicker" }, "YOUR AI PRODUCT STUDIO"),
+            h("h1", null, "Turn an idea into software."),
+            h("p", { className: "ub-subtitle" }, "Describe what you want to create. Lyra brings in the right agents, keeps the work moving, and shows you what is ready—without the technical noise."),
+            h("div", { className: "ub-trust-row" },
+              h("span", null, "✓ Local projects"),
+              h("span", null, "✓ Saved progress"),
+              h("span", null, "✓ You approve key steps"),
+            ),
+          ),
+          h("aside", { className: "ub-build-loop", "aria-label": "How Lyra builds" },
+            h("span", { className: "ub-loop-glow", "aria-hidden": "true" }),
+            h("p", null, "From idea to working product"),
+            h("ol", null,
+              h("li", null, h("b", null, "01"), h("span", null, h("strong", null, "Shape"), h("small", null, "Clarify the product"))),
+              h("li", null, h("b", null, "02"), h("span", null, h("strong", null, "Build"), h("small", null, "Create and improve"))),
+              h("li", null, h("b", null, "03"), h("span", null, h("strong", null, "Verify"), h("small", null, "Test before delivery"))),
+            ),
+          ),
+        ),
+        h("div", { className: "ub-section-heading ub-section-heading-start" },
+          h("div", null, h("span", { className: "ub-section-index" }, "01"), h("h2", null, "Start building"), h("p", null, "Begin fresh or continue from code you already have.")),
         ),
         h("section", { className: "ub-start-grid", "aria-label": "Choose project action" },
           h("button", { className: "ub-start-card ub-start-new", type: "button", onClick: () => begin("new", BUILTIN_TEMPLATES[0]) },
             h("span", { className: "ub-start-symbol" }, "+"),
-            h("strong", null, "New project"),
-            h("span", null, "Create a folder, then tell Lyra what you want to build."),
+            h("span", { className: "ub-start-copy" }, h("strong", null, "Create a new project"), h("span", null, "Start with an idea and let Lyra guide the build.")),
+            h("span", { className: "ub-card-arrow", "aria-hidden": "true" }, "→"),
           ),
           h("button", { className: "ub-start-card", type: "button", onClick: () => begin("existing", BUILTIN_TEMPLATES[0]) },
-            h("span", { className: "ub-start-symbol" }, "⌑"),
-            h("strong", null, "Open a project"),
-            h("span", null, "Choose a folder. Lyra inspects it and suggests who should help."),
+            h("span", { className: "ub-start-symbol" }, "↗"),
+            h("span", { className: "ub-start-copy" }, h("strong", null, "Open an existing project"), h("span", null, "Choose a folder and decide what to improve next.")),
+            h("span", { className: "ub-card-arrow", "aria-hidden": "true" }, "→"),
           ),
         ),
         h("section", { className: "ub-template-preview" },
           h("div", { className: "ub-section-heading" },
-            h("div", null, h("h2", null, "Ready-made workflows"), h("p", null, "Every skill can be switched on or off before you start.")),
+            h("div", null,
+              h("span", { className: "ub-section-index" }, recentProjects.length > 0 ? "03" : "02"),
+              h("h2", null, "Choose a starting style"),
+              h("p", null, "Lyra can adjust the team later as your project takes shape."),
+            ),
           ),
           h("div", { className: "ub-template-grid" },
             BUILTIN_TEMPLATES.map((template) => h("button", {
@@ -455,29 +577,55 @@
               type: "button",
               onClick: () => begin(template.id === "review" ? "existing" : "new", template),
             },
-              h("div", { className: "ub-template-top" }, h("strong", null, template.name), h(Badge, null, template.skills.length + " agents")),
+              h("div", { className: "ub-template-top" }, h("strong", null, template.name), h(Badge, null, teamSizeLabel(template.skills))),
               h("p", null, template.description),
             )),
           ),
         ),
+        homeMessage && h("div", { className: "ub-home-message", role: "status" }, homeMessage),
         recentProjects.length > 0 && h("section", { className: "ub-recents" },
-          h("div", { className: "ub-section-heading" }, h("div", null, h("h2", null, "Recent projects"), h("p", null, "Continue with a previous folder."))),
+          h("div", { className: "ub-section-heading" }, h("div", null,
+            h("span", { className: "ub-section-index" }, "02"),
+            h("h2", null, "Your recent projects"),
+            h("p", null, "Pick up exactly where you left off."),
+          )),
           h("div", { className: "ub-recent-list" },
-            recentProjects.map((item) => h("button", { key: item.path, type: "button", onClick: () => openRecent(item) },
-              h("strong", null, item.name), h("span", null, item.path),
+            recentProjects.map((item, index) => h("article", { className: "ub-recent-row", key: item.path },
+              h("button", { className: "ub-recent-open", type: "button", onClick: () => openRecent(item) },
+                h("span", { className: "ub-project-preview ub-project-preview-" + (index % 4), "aria-hidden": "true" },
+                  h("span", null, (item.name || "P").slice(0, 1).toUpperCase()),
+                  h("i", null),
+                ),
+                h("span", { className: "ub-project-copy" },
+                  h("span", { className: "ub-project-status" }, h("i", null), "Ready to continue"),
+                  h("strong", null, item.name),
+                  h("small", null, item.path),
+                ),
+                h("span", { className: "ub-open-label" }, "Open", h("b", { "aria-hidden": "true" }, "→")),
+              ),
+              h("div", { className: "ub-recent-actions", "aria-label": "Manage " + item.name },
+                h("button", { type: "button", onClick: () => removeRecent(item) }, "Remove from list"),
+              ),
             )),
           ),
         ),
       );
     }
 
-    return h("div", { className: "ub-page" },
+    return h("div", { className: "ub-page ub-page-config" },
+      h("header", { className: "ub-studio-nav ub-studio-nav-config" },
+        h("button", { className: "ub-back", type: "button", onClick: () => setScreen("home") }, "←", h("span", null, "Projects")),
+        h("div", { className: "ub-studio-brand" },
+          h("span", { className: "ub-brand-mark", "aria-hidden": "true" }, "L"),
+          h("span", null, h("strong", null, "Lyra Studio"), h("small", null, mode === "new" ? "New project" : "Existing project")),
+        ),
+        h("span", { className: "ub-config-step" }, "Set up · 1 of 1"),
+      ),
       h("div", { className: "ub-config-head" },
-        h(Button, { ghost: true, onClick: () => setScreen("home") }, "← Back"),
         h("div", null,
-          h("p", { className: "ub-kicker" }, mode === "new" ? "NEW PROJECT" : "EXISTING PROJECT"),
-          h("h1", null, "Start with Lyra"),
-          h("p", null, "Describe what you want. Add a starting team now, or let Lyra recommend one after a few questions."),
+          h("p", { className: "ub-kicker" }, mode === "new" ? "CREATE SOMETHING NEW" : "CONTINUE YOUR WORK"),
+          h("h1", null, mode === "new" ? "Set up your new project" : "Bring your project into Lyra"),
+          h("p", null, "Choose the folder and tell Lyra the outcome you want. Everything else can be adjusted later."),
         ),
       ),
       h("div", { className: "ub-config-layout" },
@@ -508,13 +656,24 @@
           h(Card, { className: "ub-form-card" },
             h(CardContent, null,
               h("div", { className: "ub-section-heading" },
-                h("div", null, h("h2", null, "Starting team (optional)"), h("p", null, selected.size + " of " + SKILLS.length + " agents selected · Lyra is always available; Requirements activates when needed")),
+                h("div", null, h("h2", null, "Your starting team"), h("p", null, selected.size + " of " + SKILLS.length + " agents selected · Lyra can recommend changes later")),
                 h("div", { className: "ub-select-actions" },
-                  h("button", { type: "button", onClick: () => setSelected(withRequired(activeTemplate.skills)) }, "Reset to workflow"),
-                  h("button", { type: "button", onClick: () => setSelected(withRequired([])) }, "Clear optional"),
+                  teamExpanded && h("button", { type: "button", onClick: () => setSelected(withRequired(activeTemplate.skills)) }, "Reset"),
+                  teamExpanded && h("button", { type: "button", onClick: () => setSelected(withRequired([])) }, "Clear optional"),
+                  h("button", { className: "ub-team-toggle", type: "button", onClick: () => setTeamExpanded((value) => !value) }, teamExpanded ? "Hide choices" : "Customize team"),
                 ),
               ),
-              h("div", { className: "ub-skill-list" },
+              !teamExpanded && h("button", { className: "ub-team-collapsed", type: "button", onClick: () => setTeamExpanded(true) },
+                h("span", { className: "ub-team-orbs", "aria-hidden": "true" },
+                  SKILLS.filter((skill) => selected.has(skill[0])).slice(0, 4).map((skill, index) => h("i", { key: skill[0], style: { zIndex: 5 - index } }, skill[1].slice(0, 1))),
+                ),
+                h("span", { className: "ub-team-collapsed-copy" },
+                  h("strong", null, selected.size === 1 ? "Start with Lyra" : selected.size + " agents ready"),
+                  h("small", null, selected.size === 1 ? "Lyra will recommend the smallest useful team after a few questions." : "This team follows your selected starting style and can be changed at any time."),
+                ),
+                h("span", { className: "ub-team-change" }, "Change →"),
+              ),
+              teamExpanded && h("div", { className: "ub-skill-list" },
                 SKILLS.map((skill) => {
                   const assignedModel = typeof skillModels[skill[0]] === "string" ? skillModels[skill[0]] : "";
                   const choices = assignedModel && !modelOptions.includes(assignedModel)
@@ -549,7 +708,7 @@
                       onClick: (event) => event.stopPropagation(),
                       onMouseDown: (event) => event.stopPropagation(),
                     },
-                      h("span", { className: "ub-skill-model-label" }, "LLM"),
+                      h("span", { className: "ub-skill-model-label" }, "Model"),
                       h("select", {
                         value: assignedModel,
                         onChange: (event) => updateSkillModel(skill[0], event.target.value),
@@ -566,12 +725,12 @@
                   );
                 }),
               ),
-              unavailableSelectedModels.length > 0 && h("div", { className: "ub-error", role: "alert" },
+              teamExpanded && unavailableSelectedModels.length > 0 && h("div", { className: "ub-error", role: "alert" },
                 "Provider changed. Choose a replacement model or Follow project model for: "
                   + unavailableSelectedModels.map((item) => item.label).join(", "),
               ),
-              h("div", { className: "ub-save-template" },
-                h(Input, { value: templateName, onChange: (event) => setTemplateName(event.target.value), placeholder: "Name this skill set…" }),
+              teamExpanded && h("div", { className: "ub-save-template" },
+                h(Input, { value: templateName, onChange: (event) => setTemplateName(event.target.value), placeholder: "Name this team…" }),
                 h(Button, { outlined: true, disabled: !templateName.trim(), onClick: saveTemplate }, "Save template"),
               ),
             ),
@@ -590,7 +749,7 @@
           ),
         ),
         h("aside", { className: "ub-config-side" },
-          h("h2", null, "Workflow template"),
+          h("h2", null, "Starting style"),
           h("div", { className: "ub-template-stack" },
             templates.map((template) => h("div", {
               className: "ub-template-option " + (template.id === templateId ? "is-selected" : ""),
@@ -609,7 +768,7 @@
             )),
           ),
           h("div", { className: "ub-summary" },
-            h("span", null, "Starting team"), h("strong", null, selected.size ? selected.size + " specialists" : "Lyra only"),
+            h("span", null, "Starting team"), h("strong", null, selected.size === 1 ? "1 agent" : selected.size ? selected.size + " agents" : "Lyra only"),
             h("p", null,
               selected.size
                 ? "Lyra can recommend changes later and will ask before applying them."
@@ -618,7 +777,7 @@
           ),
           error && h("div", { className: "ub-error", role: "alert" }, error),
           h(Button, { className: "ub-start-chat", onClick: startChat, disabled: starting || unavailableSelectedModels.length > 0 },
-            starting ? "Starting project…" : "Start Project →",
+            starting ? "Preparing your studio…" : "Enter project studio →",
           ),
           h("p", { className: "ub-chat-note" }, "The project opens in a simple chat. Lyra handles tools and terminal work quietly in the background."),
         ),

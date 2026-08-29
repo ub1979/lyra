@@ -99,10 +99,7 @@ def test_the_sidebar_shows_lyra_not_the_cli():
 
 
 def test_app_builder_version_labels_match_lyra(version_module):
-    expected = (
-        f"LYRA · APP BUILDER · v {version_module.LYRA_VERSION} "
-        f"{version_module.LYRA_CHANNEL}"
-    )
+    expected = f"v{version_module.LYRA_VERSION} {version_module.LYRA_CHANNEL}"
     for relative_path in (
         "plugins/ultimate-builder/dashboard/app/index.js",
         "plugins/ultimate-builder/dashboard/dist/index.js",
