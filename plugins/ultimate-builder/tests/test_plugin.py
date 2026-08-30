@@ -103,6 +103,7 @@ def test_dashboard_enforces_requirements_gate_with_real_skill_loading():
     assert 'api.getDefaultCwd()' in dashboard
     assert 'defaultProjectsRoot(cwd)' in dashboard
     assert 'workspace-safety?path=' in dashboard
+    assert 'status.exists === false' in dashboard
     assert 'workspace = await requireSafeWorkspace(workspace)' in dashboard
     assert 'api.getSessions(20, 0, undefined, "recent", workspace)' in dashboard
     assert 'params.set("resume", sessionId)' in dashboard

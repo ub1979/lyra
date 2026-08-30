@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -43,6 +44,7 @@ def test_workspace_safety_supports_new_nonexistent_projects():
         str(module._LYRA_CHECKOUT / "my_projects" / "not-created-yet")
     )
     assert result["allowed"] is True
+    assert result["exists"] is False
     assert result["path"].endswith("not-created-yet")
 
 
@@ -208,6 +210,10 @@ def test_delete_moves_project_to_recoverable_lyra_trash(tmp_path, monkeypatch):
     monkeypatch.setattr(module, "_project_runs_module", lambda: _IdleProjectRuns)
     monkeypatch.setattr(module, "_relocate_saved_sessions", lambda *_args: 0)
     monkeypatch.setattr(module, "_project_trash_root", lambda: trash)
+    removed = []
+    monkeypatch.setattr(
+        module, "_remove_saved_project_paths", lambda source: removed.append(source)
+    )
 
     result = module.delete_project(
         module.ProjectDeleteRequest(workspace=str(project))
@@ -218,3 +224,85 @@ def test_delete_moves_project_to_recoverable_lyra_trash(tmp_path, monkeypatch):
     assert not project.exists()
     assert trashed.parent == trash
     assert (trashed / module._PROJECT_MARKER).is_file()
+    assert removed == [project.resolve()]
+
+
+def test_move_updates_saved_project_paths(tmp_path, monkeypatch):
+    module = load_plugin_api()
+    source_parent = tmp_path / "source"
+    destination_parent = tmp_path / "destination"
+    project = source_parent / "music-app"
+    project.mkdir(parents=True)
+    destination_parent.mkdir()
+    (project / module._PROJECT_MARKER).write_text("Managed by Lyra\n")
+    monkeypatch.setattr(module, "_project_runs_module", lambda: _IdleProjectRuns)
+    monkeypatch.setattr(module, "_relocate_saved_sessions", lambda *_args: 0)
+    relocated = []
+    monkeypatch.setattr(
+        module,
+        "_relocate_saved_project_paths",
+        lambda source, destination: relocated.append((source, destination)),
+    )
+
+    result = module.move_project(
+        module.ProjectMoveRequest(
+            source=str(project), destination_parent=str(destination_parent)
+        )
+    )
+
+    assert relocated == [(project.resolve(), Path(result["destination"]))]
+
+
+def test_saved_project_records_follow_move_and_trash(tmp_path, monkeypatch):
+    module = load_plugin_api()
+    from hermes_cli import projects_db
+
+    database = tmp_path / "projects.db"
+
+    @contextmanager
+    def temp_projects_connection():
+        connection = projects_db.connect(database)
+        try:
+            yield connection
+        finally:
+            connection.close()
+
+    monkeypatch.setattr(projects_db, "connect_closing", temp_projects_connection)
+    source = (tmp_path / "source" / "music-app").resolve()
+    destination = (tmp_path / "moved" / "music-app").resolve()
+    source.mkdir(parents=True)
+    destination.parent.mkdir()
+    extra = (tmp_path / "shared-assets").resolve()
+    extra.mkdir()
+
+    with temp_projects_connection() as connection:
+        moved_id = projects_db.create_project(
+            connection, name="Music App", folders=[str(source)]
+        )
+        shared_id = projects_db.create_project(
+            connection,
+            name="Shared Project",
+            folders=[str(source / "nested"), str(extra)],
+            primary_path=str(extra),
+        )
+
+    assert module._relocate_saved_project_paths(source, destination) == 2
+
+    with temp_projects_connection() as connection:
+        moved = projects_db.get_project(connection, moved_id)
+        shared = projects_db.get_project(connection, shared_id)
+        assert moved is not None
+        assert [folder.path for folder in moved.folders] == [str(destination)]
+        assert shared is not None
+        assert {folder.path for folder in shared.folders} == {
+            str(destination / "nested"),
+            str(extra),
+        }
+
+    assert module._remove_saved_project_paths(destination) == 2
+
+    with temp_projects_connection() as connection:
+        assert projects_db.get_project(connection, moved_id) is None
+        shared = projects_db.get_project(connection, shared_id)
+        assert shared is not None
+        assert [folder.path for folder in shared.folders] == [str(extra)]

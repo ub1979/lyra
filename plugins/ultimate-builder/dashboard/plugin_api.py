@@ -264,6 +264,7 @@ def _workspace_safety(path: str) -> dict[str, Any]:
         "path": str(candidate),
         "allowed": not protected,
         "protected": protected,
+        "exists": candidate.is_dir(),
         "reason": reason,
         "recommended_root": str(_LYRA_CHECKOUT / "my_projects"),
     }
@@ -353,7 +354,64 @@ def _relocate_saved_sessions(source: Path, destination: Path) -> int:
     return changed
 
 
-def _relocate_project_metadata(source: Path, destination: Path) -> list[str]:
+def _saved_project_folder_matches(path: str, source: Path) -> bool:
+    candidate = Path(path).expanduser().resolve(strict=False)
+    return candidate == source or candidate.is_relative_to(source)
+
+
+def _relocate_saved_project_paths(source: Path, destination: Path) -> int:
+    """Keep first-class desktop projects attached when a folder moves."""
+    from hermes_cli import projects_db
+
+    changed = 0
+    with projects_db.connect_closing() as conn:
+        for project in projects_db.list_projects(conn, include_archived=True):
+            for folder in list(project.folders):
+                if not _saved_project_folder_matches(folder.path, source):
+                    continue
+                old_path = Path(folder.path).expanduser().resolve(strict=False)
+                new_path = destination / old_path.relative_to(source)
+                projects_db.add_folder(
+                    conn,
+                    project.id,
+                    str(new_path),
+                    label=folder.label,
+                    is_primary=folder.is_primary,
+                )
+                projects_db.remove_folder(conn, project.id, folder.path)
+                changed += 1
+    return changed
+
+
+def _remove_saved_project_paths(source: Path) -> int:
+    """Remove trashed folders from the desktop project list.
+
+    A multi-folder project survives when it still has another folder. A project
+    whose final folder was trashed is removed from the saved list; the project
+    files themselves remain recoverable in Lyra Trash.
+    """
+    from hermes_cli import projects_db
+
+    changed = 0
+    with projects_db.connect_closing() as conn:
+        for project in projects_db.list_projects(conn, include_archived=True):
+            matching = [
+                folder.path
+                for folder in project.folders
+                if _saved_project_folder_matches(folder.path, source)
+            ]
+            for path in matching:
+                projects_db.remove_folder(conn, project.id, path)
+                changed += 1
+            refreshed = projects_db.get_project(conn, project.id)
+            if matching and refreshed is not None and not refreshed.folders:
+                projects_db.delete_project(conn, project.id)
+    return changed
+
+
+def _relocate_project_metadata(
+    source: Path, destination: Path, *, trashed: bool = False
+) -> list[str]:
     warnings: list[str] = []
     try:
         _project_runs_module().relocate_project_runs(source, destination)
@@ -363,6 +421,13 @@ def _relocate_project_metadata(source: Path, destination: Path) -> list[str]:
         _relocate_saved_sessions(source, destination)
     except Exception:
         warnings.append("Saved chat locations could not be updated automatically.")
+    try:
+        if trashed:
+            _remove_saved_project_paths(source)
+        else:
+            _relocate_saved_project_paths(source, destination)
+    except Exception:
+        warnings.append("The saved Projects list could not be updated automatically.")
     return warnings
 
 
@@ -751,7 +816,7 @@ def delete_project(payload: ProjectDeleteRequest) -> dict[str, Any]:
         raise HTTPException(
             status_code=500, detail="Lyra could not move the project to Trash."
         ) from exc
-    warnings = _relocate_project_metadata(source, destination)
+    warnings = _relocate_project_metadata(source, destination, trashed=True)
     return {
         "ok": True,
         "source": str(source),

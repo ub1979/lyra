@@ -648,7 +648,13 @@ def test_canonical_order_with_unconfigured_preserves_full_universe():
          "source": "user-config"},
     ]
     ctx = _empty_ctx()
-    with _list_auth_returning(rows):
+    with (
+        _list_auth_returning(rows),
+        patch(
+            "hermes_cli.local_ollama.local_ollama_status",
+            return_value={"running": False, "models": []},
+        ),
+    ):
         payload = build_models_payload(
             ctx,
             include_unconfigured=True,
@@ -966,6 +972,44 @@ def test_build_models_payload_keeps_static_provider_models_from_providers_dict()
     assert rows[0]["slug"] == "static-gateway"
     assert rows[0]["models"] == ["claude-3-7-sonnet", "claude-sonnet-4"]
     assert rows[0]["total_models"] == 2
+
+
+def test_local_ollama_live_models_replace_saved_activation_snapshot():
+    """A connected Ollama row must follow /api/tags, not its saved old list."""
+    rows = [
+        {
+            "slug": "ollama-local",
+            "name": "Ollama — this computer",
+            "models": ["old-model:latest"],
+            "total_models": 1,
+            "is_current": False,
+            "is_user_defined": True,
+            "source": "user-config",
+        }
+    ]
+    ctx = ConfigContext(
+        current_provider="openai-codex",
+        current_model="gpt-test",
+        current_base_url="",
+        user_providers={"ollama-local": {"models": ["old-model:latest"]}},
+        custom_providers=[],
+    )
+    with (
+        _list_auth_returning(rows),
+        patch(
+            "hermes_cli.local_ollama.local_ollama_status",
+            return_value={
+                "running": True,
+                "models": ["new-model:latest", "cloud-model:cloud"],
+            },
+        ),
+    ):
+        payload = build_models_payload(ctx, refresh=True)
+
+    ollama = next(row for row in payload["providers"] if row["slug"] == "ollama-local")
+    assert ollama["models"] == ["new-model:latest", "cloud-model:cloud"]
+    assert ollama["total_models"] == 2
+    assert ollama["source"] == "local-ollama"
 
 
 def test_build_models_payload_no_max_models_returns_full_list():

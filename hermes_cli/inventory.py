@@ -209,9 +209,7 @@ def build_models_payload(
         or str(ctx.current_provider or "").lower() == "ollama-local"
         or "ollama-local" in (ctx.user_providers or {})
     )
-    if local_is_relevant and not any(
-        str(row.get("slug") or "").lower() == "ollama-local" for row in rows
-    ):
+    if local_is_relevant:
         try:
             from hermes_cli.local_ollama import (
                 LOCAL_OLLAMA_OPENAI_URL,
@@ -220,23 +218,36 @@ def build_models_payload(
 
             local = local_ollama_status(timeout=0.75)
             if local.get("running") and local.get("models"):
-                rows.append(
-                    {
-                        "slug": "ollama-local",
-                        "name": "Ollama — this computer",
-                        "is_current": (
-                            str(ctx.current_provider or "").lower()
-                            == "ollama-local"
-                        ),
-                        "is_user_defined": True,
-                        "models": list(local["models"]),
-                        "total_models": len(local["models"]),
-                        "source": "local-ollama",
-                        "api_url": LOCAL_OLLAMA_OPENAI_URL,
-                        "authenticated": True,
-                        "auth_type": "none",
-                    }
+                live_row = {
+                    "slug": "ollama-local",
+                    "name": "Ollama — this computer",
+                    "is_current": (
+                        str(ctx.current_provider or "").lower()
+                        == "ollama-local"
+                    ),
+                    "is_user_defined": True,
+                    "models": list(local["models"]),
+                    "total_models": len(local["models"]),
+                    "source": "local-ollama",
+                    "api_url": LOCAL_OLLAMA_OPENAI_URL,
+                    "authenticated": True,
+                    "auth_type": "none",
+                }
+                saved_row = next(
+                    (
+                        row
+                        for row in rows
+                        if str(row.get("slug") or "").lower() == "ollama-local"
+                    ),
+                    None,
                 )
+                if saved_row is None:
+                    rows.append(live_row)
+                else:
+                    # Activation stores the models that existed at that moment
+                    # in config.yaml. Ollama's live /api/tags response is the
+                    # source of truth after that, including after pulls/removes.
+                    saved_row.update(live_row)
         except Exception:
             pass
 
