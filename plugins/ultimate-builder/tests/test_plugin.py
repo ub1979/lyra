@@ -190,3 +190,25 @@ def test_project_guide_translates_engineering_progress_for_nontechnical_users():
     assert "The application is not finished yet" in umbrella
     assert "Never show roadmap codes such as R16" in chat
     assert "what now works, what remains" in chat
+
+
+def test_project_brain_is_automatic_bounded_and_verified():
+    skill_root = ROOT / "skills"
+    umbrella = (skill_root / "ultimate-app-builder" / "SKILL.md").read_text()
+    guide = (skill_root / "app-it" / "SKILL.md").read_text()
+    memory = (
+        skill_root
+        / "ultimate-app-builder"
+        / "references"
+        / "workflows"
+        / "context-save"
+        / "SKILL.md"
+    ).read_text()
+
+    for instructions in (umbrella, guide, memory):
+        assert ".sdlc/project-brain.md" in instructions
+        assert "16 KB" in instructions
+        assert "verify" in instructions.lower()
+    assert "Project Brain is automatic" in guide
+    assert "raw chat" in umbrella
+    assert "session diary" in memory

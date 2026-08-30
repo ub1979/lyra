@@ -29,7 +29,7 @@
     ["tech-writer", "Documentation", "Write user, developer, and API documentation."],
     ["benchmark", "Benchmarks", "Measure speed, reliability, and resource usage."],
     ["health", "Health checks", "Record operational health and stability baselines."],
-    ["context-save", "Context preservation", "Keep decisions and progress available between sessions."],
+    ["context-save", "Project Brain", "Keep verified decisions, architecture, progress, and next actions available as projects grow."],
     ["learn", "Controlled learning", "Record evidence-backed improvement candidates."],
   ];
 

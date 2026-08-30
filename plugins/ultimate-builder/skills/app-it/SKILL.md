@@ -76,6 +76,30 @@ commit. A local commit is mandatory even when the user has not asked for a
 remote push. Pushing to a remote remains a separate action and requires an
 explicit user request.
 
+## Project Brain is automatic
+
+Every Lyra project keeps a bounded, project-local memory at
+`.sdlc/project-brain.md`. It is part of normal project work, not an optional
+agent the user must remember to select.
+
+For an existing project, read the Project Brain after the first welcome reply
+and before planning or editing. Treat it as a retrieval map, not as truth:
+verify material claims against the cited source files, tests, and current Git
+state. If it does not exist, create it before the first completed project
+change. If the old `.sdlc/context.md` exists, use it once as migration input
+and keep only durable, verified information.
+
+Keep the Project Brain under 16 KB. It records the product goal and boundaries,
+architecture map, durable decisions and rationale, current verified state,
+open risks or questions, next actions, and compact evidence paths. It must not
+contain credentials, personal data, full source files, raw conversations, or
+long test logs.
+
+After verified work, refresh the Project Brain before the mandatory local Git
+commit and stage it with that work. Replace stale status rather than appending
+a session diary. This lets Lyra recover the right facts after context
+compression or a new conversation without trusting old notes blindly.
+
 Preserve every website or document URL the user supplies and pass it to the
 relevant specialist unchanged. Do not claim a source was inspected until a
 Hermes web or browser tool actually opened it.
@@ -160,7 +184,8 @@ call:
 - deployment or CI/CD: `devops-engineer`;
 - user/developer documentation: `tech-writer`;
 - measurable performance work: `benchmark`;
-- long projects or handoff: `context-save`.
+- manual memory repair or a handoff audit: `context-save` (Project Brain is
+  maintained automatically by every project agent).
 
 Anything with a visible interface gets a design direction before implementation:
 the specialist that builds it loads `design-reference` (which produces

@@ -46,7 +46,7 @@ const SPECIALISTS: Array<GuidedSpecialist & { patterns: RegExp }> = [
   { id: "tech-writer", label: "Documentation", patterns: /tech-writer|readme\.md|docs\//i },
   { id: "benchmark", label: "Benchmarks", patterns: /benchmark|performance test/i },
   { id: "health", label: "Health checks", patterns: /health check|health-history/i },
-  { id: "context-save", label: "Context preservation", patterns: /context-save|context preservation|context\.md/i },
+  { id: "context-save", label: "Project Brain", patterns: /context-save|project brain|project-brain\.md|context preservation|context\.md/i },
   { id: "learn", label: "Controlled learning", patterns: /controlled learning|learning-candidates/i },
   { id: "idk_it", label: "Workflow coordination", patterns: /workflow coordination|delegate_task/i },
 ];

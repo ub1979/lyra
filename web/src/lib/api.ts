@@ -1927,9 +1927,31 @@ export interface UltimateBuilderConversation {
   parent_session_id: string | null;
 }
 
+export interface UltimateBuilderBrain {
+  available: boolean;
+  path: string;
+  content: string;
+  bytes: number;
+  max_bytes: number;
+  truncated: boolean;
+  freshness:
+    | "not_created"
+    | "too_large"
+    | "working_changes"
+    | "not_committed"
+    | "current"
+    | "needs_update";
+  updated_at: string | null;
+  git_head: string;
+  brain_commit: string;
+  working_changes: number;
+  verified_sources: string[];
+}
+
 export interface UltimateBuilderHistory {
   project: string;
   automatic_recovery: boolean;
+  brain: UltimateBuilderBrain;
   recovery_points: UltimateBuilderRecoveryPoint[];
   conversations: UltimateBuilderConversation[];
 }

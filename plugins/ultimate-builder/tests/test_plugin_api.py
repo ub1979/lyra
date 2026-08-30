@@ -133,10 +133,33 @@ def test_project_history_combines_recovery_points_and_exact_project_conversation
 
     monkeypatch.setattr(module, "CheckpointManager", FakeCheckpointManager)
     monkeypatch.setattr(module, "SessionDB", FakeSessionDB)
+    brain = {
+        "available": True,
+        "path": ".sdlc/project-brain.md",
+        "content": "# Project Brain",
+        "bytes": 15,
+        "max_bytes": 16 * 1024,
+        "truncated": False,
+        "freshness": "current",
+        "updated_at": "2026-08-30T10:00:00+00:00",
+        "git_head": "b" * 40,
+        "brain_commit": "b" * 40,
+        "working_changes": 0,
+        "verified_sources": ["requirements.md"],
+    }
+
+    class FakeProjectBrain:
+        @staticmethod
+        def project_brain_state(workspace):
+            assert workspace == project.resolve()
+            return brain
+
+    monkeypatch.setattr(module, "_project_brain_module", FakeProjectBrain)
 
     result = module.project_history(str(project))
 
     assert result["automatic_recovery"] is True
+    assert result["brain"] == brain
     assert len(result["recovery_points"]) == 1
     assert [item["id"] for item in result["conversations"]] == [
         "project-session"

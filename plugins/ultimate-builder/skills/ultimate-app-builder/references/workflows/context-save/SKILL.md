@@ -1,178 +1,118 @@
 ---
 name: context-save
-description: Saves working context (git state, decisions, remaining work, key paths) to .sdlc/context.md so the next session resumes instantly. Use when the user mentions: save context, save progress, checkpoint, wrap up, session end, pause work, save state.
+description: Repairs, condenses, or audits Lyra's verified Project Brain at .sdlc/project-brain.md. Use for memory repair, handoff audits, context recovery, saving progress, wrapping up, or when project memory is stale or oversized.
 ---
 
-# Context Save
+# Project Brain
 
-Captures the current working context and writes it to `.sdlc/context.md` for seamless session continuity. The next session reads this file to resume exactly where you left off.
+Maintain a compact, verified retrieval map so a fresh Lyra agent can resume a
+large project without loading the full conversation or trusting stale notes.
+All project agents update this file automatically; this specialist is for a
+manual audit, repair, migration, or handoff.
 
----
+## Non-negotiable rules
 
-## When to Use
+- Target: `.sdlc/project-brain.md`.
+- Maximum size: 16 KB. Condense before finishing if it exceeds the limit.
+- Verify every material claim against current files, tests, or Git history.
+- Preserve durable decisions and their rationale. Replace stale current-state
+  and next-action text; do not append a session diary.
+- Store evidence as compact relative paths and, when useful, Git commit ids.
+- Never store secrets, credentials, personal data, full source files, raw chat
+  transcripts, or lengthy test output.
+- Update the brain before the mandatory local Git commit and stage it with the
+  project work. Never push unless the user separately asks.
 
-- End of a work session
-- Before switching to a different project
-- After completing a major milestone
-- When the user says "save progress" or "I'm done for now"
-- Automatically suggested by the orchestrator after completing a pipeline phase
+## Step 1 — Establish verified state
 
----
+Read repository instructions and inspect the real project. Use Git to identify
+the current branch, working changes, recent commits, and the latest commit that
+changed `.sdlc/project-brain.md`. Read the existing brain when present.
 
-## Step 1 — Gather Context
+Read only the project evidence needed to verify or correct it, prioritising:
 
-Collect all of the following. Use tools — do not guess or rely on memory.
+- `requirements.md` for product goals and boundaries;
+- `design-brief.md` and `plan.md` for design and architecture;
+- `task-graph.md`, `project-plan.md`, and `.sdlc/progress.md` for work state;
+- current source and tests for implemented behavior;
+- review, QA, security, and deployment reports for open risks;
+- Git history for when and why durable decisions changed.
 
-### 1.1 Git State
+If `.sdlc/context.md` exists and no Project Brain exists, read it once as
+migration input. Copy only durable facts that still verify; do not reproduce
+its session history.
 
-```bash
-git branch --show-current
-git status --short
-git log --oneline -5
-git stash list
-```
+## Step 2 — Write the bounded brain
 
-Record: current branch, uncommitted changes, recent commits, any stashes.
-
-### 1.2 Decisions Made This Session
-
-Scan the conversation for decisions:
-- Architecture choices ("we chose X over Y because...")
-- Design decisions ("the color palette is...", "we're using pattern X")
-- Scope decisions ("we're deferring X", "MVP includes Y but not Z")
-- Technical tradeoffs ("using library A instead of B because...")
-
-### 1.3 Work Completed
-
-- Which pipeline phases ran (requirements, architecture, planning, development, etc.)
-- Which tasks/stories were completed
-- Which files were created or modified
-- Test results (pass/fail counts)
-- Review verdicts
-
-### 1.4 Remaining Work
-
-- Next task in the plan (by ID if available)
-- Blocked items and what unblocks them
-- Known bugs or issues found but not yet fixed
-- Deferred items with reason
-
-### 1.5 Open Questions
-
-- Unanswered questions from requirements or reviews
-- Decisions that need user input
-- Ambiguities in the spec
-
-### 1.6 Key File Paths
-
-- All generated documents: requirements.md, plan.md, task-graph.md
-- Source directories
-- Test directories
-- Config files
-- Reports: review-report.md, bug-report.md, security-report.md
-
----
-
-## Step 2 — Write .sdlc/context.md
-
-```bash
-mkdir -p .sdlc
-```
-
-Write to `.sdlc/context.md`:
+Create `.sdlc/project-brain.md` with this shape, omitting empty detail rather
+than inventing it:
 
 ```markdown
-# Session Context
+# Project Brain
 
-> Saved: [date and time]
-> Branch: [current branch]
-> Project: [project name from plan.md or directory name]
+> Verified: [UTC date/time]
+> Git: [branch and current commit, or “not committed yet”]
 
-## Git State
+## Product goal and boundaries
 
-- Branch: `[branch]`
-- Uncommitted changes: [list or "none"]
-- Recent commits:
-  - [hash] [message]
-  - [hash] [message]
-- Stashes: [list or "none"]
+- Goal: [what the product lets its users accomplish]
+- In scope: [durable boundaries]
+- Out of scope: [explicit exclusions]
+- Evidence: [relative paths]
 
-## Decisions Made
+## Architecture map
 
-| Decision | Rationale | Date |
-|----------|-----------|------|
-| [what was decided] | [why] | [when] |
+| Area | Responsibility | Evidence |
+|---|---|---|
+| [area] | [plain-language responsibility] | [path] |
 
-## Work Completed
+## Durable decisions
 
-### Pipeline Phases
-- [x] Requirements — requirements.md
-- [x] Architecture — plan.md
-- [ ] Planning — task-graph.md (not started)
-- ...
+| Decision | Why | Evidence |
+|---|---|---|
+| [decision] | [rationale or tradeoff] | [path or commit] |
 
-### Tasks Completed
-| Task | Status | Files | Evidence |
-|------|--------|-------|----------|
-| T-001: [title] | Done | [files] | Tests pass |
+## Current verified state
 
-## Remaining Work
+- Working now: [user-visible capabilities with evidence paths]
+- In progress: [only genuinely active work]
+- Not built or not verified: [important gaps]
 
-### Next Up
-- [ ] T-XXX: [title] — [brief description]
+## Open risks and questions
 
-### Blocked
-- [ ] T-XXX: [title] — blocked by [reason]
+- [risk, blocker, or decision needed — owner and evidence]
 
-### Deferred
-- [ ] [item] — deferred because [reason]
+## Next actions
 
-## Open Questions
+1. [specific next safe action]
 
-1. [question] — needs input from [who]
+## Evidence map
 
-## Key Files
-
-| File | Purpose | Status |
-|------|---------|--------|
-| requirements.md | Requirements | Complete |
-| plan.md | Architecture | Complete |
-| task-graph.md | Task breakdown | In progress |
-| src/ | Source code | [X files] |
-| tests/ | Tests | [X passing] |
-
-## Resume Instructions
-
-To continue this work:
-1. Read this file first
-2. Then read: [list of key docs to read]
-3. Start with: [specific next action]
+- [path] — [why a future agent should read it]
 ```
 
----
+The brain is an index, not a second copy of the repository. Prefer ten precise
+paths over pasted code. Describe roadmap identifiers in plain product language;
+keep the exact identifier only when it is needed to locate evidence.
 
-## Step 3 — Idempotency
+## Step 3 — Self-check
 
-If `.sdlc/context.md` already exists:
-1. Read the existing file
-2. Preserve the "Decisions Made" table — append new decisions, don't overwrite
-3. Update all other sections with current state
-4. Add a "Previous Sessions" section at the bottom with a one-line summary of each prior save
+Before finishing, confirm:
 
----
+1. every cited path exists;
+2. current-state claims match the source and latest relevant test evidence;
+3. old or contradicted decisions were corrected, not silently preserved;
+4. no sensitive or transcript content is present;
+5. the file is no larger than 16 KB;
+6. the Project Brain is staged in the same local commit as the verified work.
 
-## Step 4 — Confirm
+If the workspace has unrelated uncommitted changes, preserve them and stage
+only the files belonging to this work. If the Project Brain cannot be made
+trustworthy, mark the disputed claim as unverified and state the exact evidence
+needed rather than guessing.
 
-After writing, present a one-line summary:
+## Completion message
 
-> "Context saved to `.sdlc/context.md`. Resume next session by reading that file. [X] decisions recorded, [Y] tasks remaining, next up: [task]."
-
----
-
-## Quality Standards
-
-- Every field must be filled with real data from tools, not placeholders
-- Git state must come from actual `git` commands, not memory
-- File paths must be verified to exist
-- Task IDs must match the plan if one exists
-- The "Resume Instructions" section must be specific enough that a fresh agent can pick up the work without asking questions
+Tell the user, in one plain sentence, whether Lyra's project memory is current,
+what it will remember, and whether any important project fact remains
+unverified. Do not lead with filenames, hashes, or test counts.

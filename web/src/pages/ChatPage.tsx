@@ -353,7 +353,7 @@ const GUIDED_SPECIALIST_LABELS: Record<string, string> = {
   "tech-writer": "Documentation",
   benchmark: "Benchmarks",
   health: "Health checks",
-  "context-save": "Context preservation",
+  "context-save": "Project Brain",
   learn: "Controlled learning",
   idk_it: "Workflow coordination",
 };
@@ -381,7 +381,8 @@ const GUIDED_SPECIALIST_DESCRIPTIONS: Record<string, string> = {
   "tech-writer": "Write user, developer, and API documentation.",
   benchmark: "Measure speed, reliability, and resource usage.",
   health: "Record operational health and stability baselines.",
-  "context-save": "Keep decisions and progress available between sessions.",
+  "context-save":
+    "Keep verified decisions, architecture, progress, and next actions available as projects grow.",
   learn: "Record evidence-backed improvement candidates.",
 };
 

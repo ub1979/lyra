@@ -102,7 +102,7 @@ skill does not count as running a specialist.
 | Documentation | `tech-writer` | `README.md`, `docs/` |
 | Benchmark | `benchmark` | `benchmark-report.md` |
 | Health | `health` | `.sdlc/health-history.jsonl` |
-| Context | `context-save` | `.sdlc/context.md` |
+| Project memory | `context-save` | `.sdlc/project-brain.md` |
 | Specification | `spec` | `spec.md` |
 | Restructuring | `oop-restructurer` | `restructure-report.md` |
 | Learning | `learn` | `.sdlc/learnings.jsonl` |
@@ -126,8 +126,20 @@ file and the live tool schema win.
 
 ## Step 0: establish state
 
-Inspect the repository, its instructions, Git state, available tools, and
-`.sdlc/progress.md`. Do not overwrite unrelated user changes.
+Inspect the repository, its instructions, Git state, available tools,
+`.sdlc/project-brain.md`, and `.sdlc/progress.md`. Read the Project Brain before
+planning or editing, but verify its claims against cited source files, tests,
+and current Git state. If it is absent, create it before the first completed
+change. If `.sdlc/context.md` exists, use it once as migration input. Do not
+overwrite unrelated user changes.
+
+The Project Brain is automatic for every phase. Keep it under 16 KB and use it
+as a retrieval map containing product boundaries, architecture, durable
+decisions with rationale and evidence paths, current verified state, open
+risks, and next actions. Never store secrets, personal data, full source files,
+raw chat, or long test output. Refresh it after verified work and stage it in
+the same mandatory local commit; replace stale status instead of appending a
+session diary.
 
 Create `.sdlc/progress.md` if absent:
 
@@ -282,6 +294,8 @@ Before claiming completion, prove:
 - deployment and rollback instructions are accurate;
 - documentation examples were executed;
 - `.sdlc/progress.md` reflects reality.
+- `.sdlc/project-brain.md` reflects the verified project state and is included
+  in the final local commit.
 
 Deployment, pushing, publishing, account creation, credential use, destructive
 data operations, and paid infrastructure remain subject to the user's

@@ -1,4 +1,5 @@
 import {
+  BrainCircuit,
   Download,
   GitBranch,
   History,
@@ -12,6 +13,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { Markdown } from "@/components/Markdown";
 import { useModalBehavior } from "@/hooks/useModalBehavior";
 import {
   api,
@@ -50,6 +52,51 @@ function recoverySummary(point: UltimateBuilderRecoveryPoint): string {
   return changes ? `${files} · ${changes} changes` : files;
 }
 
+function brainStatus(freshness: UltimateBuilderHistory["brain"]["freshness"]): {
+  detail: string;
+  label: string;
+  tone: string;
+} {
+  switch (freshness) {
+    case "current":
+      return {
+        label: "Memory is current",
+        detail: "Verified against the latest saved project version.",
+        tone: "bg-emerald-500/10 text-emerald-500",
+      };
+    case "working_changes":
+      return {
+        label: "Work is still changing",
+        detail: "Lyra will refresh this memory when the current work is saved.",
+        tone: "bg-amber-500/10 text-amber-500",
+      };
+    case "needs_update":
+      return {
+        label: "Memory needs an update",
+        detail: "The project changed after this memory was last saved.",
+        tone: "bg-amber-500/10 text-amber-500",
+      };
+    case "too_large":
+      return {
+        label: "Memory needs condensing",
+        detail: "Lyra will shorten it safely during the next project task.",
+        tone: "bg-amber-500/10 text-amber-500",
+      };
+    case "not_committed":
+      return {
+        label: "Memory is not saved yet",
+        detail: "It will become verifiable with the next local project save.",
+        tone: "bg-sky-500/10 text-sky-500",
+      };
+    default:
+      return {
+        label: "Memory will be created automatically",
+        detail: "Lyra will build it when it next completes project work.",
+        tone: "bg-sky-500/10 text-sky-500",
+      };
+  }
+}
+
 export function GuidedProjectHistory({
   busy,
   currentSessionId,
@@ -64,7 +111,9 @@ export function GuidedProjectHistory({
   const [history, setHistory] = useState<UltimateBuilderHistory | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [tab, setTab] = useState<"recovery" | "conversations">("recovery");
+  const [tab, setTab] = useState<"brain" | "recovery" | "conversations">(
+    "brain",
+  );
   const [restorePoint, setRestorePoint] =
     useState<UltimateBuilderRecoveryPoint | null>(null);
   const [exportingId, setExportingId] = useState("");
@@ -159,12 +208,12 @@ export function GuidedProjectHistory({
                     id="project-history-title"
                     className="truncate text-xl font-semibold"
                   >
-                    Project history
+                    Project memory & history
                   </h2>
                 </div>
                 <p className="mt-1 text-sm leading-5 text-text-secondary">
-                  Return to an earlier version, continue a saved conversation,
-                  or explore another direction safely.
+                  See what Lyra remembers, return to an earlier version, or
+                  continue a saved conversation.
                 </p>
               </div>
               <button
@@ -178,12 +227,24 @@ export function GuidedProjectHistory({
             </header>
 
             <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-current/10 px-5 py-3 sm:px-7">
-              <div className="flex rounded-full bg-current/[0.06] p-1">
+              <div className="flex w-full overflow-x-auto rounded-full bg-current/[0.06] p-1 sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setTab("brain")}
+                  className={cn(
+                    "shrink-0 rounded-full px-4 py-2 text-sm transition",
+                    tab === "brain"
+                      ? "bg-midground text-background-base shadow-sm"
+                      : "text-text-secondary hover:text-midground",
+                  )}
+                >
+                  Project Brain
+                </button>
                 <button
                   type="button"
                   onClick={() => setTab("recovery")}
                   className={cn(
-                    "rounded-full px-4 py-2 text-sm transition",
+                    "shrink-0 rounded-full px-4 py-2 text-sm transition",
                     tab === "recovery"
                       ? "bg-midground text-background-base shadow-sm"
                       : "text-text-secondary hover:text-midground",
@@ -195,7 +256,7 @@ export function GuidedProjectHistory({
                   type="button"
                   onClick={() => setTab("conversations")}
                   className={cn(
-                    "rounded-full px-4 py-2 text-sm transition",
+                    "shrink-0 rounded-full px-4 py-2 text-sm transition",
                     tab === "conversations"
                       ? "bg-midground text-background-base shadow-sm"
                       : "text-text-secondary hover:text-midground",
@@ -223,6 +284,79 @@ export function GuidedProjectHistory({
                 >
                   {error}
                 </p>
+              )}
+
+              {!loading && tab === "brain" && history?.brain && (
+                <div className="space-y-4">
+                  {(() => {
+                    const status = brainStatus(history.brain.freshness);
+                    return (
+                      <div className="flex flex-col gap-4 rounded-3xl bg-midground/[0.07] p-5 sm:flex-row sm:items-center">
+                        <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-midground/10 text-midground">
+                          <BrainCircuit className="h-6 w-6" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <span
+                            className={cn(
+                              "inline-flex rounded-full px-3 py-1 text-xs font-medium",
+                              status.tone,
+                            )}
+                          >
+                            {status.label}
+                          </span>
+                          <p className="mt-2 text-sm leading-5 text-text-secondary">
+                            {status.detail}
+                          </p>
+                        </div>
+                        {history.brain.updated_at && (
+                          <span className="shrink-0 text-xs text-text-secondary/80">
+                            Updated {historyTime(history.brain.updated_at)}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {history.brain.available ? (
+                    <article className="overflow-hidden rounded-3xl border border-current/10 bg-current/[0.025]">
+                      <div className="border-b border-current/10 px-5 py-4">
+                        <strong className="text-text-primary">
+                          What Lyra remembers
+                        </strong>
+                        <p className="mt-1 text-sm text-text-secondary">
+                          Goals, architecture, durable decisions, risks, and
+                          the next safe actions—linked back to project evidence.
+                        </p>
+                      </div>
+                      <div className="project-brain-content overflow-x-auto px-5 py-5 text-text-primary">
+                        <Markdown content={history.brain.content} />
+                      </div>
+                      <footer className="flex flex-wrap gap-x-4 gap-y-1 border-t border-current/10 px-5 py-3 text-xs text-text-secondary/80">
+                        <span>
+                          {history.brain.verified_sources.length} key project
+                          {history.brain.verified_sources.length === 1
+                            ? " source"
+                            : " sources"}
+                        </span>
+                        <span>
+                          {Math.ceil(history.brain.bytes / 1024)} KB of 16 KB
+                        </span>
+                      </footer>
+                    </article>
+                  ) : (
+                    <div className="rounded-3xl border border-dashed border-current/15 p-8 text-center">
+                      <BrainCircuit className="mx-auto h-9 w-9 text-midground" />
+                      <strong className="mt-3 block text-text-primary">
+                        Project Brain is ready to begin
+                      </strong>
+                      <p className="mx-auto mt-1 max-w-lg text-sm leading-6 text-text-secondary">
+                        No setup is needed. Lyra will create verified project
+                        memory automatically the next time it completes work
+                        here.
+                      </p>
+                    </div>
+                  )}
+                </div>
               )}
 
               {!loading && tab === "recovery" && (

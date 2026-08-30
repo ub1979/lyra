@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import os
 import time
@@ -41,8 +42,20 @@ PHASES: dict[str, dict[str, str]] = {
     "devops-engineer": {"label": "Deployment", "artifact": "DEPLOYMENT.md"},
     "tech-writer": {"label": "Documentation", "artifact": "README.md and docs"},
     "benchmark": {"label": "Performance", "artifact": "benchmark-report.md"},
-    "context-save": {"label": "Context preservation", "artifact": ".sdlc/context.md"},
+    "context-save": {"label": "Project Brain", "artifact": ".sdlc/project-brain.md"},
 }
+
+
+def _project_brain_contract() -> str:
+    path = Path(__file__).resolve().parent / "project_brain.py"
+    spec = importlib.util.spec_from_file_location(
+        "lyra_ultimate_builder_project_brain_for_jobs", path
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Could not load Project Brain contract")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return str(module.PROJECT_BRAIN_CONTRACT)
 
 
 def _workspace(path: str | Path) -> Path:
@@ -94,7 +107,9 @@ def _task_body(project: Path, phase: str) -> str:
 Workspace: {project}
 Required outcome: complete the {info["label"]} phase and leave {info["artifact"]} as evidence.
 
-Read the repository instructions, requirements.md, plan.md, and .sdlc/progress.md when present. Adopt existing partial work; never restart completed work merely because this is a recovered job. Preserve unrelated user changes. Before editing, inspect Git status. Work only in this project.
+{_project_brain_contract()}
+
+Read the repository instructions, then the Project Brain, requirements.md, plan.md, and .sdlc/progress.md when present. Adopt existing partial work; never restart completed work merely because this is a recovered job. Preserve unrelated user changes. Before editing, inspect Git status. Work only in this project.
 
 Update .sdlc/progress.md to running when work starts. Perform the real work and verification required by the loaded specialist playbook. Save every project change in a local Git commit after verification, staging only files from this task. Initialize Git and create a baseline commit first if needed. Never push to a remote unless the user separately asks in their main Lyra conversation.
 

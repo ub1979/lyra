@@ -33,7 +33,7 @@ _SPECIALIST_SKILLS = {
     "tech-writer": "Technical documentation",
     "benchmark": "Performance benchmarking",
     "health": "Health checks",
-    "context-save": "Context preservation",
+    "context-save": "Project Brain maintenance",
     "learn": "Controlled learning",
     "idk_it": "Workflow coordination",
 }
