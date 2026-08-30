@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ExternalLink, X, Check, Copy } from "lucide-react";
 import { Button } from "@nous-research/ui/ui/components/button";
 import { Spinner } from "@nous-research/ui/ui/components/spinner";
@@ -186,31 +187,31 @@ export function OAuthLoginModal({ provider, onClose, onSuccess }: Props) {
   const verificationUrl =
     start?.flow === "device_code" ? start.verification_url : "";
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-background/85 p-4"
+      className="lyra-studio-dialog-layer lyra-studio-dialog-host fixed inset-0 z-[100] flex items-center justify-center p-4"
       onClick={handleBackdrop}
       role="dialog"
       aria-modal="true"
       aria-labelledby="oauth-modal-title"
     >
-      <div className={cn(themedBody, "relative w-full max-w-md border border-border bg-card shadow-2xl")}>
+      <div className={cn(themedBody, "lyra-studio-settings-dialog lyra-studio-oauth-dialog relative w-full max-w-md overflow-hidden")}>
         <Button
           ghost
           size="icon"
           onClick={handleClose}
-          className="absolute right-2 top-2 text-muted-foreground hover:text-foreground"
+          className="lyra-studio-settings-dialog-close absolute right-4 top-4 text-muted-foreground hover:text-foreground"
           aria-label={t.common.close}
         >
           <X />
         </Button>
-        <div className="p-6 flex flex-col gap-4">
+        <div className="lyra-studio-oauth-dialog-content flex flex-col gap-4 p-6">
           <div>
             <H2
               id="oauth-modal-title"
               variant="sm"
               mondwest
-              className="tracking-wider uppercase"
+              className="lyra-studio-settings-dialog-title"
             >
               {t.oauth.connect} {provider.name}
             </H2>
@@ -390,6 +391,7 @@ export function OAuthLoginModal({ provider, onClose, onSuccess }: Props) {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

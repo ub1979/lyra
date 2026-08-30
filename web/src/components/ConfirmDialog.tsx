@@ -66,16 +66,16 @@ export function ConfirmDialog({
       onClick={(e) => {
         if (e.target === e.currentTarget) onCancel();
       }}
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-background/85 p-4"
+      className="lyra-confirm-dialog-backdrop fixed inset-0 z-[200] flex items-center justify-center p-4"
     >
       <div
         ref={dialogRef}
         className={cn(
           themedBody,
-          "relative w-full max-w-md border border-border bg-card shadow-2xl",
+          "lyra-confirm-dialog-panel relative w-full max-w-md overflow-hidden",
         )}
       >
-        <div className="flex items-start gap-3 p-4 border-b border-border">
+        <div className="lyra-confirm-dialog-copy flex items-start gap-3">
           {destructive && (
             <div aria-hidden className="mt-0.5 shrink-0 text-destructive">
               <AlertTriangle className="h-4 w-4" />
@@ -85,7 +85,7 @@ export function ConfirmDialog({
           <div className="flex-1 min-w-0 flex flex-col gap-1">
             <h2
               id="confirm-dialog-title"
-              className="font-mondwest text-display text-base tracking-wider"
+              className="lyra-confirm-dialog-title"
             >
               {title}
             </h2>
@@ -93,7 +93,7 @@ export function ConfirmDialog({
             {description && (
               <p
                 id="confirm-dialog-desc"
-                className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line"
+                className="lyra-confirm-dialog-description whitespace-pre-line"
               >
                 {description}
               </p>
@@ -101,7 +101,7 @@ export function ConfirmDialog({
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-2 p-3">
+        <div className="lyra-confirm-dialog-actions">
           <Button type="button" outlined onClick={onCancel} disabled={loading}>
             {cancelLabel}
           </Button>

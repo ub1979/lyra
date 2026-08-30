@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
  * ends up above the top of the screen where it cannot be scrolled back to.
  */
 export const GUIDED_SPECIALISTS_PANEL =
-  "relative z-[71] flex h-[88dvh] max-h-full w-full max-w-5xl flex-col overflow-hidden " +
+  "lyra-studio-agent-dialog relative z-[71] flex h-[88dvh] max-h-full w-full max-w-5xl flex-col overflow-hidden " +
   "rounded-2xl border border-current/20 bg-background-base text-text-primary shadow-2xl";
 
 /**
@@ -31,7 +31,7 @@ export const GUIDED_SPECIALISTS_PANEL =
  */
 export function guidedSpecialistModelRowClass(selected: boolean): string {
   return cn(
-    "mt-3 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 border-t border-current/10 pt-3 transition-opacity",
+    "lyra-studio-agent-model-row mt-3 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 border-t border-current/10 pt-3 transition-opacity",
     selected ? "opacity-100" : "opacity-40",
   );
 }

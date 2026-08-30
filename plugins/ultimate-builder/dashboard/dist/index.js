@@ -91,6 +91,12 @@
   const STUDIO_TEXT_SIZE_KEY = "lyra-studio-text-size";
   const STUDIO_TEXT_SIZE_EVENT = "lyra-studio-text-size-change";
   const PROJECT_SESSION_KEY_PREFIX = "idrak-it.guided-session.v1:";
+  const WORKSPACE_STORAGE_PREFIXES = [
+    PROJECT_SESSION_KEY_PREFIX,
+    "idrak-it.guided-specialists.v1:",
+    "idrak-it.guided-messages.v1:",
+    "idrak-it.guided-phases.v1:",
+  ];
 
   function readStored(key, fallback) {
     try {
@@ -162,6 +168,12 @@
     } catch (_) {}
   }
 
+  function removeWorkspaceStorage(workspace) {
+    WORKSPACE_STORAGE_PREFIXES.forEach((prefix) => {
+      try { localStorage.removeItem(prefix + workspace); } catch (_) {}
+    });
+  }
+
   async function findProjectSessionId(workspace) {
     const stored = readProjectSessionId(workspace);
     if (stored) return stored;
@@ -192,10 +204,14 @@
     return leaf === "my_projects" ? trimmed : joinPath(trimmed, "my_projects");
   }
 
-  async function requireSafeWorkspace(path) {
-    const result = await SDK.fetchJSON(
+  function workspaceStatus(path) {
+    return SDK.fetchJSON(
       "/api/plugins/ultimate-builder/workspace-safety?path=" + encodeURIComponent(path),
     );
+  }
+
+  async function requireSafeWorkspace(path) {
+    const result = await workspaceStatus(path);
     if (!result || !result.allowed) {
       throw new Error((result && result.reason) || "Choose a project folder outside Lyra's application files.");
     }
@@ -301,6 +317,30 @@
     const [homeMessage, setHomeMessage] = useState("");
     const [studioTheme, setStudioTheme] = useState(readStudioTheme);
     const [studioTextSize, setStudioTextSize] = useState(readStudioTextSize);
+
+    useEffect(function () {
+      let active = true;
+      const snapshot = recentProjects.slice();
+      Promise.all(snapshot.map(async function (project) {
+        try {
+          const status = await workspaceStatus(project.path);
+          return status && status.exists === false ? project.path : "";
+        } catch (_) {
+          return "";
+        }
+      })).then(function (missingPaths) {
+        if (!active) return;
+        const missing = new Set(missingPaths.filter(Boolean));
+        if (!missing.size) return;
+        setRecentProjects(function (current) {
+          const next = current.filter((project) => !missing.has(project.path));
+          writeStored(RECENT_PROJECTS_KEY, next);
+          missing.forEach(removeWorkspaceStorage);
+          return next;
+        });
+      });
+      return function () { active = false; };
+    }, []);
 
     useEffect(function () {
       const onTheme = function (event) {

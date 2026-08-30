@@ -965,6 +965,574 @@ body[data-lyra-studio-theme="dark"] .lyra-model-picker-warning {
   .lyra-model-picker-actions button:first-child { width: 100%; flex-basis: 100%; }
 }
 
+/* Shared Studio dialogs used by project agents, model review and destructive
+   confirmations. These surfaces are portalled to <body>. */
+.lyra-studio-dialog-layer,
+.lyra-confirm-dialog-backdrop {
+  --studio-text-add: 0px;
+  --lyra-dialog-bg: rgba(252, 252, 255, .99);
+  --lyra-dialog-panel: #fff;
+  --lyra-dialog-subtle: #f6f6fb;
+  --lyra-dialog-hover: #f0effc;
+  --lyra-dialog-selected: #ece9ff;
+  --lyra-dialog-border: #e3e5ed;
+  --lyra-dialog-text: #1d2230;
+  --lyra-dialog-muted: #697184;
+  --lyra-dialog-primary: #6657e8;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body[data-lyra-studio-text-size="large"] .lyra-studio-dialog-layer,
+body[data-lyra-studio-text-size="large"] .lyra-confirm-dialog-backdrop {
+  --studio-text-add: 2px;
+}
+
+body[data-lyra-studio-text-size="xlarge"] .lyra-studio-dialog-layer,
+body[data-lyra-studio-text-size="xlarge"] .lyra-confirm-dialog-backdrop {
+  --studio-text-add: 4px;
+}
+
+.lyra-studio-dialog-backdrop,
+.lyra-confirm-dialog-backdrop {
+  background: rgba(24, 26, 38, .48);
+  backdrop-filter: blur(12px);
+}
+
+.lyra-studio-dialog-host {
+  background: rgba(24, 26, 38, .48) !important;
+  backdrop-filter: blur(12px);
+}
+
+.lyra-studio-agent-dialog {
+  border: 1px solid rgba(255, 255, 255, .74) !important;
+  border-radius: 26px !important;
+  color: var(--lyra-dialog-text) !important;
+  background:
+    radial-gradient(circle at 94% -8%, rgba(122, 105, 246, .13), transparent 21rem),
+    var(--lyra-dialog-bg) !important;
+  box-shadow: 0 34px 96px rgba(21, 23, 39, .3) !important;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+
+.lyra-studio-agent-dialog button,
+.lyra-studio-agent-dialog select,
+.lyra-studio-agent-dialog strong,
+.lyra-studio-agent-dialog small,
+.lyra-studio-agent-dialog span {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+
+.lyra-studio-agent-dialog-header {
+  border-bottom: 1px solid var(--lyra-dialog-border);
+  padding-top: 22px !important;
+  padding-bottom: 18px !important;
+}
+
+.lyra-studio-agent-dialog-header h2 {
+  margin: 0;
+  color: var(--lyra-dialog-text) !important;
+  font-size: calc(22px + var(--studio-text-add)) !important;
+  font-weight: 760;
+  line-height: 1.2;
+  letter-spacing: -.03em !important;
+}
+
+.lyra-studio-agent-dialog-header p {
+  max-width: 780px;
+  color: var(--lyra-dialog-muted) !important;
+  font-size: calc(13px + var(--studio-text-add)) !important;
+  line-height: 1.5 !important;
+}
+
+.lyra-studio-agent-dialog-header button {
+  flex: 0 0 auto;
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 50% !important;
+  color: var(--lyra-dialog-muted) !important;
+  background: var(--lyra-dialog-subtle) !important;
+}
+
+.lyra-studio-agent-dialog-toolbar {
+  border-bottom: 1px solid var(--lyra-dialog-border);
+  color: var(--lyra-dialog-muted);
+  background: rgba(247, 247, 251, .72);
+}
+
+.lyra-studio-agent-dialog-toolbar > span,
+.lyra-studio-agent-dialog-toolbar button {
+  font-size: calc(12px + var(--studio-text-add)) !important;
+}
+
+.lyra-studio-agent-dialog-toolbar button {
+  padding: 6px 10px;
+  border-radius: 999px;
+  color: var(--lyra-dialog-primary) !important;
+  background: transparent;
+}
+
+.lyra-studio-agent-dialog-toolbar button:hover {
+  background: var(--lyra-dialog-hover);
+  text-decoration: none !important;
+}
+
+.lyra-studio-agent-dialog-content {
+  scrollbar-color: #c7cad5 transparent;
+}
+
+.lyra-studio-agent-card {
+  min-width: 0;
+  border-color: var(--lyra-dialog-border) !important;
+  border-radius: 18px !important;
+  color: var(--lyra-dialog-text);
+  background: rgba(255, 255, 255, .72) !important;
+  box-shadow: 0 8px 24px rgba(45, 48, 68, .045);
+}
+
+.lyra-studio-agent-card:hover {
+  border-color: #cbc7ef !important;
+  background: rgba(250, 249, 255, .94) !important;
+}
+
+.lyra-studio-agent-card[data-selected="true"] {
+  border-color: rgba(110, 93, 232, .34) !important;
+  background: linear-gradient(145deg, rgba(238, 235, 255, .86), rgba(255, 255, 255, .92)) !important;
+  box-shadow: 0 10px 28px rgba(82, 68, 185, .08);
+}
+
+.lyra-studio-agent-card[data-model-unavailable="true"] {
+  border-color: #e3ad72 !important;
+  background: #fff9ef !important;
+}
+
+.lyra-studio-agent-card strong {
+  color: var(--lyra-dialog-text) !important;
+  font-size: calc(14px + var(--studio-text-add)) !important;
+  line-height: 1.35;
+}
+
+.lyra-studio-agent-card small {
+  color: var(--lyra-dialog-muted) !important;
+  font-size: calc(12px + var(--studio-text-add)) !important;
+  line-height: 1.45 !important;
+}
+
+.lyra-studio-agent-card label > span:last-child {
+  text-align: left;
+}
+
+.lyra-studio-agent-card strong > span {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px !important;
+  border: 0 !important;
+  border-radius: 999px;
+  color: #5b4dcf !important;
+  background: #e8e4ff !important;
+  font-size: calc(9px + var(--studio-text-add)) !important;
+  font-weight: 700 !important;
+}
+
+.lyra-studio-agent-check {
+  border-radius: 8px !important;
+}
+
+.lyra-studio-agent-card[data-selected="true"] .lyra-studio-agent-check {
+  border-color: transparent !important;
+  color: #fff !important;
+  background: linear-gradient(135deg, #796bef, #5b4cda) !important;
+}
+
+.lyra-studio-agent-card img {
+  border-color: rgba(100, 91, 176, .14) !important;
+  border-radius: 15px !important;
+  box-shadow: 0 7px 18px rgba(43, 47, 70, .12) !important;
+}
+
+.lyra-studio-agent-model-row {
+  border-color: var(--lyra-dialog-border) !important;
+}
+
+.lyra-studio-agent-model-row > span:first-child {
+  color: var(--lyra-dialog-muted) !important;
+  font-size: calc(10px + var(--studio-text-add)) !important;
+  font-weight: 700;
+}
+
+.lyra-studio-agent-model-select {
+  min-height: 38px;
+  padding-inline: 12px !important;
+  border-color: var(--lyra-dialog-border) !important;
+  border-radius: 999px !important;
+  color: var(--lyra-dialog-text) !important;
+  background: var(--lyra-dialog-panel) !important;
+  font-size: calc(12px + var(--studio-text-add)) !important;
+}
+
+.lyra-studio-agent-model-select:focus {
+  border-color: #9388f2 !important;
+  box-shadow: 0 0 0 3px rgba(109, 93, 252, .12);
+}
+
+.lyra-studio-agent-dialog-footer {
+  border-top: 1px solid var(--lyra-dialog-border);
+  color: var(--lyra-dialog-muted);
+  background: rgba(252, 252, 255, .95);
+}
+
+.lyra-studio-agent-dialog-footer > span {
+  font-size: calc(12px + var(--studio-text-add)) !important;
+}
+
+.lyra-studio-agent-dialog-footer button {
+  min-height: 40px;
+  padding-inline: 17px !important;
+  border-color: var(--lyra-dialog-border) !important;
+  border-radius: 999px !important;
+  color: var(--lyra-dialog-text) !important;
+  background: var(--lyra-dialog-panel) !important;
+  font-size: calc(13px + var(--studio-text-add)) !important;
+}
+
+.lyra-studio-agent-dialog-footer button:last-child:not(:disabled) {
+  border-color: transparent !important;
+  color: #fff !important;
+  background: linear-gradient(135deg, #7769ee, #5b4cda) !important;
+  box-shadow: 0 8px 20px rgba(91, 76, 218, .2);
+}
+
+.lyra-studio-settings-dialog {
+  border: 1px solid rgba(255, 255, 255, .74) !important;
+  border-radius: 26px !important;
+  color: var(--lyra-dialog-text) !important;
+  background:
+    radial-gradient(circle at 94% -8%, rgba(122, 105, 246, .13), transparent 20rem),
+    var(--lyra-dialog-bg) !important;
+  box-shadow: 0 32px 92px rgba(21, 23, 39, .3) !important;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+
+.lyra-studio-settings-dialog button,
+.lyra-studio-settings-dialog input,
+.lyra-studio-settings-dialog select,
+.lyra-studio-settings-dialog .text-display,
+.lyra-studio-settings-dialog [class*="font-mondwest"],
+.lyra-studio-settings-dialog [class*="font-mono"] {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+
+.lyra-studio-settings-dialog button,
+.lyra-studio-settings-dialog input,
+.lyra-studio-settings-dialog select {
+  border-radius: 999px !important;
+}
+
+.lyra-studio-oauth-dialog-content {
+  color: var(--lyra-dialog-text);
+}
+
+.lyra-studio-oauth-dialog-content > div:first-child {
+  padding-right: 42px;
+}
+
+.lyra-studio-oauth-dialog-content p,
+.lyra-studio-oauth-dialog-content ol,
+.lyra-studio-oauth-dialog-content a,
+.lyra-studio-oauth-dialog-content .text-muted-foreground {
+  color: var(--lyra-dialog-muted) !important;
+}
+
+.lyra-studio-oauth-dialog-content button {
+  min-height: 38px;
+  padding-inline: 15px !important;
+  border-color: var(--lyra-dialog-border) !important;
+  font-size: calc(13px + var(--studio-text-add)) !important;
+}
+
+.lyra-studio-oauth-dialog-content input {
+  min-height: 42px;
+  padding-inline: 14px !important;
+}
+
+.lyra-studio-oauth-dialog-content code {
+  color: var(--lyra-dialog-text) !important;
+}
+
+.lyra-studio-oauth-dialog-content > div,
+.lyra-studio-oauth-dialog-content > div > div {
+  border-radius: 15px;
+}
+
+.lyra-studio-settings-dialog-close {
+  z-index: 2;
+  width: 36px !important;
+  height: 36px !important;
+  color: var(--lyra-dialog-muted) !important;
+  background: var(--lyra-dialog-subtle) !important;
+}
+
+.lyra-studio-settings-dialog-header {
+  padding: 22px 62px 18px 22px;
+  border-bottom: 1px solid var(--lyra-dialog-border);
+}
+
+.lyra-studio-settings-dialog-title {
+  margin: 0;
+  color: var(--lyra-dialog-text);
+  font-size: calc(21px + var(--studio-text-add));
+  font-weight: 760;
+  line-height: 1.2;
+  letter-spacing: -.03em;
+}
+
+.lyra-studio-settings-dialog-header p,
+.lyra-studio-settings-dialog-content > p {
+  color: var(--lyra-dialog-muted) !important;
+  font-size: calc(13px + var(--studio-text-add)) !important;
+  line-height: 1.55;
+}
+
+.lyra-studio-settings-dialog-header button:not(.lyra-studio-settings-dialog-close) {
+  min-height: 36px;
+  padding-inline: 14px !important;
+  border-color: var(--lyra-dialog-border) !important;
+  color: var(--lyra-dialog-primary) !important;
+  background: var(--lyra-dialog-panel) !important;
+  font-size: calc(12px + var(--studio-text-add)) !important;
+}
+
+.lyra-studio-settings-dialog-content {
+  scrollbar-color: #c7cad5 transparent;
+}
+
+.lyra-studio-settings-dialog .text-text-primary {
+  color: var(--lyra-dialog-text) !important;
+}
+
+.lyra-studio-settings-dialog .text-text-secondary,
+.lyra-studio-settings-dialog .text-text-tertiary {
+  color: var(--lyra-dialog-muted) !important;
+}
+
+.lyra-studio-settings-row {
+  min-width: 0;
+  border: 1px solid var(--lyra-dialog-border) !important;
+  border-radius: 15px;
+  color: var(--lyra-dialog-text);
+  background: rgba(255, 255, 255, .7) !important;
+}
+
+.lyra-studio-settings-row:hover {
+  border-color: #cbc7ef !important;
+  background: rgba(249, 248, 255, .94) !important;
+}
+
+.lyra-studio-settings-row .text-text-secondary,
+.lyra-studio-settings-row .text-text-tertiary {
+  color: var(--lyra-dialog-muted) !important;
+}
+
+.lyra-studio-settings-dialog-content button:not([role="switch"]) {
+  min-height: 36px;
+  padding-inline: 14px !important;
+  border-color: var(--lyra-dialog-border) !important;
+  color: var(--lyra-dialog-text) !important;
+  background: var(--lyra-dialog-panel) !important;
+  font-size: calc(12px + var(--studio-text-add)) !important;
+}
+
+.lyra-studio-settings-dialog button[role="switch"] {
+  width: 36px !important;
+  min-width: 36px !important;
+  height: 20px !important;
+  min-height: 20px !important;
+  padding: 0 !important;
+  border-radius: 999px !important;
+}
+
+.lyra-studio-settings-dialog input,
+.lyra-studio-settings-dialog select {
+  min-height: 38px;
+  padding-inline: 12px !important;
+  border-color: var(--lyra-dialog-border) !important;
+  color: var(--lyra-dialog-text) !important;
+  background: var(--lyra-dialog-panel) !important;
+  font-size: calc(12px + var(--studio-text-add)) !important;
+}
+
+.lyra-confirm-dialog-panel {
+  border: 1px solid rgba(255, 255, 255, .74);
+  border-radius: 24px;
+  color: var(--lyra-dialog-text);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(122, 105, 246, .12), transparent 15rem),
+    var(--lyra-dialog-bg);
+  box-shadow: 0 30px 85px rgba(21, 23, 39, .3);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+
+.lyra-confirm-dialog-copy {
+  padding: 22px 22px 18px;
+  border-bottom: 1px solid var(--lyra-dialog-border);
+}
+
+.lyra-confirm-dialog-copy [aria-hidden] {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 50%;
+  color: #bc4545;
+  background: #ffeded;
+}
+
+.lyra-confirm-dialog-title {
+  margin: 0;
+  color: var(--lyra-dialog-text);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  font-size: calc(19px + var(--studio-text-add));
+  font-weight: 760;
+  line-height: 1.25;
+  letter-spacing: -.025em !important;
+  text-transform: none !important;
+}
+
+.lyra-confirm-dialog-description {
+  margin: 5px 0 0;
+  color: var(--lyra-dialog-muted);
+  font-size: calc(13px + var(--studio-text-add)) !important;
+  line-height: 1.55;
+}
+
+.lyra-confirm-dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 9px;
+  padding: 14px 18px 18px;
+}
+
+.lyra-confirm-dialog-actions button {
+  min-height: 40px;
+  padding-inline: 17px !important;
+  border-radius: 999px !important;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  font-size: calc(13px + var(--studio-text-add)) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+body[data-lyra-studio-theme="dark"] .lyra-studio-dialog-layer,
+body[data-lyra-studio-theme="dark"] .lyra-confirm-dialog-backdrop {
+  --lyra-dialog-bg: rgba(24, 28, 39, .99);
+  --lyra-dialog-panel: #1e2330;
+  --lyra-dialog-subtle: #252a39;
+  --lyra-dialog-hover: #2a2c40;
+  --lyra-dialog-selected: #302d50;
+  --lyra-dialog-border: #343a49;
+  --lyra-dialog-text: #eef1f8;
+  --lyra-dialog-muted: #a5adbd;
+  --lyra-dialog-primary: #a99eff;
+}
+
+body[data-lyra-studio-theme="dark"] .lyra-studio-dialog-backdrop,
+body[data-lyra-studio-theme="dark"] .lyra-confirm-dialog-backdrop {
+  background: rgba(5, 7, 12, .7);
+}
+
+body[data-lyra-studio-theme="dark"] .lyra-studio-dialog-host {
+  background: rgba(5, 7, 12, .7) !important;
+}
+
+body[data-lyra-studio-theme="dark"] .lyra-studio-agent-dialog,
+body[data-lyra-studio-theme="dark"] .lyra-studio-settings-dialog,
+body[data-lyra-studio-theme="dark"] .lyra-confirm-dialog-panel {
+  border-color: #363b4b !important;
+  background:
+    radial-gradient(circle at 94% -8%, rgba(130, 111, 255, .16), transparent 21rem),
+    var(--lyra-dialog-bg) !important;
+  box-shadow: 0 34px 100px rgba(0, 0, 0, .52) !important;
+}
+
+body[data-lyra-studio-theme="dark"] .lyra-studio-agent-dialog-toolbar,
+body[data-lyra-studio-theme="dark"] .lyra-studio-agent-dialog-footer {
+  background: rgba(28, 32, 44, .92);
+}
+
+body[data-lyra-studio-theme="dark"] .lyra-studio-agent-dialog-content {
+  scrollbar-color: #454b5c transparent;
+}
+
+body[data-lyra-studio-theme="dark"] .lyra-studio-agent-card {
+  background: rgba(30, 35, 47, .78) !important;
+  box-shadow: none;
+}
+
+body[data-lyra-studio-theme="dark"] .lyra-studio-agent-card:hover {
+  border-color: #4a4c69 !important;
+  background: rgba(36, 40, 55, .96) !important;
+}
+
+body[data-lyra-studio-theme="dark"] .lyra-studio-agent-card[data-selected="true"] {
+  border-color: rgba(151, 136, 255, .38) !important;
+  background: linear-gradient(145deg, rgba(49, 45, 80, .9), rgba(30, 35, 47, .96)) !important;
+}
+
+body[data-lyra-studio-theme="dark"] .lyra-studio-agent-card strong > span {
+  color: #d4ceff !important;
+  background: #373252 !important;
+}
+
+body[data-lyra-studio-theme="dark"] .lyra-studio-agent-card[data-model-unavailable="true"] {
+  border-color: #8d6743 !important;
+  background: rgba(91, 61, 34, .26) !important;
+}
+
+body[data-lyra-studio-theme="dark"] .lyra-studio-settings-dialog-content {
+  scrollbar-color: #454b5c transparent;
+}
+
+body[data-lyra-studio-theme="dark"] .lyra-studio-settings-row {
+  background: rgba(30, 35, 47, .78) !important;
+}
+
+body[data-lyra-studio-theme="dark"] .lyra-studio-settings-row:hover {
+  border-color: #4a4c69 !important;
+  background: rgba(36, 40, 55, .96) !important;
+}
+
+body[data-lyra-studio-theme="dark"] .lyra-confirm-dialog-copy [aria-hidden] {
+  color: #ffb6b6;
+  background: rgba(115, 43, 49, .42);
+}
+
+@media (max-width: 720px) {
+  .lyra-studio-dialog-layer { padding: 8px !important; }
+  .lyra-studio-agent-dialog { height: calc(100dvh - 16px) !important; border-radius: 22px !important; }
+  .lyra-studio-agent-dialog-header { padding: 18px 16px 14px !important; }
+  .lyra-studio-agent-dialog-toolbar { padding: 10px 14px !important; }
+  .lyra-studio-agent-dialog-content { padding: 12px !important; }
+  .lyra-studio-agent-card { padding: 11px !important; }
+  .lyra-studio-agent-card label { grid-template-columns: 24px 52px minmax(0, 1fr) !important; gap: 9px !important; }
+  .lyra-studio-agent-card img { width: 52px !important; height: 52px !important; }
+  .lyra-studio-agent-dialog-footer { align-items: stretch !important; padding: 12px 14px !important; }
+  .lyra-studio-agent-dialog-footer > span { width: 100%; }
+  .lyra-studio-agent-dialog-footer > div { width: 100%; }
+  .lyra-studio-agent-dialog-footer button { flex: 1 1 auto; }
+  .lyra-confirm-dialog-backdrop { padding: 10px !important; }
+  .lyra-confirm-dialog-panel { border-radius: 21px; }
+  .lyra-confirm-dialog-actions { align-items: stretch; flex-direction: column-reverse; }
+  .lyra-confirm-dialog-actions button { width: 100%; }
+  .lyra-studio-settings-dialog { max-height: calc(100dvh - 16px) !important; border-radius: 22px !important; }
+  .lyra-studio-settings-dialog-header { padding: 18px 56px 14px 16px; }
+  .lyra-studio-settings-dialog-content { padding: 13px !important; }
+  .lyra-studio-settings-row { align-items: stretch !important; flex-direction: column; }
+}
+
 .lyra-studio-conversation {
   background:
     radial-gradient(circle at 25% 0%, rgba(218, 214, 255, .22), transparent 26rem),
