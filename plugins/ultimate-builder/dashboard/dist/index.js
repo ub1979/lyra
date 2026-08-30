@@ -345,6 +345,7 @@
     const [managingPath, setManagingPath] = useState("");
     const [homeMessage, setHomeMessage] = useState("");
     const [homeError, setHomeError] = useState("");
+    const [trashProject, setTrashProject] = useState(null);
     const [studioTheme, setStudioTheme] = useState(readStudioTheme);
     const [studioTextSize, setStudioTextSize] = useState(readStudioTextSize);
 
@@ -623,11 +624,10 @@
       }
     };
 
-    const trashRecent = async function (item) {
-      const confirmed = window.confirm(
-        'Move "' + item.name + '" to Lyra Trash? This moves the whole project folder, but does not permanently delete it.',
-      );
-      if (!confirmed) return;
+    const trashRecent = async function () {
+      const item = trashProject;
+      if (!item) return;
+      setTrashProject(null);
       setManagingPath(item.path);
       setHomeError("");
       setHomeMessage("");
@@ -849,9 +849,25 @@
               h("div", { className: "ub-recent-actions", "aria-label": "Manage " + item.name },
                 h("button", { type: "button", onClick: () => chooseMoveDestination(item), disabled: Boolean(managingPath) }, "Move"),
                 h("button", { type: "button", onClick: () => removeRecent(item), disabled: Boolean(managingPath) }, "Remove"),
-                h("button", { className: "ub-recent-trash", type: "button", onClick: () => void trashRecent(item), disabled: Boolean(managingPath) }, managingPath === item.path ? "Working…" : "Trash"),
+                h("button", { className: "ub-recent-trash", type: "button", onClick: () => setTrashProject(item), disabled: Boolean(managingPath) }, managingPath === item.path ? "Working…" : "Trash"),
               ),
             )),
+          ),
+        ),
+        trashProject && h("div", { className: "ub-confirm-layer", role: "dialog", "aria-modal": "true", "aria-labelledby": "ub-trash-title" },
+          h("button", { className: "ub-confirm-backdrop", type: "button", onClick: () => setTrashProject(null), "aria-label": "Cancel moving project to Trash" }),
+          h("section", { className: "ub-confirm-panel" },
+            h("div", { className: "ub-confirm-copy" },
+              h("span", { className: "ub-confirm-icon", "aria-hidden": "true" }, "⌫"),
+              h("div", null,
+                h("h2", { id: "ub-trash-title" }, "Move project to Trash?"),
+                h("p", null, '"' + trashProject.name + '" and its whole project folder will move to Lyra Trash. You can recover it later.'),
+              ),
+            ),
+            h("div", { className: "ub-confirm-actions" },
+              h(Button, { outlined: true, onClick: () => setTrashProject(null) }, "Cancel"),
+              h(Button, { destructive: true, onClick: () => void trashRecent() }, "Move to Trash"),
+            ),
           ),
         ),
       );

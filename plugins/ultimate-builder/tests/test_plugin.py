@@ -125,6 +125,9 @@ def test_dashboard_enforces_requirements_gate_with_real_skill_loading():
     assert '"lyra-studio-text-size"' in dashboard
     assert '"Text size"' in dashboard
     assert 'ub-text-" + studioTextSize' in dashboard
+    assert "window.confirm" not in dashboard
+    assert 'className: "ub-confirm-layer"' in dashboard
+    assert '"Move project to Trash?"' in dashboard
     assert "teamSizeLabel(template.skills)" in dashboard
     assert 'disabled: starting || !selected.size' not in dashboard
     assert "Use ultimate-builder:ultimate-app-builder" not in dashboard

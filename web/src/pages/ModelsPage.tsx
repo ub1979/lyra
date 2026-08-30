@@ -612,54 +612,53 @@ function AuxiliaryTasksModal({
     }
   };
 
-  return (
+  return createPortal(
     <div
       ref={modalRef}
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-background/85 p-4"
+      className="lyra-studio-dialog-layer lyra-studio-dialog-host fixed inset-0 z-[100] flex items-center justify-center p-4"
       onClick={(e) => e.target === e.currentTarget && onClose()}
       role="dialog"
       aria-modal="true"
       aria-labelledby="aux-modal-title"
     >
-      <div className={cn(themedBody, "relative w-full max-w-2xl max-h-[80vh] border border-border bg-card shadow-2xl flex flex-col")}>
+      <div className={cn(themedBody, "lyra-studio-settings-dialog relative flex max-h-[86vh] w-full max-w-2xl flex-col overflow-hidden")}>
         <Button
           ghost
           size="icon"
           onClick={onClose}
-          className="absolute right-2 top-2 text-muted-foreground hover:text-foreground"
+          className="lyra-studio-settings-dialog-close absolute right-4 top-4 text-muted-foreground hover:text-foreground"
           aria-label="Close"
         >
           <X />
         </Button>
 
-        <header className="p-5 pb-3 border-b border-border">
+        <header className="lyra-studio-settings-dialog-header">
           <div className="flex items-center justify-between gap-3 pr-8">
             <h2
               id="aux-modal-title"
-              className="font-mondwest text-display text-base tracking-wider"
+              className="lyra-studio-settings-dialog-title"
             >
-              Auxiliary Tasks
+              Helper models
             </h2>
             <Button
               size="sm"
               outlined
               onClick={() => setConfirmReset(true)}
               disabled={resetBusy}
-              className="h-6 text-xs uppercase"
+              className="text-xs"
               prefix={resetBusy ? <Spinner /> : null}
             >
               Reset all to auto
             </Button>
           </div>
           <p className="text-xs text-text-secondary mt-2">
-            Auxiliary tasks handle side-jobs like vision, session search, and
-            compression. <span className="font-mono">auto</span> means
-            &quot;use the main model&quot;. Override per-task when you want a
-            cheap/fast model for a specific job.
+            Lyra normally uses your main model for background jobs such as
+            reading images, finding past chats, and shortening context. You can
+            choose a different model for any job below.
           </p>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-5 space-y-1">
+        <div className="lyra-studio-settings-dialog-content flex-1 space-y-2 overflow-y-auto p-5">
           {AUX_TASKS.map((t) => {
             const cur = aux?.tasks.find((a) => a.task === t.key);
             const isAuto =
@@ -667,7 +666,7 @@ function AuxiliaryTasksModal({
             return (
               <div
                 key={t.key}
-                className="flex items-center justify-between gap-3 px-3 py-2 border border-border/30 bg-card/50 hover:bg-muted/20 transition-colors"
+                className="lyra-studio-settings-row flex items-center justify-between gap-3 px-3 py-2 transition-colors"
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2">
@@ -678,7 +677,7 @@ function AuxiliaryTasksModal({
                   </div>
                   <div className="text-xs font-mono text-text-secondary truncate">
                     {isAuto
-                      ? "auto (use main model)"
+                      ? "Uses the main project model"
                       : `${cur?.provider} · ${cur?.model || "(provider default)"}`}
                   </div>
                 </div>
@@ -686,7 +685,7 @@ function AuxiliaryTasksModal({
                   size="sm"
                   outlined
                   onClick={() => setPicker({ kind: "aux", task: t.key })}
-                  className="h-6 text-xs uppercase"
+                  className="text-xs"
                 >
                   Change
                 </Button>
@@ -700,7 +699,7 @@ function AuxiliaryTasksModal({
             key={`picker-${refreshKey}`}
             loader={api.getModelOptions}
             alwaysGlobal
-            title={`Set Auxiliary: ${
+            title={`Choose a model for ${
               AUX_TASKS.find((t) => t.key === picker.task)?.label ??
               picker.task
             }`}
@@ -722,14 +721,15 @@ function AuxiliaryTasksModal({
           open={confirmReset}
           onCancel={() => setConfirmReset(false)}
           onConfirm={() => void resetAllAux()}
-          title="Reset auxiliary models"
-          description="Reset every auxiliary task to 'auto'? This overrides any per-task overrides you've set."
+          title="Use the main model for every helper?"
+          description="This removes the separate helper-model choices you made. All background jobs will use the main project model again."
           destructive
           confirmLabel="Reset all"
           loading={resetBusy}
         />
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -836,7 +836,7 @@ function MoaModelsModal({
   return createPortal(
     <div
       ref={modalRef}
-      className={DASHBOARD_MODAL_BACKDROP}
+      className={cn(DASHBOARD_MODAL_BACKDROP, "lyra-studio-dialog-layer lyra-studio-dialog-host")}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) closeMoaUnlessPickerOpen();
       }}
@@ -849,20 +849,20 @@ function MoaModelsModal({
         className={cn(
           themedBody,
           DASHBOARD_MODAL_PANEL,
-          "max-h-[85vh] max-w-2xl overflow-auto flex flex-col",
+          "lyra-studio-settings-dialog max-h-[86vh] max-w-2xl overflow-hidden flex flex-col",
         )}
       >
-        <header className="p-5 pb-3 border-b border-border">
+        <header className="lyra-studio-settings-dialog-header">
           <h2
             id="moa-modal-title"
-            className="font-mondwest text-display text-base tracking-wider"
+            className="lyra-studio-settings-dialog-title"
           >
-            Configure Mixture of Agents presets
+            Multi-model team presets
           </h2>
         </header>
-        <div className="space-y-4 p-5">
+        <div className="lyra-studio-settings-dialog-content space-y-4 overflow-y-auto p-5">
           <p className="text-xs text-text-secondary">
-            Presets appear as models under the Mixture of Agents provider. References produce perspectives; the aggregator is the acting model that answers and calls tools.
+            Combine several models for a second opinion, then choose one model to prepare the final answer.
           </p>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -894,7 +894,7 @@ function MoaModelsModal({
               <div
                 key={`${selected}-${slot.provider}-${slot.model}-${index}`}
                 className={cn(
-                  "flex items-center gap-2 border border-border/50 bg-muted/20 px-3 py-2",
+                  "lyra-studio-settings-row flex items-center gap-2 px-3 py-2",
                   slot.enabled === false && "opacity-60"
                 )}
               >
@@ -919,7 +919,7 @@ function MoaModelsModal({
 
           <div className="space-y-2">
             <div className="text-display text-xs font-medium tracking-wider">Aggregator</div>
-            <div className="flex items-center gap-2 border border-border/50 bg-muted/20 px-3 py-2">
+            <div className="lyra-studio-settings-row flex items-center gap-2 px-3 py-2">
               <div className="min-w-0 flex-1 truncate font-mono text-xs text-text-secondary">{slotLabel(preset.aggregator)}</div>
               <Button size="sm" outlined onClick={() => setPicker({ kind: "aggregator" })}>Change</Button>
             </div>
@@ -937,7 +937,7 @@ function MoaModelsModal({
           key={`moa-picker-${refreshKey}-${selected}-${picker.kind}-${picker.kind === "reference" ? picker.index : "agg"}`}
           loader={api.getModelOptions}
           alwaysGlobal
-          title="Select MoA Model"
+          title="Choose a team model"
           onApply={async ({ provider, model }) => {
             if ((provider || "").toLowerCase() === "moa") {
               setError("MoA presets can't reference or aggregate the Mixture of Agents provider (no recursive MoA).");
@@ -1318,26 +1318,6 @@ export default function ModelsPage() {
 
   useEffect(() => listenForLyraStudioTheme(setStudioTheme), []);
   useEffect(() => listenForLyraStudioTextSize(setStudioTextSize), []);
-
-  useEffect(() => {
-    const previousTheme = document.body.dataset.lyraStudioTheme;
-    const previousTextSize = document.body.dataset.lyraStudioTextSize;
-    document.body.dataset.lyraStudioTheme = studioTheme;
-    document.body.dataset.lyraStudioTextSize = studioTextSize;
-
-    return () => {
-      if (previousTheme) {
-        document.body.dataset.lyraStudioTheme = previousTheme;
-      } else {
-        delete document.body.dataset.lyraStudioTheme;
-      }
-      if (previousTextSize) {
-        document.body.dataset.lyraStudioTextSize = previousTextSize;
-      } else {
-        delete document.body.dataset.lyraStudioTextSize;
-      }
-    };
-  }, [studioTextSize, studioTheme]);
 
   useEffect(() => {
     api

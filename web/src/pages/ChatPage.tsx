@@ -24,6 +24,7 @@ import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { Button } from "@nous-research/ui/ui/components/button";
 import { Typography } from "@nous-research/ui/ui/components/typography/index";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { cn } from "@/lib/utils";
 import {
   GUIDED_SPECIALISTS_PANEL,
@@ -1392,6 +1393,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const [studioTextSize, setStudioTextSize] = useState(
     readLyraStudioTextSize,
   );
+  const [guidedClearConfirmOpen, setGuidedClearConfirmOpen] = useState(false);
   useEffect(
     () => listenForLyraStudioTheme(setStudioTheme),
     [],
@@ -1948,13 +1950,6 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     workspaceParam,
   ]);
   const clearGuidedHistory = useCallback(() => {
-    if (
-      !window.confirm(
-        "Clear this project’s chat history and start a fresh conversation?",
-      )
-    ) {
-      return;
-    }
     try {
       wsRef.current?.send("\x03");
     } catch {
@@ -4573,10 +4568,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     guidedSkillsOpen &&
     portalRoot &&
     createPortal(
-      <div className="font-mondwest fixed inset-0 z-[70] flex items-center justify-center p-3 sm:p-6">
+      <div className="lyra-studio-dialog-layer fixed inset-0 z-[70] flex items-center justify-center p-3 sm:p-6">
         <button
           type="button"
-          className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+          className="lyra-studio-dialog-backdrop absolute inset-0"
           aria-label="Close project agents"
           onClick={() => setGuidedSkillsOpen(false)}
         />
@@ -4592,7 +4587,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           aria-labelledby="guided-skills-title"
           className={GUIDED_SPECIALISTS_PANEL}
         >
-          <header className="flex shrink-0 items-start justify-between gap-4 border-b border-current/15 px-5 py-4 sm:px-6">
+          <header className="lyra-studio-agent-dialog-header flex shrink-0 items-start justify-between gap-4 px-5 py-4 sm:px-6">
             <div>
               <h2
                 id="guided-skills-title"
@@ -4622,7 +4617,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             </Button>
           </header>
 
-          <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-current/10 px-5 py-3 sm:px-6">
+          <div className="lyra-studio-agent-dialog-toolbar flex shrink-0 flex-wrap items-center justify-between gap-3 px-5 py-3 sm:px-6">
             <span className="text-xs text-text-secondary">
               {guidedSkillDraftIds.length} of{" "}
               {GUIDED_SELECTABLE_SPECIALIST_IDS.length} selected
@@ -4659,8 +4654,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           {/* overscroll-contain stops a flick at the list's end from chaining
               into the page behind, which on mobile re-triggers the browser
               chrome show/hide that changes dvh. */}
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6">
-            <div className="grid gap-3 md:grid-cols-2">
+          <div className="lyra-studio-agent-dialog-content min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6">
+            <div className="lyra-studio-agent-grid grid gap-3 md:grid-cols-2">
               {GUIDED_SELECTABLE_SPECIALIST_IDS.map((id) => {
                 const required = isRequiredGuidedSpecialist(id);
                 const selected = required || guidedSkillDraftIds.includes(id);
@@ -4678,8 +4673,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 return (
                   <div
                     key={id}
+                    data-selected={selected}
+                    data-model-unavailable={modelUnavailable}
                     className={cn(
-                      "rounded-xl border p-3 transition-colors",
+                      "lyra-studio-agent-card rounded-xl border p-3 transition-colors",
                       modelUnavailable
                         ? "border-warning/70 bg-warning/[0.08]"
                         : selected
@@ -4702,7 +4699,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                       />
                       <span
                         className={cn(
-                          "grid h-6 w-6 place-items-center rounded-md border text-xs",
+                          "lyra-studio-agent-check grid h-6 w-6 place-items-center rounded-md border text-xs",
                           selected
                             ? "border-midground bg-midground text-background-base"
                             : "border-current/25 text-transparent",
@@ -4746,13 +4743,13 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                         the row reserves the space and holds the layout still. */}
                     <div className={guidedSpecialistModelRowClass(selected)}>
                       <span className="text-[10px] font-semibold uppercase tracking-widest text-midground">
-                        LLM
+                        Model
                       </span>
                       <select
                         value={assignedModel}
                         disabled={!selected}
                         aria-label={`LLM for the ${guidedAgentName(id)}`}
-                        className="h-9 min-w-0 rounded-lg border border-current/20 bg-background-base px-2 text-xs text-text-primary outline-none focus:border-midground/60 disabled:cursor-not-allowed"
+                        className="lyra-studio-agent-model-select h-9 min-w-0 rounded-lg border border-current/20 bg-background-base px-2 text-xs text-text-primary outline-none focus:border-midground/60 disabled:cursor-not-allowed"
                         onChange={(event) =>
                           updateGuidedSpecialistModelDraft(
                             id,
@@ -4783,7 +4780,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             </div>
           </div>
 
-          <footer className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-current/15 px-5 py-4 sm:px-6">
+          <footer className="lyra-studio-agent-dialog-footer flex shrink-0 flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-6">
             <span className="text-xs text-text-secondary">
               {guidedUnavailableDraftModels.length
                 ? `${guidedUnavailableDraftModels.length} model ${guidedUnavailableDraftModels.length === 1 ? "choice needs" : "choices need"} your decision before chat continues.`
@@ -4791,7 +4788,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                   ? "Your choices will replace the old provider’s model assignments."
                   : guidedTeamRecommendationPending
                     ? "Nothing starts until you confirm this selection."
-                    : "Exact model overrides are provider-specific."}
+                    : "Each agent can follow the project model or use a different one."}
             </span>
             <div className="flex gap-2">
               <Button outlined onClick={() => setGuidedSkillsOpen(false)}>
@@ -4823,6 +4820,18 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       <PluginSlot name="chat:top" />
       {mobileModelToolsPortal}
       {guidedSkillsPortal}
+      <ConfirmDialog
+        open={guidedClearConfirmOpen}
+        title="Start a fresh chat?"
+        description="This clears the conversation shown in this project and starts a new one. Your project files are not removed."
+        destructive
+        confirmLabel="Clear and start fresh"
+        onCancel={() => setGuidedClearConfirmOpen(false)}
+        onConfirm={() => {
+          setGuidedClearConfirmOpen(false);
+          clearGuidedHistory();
+        }}
+      />
 
       {visibleBanner && (
         <div className="border border-warning/50 bg-warning/10 text-warning px-3 py-2 text-xs tracking-wide">
@@ -5019,7 +5028,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               <button
                 type="button"
                 className="lyra-studio-icon-control"
-                onClick={clearGuidedHistory}
+                onClick={() => setGuidedClearConfirmOpen(true)}
                 title="Clear chat history and start fresh"
                 aria-label="Clear chat history and start fresh"
               >

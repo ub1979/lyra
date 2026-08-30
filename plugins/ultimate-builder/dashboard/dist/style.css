@@ -378,8 +378,16 @@
   font-size: 12px;
 }
 
-.ub-page-picker { max-width: 900px; }
+.ub-page-picker {
+  height: 100dvh;
+  max-width: 900px;
+  padding-top: 16px !important;
+  padding-bottom: 16px !important;
+}
 .ub-picker {
+  display: flex;
+  max-height: calc(100dvh - 32px);
+  flex-direction: column;
   overflow: hidden;
   border: 1px solid var(--color-border);
   border-radius: 16px;
@@ -399,7 +407,7 @@
 .ub-picker-head strong { margin-bottom: 4px; font-size: 17px; }
 .ub-path-row { display: flex; gap: 8px; padding: 14px 20px; border-bottom: 1px solid var(--color-border); }
 .ub-path-row > :first-child { flex: 1; }
-.ub-folder-list { min-height: 360px; max-height: 520px; overflow-y: auto; }
+.ub-folder-list { min-height: 0; max-height: 520px; flex: 1 1 auto; overflow-y: auto; }
 .ub-folder {
   display: flex;
   align-items: center;
@@ -768,10 +776,41 @@
 .ub-summary strong { color: #5d4ee3; }
 .ub-start-chat { min-height: 44px; border-radius: 12px !important; background: #5f50e6 !important; color: #fff !important; box-shadow: 0 10px 24px rgba(95, 80, 230, .2) !important; }
 
-.ub-picker { border-color: #e2e4eb; border-radius: 22px; background: #fff; box-shadow: 0 20px 55px rgba(43, 48, 70, .1); }
-.ub-folder { border-color: #eff0f4; color: #3a4254; }
-.ub-folder:hover { background: #f6f4ff; }
+.ub-picker {
+  overflow: hidden;
+  border-color: #e2e4eb;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 20px 55px rgba(43, 48, 70, .1);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.ub-picker button,
+.ub-picker input {
+  border-radius: 999px !important;
+  font-family: inherit !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+.ub-picker-head { padding: 20px 22px 16px; background: rgba(249, 249, 253, .78); }
+.ub-picker-head strong { color: #252c3b; font-size: calc(18px + var(--ub-text-add)); }
+.ub-picker-head button { min-height: 38px; padding-inline: 15px !important; border-color: #e3e5ed !important; background: #fff !important; }
+.ub-path-row { gap: 10px; padding: 14px 20px; background: #fafafd; }
+.ub-path-row input { min-height: 42px; padding-inline: 15px !important; border-color: #e0e2ea !important; background: #fff !important; }
+.ub-path-row button { min-width: 70px; min-height: 42px; padding-inline: 17px !important; border-color: #dcdde8 !important; color: #5548d3 !important; background: #fff !important; }
+.ub-folder-list { padding: 7px 10px; background: #fbfbfd; }
+.ub-folder {
+  width: 100%;
+  min-height: 47px;
+  margin: 2px 0;
+  padding-inline: 13px;
+  border-color: transparent;
+  border-radius: 12px !important;
+  color: #3a4254;
+}
+.ub-folder:hover { border-color: transparent; background: #f0edff; }
 .ub-folder-icon { color: #6657ed; }
+.ub-picker-actions { padding: 14px 20px 18px; background: rgba(249, 249, 253, .88); }
+.ub-picker-actions button { min-height: 42px; padding-inline: 18px !important; border-color: transparent !important; color: #fff !important; background: linear-gradient(135deg, #7769ee, #5b4cda) !important; box-shadow: 0 8px 20px rgba(91, 76, 218, .2); }
 
 @media (max-width: 1100px) {
   .ub-template-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -954,6 +993,15 @@
 .ub-theme-dark .ub-skill-model-label { color: #b6adff; }
 .ub-theme-dark .ub-folder { border-color: #2d3342; color: #d8dce6; }
 .ub-theme-dark .ub-folder:hover { background: #27243a; }
+.ub-theme-dark .ub-picker-head,
+.ub-theme-dark .ub-picker-actions { border-color: #303646; background: rgba(24, 28, 39, .94); }
+.ub-theme-dark .ub-picker-head strong { color: #eef1f8; }
+.ub-theme-dark .ub-picker-head button,
+.ub-theme-dark .ub-path-row button { border-color: #363c4d !important; color: #d2ccff !important; background: #202532 !important; }
+.ub-theme-dark .ub-path-row,
+.ub-theme-dark .ub-folder-list { background: #151a24; }
+.ub-theme-dark .ub-path-row input { border-color: #363c4d !important; color: #eef1f8 !important; background: #1d222f !important; }
+.ub-theme-dark .ub-folder { border-color: transparent !important; }
 .ub-theme-dark .ub-home-message { border-color: #315947; color: #8ed9b4; background: #172820; }
 .ub-theme-dark .ub-error { border-color: #6b3d4b; color: #f0a8b9; background: #2a1920; }
 
@@ -999,3 +1047,103 @@
 .ub-page .ub-build-loop li strong,
 .ub-page .ub-team-collapsed-copy strong,
 .ub-page .ub-skill-copy strong { font-size: calc(13px + var(--ub-text-add)); }
+
+/* Studio confirmation layer — replaces native browser prompts so destructive
+   project actions match the rest of Lyra and remain readable in both modes. */
+.ub-confirm-layer {
+  position: fixed;
+  z-index: 120;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.ub-confirm-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: rgba(24, 26, 38, .48);
+  backdrop-filter: blur(12px);
+  cursor: default;
+}
+.ub-confirm-panel {
+  position: relative;
+  width: min(460px, 100%);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .74);
+  border-radius: 24px;
+  color: #1d2230;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(122, 105, 246, .12), transparent 15rem),
+    rgba(252, 252, 255, .99);
+  box-shadow: 0 30px 85px rgba(21, 23, 39, .3);
+}
+.ub-confirm-copy {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  padding: 22px 22px 18px;
+  border-bottom: 1px solid #e3e5ed;
+}
+.ub-confirm-icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  color: #bc4545;
+  background: #ffeded;
+  font-size: 18px;
+}
+.ub-confirm-copy h2 {
+  margin: 0;
+  color: #1d2230;
+  font-size: calc(19px + var(--ub-text-add));
+  font-weight: 760;
+  line-height: 1.25;
+  letter-spacing: -.025em;
+}
+.ub-confirm-copy p {
+  margin: 6px 0 0;
+  color: #697184;
+  font-size: calc(13px + var(--ub-text-add));
+  line-height: 1.55;
+}
+.ub-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  padding: 14px 18px 18px;
+}
+.ub-confirm-actions button {
+  min-height: 40px;
+  padding-inline: 17px !important;
+  border-radius: 999px !important;
+  font-family: inherit !important;
+  font-size: calc(13px + var(--ub-text-add)) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+.ub-theme-dark .ub-confirm-backdrop { background: rgba(5, 7, 12, .7); }
+.ub-theme-dark .ub-confirm-panel {
+  border-color: #363b4b;
+  color: #eef1f8;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(130, 111, 255, .16), transparent 15rem),
+    rgba(24, 28, 39, .99);
+  box-shadow: 0 34px 100px rgba(0, 0, 0, .52);
+}
+.ub-theme-dark .ub-confirm-copy { border-color: #343a49; }
+.ub-theme-dark .ub-confirm-copy h2 { color: #eef1f8; }
+.ub-theme-dark .ub-confirm-copy p { color: #a5adbd; }
+.ub-theme-dark .ub-confirm-icon { color: #ffb6b6; background: rgba(115, 43, 49, .42); }
+@media (max-width: 520px) {
+  .ub-confirm-layer { padding: 10px; }
+  .ub-confirm-panel { border-radius: 21px; }
+  .ub-confirm-actions { align-items: stretch; flex-direction: column-reverse; }
+  .ub-confirm-actions button { width: 100%; }
+}

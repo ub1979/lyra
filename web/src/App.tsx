@@ -427,6 +427,20 @@ export default function App() {
   const embeddedChat = isDashboardEmbeddedChatEnabled();
 
   useEffect(() => {
+    if (!isSimpleExperience) {
+      delete document.body.dataset.lyraStudioTheme;
+      delete document.body.dataset.lyraStudioTextSize;
+      return;
+    }
+    document.body.dataset.lyraStudioTheme = studioTheme;
+    document.body.dataset.lyraStudioTextSize = studioTextSize;
+    return () => {
+      delete document.body.dataset.lyraStudioTheme;
+      delete document.body.dataset.lyraStudioTextSize;
+    };
+  }, [isSimpleExperience, studioTextSize, studioTheme]);
+
+  useEffect(() => {
     if (ADVANCED_PATHS.has(normalizedPath) && !advancedOpen) {
       setAdvancedOpen(true);
     }
