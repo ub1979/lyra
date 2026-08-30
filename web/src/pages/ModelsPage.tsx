@@ -1320,6 +1320,26 @@ export default function ModelsPage() {
   useEffect(() => listenForLyraStudioTextSize(setStudioTextSize), []);
 
   useEffect(() => {
+    const previousTheme = document.body.dataset.lyraStudioTheme;
+    const previousTextSize = document.body.dataset.lyraStudioTextSize;
+    document.body.dataset.lyraStudioTheme = studioTheme;
+    document.body.dataset.lyraStudioTextSize = studioTextSize;
+
+    return () => {
+      if (previousTheme) {
+        document.body.dataset.lyraStudioTheme = previousTheme;
+      } else {
+        delete document.body.dataset.lyraStudioTheme;
+      }
+      if (previousTextSize) {
+        document.body.dataset.lyraStudioTextSize = previousTextSize;
+      } else {
+        delete document.body.dataset.lyraStudioTextSize;
+      }
+    };
+  }, [studioTextSize, studioTheme]);
+
+  useEffect(() => {
     api
       .getConfig()
       .then((cfg) => {

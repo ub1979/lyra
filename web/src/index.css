@@ -631,6 +631,340 @@ button.text-display .arc-border {
   padding-block: 14px;
 }
 
+/* The model chooser is portalled to <body>, so it carries its own Studio
+   surface and reads the theme/text preferences mirrored there by ModelsPage. */
+.lyra-model-picker-backdrop {
+  --studio-text-add: 0px;
+  --lyra-picker-bg: rgba(252, 252, 255, .98);
+  --lyra-picker-panel: #fff;
+  --lyra-picker-subtle: #f6f6fb;
+  --lyra-picker-hover: #f0effc;
+  --lyra-picker-selected: #ece9ff;
+  --lyra-picker-border: #e4e5ed;
+  --lyra-picker-text: #1d2230;
+  --lyra-picker-muted: #697184;
+  --lyra-picker-primary: #6657e8;
+  color: var(--lyra-picker-text);
+  background: rgba(24, 26, 38, .48);
+  backdrop-filter: blur(12px);
+}
+
+body[data-lyra-studio-text-size="large"] .lyra-model-picker-backdrop {
+  --studio-text-add: 2px;
+}
+
+body[data-lyra-studio-text-size="xlarge"] .lyra-model-picker-backdrop {
+  --studio-text-add: 4px;
+}
+
+.lyra-model-picker {
+  border: 1px solid rgba(255, 255, 255, .72);
+  border-radius: 26px;
+  color: var(--lyra-picker-text);
+  background:
+    radial-gradient(circle at 92% -8%, rgba(122, 105, 246, .13), transparent 20rem),
+    var(--lyra-picker-bg);
+  box-shadow: 0 32px 90px rgba(21, 23, 39, .28);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+
+.lyra-model-picker button,
+.lyra-model-picker input,
+.lyra-model-picker label,
+.lyra-model-picker .text-display,
+.lyra-model-picker [class*="font-mondwest"],
+.lyra-model-picker [class*="font-mono"] {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+
+.lyra-model-picker button,
+.lyra-model-picker input {
+  border-radius: 999px !important;
+}
+
+.lyra-model-picker-close {
+  z-index: 2;
+  width: 36px !important;
+  height: 36px !important;
+  color: var(--lyra-picker-muted) !important;
+  background: var(--lyra-picker-subtle) !important;
+}
+
+.lyra-model-picker-close:hover {
+  color: var(--lyra-picker-text) !important;
+  background: var(--lyra-picker-hover) !important;
+}
+
+.lyra-model-picker-header {
+  padding: 24px 64px 18px 24px;
+}
+
+.lyra-model-picker-title {
+  margin: 0;
+  color: var(--lyra-picker-text);
+  font-size: calc(21px + var(--studio-text-add));
+  font-weight: 760;
+  line-height: 1.2;
+  letter-spacing: -.03em;
+}
+
+.lyra-model-picker-current {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  margin: 8px 0 0;
+  color: var(--lyra-picker-muted);
+  font-size: calc(13px + var(--studio-text-add));
+  line-height: 1.4;
+}
+
+.lyra-model-picker-current strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--lyra-picker-text);
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lyra-model-picker-search-area {
+  padding: 0 18px 16px;
+}
+
+.lyra-model-picker-search input {
+  border-color: var(--lyra-picker-border) !important;
+  color: var(--lyra-picker-text) !important;
+  background: var(--lyra-picker-panel) !important;
+  box-shadow: 0 6px 20px rgba(44, 47, 70, .055);
+  font-size: calc(14px + var(--studio-text-add)) !important;
+}
+
+.lyra-model-picker-search input:focus {
+  border-color: #9388f2 !important;
+  box-shadow: 0 0 0 3px rgba(109, 93, 252, .12);
+}
+
+.lyra-model-picker-grid {
+  display: grid;
+  min-height: 300px;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(220px, 270px) minmax(0, 1fr);
+  gap: 12px;
+  padding: 0 18px 18px;
+  overflow: hidden;
+}
+
+.lyra-model-picker-providers,
+.lyra-model-picker-models {
+  min-width: 0;
+  overflow-y: auto;
+  border: 1px solid var(--lyra-picker-border);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .66);
+  scrollbar-color: #c9cbd6 transparent;
+}
+
+.lyra-model-picker-column-heading {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  padding: 13px 15px 10px;
+  color: var(--lyra-picker-muted);
+  background: var(--lyra-picker-bg);
+  font-size: calc(12px + var(--studio-text-add));
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.lyra-model-picker-provider-row,
+.lyra-model-picker-model-row {
+  width: calc(100% - 12px);
+  margin: 3px 6px;
+  border: 0 !important;
+  border-radius: 13px !important;
+  color: var(--lyra-picker-text) !important;
+  background: transparent !important;
+  font-size: calc(13px + var(--studio-text-add)) !important;
+  line-height: 1.35;
+}
+
+.lyra-model-picker-provider-row {
+  min-height: 58px;
+  padding: 10px 11px !important;
+}
+
+.lyra-model-picker-model-row {
+  min-height: 42px;
+  padding: 9px 12px !important;
+}
+
+.lyra-model-picker-provider-row:hover,
+.lyra-model-picker-model-row:hover {
+  background: var(--lyra-picker-hover) !important;
+}
+
+.lyra-model-picker-provider-row[data-selected="true"],
+.lyra-model-picker-model-row[data-selected="true"] {
+  color: #4f40ca !important;
+  background: var(--lyra-picker-selected) !important;
+}
+
+.lyra-model-picker-row-meta {
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--lyra-picker-muted);
+  font-size: calc(12px + var(--studio-text-add));
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lyra-model-picker-current-tag {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border-radius: 999px;
+  color: #5142cc;
+  background: #e8e4ff;
+  font-size: calc(10px + var(--studio-text-add));
+  font-weight: 750;
+  line-height: 1.2;
+}
+
+.lyra-model-picker-warning {
+  margin: 6px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  color: #9c3d3d;
+  background: #fff0f0;
+  font-size: calc(12px + var(--studio-text-add));
+}
+
+.lyra-model-picker-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 15px 18px 18px;
+  border-top: 1px solid var(--lyra-picker-border);
+}
+
+.lyra-model-picker-save-note,
+.lyra-model-picker-save-option {
+  color: var(--lyra-picker-muted);
+  font-size: calc(13px + var(--studio-text-add));
+}
+
+.lyra-model-picker-save-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lyra-model-picker-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.lyra-model-picker-actions button {
+  min-height: 40px;
+  padding-inline: 16px !important;
+  border-color: var(--lyra-picker-border) !important;
+  color: var(--lyra-picker-text) !important;
+  background: var(--lyra-picker-panel) !important;
+  font-size: calc(13px + var(--studio-text-add)) !important;
+}
+
+.lyra-model-picker-actions button:hover:not(:disabled) {
+  background: var(--lyra-picker-hover) !important;
+}
+
+.lyra-model-picker-actions button:last-child:not(:disabled) {
+  border-color: transparent !important;
+  color: #fff !important;
+  background: linear-gradient(135deg, #7769ee, #5b4cda) !important;
+  box-shadow: 0 8px 20px rgba(91, 76, 218, .2);
+}
+
+.lyra-model-picker-actions button:disabled {
+  color: var(--lyra-picker-muted) !important;
+  opacity: .48;
+}
+
+body[data-lyra-studio-theme="dark"] .lyra-model-picker-backdrop {
+  --lyra-picker-bg: rgba(24, 28, 39, .99);
+  --lyra-picker-panel: #1e2330;
+  --lyra-picker-subtle: #252a39;
+  --lyra-picker-hover: #2a2c40;
+  --lyra-picker-selected: #302d50;
+  --lyra-picker-border: #343a49;
+  --lyra-picker-text: #eef1f8;
+  --lyra-picker-muted: #a5adbd;
+  --lyra-picker-primary: #9a8cff;
+  background: rgba(5, 7, 12, .7);
+}
+
+body[data-lyra-studio-theme="dark"] .lyra-model-picker {
+  border-color: #363b4b;
+  background:
+    radial-gradient(circle at 92% -8%, rgba(130, 111, 255, .16), transparent 21rem),
+    var(--lyra-picker-bg);
+  box-shadow: 0 34px 100px rgba(0, 0, 0, .52);
+}
+
+body[data-lyra-studio-theme="dark"] .lyra-model-picker-providers,
+body[data-lyra-studio-theme="dark"] .lyra-model-picker-models {
+  background: rgba(29, 34, 46, .72);
+  scrollbar-color: #454b5c transparent;
+}
+
+body[data-lyra-studio-theme="dark"] .lyra-model-picker-provider-row[data-selected="true"],
+body[data-lyra-studio-theme="dark"] .lyra-model-picker-model-row[data-selected="true"] {
+  color: #d1cbff !important;
+}
+
+body[data-lyra-studio-theme="dark"] .lyra-model-picker-current-tag {
+  color: #d4ceff;
+  background: #373252;
+}
+
+body[data-lyra-studio-theme="dark"] .lyra-model-picker-warning {
+  color: #ffb5b5;
+  background: rgba(111, 41, 47, .32);
+}
+
+@media (max-width: 720px) {
+  .lyra-model-picker-backdrop { padding: 8px; }
+  .lyra-model-picker { max-height: calc(100dvh - 16px); border-radius: 22px; }
+  .lyra-model-picker-header { padding: 20px 58px 14px 18px; }
+  .lyra-model-picker-current { align-items: flex-start; flex-direction: column; gap: 2px; }
+  .lyra-model-picker-search-area { padding: 0 12px 12px; }
+  .lyra-model-picker-grid {
+    min-height: 0;
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(142px, .8fr) minmax(190px, 1fr);
+    gap: 9px;
+    padding: 0 12px 12px;
+  }
+  .lyra-model-picker-providers,
+  .lyra-model-picker-models { border-radius: 16px; }
+  .lyra-model-picker-footer { padding: 12px; }
+  .lyra-model-picker-save-note,
+  .lyra-model-picker-save-option { width: 100%; }
+  .lyra-model-picker-actions { width: 100%; margin-left: 0; }
+  .lyra-model-picker-actions button { flex: 1 1 auto; }
+}
+
+@media (max-width: 440px) {
+  .lyra-model-picker-actions { flex-wrap: wrap; }
+  .lyra-model-picker-actions button:first-child { width: 100%; flex-basis: 100%; }
+}
+
 .lyra-studio-conversation {
   background:
     radial-gradient(circle at 25% 0%, rgba(218, 214, 255, .22), transparent 26rem),

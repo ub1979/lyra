@@ -357,50 +357,56 @@ export function ModelPickerDialog(props: Props) {
   // Toast.tsx for the same pattern.
   return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-background/85 p-4"
+      className="lyra-model-picker-backdrop fixed inset-0 z-[100] flex items-center justify-center p-4"
       onClick={(e) => e.target === e.currentTarget && onClose()}
       role="dialog"
       aria-modal="true"
       aria-labelledby="model-picker-title"
     >
-      <div className={cn(themedBody, "relative w-full max-w-3xl max-h-[80vh] border border-border bg-card shadow-2xl flex flex-col")}>
+      <div
+        className={cn(
+          themedBody,
+          "lyra-model-picker relative flex max-h-[86vh] w-full max-w-4xl flex-col overflow-hidden",
+        )}
+      >
         <Button
           ghost
           size="icon"
           onClick={onClose}
-          className="absolute right-2 top-2 text-muted-foreground hover:text-foreground"
+          className="lyra-model-picker-close absolute right-4 top-4 text-muted-foreground hover:text-foreground"
           aria-label="Close"
         >
           <X />
         </Button>
 
-        <header className="p-5 pb-3 border-b border-border">
+        <header className="lyra-model-picker-header">
           <h2
             id="model-picker-title"
-            className="font-mondwest text-display text-base tracking-wider"
+            className="lyra-model-picker-title"
           >
             {title}
           </h2>
-          <p className="text-xs text-muted-foreground mt-1 font-mono">
-            current: {currentModel || "(unknown)"}
+          <p className="lyra-model-picker-current">
+            <span>Currently using</span>
+            <strong>{currentModel || "No model selected"}</strong>
             {currentProviderSlug && ` · ${currentProviderSlug}`}
           </p>
         </header>
 
-        <div className="px-5 pt-3 pb-2 border-b border-border">
-          <div className="relative">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+        <div className="lyra-model-picker-search-area">
+          <div className="lyra-model-picker-search relative">
+            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               autoFocus
-              placeholder="Filter providers and models…"
+              placeholder="Search AI services and models…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="pl-7 h-8 text-sm"
+              className="h-11 pl-11 text-sm"
             />
           </div>
         </div>
 
-        <div className="flex-1 min-h-0 grid grid-cols-[200px_1fr] overflow-hidden">
+        <div className="lyra-model-picker-grid">
           <ProviderColumn
             loading={loading}
             error={error}
@@ -434,13 +440,13 @@ export function ModelPickerDialog(props: Props) {
           />
         </div>
 
-        <footer className="border-t border-border p-3 flex items-center justify-between gap-3 flex-wrap">
+        <footer className="lyra-model-picker-footer">
           {alwaysGlobal ? (
-            <span className="text-xs text-muted-foreground">
-              Saves to config.yaml — applies to new sessions.
+            <span className="lyra-model-picker-save-note">
+              This choice will be used for new chats and projects.
             </span>
           ) : (
-            <div className="flex items-center gap-2">
+            <div className="lyra-model-picker-save-option">
               <Checkbox
                 checked={persistGlobal}
                 id="model-picker-persist-global"
@@ -450,28 +456,28 @@ export function ModelPickerDialog(props: Props) {
               />
 
               <Label
-                className="font-mondwest normal-case tracking-normal text-xs text-muted-foreground cursor-pointer"
+                className="cursor-pointer text-sm text-muted-foreground"
                 htmlFor="model-picker-persist-global"
               >
-                Persist globally (otherwise this session only)
+                Use for all future chats
               </Label>
             </div>
           )}
 
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="lyra-model-picker-actions">
             <Button
               outlined
               onClick={refreshOptions}
               disabled={applying || loading || refreshing}
             >
               {refreshing ? <Spinner /> : <RefreshCw className="h-3.5 w-3.5" />}
-              Refresh Models
+              Check again
             </Button>
             <Button outlined onClick={onClose} disabled={applying}>
               Cancel
             </Button>
             <Button onClick={confirm} disabled={!canConfirm}>
-              {applying ? <Spinner /> : "Switch"}
+              {applying ? <Spinner /> : "Use this model"}
             </Button>
           </div>
         </footer>
@@ -519,22 +525,23 @@ function ProviderColumn({
   onSelect(slug: string): void;
 }) {
   return (
-    <div className="border-r border-border overflow-y-auto">
+    <section className="lyra-model-picker-providers" aria-label="AI services">
+      <div className="lyra-model-picker-column-heading">AI services</div>
       {loading && (
-        <div className="flex items-center gap-2 p-4 text-xs text-muted-foreground">
-          <Spinner className="text-xs" /> loading…
+        <div className="flex items-center gap-2 p-4 text-sm text-muted-foreground">
+          <Spinner className="text-xs" /> Loading…
         </div>
       )}
 
       {error && <div className="p-4 text-xs text-destructive">{error}</div>}
 
       {!loading && !error && providers.length === 0 && (
-        <div className="p-4 text-xs text-muted-foreground italic">
+        <div className="p-4 text-sm text-muted-foreground">
           {query
-            ? "no matches"
+            ? "No matches"
             : total === 0
-              ? "no authenticated providers"
-              : "no matches"}
+              ? "No connected AI services"
+              : "No matches"}
         </div>
       )}
 
@@ -544,24 +551,23 @@ function ProviderColumn({
           <ListItem
             key={p.slug}
             active={active}
+            data-selected={active}
             onClick={() => onSelect(p.slug)}
-            className={`items-start text-xs border-l-2 ${
-              active ? "border-l-primary" : "border-l-transparent"
-            }`}
+            className="lyra-model-picker-provider-row items-start"
           >
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
                 <span className="font-medium truncate">{p.name}</span>
                 {p.is_current && <CurrentTag />}
               </div>
-              <div className="text-xs text-text-secondary font-mono truncate">
-                {p.slug} · {p.total_models ?? p.models?.length ?? 0} models
+              <div className="lyra-model-picker-row-meta">
+                {p.total_models ?? p.models?.length ?? 0} models
               </div>
             </div>
           </ListItem>
         );
       })}
-    </div>
+    </section>
   );
 }
 
@@ -590,27 +596,31 @@ function ModelColumn({
 }) {
   if (!provider) {
     return (
-      <div className="overflow-y-auto">
-        <div className="p-4 text-xs text-muted-foreground italic">
-          pick a provider →
+      <section className="lyra-model-picker-models">
+        <div className="lyra-model-picker-column-heading">Models</div>
+        <div className="p-4 text-sm text-muted-foreground">
+          Choose an AI service first.
         </div>
-      </div>
+      </section>
     );
   }
 
   return (
-    <div className="overflow-y-auto">
+    <section className="lyra-model-picker-models">
+      <div className="lyra-model-picker-column-heading">
+        Models from {provider.name}
+      </div>
       {provider.warning && (
-        <div className="p-3 text-xs text-destructive border-b border-border">
+        <div className="lyra-model-picker-warning">
           {provider.warning}
         </div>
       )}
 
       {models.length === 0 ? (
-        <div className="p-4 text-xs text-muted-foreground italic">
+        <div className="p-4 text-sm text-muted-foreground">
           {allModels.length
-            ? "no models match your filter"
-            : "no models listed for this provider"}
+            ? "No models match your search."
+            : "No models are available from this service."}
         </div>
       ) : (
         models.map(({ model: m, positions }) => {
@@ -622,9 +632,10 @@ function ModelColumn({
             <ListItem
               key={m}
               active={active}
+              data-selected={active}
               onClick={() => onSelect(m)}
               onDoubleClick={() => onConfirm(m)}
-              className="px-3 py-1.5 text-xs font-mono"
+              className="lyra-model-picker-model-row"
             >
               <Check
                 className={`h-3 w-3 shrink-0 ${active ? "text-primary" : "text-transparent"}`}
@@ -637,14 +648,14 @@ function ModelColumn({
           );
         })
       )}
-    </div>
+    </section>
   );
 }
 
 function CurrentTag() {
   return (
-    <span className="text-display text-xs tracking-wider text-primary shrink-0">
-      current
+    <span className="lyra-model-picker-current-tag">
+      Current
     </span>
   );
 }
