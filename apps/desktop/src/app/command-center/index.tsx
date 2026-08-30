@@ -253,46 +253,43 @@ export function CommandCenterView({ initialSection, onClose, onDeleteSession, on
     return logs.filter(line => line.toLowerCase().includes(needle))
   }, [logQuery, logs])
 
-  const runSystemAction = useCallback(
-    async () => {
-      setSystemError('')
+  const runSystemAction = useCallback(async () => {
+    setSystemError('')
 
-      try {
-        const started = await restartGateway()
-        let nextStatus: ActionStatusResponse | null = null
+    try {
+      const started = await restartGateway()
+      let nextStatus: ActionStatusResponse | null = null
 
-        for (let attempt = 0; attempt < 18; attempt += 1) {
-          await new Promise(resolve => window.setTimeout(resolve, 1200))
-          const polled = await getActionStatus(started.name, 180)
-          nextStatus = polled
-          setSystemAction(polled)
-          upsertDesktopActionTask(polled)
+      for (let attempt = 0; attempt < 18; attempt += 1) {
+        await new Promise(resolve => window.setTimeout(resolve, 1200))
+        const polled = await getActionStatus(started.name, 180)
+        nextStatus = polled
+        setSystemAction(polled)
+        upsertDesktopActionTask(polled)
 
-          if (!polled.running) {
-            break
-          }
+        if (!polled.running) {
+          break
         }
-
-        if (!nextStatus) {
-          const pendingStatus = {
-            exit_code: null,
-            lines: [cc.actionStartedWaiting],
-            name: started.name,
-            pid: started.pid,
-            running: true
-          }
-
-          setSystemAction(pendingStatus)
-          upsertDesktopActionTask(pendingStatus)
-        }
-      } catch (error) {
-        setSystemError(error instanceof Error ? error.message : String(error))
-      } finally {
-        void refreshSystem()
       }
-    },
-    [cc, refreshSystem]
-  )
+
+      if (!nextStatus) {
+        const pendingStatus = {
+          exit_code: null,
+          lines: [cc.actionStartedWaiting],
+          name: started.name,
+          pid: started.pid,
+          running: true
+        }
+
+        setSystemAction(pendingStatus)
+        upsertDesktopActionTask(pendingStatus)
+      }
+    } catch (error) {
+      setSystemError(error instanceof Error ? error.message : String(error))
+    } finally {
+      void refreshSystem()
+    }
+  }, [cc, refreshSystem])
 
   return (
     <OverlayView closeLabel={cc.close} onClose={onClose}>
