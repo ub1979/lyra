@@ -18,16 +18,16 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
-LYRA_VERSION = "0.19.13"
+LYRA_VERSION = "0.19.14"
 """Semantic version. Bump with every release; the changelog's top entry must match."""
 
 LYRA_CHANNEL = "beta"
 """alpha → beta → rc → stable. Shown next to the number so nobody mistakes this for finished."""
 
-LYRA_RELEASE_NAME = "safe project moving and Trash"
+LYRA_RELEASE_NAME = "modern Lyra Studio workspace"
 """Short human name for the release. The line under the number in the UI."""
 
-LYRA_RELEASED = "2026-08-29"
+LYRA_RELEASED = "2026-08-30"
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 CHANGELOG_PATH = PROJECT_ROOT / "CHANGELOG.md"
@@ -37,7 +37,7 @@ _update_cache: dict[str, Any] = {}
 
 
 def lyra_version_display() -> str:
-    """What the user sees: ``beta v0.19.13``.
+    """What the user sees: ``beta v0.19.14``.
 
     The patch digit is dropped when it is zero — a release called
     "alpha v0.17.0" reads like a build number, not a version.
@@ -52,7 +52,7 @@ def changelog_entry(version: str = LYRA_VERSION) -> Optional[dict[str, Any]]:
     """Return ``{version, released, notes}`` for *version*, or None if absent.
 
     Parses the Keep-a-Changelog shape this repo uses:
-    ``## [0.19.13] - 2026-08-29 — safe project moving and Trash``.
+    ``## [0.19.14] - 2026-08-30 — modern Lyra Studio workspace``.
     """
     try:
         text = CHANGELOG_PATH.read_text(encoding="utf-8")

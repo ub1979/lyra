@@ -9,6 +9,40 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.14] - 2026-08-30 — modern Lyra Studio workspace
+
+### Added
+
+- **Lyra Studio now has a modern product-building workspace.** The projects
+  home, guided setup, and project conversation use a calm visual system that
+  keeps agents and terminal machinery behind the product experience.
+- **Light and dark modes now follow one remembered Studio preference.** The
+  compact theme control applies across projects, setup, chat, and project model
+  settings.
+- **Text can be set to Normal, Large, or Extra large.** The remembered
+  readability setting increases both text and line spacing without zooming the
+  interface or pushing panels beyond the window.
+- **Agent Activity and Project Map sidebars can be collapsed independently.**
+  Lyra remembers both choices and expands the central conversation into the
+  space they release.
+
+### Changed
+
+- **Project controls now use compact circular icons.** Preview, remote control,
+  theme, agents, workers, model settings, panel visibility, and navigation no
+  longer appear as a row of Hermes-style rectangular buttons.
+- **Telegram project handoff is now presented as Remote control.** The shorter
+  label describes its purpose while setup guidance still explains the private
+  Telegram connection.
+
+### Fixed
+
+- **Project Map text now wraps instead of being cut off or replaced with an
+  ellipsis.** Cards, headings, and status labels stay inside the panel at larger
+  text sizes and narrow widths.
+- **Studio headers and controls now reflow before they overlap.** Setup and
+  project toolbars compact cleanly across desktop and smaller windows.
+
 ## [0.19.13] - 2026-08-29 — safe project moving and Trash
 
 ### Added
