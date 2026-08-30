@@ -421,15 +421,9 @@ export default function App() {
   const routeParams = new URLSearchParams(search);
   const isGuidedChat =
     isChatRoute && routeParams.get("guided") === "1";
-  const projectSettingsReturnTo = routeParams.get("returnTo") ?? "";
-  const isProjectModelSettings =
-    normalizedPath === "/models" &&
-    projectSettingsReturnTo.startsWith("/chat?") &&
-    new URLSearchParams(projectSettingsReturnTo.split("?")[1] ?? "").get(
-      "guided",
-    ) === "1";
+  const isStudioModelSettings = normalizedPath === "/models";
   const isSimpleExperience =
-    isBuilderRoute || isGuidedChat || isProjectModelSettings;
+    isBuilderRoute || isGuidedChat || isStudioModelSettings;
   const embeddedChat = isDashboardEmbeddedChatEnabled();
 
   useEffect(() => {

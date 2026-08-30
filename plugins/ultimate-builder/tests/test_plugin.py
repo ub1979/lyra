@@ -107,6 +107,7 @@ def test_dashboard_enforces_requirements_gate_with_real_skill_loading():
     assert 'workspace-safety?path=' in dashboard
     assert 'workspace = await requireSafeWorkspace(workspace)' in dashboard
     assert 'window.location.href = "/chat?" + params.toString()' in dashboard
+    assert '"/models?returnTo=" + encodeURIComponent("/ultimate-builder")' in dashboard
     assert '"Lyra Studio"' in dashboard
     assert '"Turn an idea into software."' in dashboard
     assert '"Customize team"' in dashboard

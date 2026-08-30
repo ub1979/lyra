@@ -23,6 +23,7 @@ import { OAuthLoginModal } from "@/components/OAuthLoginModal";
 import { useI18n } from "@/i18n";
 
 interface Props {
+  className?: string;
   onError?: (msg: string) => void;
   onSuccess?: (msg: string) => void;
   providerIds?: string[];
@@ -53,6 +54,7 @@ function formatExpiresAt(
 }
 
 export function OAuthProvidersCard({
+  className,
   onError,
   onSuccess,
   providerIds,
@@ -110,7 +112,7 @@ export function OAuthProvidersCard({
   const totalCount = providers?.length ?? 0;
 
   return (
-    <Card>
+    <Card className={className}>
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
