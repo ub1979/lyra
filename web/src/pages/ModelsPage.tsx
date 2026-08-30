@@ -14,8 +14,11 @@ import {
   DollarSign,
   Eye,
   HardDrive,
+  Moon,
   RefreshCw,
   Star,
+  Sun,
+  Type,
   Wrench,
   X,
   Zap,
@@ -52,6 +55,17 @@ import { PluginSlot } from "@/plugins";
 import { ModelPickerDialog } from "@/components/ModelPickerDialog";
 import { ModelReloadConfirm } from "@/components/ModelReloadConfirm";
 import { OAuthProvidersCard } from "@/components/OAuthProvidersCard";
+import {
+  listenForLyraStudioTheme,
+  readLyraStudioTheme,
+  writeLyraStudioTheme,
+} from "@/lib/lyra-studio-theme";
+import {
+  listenForLyraStudioTextSize,
+  readLyraStudioTextSize,
+  writeLyraStudioTextSize,
+  type LyraStudioTextSize,
+} from "@/lib/lyra-studio-text-size";
 
 const PERIODS = [
   { label: "7d", days: 7 },
@@ -415,7 +429,10 @@ function ModelCard({
 
   return (
     <Card
-      className={cn("min-w-0 max-w-full", isMain && "ring-1 ring-primary/40")}
+      className={cn(
+        "lyra-model-usage-card min-w-0 max-w-full",
+        isMain && "ring-1 ring-primary/40",
+      )}
     >
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
@@ -1045,19 +1062,29 @@ function CollapsiblePanel({
   title,
   description,
   children,
+  className,
+  defaultOpen = false,
   onOpen,
 }: {
   title: string;
   description: string;
   children: ReactNode;
+  className?: string;
+  defaultOpen?: boolean;
   onOpen?: () => void;
 }) {
-  const [openedOnce, setOpenedOnce] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
+  const [openedOnce, setOpenedOnce] = useState(defaultOpen);
 
   return (
     <details
-      className="group overflow-hidden border border-border bg-card"
+      className={cn(
+        "lyra-model-section group overflow-hidden border border-border bg-card",
+        className,
+      )}
+      open={open}
       onToggle={(event) => {
+        setOpen(event.currentTarget.open);
         if (!event.currentTarget.open) return;
         setOpenedOnce(true);
         onOpen?.();
@@ -1081,14 +1108,10 @@ function QuickModelSetup({
   aux,
   refreshKey,
   onSaved,
-  onBack,
-  backLabel,
 }: {
   aux: AuxiliaryModelsResponse | null;
   refreshKey: number;
   onSaved(): void;
-  onBack(): void;
-  backLabel: string;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pendingReloadModel, setPendingReloadModel] = useState<string | null>(
@@ -1098,19 +1121,15 @@ function QuickModelSetup({
   const model = aux?.main.model ?? "";
 
   return (
-    <Card className="overflow-hidden border-primary/30">
+    <Card className="lyra-model-hero overflow-hidden border-primary/30">
       <CardHeader className="border-b border-border/60">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <CardTitle className="text-base">AI model</CardTitle>
+            <CardTitle className="text-base">Main AI model</CardTitle>
             <p className="mt-1 text-sm text-text-secondary">
-              Pick the model that will build your project.
+              This is the model Lyra uses to understand you and coordinate your project.
             </p>
           </div>
-          <Button outlined onClick={onBack}>
-            <ArrowLeft className="h-4 w-4" />
-            {backLabel}
-          </Button>
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between">
@@ -1208,7 +1227,7 @@ function LocalOllamaCard({ onActivated }: { onActivated(): void }) {
   };
 
   return (
-    <Card>
+    <Card className="lyra-model-provider-card">
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -1217,8 +1236,8 @@ function LocalOllamaCard({ onActivated }: { onActivated(): void }) {
               Ollama on this computer
             </CardTitle>
             <p className="mt-1 text-sm text-text-secondary">
-              Uses the Ollama app at localhost. No API key is needed, including
-              for cloud-tagged models handled by your signed-in Ollama app.
+              Use models available through the Ollama app on this computer. No
+              API key is needed.
             </p>
           </div>
           <Button
@@ -1285,6 +1304,10 @@ export default function ModelsPage() {
   // hermes_cli/config.py for the rationale: the numbers exclude auxiliary
   // calls and retries, so they're misleading next to provider billing.
   const [showTokens, setShowTokens] = useState(false);
+  const [studioTheme, setStudioTheme] = useState(readLyraStudioTheme);
+  const [studioTextSize, setStudioTextSize] = useState(
+    readLyraStudioTextSize,
+  );
   const { t } = useI18n();
   const { setAfterTitle, setEnd } = usePageHeader();
   const requestedReturnTo = searchParams.get("returnTo") ?? "";
@@ -1292,6 +1315,9 @@ export default function ModelsPage() {
     requestedReturnTo.startsWith("/") && !requestedReturnTo.startsWith("//")
       ? requestedReturnTo
       : "/ultimate-builder";
+
+  useEffect(() => listenForLyraStudioTheme(setStudioTheme), []);
+  useEffect(() => listenForLyraStudioTextSize(setStudioTextSize), []);
 
   useEffect(() => {
     api
@@ -1368,48 +1394,116 @@ export default function ModelsPage() {
   }, [refreshAux]);
 
   return (
-    <div className="flex min-w-0 max-w-full flex-col gap-6">
-      <QuickModelSetup
-        aux={aux}
-        refreshKey={saveKey}
-        onSaved={onAssigned}
-        onBack={() => navigate(safeReturnTo)}
-        backLabel={requestedReturnTo ? "Back to project" : "Back to projects"}
-      />
-
-      {!requestedReturnTo && <PluginSlot name="models:top" />}
-
-      {error && (
-        <div className="border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-          {error}
+    <div className="lyra-studio-models-page h-full min-h-0 overflow-y-auto">
+      <header className="lyra-models-topbar">
+        <div className="lyra-models-topbar-inner">
+          <button
+            type="button"
+            className="lyra-studio-icon-control"
+            onClick={() => navigate(safeReturnTo)}
+            aria-label={requestedReturnTo ? "Back to project" : "Back to projects"}
+            title={requestedReturnTo ? "Back to project" : "Back to projects"}
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <div className="lyra-studio-mark" aria-hidden="true">
+            <Cpu className="h-5 w-5" />
+          </div>
+          <div className="lyra-models-heading min-w-0">
+            <span className="lyra-studio-label">Lyra Studio</span>
+            <h1>AI models</h1>
+            <p>Choose how Lyra thinks, builds, and connects to AI services.</p>
+          </div>
+          <div className="lyra-models-actions">
+            <label
+              className="lyra-studio-icon-control lyra-studio-select-control"
+              title={`Text size: ${
+                studioTextSize === "normal"
+                  ? "Normal"
+                  : studioTextSize === "large"
+                    ? "Large"
+                    : "Extra large"
+              }`}
+            >
+              <Type className="h-4 w-4" aria-hidden="true" />
+              <select
+                value={studioTextSize}
+                aria-label="Text size"
+                onChange={(event) =>
+                  writeLyraStudioTextSize(
+                    event.target.value as LyraStudioTextSize,
+                  )
+                }
+              >
+                <option value="normal">Normal</option>
+                <option value="large">Large</option>
+                <option value="xlarge">Extra large</option>
+              </select>
+            </label>
+            <button
+              type="button"
+              className="lyra-studio-icon-control"
+              onClick={() =>
+                writeLyraStudioTheme(
+                  studioTheme === "dark" ? "light" : "dark",
+                )
+              }
+              aria-pressed={studioTheme === "dark"}
+              title={studioTheme === "dark" ? "Use light mode" : "Use dark mode"}
+              aria-label={studioTheme === "dark" ? "Use light mode" : "Use dark mode"}
+            >
+              {studioTheme === "dark" ? (
+                <Sun className="h-4 w-4" />
+              ) : (
+                <Moon className="h-4 w-4" />
+              )}
+            </button>
+          </div>
         </div>
-      )}
+      </header>
 
-      <CollapsiblePanel
-        title="Model connections"
-        description="Ollama, Claude, ChatGPT, and other account connections."
-      >
-        <div className="grid min-w-0 gap-6 xl:grid-cols-2">
-          <LocalOllamaCard onActivated={onAssigned} />
-          <OAuthProvidersCard
-            providerIds={SUBSCRIPTION_PROVIDER_IDS}
-            title="Claude and ChatGPT"
-            description="Use accounts already signed in through Claude Code or Codex."
-            onError={setError}
-            onSuccess={() => {
-              setError(null);
-              onAssigned();
-            }}
-          />
-        </div>
-        <div className="mt-5 border border-dashed border-border px-4 py-3 text-sm text-text-secondary">
-          <strong className="text-text-primary">Google Gemini:</strong>{" "}
-          available through a Google AI Studio API key. Gemini CLI login
-          credentials are not reused by third-party applications.
-        </div>
-      </CollapsiblePanel>
+      <main className="lyra-models-content">
+        <QuickModelSetup
+          aux={aux}
+          refreshKey={saveKey}
+          onSaved={onAssigned}
+        />
 
-      {!requestedReturnTo && (
+        {!requestedReturnTo && <PluginSlot name="models:top" />}
+
+        {error && (
+          <div className="lyra-model-error border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+            {error}
+          </div>
+        )}
+
+        <CollapsiblePanel
+          className="lyra-model-connections"
+          defaultOpen
+          title="Connect AI services"
+          description="Use Ollama on this computer or connect an existing AI account."
+        >
+          <div className="grid min-w-0 gap-5 xl:grid-cols-2">
+            <LocalOllamaCard onActivated={onAssigned} />
+            <OAuthProvidersCard
+              className="lyra-model-provider-card"
+              providerIds={SUBSCRIPTION_PROVIDER_IDS}
+              title="Claude and ChatGPT"
+              description="Connect an account you already use with Claude Code or Codex."
+              onError={setError}
+              onSuccess={() => {
+                setError(null);
+                onAssigned();
+              }}
+            />
+          </div>
+          <div className="lyra-model-note mt-5 border border-dashed border-border px-4 py-3 text-sm text-text-secondary">
+            <strong className="text-text-primary">Using Google Gemini?</strong>{" "}
+            Connect it with a Google AI Studio API key.
+          </div>
+        </CollapsiblePanel>
+
+        {!requestedReturnTo && (
         <CollapsiblePanel
           title="Advanced model routing"
           description="Helper models and Mixture of Agents. Most people can leave these on Auto."
@@ -1422,7 +1516,7 @@ export default function ModelsPage() {
         </CollapsiblePanel>
       )}
 
-      {!requestedReturnTo && (
+        {!requestedReturnTo && (
         <CollapsiblePanel
           title="Usage and model history"
           description="Session totals, model activity, and optional token estimates."
@@ -1456,7 +1550,7 @@ export default function ModelsPage() {
         </div>
 
         {data && (
-          <Card className="min-w-0 max-w-full overflow-hidden">
+          <Card className="lyra-model-usage-card min-w-0 max-w-full overflow-hidden">
             <CardContent className="min-w-0 py-6">
               <div className="min-w-0 max-w-full [&_div.grid]:grid-cols-[auto_minmax(0,1fr)_auto]">
                 <Stats
@@ -1553,7 +1647,8 @@ export default function ModelsPage() {
         </CollapsiblePanel>
       )}
 
-      {!requestedReturnTo && <PluginSlot name="models:bottom" />}
+        {!requestedReturnTo && <PluginSlot name="models:bottom" />}
+      </main>
     </div>
   );
 }

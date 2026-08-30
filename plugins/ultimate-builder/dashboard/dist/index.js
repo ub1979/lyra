@@ -760,7 +760,9 @@
             h("button", {
               className: "ub-model-settings",
               type: "button",
-              onClick: () => { window.location.href = "/models"; },
+              onClick: () => {
+                window.location.href = "/models?returnTo=" + encodeURIComponent("/ultimate-builder");
+              },
               "aria-label": "AI model settings",
               title: "AI model settings",
             }, "AI"),
