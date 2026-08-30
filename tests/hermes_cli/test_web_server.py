@@ -9766,7 +9766,9 @@ class TestPtyWebSocket:
     def test_pty_ws_resolves_argv_through_async_wrapper(self, monkeypatch):
         captured: dict = {}
 
-        async def fake_resolve_async(resume=None, sidecar_url=None, profile=None):
+        async def fake_resolve_async(
+            resume=None, sidecar_url=None, profile=None, workspace=None
+        ):
             captured["resume"] = resume
             captured["sidecar_url"] = sidecar_url
             captured["profile"] = profile
@@ -9807,7 +9809,7 @@ class TestPtyWebSocket:
         """SystemExit from _make_tui_argv (node/npm missing) propagates through
         the async wrapper and is caught by pty_ws's ``except SystemExit``."""
 
-        def boom(resume=None, sidecar_url=None, profile=None):
+        def boom(resume=None, sidecar_url=None, profile=None, workspace=None):
             raise SystemExit("node not found")
 
         self._assert_pty_propagates(monkeypatch, boom)
@@ -9817,7 +9819,7 @@ class TestPtyWebSocket:
         propagates through the wrapper and hits pty_ws's ``except HTTPException``."""
         from fastapi import HTTPException
 
-        def bad_profile(resume=None, sidecar_url=None, profile=None):
+        def bad_profile(resume=None, sidecar_url=None, profile=None, workspace=None):
             raise HTTPException(status_code=404, detail="unknown profile")
 
         self._assert_pty_propagates(
@@ -9828,7 +9830,7 @@ class TestPtyWebSocket:
         monkeypatch.setattr(
             self.ws_module,
             "_resolve_chat_argv",
-            lambda resume=None, sidecar_url=None, profile=None: (
+            lambda resume=None, sidecar_url=None, profile=None, workspace=None: (
                 ["/bin/sh", "-c", "printf hermes-ws-ok"],
                 None,
                 None,
@@ -9858,7 +9860,7 @@ class TestPtyWebSocket:
         monkeypatch.setattr(
             self.ws_module,
             "_resolve_chat_argv",
-            lambda resume=None, sidecar_url=None, profile=None: (["/bin/cat"], None, None),
+            lambda resume=None, sidecar_url=None, profile=None, workspace=None: (["/bin/cat"], None, None),
         )
         with self.client.websocket_connect(self._url()) as conn:
             conn.send_bytes(b"round-trip-payload\n")
@@ -9891,7 +9893,7 @@ class TestPtyWebSocket:
             self.ws_module,
             "_resolve_chat_argv",
             # sleep gives the test time to push the resize before the child reads the ioctl.
-            lambda resume=None, sidecar_url=None, profile=None: (
+            lambda resume=None, sidecar_url=None, profile=None, workspace=None: (
                 [sys.executable, "-c", winsize_script],
                 None,
                 None,
@@ -9927,7 +9929,7 @@ class TestPtyWebSocket:
         monkeypatch.setattr(
             self.ws_module,
             "_resolve_chat_argv",
-            lambda resume=None, sidecar_url=None, profile=None: (["/bin/cat"], None, None),
+            lambda resume=None, sidecar_url=None, profile=None, workspace=None: (["/bin/cat"], None, None),
         )
         # Patch PtyBridge.spawn at the web_server module's binding.
         import hermes_cli.web_server as ws_mod
@@ -9942,7 +9944,7 @@ class TestPtyWebSocket:
     def test_resume_parameter_is_forwarded_to_argv(self, monkeypatch):
         captured: dict = {}
 
-        def fake_resolve(resume=None, sidecar_url=None, profile=None):
+        def fake_resolve(resume=None, sidecar_url=None, profile=None, workspace=None):
             captured["resume"] = resume
             return (["/bin/sh", "-c", "printf resume-arg-ok"], None, None)
 
@@ -9962,7 +9964,13 @@ class TestPtyWebSocket:
         same channel — which is how tool events reach the dashboard sidebar."""
         captured: dict = {}
 
-        def fake_resolve(resume=None, sidecar_url=None, profile=None, active_session_file=None):
+        def fake_resolve(
+            resume=None,
+            sidecar_url=None,
+            profile=None,
+            active_session_file=None,
+            workspace=None,
+        ):
             captured["sidecar_url"] = sidecar_url
             captured["active_session_file"] = active_session_file
             return (["/bin/sh", "-c", "printf sidecar-ok"], None, None)

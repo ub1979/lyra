@@ -9,6 +9,32 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.16] - 2026-08-30 — durable project memory
+
+### Added
+
+- **Project Brain keeps large projects understandable across conversations.**
+  Lyra stores a compact, project-local map of verified goals, architecture,
+  durable decisions, risks, progress, evidence, and next actions. Every project
+  agent reads and refreshes it with the same local commit as its work.
+- **Project memory and history now live together in Studio.** Users can see
+  whether Lyra's memory is current, return to automatic recovery points,
+  continue saved project conversations, or branch safely in one modern panel.
+- **Telegram remote control can isolate projects in dedicated topics.** Project
+  handoffs preserve the matching conversation without mixing separate builds.
+
+### Changed
+
+- **Model replacement notices are clearer in light and dark modes.** Light mode
+  now uses white and soft lavender surfaces with dark text instead of yellow
+  text, while dark mode uses a muted indigo treatment.
+
+### Security
+
+- **Project Brain is bounded and evidence-based.** It stays under 16 KB,
+  verifies material claims against project files, tests, and Git, and excludes
+  credentials, personal data, raw conversations, copied source, and long logs.
+
 ## [0.19.15] - 2026-08-30 — unified Studio model experience
 
 ### Changed

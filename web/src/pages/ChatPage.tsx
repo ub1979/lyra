@@ -95,6 +95,7 @@ import {
   ArrowLeft,
   Bot,
   CheckCircle2,
+  CircleAlert,
   CircleStop,
   Copy,
   Cpu,
@@ -4813,7 +4814,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                         ))}
                       </select>
                       {modelUnavailable && (
-                        <span className="col-span-2 text-[10px] font-semibold text-warning">
+                        <span className="lyra-studio-model-replacement col-span-2 text-[10px] font-semibold">
                           Choose a replacement or Follow project model
                         </span>
                       )}
@@ -4895,8 +4896,15 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       />
 
       {visibleBanner && (
-        <div className="border border-warning/50 bg-warning/10 text-warning px-3 py-2 text-xs tracking-wide">
-          {visibleBanner}
+        <div
+          role="status"
+          className={cn(
+            "border border-warning/50 bg-warning/10 px-3 py-2 text-xs text-warning tracking-wide",
+            guided && "lyra-studio-notice",
+          )}
+        >
+          {guided && <CircleAlert className="h-4 w-4 shrink-0" />}
+          <span>{visibleBanner}</span>
         </div>
       )}
 
