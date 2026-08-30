@@ -371,6 +371,10 @@ export const api = {
     fetchJSON<UltimateBuilderState>(
       `/api/plugins/ultimate-builder/state?path=${encodeURIComponent(path)}`,
     ),
+  getUltimateBuilderHistory: (workspace: string) =>
+    fetchJSON<UltimateBuilderHistory>(
+      `/api/plugins/ultimate-builder/history?workspace=${encodeURIComponent(workspace)}`,
+    ),
   controlUltimateBuilderRun: (
     workspace: string,
     action: "pause" | "resume" | "stop",
@@ -1900,6 +1904,34 @@ export interface UltimateBuilderState {
     phases: UltimateBuilderPhase[];
   };
   run_state?: UltimateBuilderRunState;
+}
+
+export interface UltimateBuilderRecoveryPoint {
+  hash: string;
+  short_hash: string;
+  timestamp: string;
+  reason: string;
+  files_changed: number;
+  insertions: number;
+  deletions: number;
+}
+
+export interface UltimateBuilderConversation {
+  id: string;
+  title: string;
+  preview: string;
+  started_at: number;
+  last_active: number;
+  message_count: number;
+  is_active: boolean;
+  parent_session_id: string | null;
+}
+
+export interface UltimateBuilderHistory {
+  project: string;
+  automatic_recovery: boolean;
+  recovery_points: UltimateBuilderRecoveryPoint[];
+  conversations: UltimateBuilderConversation[];
 }
 
 export interface UltimateBuilderRunTask {

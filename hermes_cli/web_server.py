@@ -17804,6 +17804,16 @@ def _resolve_chat_argv(
         cwd = str(workspace_path)
         env["TERMINAL_CWD"] = str(workspace_path)
         env["HERMES_CWD"] = str(workspace_path)
+        requested_skills = {
+            item.strip() for item in (skills or "").split(",") if item.strip()
+        }
+        if requested_skills.intersection(
+            {"ultimate-builder:app-it", "ultimate-builder:ultimate-app-builder"}
+        ):
+            # Lyra Studio projects always get a hidden recovery point before
+            # the agent first changes files in a turn. This stays transparent
+            # to the model and does not add tools or prompt weight.
+            env["HERMES_TUI_CHECKPOINTS"] = "1"
 
     if profile_dir is not None:
         env["HERMES_HOME"] = str(profile_dir)

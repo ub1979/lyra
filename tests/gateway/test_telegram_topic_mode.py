@@ -818,6 +818,11 @@ async def test_handoff_to_telegram_dm_topic_uses_dm_lane_not_generic_thread(tmp_
     """
     session_db = SessionDB(db_path=tmp_path / "state.db")
     session_db.enable_telegram_topic_mode(chat_id="208214988", user_id="208214988")
+    session_db.create_session(
+        session_id="cli-session",
+        source="cli",
+        user_id="local",
+    )
     runner = _make_runner(session_db=session_db)
     runner.config.platforms[Platform.TELEGRAM].home_channel = HomeChannel(
         platform=Platform.TELEGRAM,
@@ -847,6 +852,107 @@ async def test_handoff_to_telegram_dm_topic_uses_dm_lane_not_generic_thread(tmp_
     assert captured["source"].chat_type == "dm"
     assert captured["source"].user_id == "208214988"
     assert captured["source"].thread_id == "17585"
+    binding = session_db.get_telegram_topic_binding_by_session(
+        session_id="cli-session"
+    )
+    assert binding is not None
+    assert binding["thread_id"] == "17585"
+    assert binding["session_key"] == expected_key
+
+
+@pytest.mark.asyncio
+async def test_lyra_handoff_reuses_the_projects_existing_telegram_topic(tmp_path):
+    project = tmp_path / "music-app"
+    project.mkdir()
+    (project / ".lyra-project").write_text("Managed by Lyra\n")
+    session_db = SessionDB(db_path=tmp_path / "state.db")
+    session_db.enable_telegram_topic_mode(chat_id="208214988", user_id="208214988")
+    session_db.create_session(
+        session_id="previous-project-session",
+        source="cli",
+        user_id="local",
+        cwd=str(project),
+    )
+    session_db.create_session(
+        session_id="current-project-branch",
+        source="cli",
+        user_id="local",
+        cwd=str(project),
+    )
+    existing_source = _make_source(thread_id="17585")
+    existing_key = build_session_key(existing_source)
+    session_db.bind_telegram_topic(
+        chat_id="208214988",
+        thread_id="17585",
+        user_id="208214988",
+        session_key=existing_key,
+        session_id="previous-project-session",
+        managed_mode="restored",
+    )
+    runner = _make_runner(session_db=session_db)
+    runner.config.platforms[Platform.TELEGRAM].home_channel = HomeChannel(
+        platform=Platform.TELEGRAM,
+        chat_id="208214988",
+        name="Tester DM",
+    )
+    adapter = runner.adapters[Platform.TELEGRAM]
+    adapter.create_handoff_thread = AsyncMock(return_value="new-topic")
+    adapter.send.return_value = SimpleNamespace(success=True)
+    runner._handle_message = AsyncMock(return_value="handoff ok")
+
+    await runner._process_handoff({
+        "id": "current-project-branch",
+        "title": "Lyra project",
+        "cwd": str(project),
+        "handoff_platform": "telegram",
+    })
+
+    adapter.create_handoff_thread.assert_not_awaited()
+    runner.session_store.switch_session.assert_called_once_with(
+        existing_key,
+        "current-project-branch",
+    )
+    binding = session_db.get_telegram_topic_binding_by_session(
+        session_id="current-project-branch"
+    )
+    assert binding is not None
+    assert binding["thread_id"] == "17585"
+
+
+@pytest.mark.asyncio
+async def test_lyra_project_handoff_uses_a_plain_project_topic_name(tmp_path):
+    project = tmp_path / "song_maker"
+    project.mkdir()
+    (project / ".lyra-project").write_text("Managed by Lyra\n")
+    session_db = SessionDB(db_path=tmp_path / "state.db")
+    session_db.create_session(
+        session_id="named-project-session",
+        source="cli",
+        user_id="local",
+        cwd=str(project),
+    )
+    runner = _make_runner(session_db=session_db)
+    runner.config.platforms[Platform.TELEGRAM].home_channel = HomeChannel(
+        platform=Platform.TELEGRAM,
+        chat_id="208214988",
+        name="Tester DM",
+    )
+    adapter = runner.adapters[Platform.TELEGRAM]
+    adapter.create_handoff_thread = AsyncMock(return_value="17585")
+    adapter.send.return_value = SimpleNamespace(success=True)
+    runner._handle_message = AsyncMock(return_value="handoff ok")
+
+    await runner._process_handoff({
+        "id": "named-project-session",
+        "title": "Technical session title",
+        "cwd": str(project),
+        "handoff_platform": "telegram",
+    })
+
+    adapter.create_handoff_thread.assert_awaited_once_with(
+        "208214988",
+        "Lyra — song maker",
+    )
 
 
 @pytest.mark.asyncio

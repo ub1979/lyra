@@ -98,6 +98,7 @@ import {
   CircleStop,
   Copy,
   Cpu,
+  History as HistoryIcon,
   MessageCircle,
   Map as MapIcon,
   Moon,
@@ -122,6 +123,7 @@ import { useSearchParams } from "react-router-dom";
 import { ChatSidebar } from "@/components/ChatSidebar";
 import { CopyMessageButton } from "@/components/CopyMessageButton";
 import { GuidedAppPreview } from "@/components/GuidedAppPreview";
+import { GuidedProjectHistory } from "@/components/GuidedProjectHistory";
 import { Markdown } from "@/components/Markdown";
 import { ChatSessionList } from "@/components/ChatSessionList";
 import { usePageHeader } from "@/contexts/usePageHeader";
@@ -129,6 +131,7 @@ import { useI18n } from "@/i18n";
 import {
   api,
   type MessagingPlatform,
+  type UltimateBuilderRecoveryPoint,
   type UltimateBuilderRunState,
 } from "@/lib/api";
 import { latchChatActivation } from "@/lib/chat-activation";
@@ -1484,6 +1487,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   );
   const [guidedInput, setGuidedInput] = useState("");
   const [guidedPreviewOpen, setGuidedPreviewOpen] = useState(false);
+  const [guidedHistoryOpen, setGuidedHistoryOpen] = useState(false);
   const [guidedActivityPanelOpen, setGuidedActivityPanelOpen] = useState(() =>
     readGuidedPanelPreference(GUIDED_ACTIVITY_PANEL_STORAGE_KEY),
   );
@@ -3193,6 +3197,45 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     }, 65_000);
   }, [appendGuidedError, guidedActivity.phase, telegramReadiness]);
 
+  const restoreGuidedRecoveryPoint = useCallback(
+    (point: UltimateBuilderRecoveryPoint) => {
+      if (!sendGuidedControlCommand(`/rollback ${point.hash}`)) {
+        appendGuidedError(
+          "Recovery is unavailable while the project reconnects. Try again in a moment.",
+        );
+        return;
+      }
+      setGuidedHistoryOpen(false);
+      setBanner(
+        "Restoring the selected safe point. Lyra saved the current version first.",
+      );
+    },
+    [appendGuidedError, sendGuidedControlCommand],
+  );
+
+  const branchGuidedConversation = useCallback(() => {
+    if (!sendGuidedControlCommand("/branch")) {
+      appendGuidedError(
+        "A new path cannot be started while the project reconnects. Try again in a moment.",
+      );
+      return;
+    }
+    setGuidedHistoryOpen(false);
+    setBanner(
+      "Starting another path. Your current conversation and files remain saved.",
+    );
+  }, [appendGuidedError, sendGuidedControlCommand]);
+
+  const resumeGuidedConversation = useCallback(
+    (sessionId: string) => {
+      const next = new URLSearchParams(searchParams);
+      next.set("resume", sessionId);
+      setGuidedHistoryOpen(false);
+      setSearchParams(next);
+    },
+    [searchParams, setSearchParams],
+  );
+
   const retryLastGuidedMessage = useCallback(() => {
     const ws = wsRef.current;
     const lastUserMessage = [...guidedMessages]
@@ -4820,6 +4863,23 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       <PluginSlot name="chat:top" />
       {mobileModelToolsPortal}
       {guidedSkillsPortal}
+      {guided && (
+        <GuidedProjectHistory
+          open={guidedHistoryOpen}
+          workspace={workspaceParam}
+          profile={scopedProfile}
+          currentSessionId={
+            resumeParam ?? readGuidedProjectSessionId(workspaceParam) ?? undefined
+          }
+          busy={
+            guidedActivity.phase === "working" || Boolean(guidedRunState?.active)
+          }
+          onClose={() => setGuidedHistoryOpen(false)}
+          onRestore={restoreGuidedRecoveryPoint}
+          onBranch={branchGuidedConversation}
+          onResume={resumeGuidedConversation}
+        />
+      )}
       <ConfirmDialog
         open={guidedClearConfirmOpen}
         title="Start a fresh chat?"
@@ -4916,6 +4976,15 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 aria-label={guidedPreviewOpen ? "Close app preview" : "Open app preview"}
               >
                 <Monitor className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                className="lyra-studio-icon-control"
+                onClick={() => setGuidedHistoryOpen(true)}
+                title="Recovery points and project conversations"
+                aria-label="Open project history"
+              >
+                <HistoryIcon className="h-4 w-4" />
               </button>
               <button
                 type="button"
@@ -5146,7 +5215,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             >
               <span>
                 {telegramHandoffStatus === "sent"
-                  ? "This project is now on Telegram. Lyra will notify your phone when she asks a question or needs approval."
+                  ? "This project is now in its own Telegram topic. Continue there without mixing it with your other Lyra projects."
                   : telegramHandoffStatus === "failed"
                   ? "The Telegram handoff did not complete. Check that the gateway is connected and that you pressed Start in the bot."
                   : "Moving this project and its conversation history to Telegram…"}

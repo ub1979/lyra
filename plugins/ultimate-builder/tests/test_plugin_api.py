@@ -83,6 +83,66 @@ def test_progress_ledger_without_a_phase_table_is_unavailable():
     }
 
 
+def test_project_history_combines_recovery_points_and_exact_project_conversations(
+    tmp_path, monkeypatch
+):
+    module = load_plugin_api()
+    project = tmp_path / "music-app"
+    project.mkdir()
+
+    class FakeCheckpointManager:
+        def __init__(self, enabled=False):
+            assert enabled is True
+
+        def list_checkpoints(self, working_dir):
+            assert working_dir == str(project.resolve())
+            return [
+                {
+                    "hash": "a" * 40,
+                    "short_hash": "aaaaaaa",
+                    "timestamp": "2026-08-30T10:00:00+00:00",
+                    "reason": "auto",
+                    "files_changed": 2,
+                    "insertions": 4,
+                    "deletions": 1,
+                }
+            ]
+
+    class FakeSessionDB:
+        def list_sessions_rich(self, **_kwargs):
+            base = {
+                "title": "Main project conversation",
+                "preview": "Build the music app",
+                "started_at": 10,
+                "last_active": 20,
+                "message_count": 8,
+                "ended_at": None,
+                "parent_session_id": None,
+            }
+            return [
+                {**base, "id": "project-session", "cwd": str(project)},
+                {
+                    **base,
+                    "id": "nested-session",
+                    "cwd": str(project / "nested-tool"),
+                },
+            ]
+
+        def close(self):
+            return None
+
+    monkeypatch.setattr(module, "CheckpointManager", FakeCheckpointManager)
+    monkeypatch.setattr(module, "SessionDB", FakeSessionDB)
+
+    result = module.project_history(str(project))
+
+    assert result["automatic_recovery"] is True
+    assert len(result["recovery_points"]) == 1
+    assert [item["id"] for item in result["conversations"]] == [
+        "project-session"
+    ]
+
+
 def test_saved_project_jobs_override_stale_progress_claims():
     module = load_plugin_api()
     ledger = module._parse_progress_ledger(

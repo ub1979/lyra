@@ -9525,6 +9525,28 @@ class TestPtyWebSocket:
         assert env["TERMINAL_CWD"] == resolved_project
         assert env["HERMES_CWD"] == resolved_project
 
+    def test_resolve_chat_argv_enables_recovery_for_lyra_studio_projects(
+        self, monkeypatch, tmp_path
+    ):
+        """Studio file changes always get a transparent recovery point."""
+        import hermes_cli.main as main_mod
+
+        project = tmp_path / "customer-project"
+        project.mkdir()
+        monkeypatch.delenv("HERMES_TUI_CHECKPOINTS", raising=False)
+        monkeypatch.setattr(
+            main_mod,
+            "_make_tui_argv",
+            lambda project_root, tui_dev=False: (["node", "dist/entry.js"], "/tmp/ui-tui"),
+        )
+
+        _argv, _cwd, env = self.ws_module._resolve_chat_argv(
+            workspace=str(project),
+            skills="ultimate-builder:app-it",
+        )
+
+        assert env["HERMES_TUI_CHECKPOINTS"] == "1"
+
     def test_resolve_chat_argv_rejects_missing_project_workspace(
         self, monkeypatch, tmp_path
     ):
@@ -9699,10 +9721,13 @@ class TestPtyWebSocket:
     def test_resolve_chat_argv_async_uses_worker_thread(self, monkeypatch):
         captured: dict = {}
 
-        def fake_resolve(resume=None, sidecar_url=None, profile=None):
+        def fake_resolve(
+            resume=None, sidecar_url=None, profile=None, workspace=None
+        ):
             captured["resume"] = resume
             captured["sidecar_url"] = sidecar_url
             captured["profile"] = profile
+            captured["workspace"] = workspace
             return (["node", "dist/entry.js"], "/tmp/ui-tui", {"NODE_ENV": "production"})
 
         async def fake_to_thread(fn, *args, **kwargs):
@@ -9728,6 +9753,7 @@ class TestPtyWebSocket:
             "resume": "sess-42",
             "sidecar_url": "ws://127.0.0.1:9119/api/pub?channel=abc",
             "profile": "worker",
+            "workspace": None,
         }
         assert argv == ["node", "dist/entry.js"]
         assert cwd == "/tmp/ui-tui"
@@ -9735,6 +9761,7 @@ class TestPtyWebSocket:
         assert captured["resume"] == "sess-42"
         assert captured["sidecar_url"] == "ws://127.0.0.1:9119/api/pub?channel=abc"
         assert captured["profile"] == "worker"
+        assert captured["workspace"] is None
 
     def test_pty_ws_resolves_argv_through_async_wrapper(self, monkeypatch):
         captured: dict = {}

@@ -323,6 +323,18 @@ def _non_conversational_metadata(
     return merged
 
 
+def _handoff_thread_name(row: Dict[str, Any], title: str) -> str:
+    """Give Lyra projects a stable, recognizable remote-control topic name."""
+    raw_cwd = str(row.get("cwd") or "").strip()
+    if raw_cwd:
+        project = Path(raw_cwd).expanduser().resolve(strict=False)
+        if (project / ".lyra-project").is_file() or (project / ".sdlc").is_dir():
+            project_name = re.sub(r"\s+", " ", project.name.replace("_", " ")).strip()
+            if project_name:
+                return f"Lyra — {project_name}"[:128]
+    return f"Hermes — {title}"[:128]
+
+
 def _is_transient_network_error(exc: BaseException) -> bool:
     """Return True for transient network errors safe to log + swallow.
 
@@ -8816,23 +8828,86 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
 
         cli_title = row.get("title") or cli_session_id[:8]
 
-        # Try to create a fresh thread on the destination so the handoff
-        # has its own scrollback. Adapter returns None if threading isn't
+        home_chat_id = str(home.chat_id)
+        is_telegram_private_chat = (
+            platform == Platform.TELEGRAM
+            and looks_like_telegram_private_chat_id(home_chat_id)
+        )
+
+        # A Lyra project keeps one Telegram topic for its whole lifetime.
+        # Reconnecting the same project/session should reopen that topic, not
+        # create another almost-identical thread in the user's chat.
+        existing_thread_id: Optional[str] = None
+        if is_telegram_private_chat and self._session_db is not None:
+            try:
+                binding = await self._session_db.get_telegram_topic_binding_by_session(
+                    session_id=cli_session_id,
+                )
+                if binding and str(binding.get("chat_id")) == home_chat_id:
+                    existing_thread_id = str(binding.get("thread_id") or "") or None
+                # A branch is a new session but still belongs to the same Lyra
+                # project. Reuse the project's topic by looking at other saved
+                # conversations with the exact same working folder.
+                raw_cwd = str(row.get("cwd") or "").strip()
+                if not existing_thread_id and raw_cwd:
+                    project = Path(raw_cwd).expanduser().resolve(strict=False)
+                    project_sessions, topic_bindings = await asyncio.gather(
+                        self._session_db.list_sessions_rich(
+                            cwd_prefix=str(project),
+                            limit=200,
+                            include_children=False,
+                            order_by_last_active=True,
+                            project_compression_tips=True,
+                            compact_rows=True,
+                        ),
+                        self._session_db.list_telegram_topic_bindings_for_chat(
+                            chat_id=home_chat_id,
+                        ),
+                    )
+                    bindings_by_session = {
+                        str(item.get("session_id") or ""): item
+                        for item in topic_bindings
+                    }
+                    for project_session in project_sessions:
+                        candidate_cwd = Path(
+                            str(project_session.get("cwd") or "")
+                        ).expanduser().resolve(strict=False)
+                        if candidate_cwd != project:
+                            continue
+                        candidate = bindings_by_session.get(
+                            str(project_session.get("id") or "")
+                        )
+                        if candidate and str(candidate.get("chat_id")) == home_chat_id:
+                            existing_thread_id = (
+                                str(candidate.get("thread_id") or "") or None
+                            )
+                            if existing_thread_id:
+                                break
+            except Exception:
+                logger.debug(
+                    "Handoff: could not read the existing Telegram project topic",
+                    exc_info=True,
+                )
+
+        # Try to create a thread on the destination so the handoff has its own
+        # scrollback. Adapter returns None if threading isn't
         # supported (Matrix/WhatsApp/Signal/SMS) or if creation failed
         # (no permission, topics-mode off, parent is a DM, etc.). When
         # None we fall through to using the home channel directly — the
         # synthetic turn still lands; just without thread isolation.
-        thread_name = f"Hermes — {cli_title}"
-        try:
-            new_thread_id = await adapter.create_handoff_thread(
-                str(home.chat_id), thread_name,
-            )
-        except Exception as exc:
-            logger.debug(
-                "Handoff: create_handoff_thread raised on %s: %s",
-                platform_name, exc, exc_info=True,
-            )
-            new_thread_id = None
+        thread_name = _handoff_thread_name(row, cli_title)
+        new_thread_id = existing_thread_id
+        if not new_thread_id:
+            try:
+                new_thread_id = await adapter.create_handoff_thread(
+                    home_chat_id, thread_name,
+                )
+            except Exception as exc:
+                logger.debug(
+                    "Handoff: create_handoff_thread raised on %s: %s",
+                    platform_name, exc, exc_info=True,
+                )
+                new_thread_id = None
 
         # Use the new thread if the adapter created one; otherwise fall
         # back to whatever thread (if any) the home channel was configured
@@ -8849,12 +8924,6 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
         # source shape as the user's next real message; otherwise the synthetic
         # handoff turn binds a generic `thread` session key while real replies
         # arrive on a `dm` session key.
-        home_chat_id = str(home.chat_id)
-        is_telegram_private_chat = (
-            platform == Platform.TELEGRAM
-            and looks_like_telegram_private_chat_id(home_chat_id)
-        )
-
         if new_thread_id and not is_telegram_private_chat:
             dest_chat_type = "thread"
             dest_user_id = "system:handoff"
@@ -8902,6 +8971,27 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
         if switched is None:
             raise RuntimeError(
                 f"could not switch session key {session_key} → {cli_session_id}"
+            )
+
+        if (
+            is_telegram_private_chat
+            and effective_thread_id
+            and self._session_db is not None
+        ):
+            # Persist the project/topic relationship before the confirmation
+            # is sent. Future messages in this topic then reopen this exact
+            # project conversation, including after a gateway restart.
+            await self._session_db.enable_telegram_topic_mode(
+                chat_id=home_chat_id,
+                user_id=home_chat_id,
+            )
+            await self._session_db.bind_telegram_topic(
+                chat_id=home_chat_id,
+                thread_id=str(effective_thread_id),
+                user_id=home_chat_id,
+                session_key=session_key,
+                session_id=cli_session_id,
+                managed_mode="restored",
             )
 
         # Evict any cached AIAgent for this session_key so the next dispatch

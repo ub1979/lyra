@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 
 from hermes_constants import get_hermes_home
 from hermes_state import SessionDB
+from tools.checkpoint_manager import CheckpointManager
 
 
 router = APIRouter()
@@ -726,6 +727,58 @@ def state(path: str = Query(..., min_length=1)) -> dict[str, Any]:
         "run_state": run_state,
         "artifacts": artifacts,
         "learning_candidates": candidates,
+    }
+
+
+@router.get("/history")
+def project_history(workspace: str = Query(..., min_length=1)) -> dict[str, Any]:
+    """Return plain-language recovery and conversation history for one project."""
+    safety = _workspace_safety(workspace)
+    if not safety["allowed"]:
+        raise HTTPException(status_code=403, detail=safety["reason"])
+    project = _project(workspace)
+
+    recovery_points = CheckpointManager(enabled=True).list_checkpoints(str(project))
+
+    database = SessionDB()
+    try:
+        rows = database.list_sessions_rich(
+            cwd_prefix=str(project),
+            limit=200,
+            include_children=False,
+            order_by_last_active=True,
+            project_compression_tips=True,
+            compact_rows=True,
+        )
+    finally:
+        database.close()
+
+    conversations = []
+    for row in rows:
+        try:
+            cwd = Path(str(row.get("cwd") or "")).expanduser().resolve(strict=False)
+        except (OSError, RuntimeError):
+            continue
+        if cwd != project:
+            continue
+        conversations.append(
+            {
+                "id": str(row.get("id") or ""),
+                "title": str(row.get("title") or "Project conversation"),
+                "preview": str(row.get("preview") or ""),
+                "started_at": float(row.get("started_at") or 0),
+                "last_active": float(row.get("last_active") or 0),
+                "message_count": int(row.get("message_count") or 0),
+                "is_active": row.get("ended_at") is None,
+                "parent_session_id": row.get("parent_session_id"),
+            }
+        )
+
+    return {
+        "project": str(project),
+        "automatic_recovery": True,
+        "recovery_points": recovery_points,
+        "conversations": conversations,
     }
 
 
