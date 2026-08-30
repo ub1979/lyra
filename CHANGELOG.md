@@ -9,6 +9,27 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.15] - 2026-08-30 — unified Studio model experience
+
+### Changed
+
+- **AI settings and every model chooser now use Lyra Studio's visual language.**
+  Provider setup, the main model chooser, Review Agent models, project models,
+  and guided specialist choices now feel like one product instead of opening
+  older Hermes-style panels.
+- **Project popups now share the same modern dialog design.** Confirmations,
+  sign-in, specialist selection, model setup, and related project actions use
+  consistent rounded cards, spacing, controls, and light/dark styling.
+
+### Fixed
+
+- **Refreshing Ollama now shows the models that are actually installed.** Stale
+  model entries are removed instead of surviving a refresh.
+- **Projects moved to Trash now disappear from the projects screen.** Lyra no
+  longer keeps showing shortcuts whose folders no longer exist.
+- **Dialogs stay usable at narrow widths and larger text sizes.** Popup content
+  wraps and scrolls without controls overlapping or being cut off.
+
 ## [0.19.14] - 2026-08-30 — modern Lyra Studio workspace
 
 ### Added
