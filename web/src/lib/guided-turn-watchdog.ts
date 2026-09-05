@@ -154,11 +154,15 @@ export function decideGuidedWatchdog({
   subagentGraceUntil,
   toolGraceUntil = 0,
   now,
+  waitingForInput = false,
 }: {
   subagentGraceUntil: number;
   toolGraceUntil?: number;
   now: number;
+  waitingForInput?: boolean;
 }): GuidedWatchdogDecision {
+  // User decisions end through answer/cancel/expiry, not a model deadline.
+  if (waitingForInput) return { action: "extend" };
   const activityGraceUntil = Math.max(subagentGraceUntil, toolGraceUntil);
   if (activityGraceUntil > 0) {
     if (now < activityGraceUntil) return { action: "extend" };

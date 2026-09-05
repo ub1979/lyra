@@ -124,9 +124,11 @@ export function updateGuidedWorkers(
     id,
     input: numberValue(payload.input_tokens) || previous?.input || 0,
     label:
+      // Only explicit event metadata may name a worker. A goal mentioning QA,
+      // tests or another phase must not silently change the worker's identity.
       stringValue(payload.display_label) ||
       previous?.label ||
-      `Agent ${taskIndex + 1}`,
+      `Project agent ${taskIndex + 1}`,
     lastActivity,
     lastSignalAt: now,
     model: stringValue(payload.model) || previous?.model || "Project default",

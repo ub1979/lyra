@@ -9,7 +9,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def load_project_runs():
     path = ROOT / "project_runs.py"
-    spec = importlib.util.spec_from_file_location("ultimate_builder_project_runs_test", path)
+    spec = importlib.util.spec_from_file_location(
+        "ultimate_builder_project_runs_test", path
+    )
     module = importlib.util.module_from_spec(spec)
     assert spec and spec.loader
     spec.loader.exec_module(module)
@@ -71,6 +73,7 @@ def test_pause_and_resume_only_touch_user_paused_jobs(tmp_path, monkeypatch):
     paused = module.control_project_run(project, "pause")
     assert paused["changed"] == [task_id]
     assert module.project_run_state(project)["tasks"][0]["status"] == "blocked"
+    assert module.project_run_state(project)["tasks"][0]["paused_by_user"] is True
 
     resumed = module.control_project_run(project, "resume")
     assert resumed["changed"] == [task_id]
@@ -96,3 +99,49 @@ def test_moving_project_keeps_saved_jobs_attached(tmp_path, monkeypatch):
     assert task is not None
     assert task.workspace_path == str(destination)
     assert f"Workspace: {destination}" in (task.body or "")
+
+
+def test_saved_activity_survives_reload_and_explains_waiting(tmp_path, monkeypatch):
+    """Exercise real SQLite lifecycle, not a mocked dashboard response."""
+    monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "board"))
+    project = tmp_path / "project"
+    project.mkdir()
+    module = load_project_runs()
+    queued = module.queue_project_run(project, ["researcher", "sw-architect"])
+    research, architecture = [task["task_id"] for task in queued["tasks"]]
+    with module.kb.connect_closing() as conn:
+        assert module.kb.claim_task(conn, research)
+    running = {
+        task["phase"]: task for task in module.project_run_state(project)["tasks"]
+    }
+    assert running["researcher"]["status"] == "running"
+    assert running["sw-architect"]["status"] == "todo"
+    with module.kb.connect_closing() as conn:
+        assert module.kb.complete_task(conn, research, result="Research saved")
+        module.kb.recompute_ready(conn)
+        assert module.kb.claim_task(conn, architecture)
+        assert module.kb.block_task(
+            conn, architecture, reason="Which launch country?", kind="needs_input"
+        )
+
+    # A fresh module/connection can reconstruct both completed and waiting jobs.
+    reloaded = load_project_runs().project_run_state(project)
+    states = {task["phase"]: task for task in reloaded["tasks"]}
+    assert states["researcher"]["status"] == "done"
+    assert states["sw-architect"]["block_kind"] == "needs_input"
+    assert states["sw-architect"]["wait_reason"] == "Which launch country?"
+    assert states["sw-architect"]["last_error"] == ""
+    assert states["sw-architect"]["paused_by_user"] is False
+    assert reloaded["state"] == "needs_attention"
+
+    with module.kb.connect_closing() as conn:
+        assert module.kb.unblock_task(conn, architecture)
+    resumed = {
+        task["phase"]: task for task in module.project_run_state(project)["tasks"]
+    }
+    assert resumed["sw-architect"]["status"] == "ready"
+    assert resumed["sw-architect"]["wait_reason"] == ""
+    assert resumed["sw-architect"]["block_kind"] is None
+    other = tmp_path / "other-project"
+    other.mkdir()
+    assert module.project_run_state(other)["tasks"] == []

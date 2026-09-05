@@ -17992,8 +17992,11 @@ def _build_sidecar_url(channel: str) -> Optional[str]:
 
 async def _broadcast_event(app: Any, channel: str, payload: str) -> None:
     """Fan out one publisher frame to every subscriber on `channel`."""
+    from hermes_cli.dashboard_prompt_state import dashboard_prompt_state
+
     event_channels, event_lock = _get_event_state(app)
     async with event_lock:
+        dashboard_prompt_state(app).observe(channel, payload)
         aliases = _get_event_channel_aliases(app)
         destinations = {
             channel,
@@ -18819,6 +18822,18 @@ async def pty_ws(ws: WebSocket) -> None:
         _event_channels, event_lock = _get_event_state(ws.app)
         async with event_lock:
             _get_event_channel_aliases(ws.app)[channel] = publisher_channel
+            # The event subscriber can connect before PTY reattachment has
+            # resolved this alias. Replay here too so ordering cannot hide a
+            # pending question. The renderer deduplicates by request ID.
+            from hermes_cli.dashboard_prompt_state import dashboard_prompt_state
+
+            pending = dashboard_prompt_state(ws.app).replay(publisher_channel)
+            if pending:
+                for subscriber in list(_event_channels.get(channel, ())):
+                    try:
+                        await subscriber.send_text(pending)
+                    except Exception:
+                        _log.debug("Question replay subscriber disconnected", exc_info=True)
 
     await session.attach(ws)
 
@@ -18959,6 +18974,19 @@ async def events_ws(ws: WebSocket) -> None:
     event_channels, event_lock = _get_event_state(ws.app)
     async with event_lock:
         event_channels.setdefault(channel, set()).add(ws)
+        # Questions must survive a browser subscriber reconnect just as the
+        # underlying TUI wait does. Reuse the established publisher alias;
+        # never replay a question from a different project channel.
+        from hermes_cli.dashboard_prompt_state import dashboard_prompt_state
+
+        publisher = _get_event_channel_aliases(ws.app).get(channel, channel)
+        pending = dashboard_prompt_state(ws.app).replay(publisher)
+        if pending:
+            try:
+                await ws.send_text(pending)
+            except Exception:
+                event_channels[channel].discard(ws)
+                return
 
     try:
         while True:

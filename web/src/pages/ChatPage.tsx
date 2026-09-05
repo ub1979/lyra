@@ -125,6 +125,11 @@ import { ChatSidebar } from "@/components/ChatSidebar";
 import { CopyMessageButton } from "@/components/CopyMessageButton";
 import { GuidedAppPreview } from "@/components/GuidedAppPreview";
 import { GuidedProjectHistory } from "@/components/GuidedProjectHistory";
+import { GuidedCoordinatorActivity } from "@/components/GuidedCoordinatorActivity";
+import { GuidedClarification } from "@/components/GuidedClarification";
+import { useGuidedClarification } from "@/hooks/useGuidedClarification";
+import { ProjectAgentJobs } from "@/components/ProjectAgentJobs";
+import { coordinatorActivityMessage, projectAgentActivity, projectAgentSummary } from "@/lib/project-agent-activity";
 import { Markdown } from "@/components/Markdown";
 import { ChatSessionList } from "@/components/ChatSessionList";
 import { usePageHeader } from "@/contexts/usePageHeader";
@@ -307,6 +312,8 @@ interface GuidedAgentEventEnvelope {
       summary?: string;
       smart_denied?: boolean;
       stored_session_id?: string;
+      question?: string;
+      request_id?: string;
       text?: string;
       tool_id?: string;
       usage?: unknown;
@@ -617,118 +624,6 @@ function readGuidedMessages(workspace: string): GuidedMessage[] {
   }
 }
 
-const GUIDED_WORK_PHRASES = [
-  "I’m getting the ingredients ready…",
-  "Cooking up the next step…",
-  "Putting the pieces together…",
-  "A little more magic is happening in the background…",
-  "Still working—your project is on the stove…",
-  "Sketching the next move…",
-  "Turning your idea into something concrete…",
-  "Checking the map before we move…",
-  "Lining up the building blocks…",
-  "Giving the details a careful look…",
-  "Making sure the pieces fit…",
-  "Warming up the creative engines…",
-  "Following the clues through your project…",
-  "Polishing the plan as it takes shape…",
-  "Connecting a few important dots…",
-  "Looking around the corners for surprises…",
-  "Measuring twice before building once…",
-  "Sorting the must-haves from the nice-to-haves…",
-  "Giving your idea a sturdy backbone…",
-  "Finding the simplest useful path…",
-  "Keeping the tiny gremlins out of the plan…",
-  "Making room for a smooth user journey…",
-  "Checking that the foundations feel solid…",
-  "Turning rough notes into clear decisions…",
-  "Finding the friendly route through the complexity…",
-  "Preparing the next piece for you…",
-  "Making the experience feel natural…",
-  "Testing a couple of possibilities…",
-  "Choosing sensible defaults where they help…",
-  "Keeping an eye on the important details…",
-  "Giving the project a quick health check…",
-  "Working through the tricky bits…",
-  "Making the next answer easier to use…",
-  "Tucking the loose ends into place…",
-  "Checking the project compass…",
-  "Shaping the idea into a useful flow…",
-  "Making sure nothing important was forgotten…",
-  "Looking for a cleaner way through…",
-  "Balancing speed, quality, and simplicity…",
-  "Preparing a neat little serving of progress…",
-  "Giving the logic a gentle shake test…",
-  "Mapping what happens next…",
-  "Keeping the project train on its track…",
-  "Putting names to the fuzzy parts…",
-  "Making the plan friendlier for real people…",
-  "Double-checking the path from idea to app…",
-  "Finding the sharp edges before users do…",
-  "Arranging the pieces into a clear story…",
-  "Making a small leap from vague to specific…",
-  "Checking the doors, windows, and escape routes…",
-  "Keeping future-you out of unnecessary trouble…",
-  "Turning choices into a practical next step…",
-  "Making sure the clever bits stay understandable…",
-  "Listening for anything that sounds off…",
-  "Getting the next milestone ready…",
-  "Giving the user journey a quick rehearsal…",
-  "Checking that the plan can survive real life…",
-  "Tidying the workbench as I go…",
-  "Finding the best place to begin…",
-  "Making progress one thoughtful step at a time…",
-  "Checking assumptions before they become bugs…",
-  "Keeping the solution useful, not fussy…",
-  "Working out what matters most right now…",
-  "Preparing something you can react to…",
-  "Taking the scenic route around future problems…",
-  "Turning the next corner carefully…",
-  "Making sure the project has a clear heartbeat…",
-  "Giving the next step a final polish…",
-  "Keeping things moving behind the curtain…",
-  "Checking the recipe against the ingredients…",
-  "Making the complicated parts behave…",
-  "Building a bridge to the next decision…",
-  "Looking for the most helpful answer…",
-  "Making this easier for the person who will use it…",
-  "Packing the next update with useful detail…",
-  "Almost ready to bring the next piece to the table…",
-  "Keeping the wheels turning smoothly…",
-  "Giving the project one more thoughtful pass…",
-  "Making sure the result earns its place…",
-  "Following the thread to a clear conclusion…",
-  "Getting the next useful thing ready for you…",
-];
-
-const GUIDED_SPECIALIST_ETA_SECONDS: Record<string, [number, number]> = {
-  // Lyra's own conversational turns are not pipeline phases. Without this row
-  // every reply fell through to the idk_it coordinator estimate and advertised
-  // "30s-2m" for a one-line answer.
-  "app-it": [3, 20],
-  "req-engineer": [20, 60],
-  researcher: [30, 180],
-  spec: [45, 120],
-  "ui-designer": [60, 180],
-  "sw-architect": [45, 120],
-  "task-planner": [30, 90],
-  "proj-manager": [45, 120],
-  "sw-developer": [60, 240],
-  "oop-restructurer": [60, 240],
-  debugger: [60, 240],
-  "code-reviewer": [60, 180],
-  "ux-writer": [30, 120],
-  "qa-engineer": [45, 180],
-  "a11y-auditor": [45, 150],
-  "security-auditor": [60, 240],
-  "devops-engineer": [60, 240],
-  "tech-writer": [45, 150],
-  benchmark: [60, 240],
-  health: [30, 90],
-  "context-save": [20, 60],
-  learn: [30, 90],
-  idk_it: [30, 120],
-};
 
 /**
  * What the user calls these: agents, not skills or specialists. The ids and the
@@ -787,7 +682,9 @@ function guidedWorkerAvatarId(worker: GuidedWorkerRuntime): string {
 function GuidedRuntimePanel({
   activeWorkers,
   activity,
-  currentSpecialist,
+  runState,
+  runStateStale,
+  waitingForInput,
   defaultModelLabel,
   lastSignalAt,
   onRetry,
@@ -799,7 +696,9 @@ function GuidedRuntimePanel({
 }: {
   activeWorkers: readonly GuidedWorkerRuntime[];
   activity: GuidedChatPresentation;
-  currentSpecialist: GuidedSpecialist;
+  runState: UltimateBuilderRunState | null;
+  runStateStale: boolean;
+  waitingForInput: boolean;
   defaultModelLabel: string;
   lastSignalAt: number;
   onRetry: () => void;
@@ -810,14 +709,12 @@ function GuidedRuntimePanel({
   usage: GuidedUsageSnapshot;
 }) {
   const model = usage.model || defaultModelLabel;
-  const status = paused
-    ? "Workers paused"
-    : activeWorkers.length
-      ? `${activeWorkers.length} working`
-      : "No workers";
+  const jobs = projectAgentActivity(runState, runStateStale);
+  const workingCount = activeWorkers.length + jobs.filter((job) => job.running).length;
+  const status = runStateStale ? "Status unavailable" : projectAgentSummary(jobs, activeWorkers.length);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col p-3 text-xs">
+    <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col p-3 text-xs">
       <div className="flex items-center justify-between gap-2">
         <span className="font-semibold uppercase tracking-[0.16em] text-text-secondary">
           Agent activity
@@ -827,7 +724,7 @@ function GuidedRuntimePanel({
             "h-2 w-2 shrink-0 rounded-full",
             paused
               ? "bg-warning"
-              : activeWorkers.length
+              : workingCount
                 ? "animate-pulse bg-emerald-400"
                 : "bg-text-secondary/45",
           )}
@@ -889,22 +786,22 @@ function GuidedRuntimePanel({
       </details>
 
       {activity.phase === "working" && (
-        <GuidedRailSpecialistActivity
-          key={currentSpecialist.id}
-          activity={activity}
+        <GuidedCoordinatorActivity
+          waitingForInput={waitingForInput}
+          text={activity.text}
           lastSignalAt={lastSignalAt}
           onRetry={onRetry}
           runningTool={runningTool}
-          specialist={currentSpecialist}
         />
       )}
 
       <div className="mt-3 flex min-h-0 flex-1 flex-col">
-        <p className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-wider text-text-secondary">
+        <p className="flex flex-wrap items-center justify-between gap-2 text-[10px] uppercase tracking-wider text-text-secondary">
           <span>Project agents</span>
           <span>{status}</span>
         </p>
         <div className="mt-2 min-h-0 space-y-2 overflow-y-auto pr-0.5">
+          <ProjectAgentJobs items={jobs} stale={runStateStale} />
           {activeWorkers.map((worker) => (
             <article
               key={worker.id}
@@ -955,7 +852,7 @@ function GuidedRuntimePanel({
               {recentWorkers[0].calls} calls
             </p>
           )}
-          {!activeWorkers.length && !recentWorkers.length && (
+          {!jobs.length && !runStateStale && !activeWorkers.length && !recentWorkers.length && (
             <p className="rounded-lg border border-dashed border-current/15 px-2.5 py-3 text-[10px] leading-4 text-text-secondary">
               Background agents will appear here while Lyra keeps chatting
               with you.
@@ -1119,108 +1016,6 @@ function guidedAgentName(id: string, label?: string): string {
   return /\bagent\b/i.test(base) ? base : `${base} agent`;
 }
 
-function formatGuidedDuration(totalSeconds: number): string {
-  if (totalSeconds < 60) return `${totalSeconds}s`;
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return seconds ? `${minutes}m ${seconds}s` : `${minutes}m`;
-}
-
-function formatGuidedEta([minimum, maximum]: [number, number]): string {
-  const formatBound = (seconds: number) =>
-    seconds < 60 ? `${seconds}s` : `${Math.round(seconds / 60)}m`;
-  return `${formatBound(minimum)}–${formatBound(maximum)}`;
-}
-
-function GuidedRailSpecialistActivity({
-  activity,
-  lastSignalAt,
-  onRetry,
-  runningTool,
-  specialist,
-}: {
-  activity: GuidedChatPresentation;
-  lastSignalAt: number;
-  onRetry: () => void;
-  runningTool: GuidedRunningTool | null;
-  specialist: GuidedSpecialist;
-}) {
-  const [startedAt] = useState(() => Date.now());
-  const [clock, setClock] = useState(startedAt);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      setClock(Date.now());
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  const elapsedSeconds = Math.floor((clock - startedAt) / 1000);
-  const eta =
-    GUIDED_SPECIALIST_ETA_SECONDS[specialist.id] ??
-    GUIDED_SPECIALIST_ETA_SECONDS.idk_it;
-  const phraseIndex =
-    Math.floor(elapsedSeconds / 5) % GUIDED_WORK_PHRASES.length;
-  const phrase = activity.text
-    ? activity.text
-    : GUIDED_WORK_PHRASES[phraseIndex];
-  const silentSeconds = Math.max(0, Math.floor((clock - lastSignalAt) / 1000));
-  const toolElapsedSeconds = runningTool
-    ? Math.max(0, Math.floor((clock - runningTool.startedAt) / 1000))
-    : 0;
-  const mayBeStalled = !runningTool && silentSeconds >= 30;
-  const isTakingLonger = elapsedSeconds > eta[1];
-
-  return (
-    <div className="mt-2 rounded-lg border border-current/15 bg-midground/5 p-2">
-      <div className="flex items-start gap-2">
-        <div className="guided-specialist-avatar-wrap shrink-0">
-          <GuidedAgentAvatar
-            id={specialist.id}
-            className="guided-specialist-avatar h-7 w-7 rounded-md object-cover"
-          />
-          <span className="guided-specialist-dot" />
-        </div>
-        <div className="min-w-0">
-          <strong className="block truncate text-[11px] text-midground">
-            {guidedAgentName(specialist.id, specialist.label)} is working
-          </strong>
-          <span className="mt-0.5 block text-[10px] leading-4 text-text-secondary">
-            {runningTool
-              ? runningTool.label
-              : mayBeStalled
-              ? "No fresh response yet—it may be waiting on the AI model."
-              : phrase}
-          </span>
-          <span
-            className={cn(
-              "mt-1 block text-[9px] leading-3",
-              mayBeStalled ? "text-warning" : "text-text-secondary/75",
-            )}
-          >
-            {runningTool
-              ? `${formatGuidedDuration(toolElapsedSeconds)} elapsed · the tool is still running`
-              : mayBeStalled
-              ? `No new activity for ${formatGuidedDuration(silentSeconds)} · use Pause above if you want to stop`
-              : isTakingLonger
-              ? `Taking longer than usual · ${formatGuidedDuration(elapsedSeconds)} elapsed`
-              : `Typical time ${formatGuidedEta(eta)} · ${formatGuidedDuration(elapsedSeconds)} elapsed`}
-          </span>
-          {(mayBeStalled || (runningTool && toolElapsedSeconds >= 30)) && (
-            <Button
-              className="mt-2 h-7 px-2 text-[10px]"
-              ghost
-              size="sm"
-              onClick={onRetry}
-            >
-              {runningTool ? "Stop tool & retry" : "Stop & retry"}
-            </Button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function guidedTerminalSnapshot(
   term: Terminal,
@@ -1478,6 +1273,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     workspace: string;
     steps: GuidedPhaseStep[] | null;
     runState: UltimateBuilderRunState | null;
+    stale: boolean;
   } | null>(null);
   const guidedPhaseCurrentRef = useRef<string | null>(
     initialGuidedPhaseState.current,
@@ -1521,6 +1317,14 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     useState<GuidedUsageSnapshot>(EMPTY_GUIDED_USAGE);
   const [guidedApproval, setGuidedApproval] =
     useState<GuidedApprovalRequest | null>(null);
+  const {
+    request: guidedClarification,
+    sending: guidedClarificationSending,
+    handleEvent: handleGuidedClarificationEvent,
+    answer: answerClarification,
+    clear: clearGuidedClarification,
+    pending: guidedClarificationRef,
+  } = useGuidedClarification(wsRef);
   const [guidedModelReview, setGuidedModelReview] =
     useState<GuidedModelReviewRequest | null>(null);
   const guidedModelReviewRef = useRef<GuidedModelReviewRequest | null>(null);
@@ -1548,20 +1352,6 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     MODEL_CONNECTION_ERROR_MARKER,
   );
   const telegramReadiness = telegramRemoteReadiness(telegramPlatform);
-  // The declared phase wins over the specialist inferred from output text: a
-  // phase Lyra runs in the conversation herself (requirements) emits no
-  // subagent events, so inference always fell back to Lyra.
-  const guidedPhaseSpecialist = guidedPhaseCurrent
-    ? {
-        id: guidedPhaseCurrent,
-        label:
-          GUIDED_SPECIALIST_LABELS[guidedPhaseCurrent] ?? guidedPhaseCurrent,
-      }
-    : null;
-  const guidedWorkingSpecialist =
-    guidedActivity.specialist ??
-    guidedPhaseSpecialist ??
-    guidedDefaultSpecialist;
   const guidedActiveWorkers = guidedWorkers.filter(
     (worker) => worker.status === "running" || worker.status === "stopping",
   );
@@ -1577,6 +1367,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     guidedLedger?.workspace === workspaceParam ? guidedLedger.steps : null;
   const guidedRunState =
     guidedLedger?.workspace === workspaceParam ? guidedLedger.runState : null;
+  const guidedRunStateStale = guidedLedger?.workspace === workspaceParam
+    ? guidedLedger.stale : false;
+  const guidedProjectJobs = projectAgentActivity(guidedRunState, guidedRunStateStale);
+  const guidedWorkingCount = guidedActiveWorkers.length + guidedProjectJobs.filter((job) => job.running).length;
   const guidedPhaseSteps =
     guidedLedgerSteps ??
     guidedPhaseProgress({
@@ -1771,11 +1565,12 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     setGuidedActivity({ phase: "idle", text: "", specialist: null });
     setGuidedWorkers([]);
     setGuidedApproval(null);
+    clearGuidedClarification();
     guidedModelReviewRef.current = null;
     setGuidedModelReview(null);
     setGuidedRecommendedSpecialistIds([]);
     setGuidedTeamRecommendationPending(false);
-  }, [guided, guidedMessageWorkspace, workspaceParam]);
+  }, [clearGuidedClarification, guided, guidedMessageWorkspace, workspaceParam]);
 
   // Keep the preloaded skill set aligned with the project URL as the
   // persistent ChatPage moves between the launcher, model settings, and chat.
@@ -2057,7 +1852,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     let cancelled = false;
 
     const resolveProjectSession = async () => {
-      const storedSessionId = readGuidedProjectSessionId(workspaceParam);
+      const storedSessionId = searchParams.get("resume")?.trim() || readGuidedProjectSessionId(workspaceParam);
       let sessionId = storedSessionId;
       try {
         const page = await api.getSessions(
@@ -2102,8 +1897,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   useEffect(() => {
     if (!guided || !workspaceParam) return;
     let cancelled = false;
+    let refreshing = false;
 
     const refreshLedger = async () => {
+      if (refreshing) return;
+      refreshing = true;
       try {
         const state = await api.getUltimateBuilderState(workspaceParam);
         if (cancelled) return;
@@ -2118,10 +1916,19 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               }))
             : null,
           runState: state.run_state ?? null,
+          stale: false,
         });
       } catch {
-        // The builder plugin may be disabled; keep conversation signals as a
-        // clearly labelled fallback instead of claiming verified progress.
+        if (cancelled) return;
+        // Preserve useful history, but never present an old snapshot as live.
+        setGuidedLedger((current) => ({
+          workspace: workspaceParam,
+          steps: current?.workspace === workspaceParam ? current.steps : null,
+          runState: current?.workspace === workspaceParam ? current.runState : null,
+          stale: true,
+        }));
+      } finally {
+        refreshing = false;
       }
     };
 
@@ -2231,6 +2038,22 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         if (frame.method !== "event" || !frame.params?.type) return;
 
         const { type, payload } = frame.params;
+        handleGuidedClarificationEvent(type, payload);
+        if (type === "clarify.request") {
+          if (payload?.request_id && payload.question) {
+            const id = `clarify-${payload.request_id}`;
+            const question = payload.question;
+            setGuidedMessages((messages) => messages.some((message) => message.id === id)
+              ? messages : [...messages, { id, role: "assistant", content: question }]);
+          }
+          setGuidedLastSignalAt(Date.now());
+          setGuidedActivity({ phase: "working", text: "Waiting for your answer…", specialist: APP_IT_SPECIALIST });
+          return;
+        }
+        if (type === "clarify.expire") {
+          setGuidedLastSignalAt(Date.now());
+          return;
+        }
         const compressionTransition = guidedCompressionTransition(
           type,
           payload?.kind,
@@ -2376,13 +2199,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 updateGuidedWorkers(
                   current,
                   type,
-                  {
-                    ...payload,
-                    display_label:
-                      detected?.label ??
-                      payload?.display_label ??
-                      "Project agent",
-                  },
+                  payload ?? {},
                   Date.now(),
                 ),
               );
@@ -2451,22 +2268,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         if (type === "subagent.complete") {
           guidedSubagentGraceUntilRef.current = 0;
           setGuidedLastSignalAt(Date.now());
-            const detected = analyzeGuidedChatOutput(
-              [payload?.goal, payload?.summary, payload?.text]
-                .filter((value): value is string => typeof value === "string")
-                .join(" "),
-            ).specialist;
             setGuidedWorkers((current) =>
               updateGuidedWorkers(
                 current,
                 type,
-                {
-                  ...payload,
-                  display_label:
-                    detected?.label ??
-                    payload?.display_label ??
-                    "Project agent",
-                },
+                payload ?? {},
                 Date.now(),
               ),
             );
@@ -2625,6 +2431,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     guidedSessionLookupComplete,
     hasActivated,
     markGuidedAgentReady,
+    handleGuidedClarificationEvent,
     workspaceParam,
   ]);
 
@@ -2760,6 +2567,18 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     return () => setEnd(null);
   }, [guided, isActive, narrow, mobilePanelOpen, modelToolsLabel, setEnd]);
 
+  const respondToGuidedClarification = useCallback((answer: string): boolean => {
+    if (!answerClarification(answer)) return false;
+    setGuidedMessages((messages) => [...messages, {
+      id: `answer-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      role: "user",
+      content: answer.trim(),
+    }]);
+    setGuidedInput("");
+    setGuidedLastSignalAt(Date.now());
+    return true;
+  }, [answerClarification]);
+
   const submitGuidedText = useCallback(
     (
       value: string,
@@ -2768,6 +2587,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     ) => {
     const text = value.trim();
     const ws = wsRef.current;
+    if (guidedClarificationRef.current) {
+      respondToGuidedClarification(text);
+      return;
+    }
     const modelReview = guidedModelReviewRef.current;
     if (modelReview) {
       setGuidedTeamRecommendationPending(false);
@@ -2840,7 +2663,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     });
     setGuidedInput("");
     },
-    [],
+    [respondToGuidedClarification, guidedClarificationRef],
   );
 
   const respondToGuidedApproval = useCallback(
@@ -4334,7 +4157,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   ]);
 
   useEffect(() => {
-    if (!guided || guidedActivity.phase !== "working" || guidedCompacting) {
+    if (!guided || guidedActivity.phase !== "working" || guidedCompacting || guidedClarification || guidedApproval) {
       return;
     }
     const toolGraceDeadline = Math.max(
@@ -4355,6 +4178,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     const remainingMs = Math.max(0, deadline - Date.now());
     const timeout = window.setTimeout(() => {
       const decision = decideGuidedWatchdog({
+        waitingForInput: Boolean(guidedClarificationRef.current),
         subagentGraceUntil: guidedSubagentGraceUntilRef.current,
         toolGraceUntil: Math.max(
           0,
@@ -4394,6 +4218,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     guided,
     guidedActivity.phase,
     guidedCompacting,
+    guidedClarification,
+    guidedClarificationRef,
+    guidedApproval,
     guidedLastSignalAt,
     sendGuidedControlCommand,
   ]);
@@ -4933,9 +4760,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                   title="Agent activity"
                 >
                   <Activity className="h-4 w-4" />
-                  {guidedActiveWorkers.length > 0 && (
+                  {guidedWorkingCount > 0 && (
                     <span className="lyra-studio-icon-badge">
-                      {guidedActiveWorkers.length}
+                      {guidedWorkingCount}
                     </span>
                   )}
                 </summary>
@@ -4943,7 +4770,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                   <GuidedRuntimePanel
                     activeWorkers={guidedActiveWorkers}
                     activity={guidedActivity}
-                    currentSpecialist={guidedWorkingSpecialist}
+                    runState={guidedRunState}
+                    runStateStale={guidedRunStateStale}
+                    waitingForInput={Boolean(guidedClarification || guidedApproval)}
                     defaultModelLabel={guidedDefaultModelLabel}
                     lastSignalAt={guidedLastSignalAt}
                     onRetry={retryLastGuidedMessage}
@@ -5199,7 +5028,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               <GuidedRuntimePanel
                 activeWorkers={guidedActiveWorkers}
                 activity={guidedActivity}
-                currentSpecialist={guidedWorkingSpecialist}
+                runState={guidedRunState}
+                runStateStale={guidedRunStateStale}
+                waitingForInput={Boolean(guidedClarification || guidedApproval)}
                 defaultModelLabel={guidedDefaultModelLabel}
                 lastSignalAt={guidedLastSignalAt}
                 onRetry={retryLastGuidedMessage}
@@ -5244,6 +5075,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             </div>
           )}
 
+          {guidedClarification && (
+            <GuidedClarification key={guidedClarification.requestId}
+              request={guidedClarification} sending={guidedClarificationSending}
+              onAnswer={(answer) => { respondToGuidedClarification(answer); }} />
+          )}
           {guidedApproval && (
             <div className="shrink-0 border-b border-warning/35 bg-warning/[0.07] px-4 py-3 sm:px-7">
               <div role="alert" className="mx-auto max-w-3xl">
@@ -5457,9 +5293,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                           Lyra
                         </div>
                         <p className="text-sm text-text-secondary">
-                          The project agents are working in the background. I’m
-                          still here if you need anything or want to change
-                          direction.
+                          {coordinatorActivityMessage(guidedProjectJobs, guidedActiveWorkers.length)}
                         </p>
                       </div>
                     </div>

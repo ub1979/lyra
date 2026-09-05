@@ -61,7 +61,13 @@ export function selectGuidedProjectSessionId(
     (session) =>
       session.source !== "subagent" && !session.parent_session_id?.trim(),
   );
-  const candidates = projectChats.length ? projectChats : matching;
+  // Durable Kanban workers are top-level CLI sessions, not source=subagent.
+  // Prefer actual Studio conversations before considering message count; a
+  // busy Research worker must never become the user's main conversation.
+  const studioChats = projectChats.filter((session) =>
+    ["tui", "desktop", "web"].includes(session.source ?? ""),
+  );
+  const candidates = studioChats.length ? studioChats : projectChats;
   const preferred = preferredId.trim();
   if (preferred) {
     const saved = candidates.find(

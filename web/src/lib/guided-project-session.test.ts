@@ -92,4 +92,17 @@ describe("guided project session persistence", () => {
       ),
     ).toBe("saved");
   });
+
+  it("prefers Lyra over a longer top-level background CLI worker, including an incorrectly saved worker", () => {
+    const sessions = [
+      { cwd: "/projects/hello", id: "lyra", source: "tui", message_count: 87 },
+      { cwd: "/projects/hello", id: "research", source: "cli", message_count: 111 },
+    ];
+    expect(selectGuidedProjectSessionId(sessions, "/projects/hello")).toBe("lyra");
+    expect(selectGuidedProjectSessionId(sessions, "/projects/hello", "research")).toBe("lyra");
+  });
+
+  it("does not fall back to an isolated subagent when no project conversation exists", () => {
+    expect(selectGuidedProjectSessionId([{ cwd: "/p", id: "worker", source: "subagent", parent_session_id: "root" }], "/p")).toBe("");
+  });
 });

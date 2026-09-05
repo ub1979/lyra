@@ -1965,6 +1965,9 @@ export interface UltimateBuilderRunTask {
   attempts: number;
   last_error: string;
   last_activity_at: number | null;
+  block_kind?: string | null;
+  wait_reason?: string;
+  paused_by_user?: boolean;
 }
 
 export interface UltimateBuilderRunState {

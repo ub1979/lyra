@@ -8,6 +8,22 @@ import {
 } from "./guided-agent-runtime";
 
 describe("guided agent runtime", () => {
+  it("does not rename a worker when its progress mentions QA or other agents", () => {
+    const initial = updateGuidedWorkers([], "subagent.start", {
+      subagent_id: "architecture", display_label: "Architecture",
+    }, 1000);
+    const progress = updateGuidedWorkers(initial, "subagent.progress", {
+      subagent_id: "architecture", text: "Checking the QA plan and research-report.md",
+    }, 2000);
+    const completed = updateGuidedWorkers(progress, "subagent.complete", {
+      subagent_id: "architecture", summary: "QA and deployment remain",
+    }, 3000);
+    expect(completed[0].label).toBe("Architecture");
+    expect(completed[0].status).toBe("completed");
+    expect(updateGuidedWorkers([], "subagent.start", {
+      subagent_id: "unknown", goal: "checking project status for QA",
+    }, 1000)[0].label).toBe("Project agent 1");
+  });
   it("normalizes parent usage without combining cached and fresh input", () => {
     const usage = normalizeGuidedUsage({
       model: "gpt-5.6-sol",

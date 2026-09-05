@@ -259,6 +259,21 @@ def project_run_state(workspace: str | Path) -> dict[str, Any]:
             latest[phase] = item
     items = []
     for phase, (board, task) in latest.items():
+        # Waiting for a decision is not a worker failure. Expose the saved
+        # reason separately so Studio can explain it without guessing from chat.
+        wait_reason = ""
+        if task.status == "blocked":
+            with kb.connect_closing(board=board) as conn:
+                last_block = next(
+                    (
+                        event
+                        for event in reversed(kb.list_events(conn, task.id))
+                        if event.kind == "blocked"
+                    ),
+                    None,
+                )
+            if last_block and isinstance(last_block.payload, dict):
+                wait_reason = str(last_block.payload.get("reason") or "")
         items.append({
             "phase": phase,
             "label": PHASES[phase]["label"],
@@ -267,6 +282,9 @@ def project_run_state(workspace: str | Path) -> dict[str, Any]:
             "status": task.status,
             "attempts": task.consecutive_failures,
             "last_error": task.last_failure_error or "",
+            "block_kind": task.block_kind if task.status == "blocked" else None,
+            "wait_reason": wait_reason,
+            "paused_by_user": wait_reason == PAUSE_REASON,
             "last_activity_at": task.last_heartbeat_at
             or task.completed_at
             or task.started_at
