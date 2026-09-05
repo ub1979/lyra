@@ -2627,6 +2627,10 @@ def _enable_gateway_prompts() -> None:
 
 
 def _block(event: str, sid: str, payload: dict, timeout: float | None = 300) -> str:
+    # Advertise the bundled Ink answer protocol so a refreshed browser never
+    # sends a structured frame to an older, still-running installation.
+    if event == "clarify.request":
+        payload["answer_protocol"] = "atomic-v1"
     rid = uuid.uuid4().hex[:8]
     ev = threading.Event()
     with _prompt_lock:

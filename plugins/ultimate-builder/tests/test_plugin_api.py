@@ -210,6 +210,34 @@ class _IdleProjectRuns:
         return {"ok": True}
 
 
+def test_real_move_and_trash_routes_preserve_recovery_points(tmp_path, monkeypatch):
+    from tools import checkpoint_manager as cp
+
+    module = load_plugin_api()
+    monkeypatch.setattr(cp, "CHECKPOINT_BASE", tmp_path / "checkpoints")
+    monkeypatch.setattr(module, "_project_runs_module", lambda: _IdleProjectRuns)
+    # Keep unrelated chat/project repositories out of this filesystem test.
+    monkeypatch.setattr(module, "_relocate_saved_sessions", lambda *_: 0)
+    monkeypatch.setattr(module, "_relocate_saved_project_paths", lambda *_: 0)
+    monkeypatch.setattr(module, "_remove_saved_project_paths", lambda *_: 0)
+    monkeypatch.setattr(module, "_project_trash_root", lambda: tmp_path / "trash")
+    project = tmp_path / "project"
+    destination = tmp_path / "destination"
+    project.mkdir()
+    destination.mkdir()
+    module.register_project(module.ProjectRegisterRequest(workspace=str(project)))
+    (project / "note.txt").write_text("original")
+    manager = cp.CheckpointManager(enabled=True)
+    assert manager.ensure_checkpoint(str(project))
+    checkpoint = manager.list_checkpoints(str(project))[0]["hash"]
+    moved = module.move_project(module.ProjectMoveRequest(source=str(project), destination_parent=str(destination)))
+    assert moved["warnings"] == []
+    assert manager.list_checkpoints(moved["destination"])[0]["hash"] == checkpoint
+    trashed = module.delete_project(module.ProjectDeleteRequest(workspace=moved["destination"]))
+    assert trashed["warnings"] == []
+    assert manager.list_checkpoints(trashed["trash_path"])[0]["hash"] == checkpoint
+
+
 def test_register_and_move_project_without_overwriting(tmp_path, monkeypatch):
     module = load_plugin_api()
     source_parent = tmp_path / "source"

@@ -266,7 +266,7 @@ class TestWebServerEndpoints:
         assert "version" in data
         assert "hermes_home" in data
         assert "active_sessions" in data
-        assert data["can_update_hermes"] is True
+        assert data["can_update_hermes"] is False
 
     def test_status_active_session_count_uses_read_only_db(self, monkeypatch, tmp_path):
         import hermes_cli.web_server as web_server
@@ -2739,130 +2739,18 @@ class TestWebServerEndpoints:
         resp = self.client.post("/api/audio/speak", json={"text": "   "})
         assert resp.status_code == 400
 
-    def test_update_hermes_returns_docker_guidance_without_spawning(self, monkeypatch):
+    @pytest.mark.parametrize("install_method", ["docker", "nix", "git", "managed"])
+    def test_lyra_distribution_never_runs_upstream_self_update(self, monkeypatch, install_method):
         import hermes_cli.web_server as web_server
 
-        spawned = False
+        def fail_spawn(*args, **kwargs):
+            raise AssertionError("An upstream update could overwrite Lyra")
 
-        def fail_spawn(*_args, **_kwargs):
-            nonlocal spawned
-            spawned = True
-            raise AssertionError("docker update guard should not spawn hermes update")
-
-        # Bypass the managed-externally gate so we reach the docker install check.
-        monkeypatch.setattr(web_server, "_dashboard_local_update_managed_externally", lambda: False)
-        monkeypatch.setattr(web_server, "detect_install_method", lambda _root: "docker")
+        monkeypatch.setattr(web_server, "detect_install_method", lambda _root: install_method)
         monkeypatch.setattr(web_server, "_spawn_hermes_action", fail_spawn)
-        web_server._ACTION_PROCS.pop("hermes-update", None)
-        web_server._ACTION_RESULTS.pop("hermes-update", None)
-
-        resp = self.client.post("/api/hermes/update")
-
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["ok"] is False
-        assert data["name"] == "hermes-update"
-        assert data["pid"] is None
-        assert data["error"] == "docker_update_unsupported"
-        assert "docker pull nousresearch/hermes-agent:latest" in data["message"]
-        assert spawned is False
-
-        status = self.client.get("/api/actions/hermes-update/status")
-        assert status.status_code == 200
-        status_data = status.json()
-        assert status_data["running"] is False
-        assert status_data["exit_code"] == 1
-        assert status_data["pid"] is None
-        assert any("docker pull nousresearch/hermes-agent:latest" in line for line in status_data["lines"])
-
-    def test_update_hermes_returns_nix_guidance_without_spawning(self, monkeypatch):
-        import hermes_cli.web_server as web_server
-
-        def fail_spawn(*_args, **_kwargs):
-            raise AssertionError("Nix update guard should not spawn hermes update")
-
-        monkeypatch.setattr(web_server, "_dashboard_local_update_managed_externally", lambda: False)
-        monkeypatch.setattr(web_server, "detect_install_method", lambda _root: "nix")
-        monkeypatch.setattr(web_server, "_spawn_hermes_action", fail_spawn)
-        web_server._ACTION_PROCS.pop("hermes-update", None)
-        web_server._ACTION_RESULTS.pop("hermes-update", None)
-
-        resp = self.client.post("/api/hermes/update")
-
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["ok"] is False
-        assert data["pid"] is None
-        assert data["error"] == "nix_update_unsupported"
-        assert "Nix" in data["message"]
-
-    def test_update_hermes_returns_managed_runtime_guidance_without_spawning(self, monkeypatch):
-        import hermes_cli.web_server as web_server
-
-        spawned = False
-        detected = False
-
-        def fail_spawn(*_args, **_kwargs):
-            nonlocal spawned
-            spawned = True
-            raise AssertionError("managed runtime update guard should not spawn hermes update")
-
-        def fail_detect(*_args, **_kwargs):
-            nonlocal detected
-            detected = True
-            raise AssertionError("managed runtime update guard should not detect install method")
-
-        monkeypatch.setattr(web_server, "_dashboard_local_update_managed_externally", lambda: True)
-        monkeypatch.setattr(web_server, "detect_install_method", fail_detect)
-        monkeypatch.setattr(web_server, "_spawn_hermes_action", fail_spawn)
-        web_server._ACTION_PROCS.pop("hermes-update", None)
-        web_server._ACTION_RESULTS.pop("hermes-update", None)
-
-        resp = self.client.post("/api/hermes/update")
-
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["ok"] is False
-        assert data["name"] == "hermes-update"
-        assert data["pid"] is None
-        assert data["error"] == "dashboard_update_managed_externally"
-        assert "managed outside this dashboard" in data["message"]
-        assert spawned is False
-        assert detected is False
-
-        status = self.client.get("/api/actions/hermes-update/status")
-        assert status.status_code == 200
-        status_data = status.json()
-        assert status_data["running"] is False
-        assert status_data["exit_code"] == 1
-        assert status_data["pid"] is None
-        assert any("managed outside this dashboard" in line for line in status_data["lines"])
-
-    def test_update_hermes_spawns_on_non_docker_install(self, monkeypatch):
-        import hermes_cli.web_server as web_server
-
-        class Proc:
-            pid = 12345
-
-            def poll(self):
-                return None
-
-        calls = []
-
-        def fake_spawn(subcommand, name):
-            calls.append((subcommand, name))
-            return Proc()
-
-        monkeypatch.setattr(web_server, "detect_install_method", lambda _root: "git")
-        monkeypatch.setattr(web_server, "_spawn_hermes_action", fake_spawn)
-        web_server._ACTION_PROCS.pop("hermes-update", None)
-        web_server._ACTION_RESULTS.pop("hermes-update", None)
-
-        resp = self.client.post("/api/hermes/update")
-
-        assert resp.status_code == 200
-        assert resp.json() == {"ok": True, "pid": 12345, "name": "hermes-update"}
-        assert calls == [(["update"], "hermes-update")]
+        response = self.client.post("/api/hermes/update")
+        assert response.status_code == 404
+        assert "disabled" in response.json()["detail"].lower()
 
     def test_action_status_reaps_completed_process(self, monkeypatch):
         import hermes_cli.web_server as web_server
@@ -3974,7 +3862,7 @@ class TestWebServerEndpoints:
         assert kwargs["headers"]["Accept"] == "application/json"
         assert kwargs["headers"]["Authorization"] == "Bearer poll-secret"
         assert kwargs["headers"]["Content-Type"] == "application/json"
-        assert kwargs["headers"]["User-Agent"].startswith("HermesDashboard/")
+        assert kwargs["headers"]["User-Agent"] == ws._TELEGRAM_ONBOARDING_USER_AGENT
 
     def test_telegram_onboarding_worker_request_maps_unexpected_errors(
         self, monkeypatch
@@ -8487,7 +8375,7 @@ class TestThemeBootstrapCSS:
     the default-teal first-paint flash for user YAML themes."""
 
     @staticmethod
-    def _write_theme(hermes_home, name="ocean"):
+    def _write_theme(hermes_home, name="custom-ocean-test"):
         themes_dir = hermes_home / "dashboard-themes"
         themes_dir.mkdir(exist_ok=True)
         (themes_dir / f"{name}.yaml").write_text(
@@ -8511,7 +8399,7 @@ class TestThemeBootstrapCSS:
         self._write_theme(tmp_path)
         from hermes_cli import web_server
         monkeypatch.setattr(
-            web_server, "load_config", lambda: {"dashboard": {"theme": "ocean"}}
+            web_server, "load_config", lambda: {"dashboard": {"theme": "custom-ocean-test"}}
         )
         css = web_server._render_active_theme_bootstrap_css()
         assert css.startswith('<style id="hermes-theme-bootstrap">')
@@ -8625,7 +8513,7 @@ class TestThemeBootstrapCSS:
         self._write_theme(tmp_path)
         import hermes_cli.web_server as ws
         monkeypatch.setattr(
-            ws, "load_config", lambda: {"dashboard": {"theme": "ocean"}}
+            ws, "load_config", lambda: {"dashboard": {"theme": "custom-ocean-test"}}
         )
         client = self._mount_spa_client(tmp_path, monkeypatch)
         resp = client.get("/chat")

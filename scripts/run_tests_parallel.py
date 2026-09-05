@@ -52,7 +52,7 @@ from typing import Dict, List, Tuple
 
 
 # Default test discovery roots.
-_DEFAULT_ROOTS = ["tests"]
+_DEFAULT_ROOTS = ["tests", "plugins/ultimate-builder/tests"]
 
 # Directories to skip during discovery — these suites require real
 # external services (a model gateway, a docker daemon with a prebuilt

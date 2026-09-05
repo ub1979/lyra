@@ -1,4 +1,5 @@
 import { forceRedraw, useInput } from '@hermes/ink'
+import { isPromptAnswerFrame } from '@hermes/shared/prompt-answer'
 import { useStore } from '@nanostores/react'
 import { useEffect, useRef } from 'react'
 
@@ -320,6 +321,7 @@ export function useInputHandlers(ctx: InputHandlerContext): InputHandlerResult {
   }
 
   useInput((ch, key) => {
+    if (isPromptAnswerFrame(ch)) {return}
     const live = getUiState()
 
     if (isBlocked) {

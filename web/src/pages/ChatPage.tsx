@@ -17,6 +17,10 @@
  */
 
 import { FitAddon } from "@xterm/addon-fit";
+import { GuidedProgressMap } from '../components/GuidedProgressMap';
+import { GuidedAgentAvatar } from '../components/GuidedAgentAvatar';
+import { useProjectLedger } from '../hooks/useProjectLedger';
+import { StudioQuestionAlerts } from '../components/StudioQuestionAlerts';
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
@@ -70,7 +74,6 @@ import {
   orderGuidedPhases,
   parseGuidedPhaseMarkers,
   shouldAdvanceGuidedPhase,
-  type GuidedPhaseStep,
 } from "@/lib/guided-phase-plan";
 import {
   guidedApprovalChoices,
@@ -94,7 +97,6 @@ import {
   Activity,
   ArrowLeft,
   Bot,
-  CheckCircle2,
   CircleAlert,
   CircleStop,
   Copy,
@@ -296,6 +298,7 @@ interface GuidedAgentEventEnvelope {
     type?: string;
     payload?: GuidedRuntimeEventPayload & {
       allow_permanent?: boolean;
+      answer_protocol?: string;
       args_text?: string;
       choices?: string[];
       command?: string;
@@ -625,52 +628,7 @@ function readGuidedMessages(workspace: string): GuidedMessage[] {
 }
 
 
-/**
- * What the user calls these: agents, not skills or specialists. The ids and the
- * playbook filenames keep their original names — this is the spoken noun only,
- * so one place decides it rather than a dozen string literals.
- */
-/**
- * Avatar for an agent, falling back to its initial when the artwork is missing.
- *
- * Team members are drawn from `/skill-avatars/<id>.webp` (plus a `-sad` variant
- * for the unselected card). A new agent added before its artwork exists would
- * otherwise render a broken-image glyph in the dialog and the phase strip.
- */
-function GuidedAgentAvatar({
-  className,
-  id,
-  muted = false,
-}: {
-  className: string;
-  id: string;
-  muted?: boolean;
-}) {
-  const [failed, setFailed] = useState(false);
-  const label = GUIDED_SPECIALIST_LABELS[id] ?? id;
-  if (failed) {
-    return (
-      <span
-        aria-hidden
-        className={cn(
-          className,
-          "grid place-items-center bg-midground/15 font-semibold text-midground",
-        )}
-      >
-        {label.slice(0, 1).toUpperCase()}
-      </span>
-    );
-  }
-  return (
-    <img
-      src={`/skill-avatars/${id.replaceAll("_", "-")}${muted ? "-sad" : ""}.webp`}
-      alt=""
-      className={className}
-      onError={() => setFailed(true)}
-    />
-  );
-}
-
+/** Resolve artwork from explicit worker identity, never incidental reply text. */
 function guidedWorkerAvatarId(worker: GuidedWorkerRuntime): string {
   return (
     Object.entries(GUIDED_SPECIALIST_LABELS).find(
@@ -864,152 +822,6 @@ function GuidedRuntimePanel({
   );
 }
 
-function GuidedProgressMap({
-  durable,
-  backgroundJobs,
-  steps,
-}: {
-  durable: boolean;
-  backgroundJobs: boolean;
-  steps: readonly GuidedPhaseStep[];
-}) {
-  const summary = guidedPhaseSummary(steps);
-  const current = steps.find((step) => step.state === "now") ?? null;
-  const blocked = steps.filter((step) => step.state === "blocked").length;
-
-  return (
-    <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-x-hidden p-3 text-xs">
-      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-        <span className="inline-flex shrink-0 items-center gap-1.5 font-semibold uppercase tracking-[0.16em] text-text-secondary">
-          <MapIcon className="h-3.5 w-3.5" />
-          <span>Project map</span>
-        </span>
-        <strong className="shrink-0 whitespace-nowrap rounded-full border border-current/15 px-2 py-0.5 text-[9px] uppercase tracking-wider text-midground">
-          {backgroundJobs
-            ? "Saved project jobs"
-            : durable
-              ? "Project record"
-              : "Chat signals"}
-        </strong>
-      </div>
-      <p className="mt-2 text-[9px] leading-3 text-text-secondary">
-        {backgroundJobs
-          ? "Read from saved background jobs and the project's verified record. Browser disconnects do not erase this work."
-          : durable
-          ? "Read from the project's verified progress record. No estimated percentage."
-          : "Waiting for a project progress record; these are conversation signals only."}
-      </p>
-
-      <div className="mt-3 grid min-w-0 grid-cols-2 gap-2">
-        <div className="min-w-0 rounded-lg border border-emerald-500/25 bg-emerald-500/[0.07] p-2">
-          <span className="block text-[9px] uppercase tracking-wider text-text-secondary">
-            Done
-          </span>
-          <strong className="mt-0.5 block text-base text-emerald-400">
-            {summary.completed}
-          </strong>
-        </div>
-        <div className="min-w-0 rounded-lg border border-current/15 bg-background-base/60 p-2">
-          <span className="block text-[9px] uppercase tracking-wider text-text-secondary">
-            Open
-          </span>
-          <strong className="mt-0.5 block text-base text-midground">
-            {summary.remaining}
-          </strong>
-        </div>
-      </div>
-
-      {blocked > 0 && (
-        <p className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/[0.08] px-2 py-1.5 text-[10px] text-amber-300">
-          {blocked} {blocked === 1 ? "phase is" : "phases are"} blocked
-        </p>
-      )}
-
-      {current && (
-        <div className="mt-2 rounded-lg border border-midground/30 bg-midground/[0.07] p-2.5">
-          <span className="block text-[9px] uppercase tracking-wider text-text-secondary">
-            Working now
-          </span>
-          <strong className="mt-1 flex items-center gap-2 text-[11px] text-midground">
-            <GuidedAgentAvatar
-              id={current.id}
-              className="h-6 w-6 shrink-0 rounded-md object-cover"
-            />
-            <span className="truncate">
-              {current.label ?? guidedAgentName(current.id)}
-            </span>
-          </strong>
-        </div>
-      )}
-
-      <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-0.5">
-        {steps.length ? (
-          <ol aria-label="Project delivery map" className="space-y-1.5">
-            {steps.map((step) => (
-              <li
-                key={step.id}
-                className={cn(
-                  "flex items-center gap-2 rounded-lg border px-2 py-1.5",
-                  step.state === "done"
-                    ? "border-emerald-500/20 bg-emerald-500/[0.05]"
-                    : step.state === "now"
-                      ? "border-midground/35 bg-midground/[0.08]"
-                      : step.state === "blocked"
-                        ? "border-amber-500/25 bg-amber-500/[0.07]"
-                      : "border-current/10 bg-background-base/45",
-                )}
-              >
-                {step.state === "done" ? (
-                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
-                ) : (
-                  <GuidedAgentAvatar
-                    id={step.id}
-                    muted={step.state === "pending" || step.state === "blocked"}
-                    className="h-4 w-4 shrink-0 rounded object-cover"
-                  />
-                )}
-                <span
-                  className={cn(
-                    "min-w-0 flex-1 truncate text-[10px]",
-                    step.state === "pending" || step.state === "blocked"
-                      ? "text-text-secondary"
-                      : "font-semibold text-midground",
-                  )}
-                >
-                  {step.label ?? GUIDED_SPECIALIST_LABELS[step.id] ?? step.id}
-                </span>
-                <span
-                  className={cn(
-                    "shrink-0 text-[8px] font-semibold uppercase tracking-wider",
-                    step.state === "done"
-                      ? "text-emerald-400"
-                      : step.state === "now"
-                        ? "text-midground"
-                        : step.state === "blocked"
-                          ? "text-amber-300"
-                        : "text-text-secondary/70",
-                  )}
-                >
-                  {step.state === "done"
-                    ? "Done"
-                    : step.state === "now"
-                      ? "Now"
-                      : step.state === "blocked"
-                        ? "Blocked"
-                        : step.status ?? "Next"}
-                </span>
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <p className="rounded-lg border border-dashed border-current/15 p-3 text-[10px] leading-4 text-text-secondary">
-            Lyra will build this map after you confirm the project agents.
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
 
 function guidedAgentName(id: string, label?: string): string {
   const base = label ?? GUIDED_SPECIALIST_LABELS[id] ?? id;
@@ -1269,12 +1081,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const [guidedPhasesCompleted, setGuidedPhasesCompleted] = useState<string[]>(
     initialGuidedPhaseState.completed,
   );
-  const [guidedLedger, setGuidedLedger] = useState<{
-    workspace: string;
-    steps: GuidedPhaseStep[] | null;
-    runState: UltimateBuilderRunState | null;
-    stale: boolean;
-  } | null>(null);
+  const guidedLedger = useProjectLedger(guided, workspaceParam);
   const guidedPhaseCurrentRef = useRef<string | null>(
     initialGuidedPhaseState.current,
   );
@@ -1320,6 +1127,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const {
     request: guidedClarification,
     sending: guidedClarificationSending,
+    error: guidedClarificationError,
     handleEvent: handleGuidedClarificationEvent,
     answer: answerClarification,
     clear: clearGuidedClarification,
@@ -1894,51 +1702,6 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     workspaceParam,
   ]);
 
-  useEffect(() => {
-    if (!guided || !workspaceParam) return;
-    let cancelled = false;
-    let refreshing = false;
-
-    const refreshLedger = async () => {
-      if (refreshing) return;
-      refreshing = true;
-      try {
-        const state = await api.getUltimateBuilderState(workspaceParam);
-        if (cancelled) return;
-        setGuidedLedger({
-          workspace: workspaceParam,
-          steps: state.phase_state.available
-            ? state.phase_state.phases.map((phase) => ({
-                id: phase.id,
-                label: phase.label,
-                state: phase.state,
-                status: phase.status,
-              }))
-            : null,
-          runState: state.run_state ?? null,
-          stale: false,
-        });
-      } catch {
-        if (cancelled) return;
-        // Preserve useful history, but never present an old snapshot as live.
-        setGuidedLedger((current) => ({
-          workspace: workspaceParam,
-          steps: current?.workspace === workspaceParam ? current.steps : null,
-          runState: current?.workspace === workspaceParam ? current.runState : null,
-          stale: true,
-        }));
-      } finally {
-        refreshing = false;
-      }
-    };
-
-    void refreshLedger();
-    const timer = window.setInterval(() => void refreshLedger(), 5_000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, [guided, workspaceParam]);
   useEffect(() => {
     if (!guided || !isActive) return;
     let cancelled = false;
@@ -2568,16 +2331,18 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   }, [guided, isActive, narrow, mobilePanelOpen, modelToolsLabel, setEnd]);
 
   const respondToGuidedClarification = useCallback((answer: string): boolean => {
+    const requestId = guidedClarificationRef.current?.requestId;
     if (!answerClarification(answer)) return false;
-    setGuidedMessages((messages) => [...messages, {
-      id: `answer-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    const id = `answer-${requestId}`;
+    setGuidedMessages((messages) => messages.some(message => message.id === id) ? messages : [...messages, {
+      id,
       role: "user",
       content: answer.trim(),
     }]);
     setGuidedInput("");
     setGuidedLastSignalAt(Date.now());
     return true;
-  }, [answerClarification]);
+  }, [answerClarification, guidedClarificationRef]);
 
   const submitGuidedText = useCallback(
     (
@@ -4798,7 +4563,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                   <MapIcon className="h-4 w-4" />
                 </summary>
                 <div className="fixed right-4 top-24 z-30 flex max-h-[72vh] w-[min(19rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-current/20 bg-background-base shadow-2xl">
-                  <GuidedProgressMap
+                <GuidedProgressMap labels={GUIDED_SPECIALIST_LABELS}
                     durable={guidedLedgerSteps !== null}
                     backgroundJobs={Boolean(guidedRunState?.available)}
                     steps={guidedPhaseSteps}
@@ -4847,6 +4612,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               >
                 <MessageCircle className="h-4 w-4" />
               </button>
+              <StudioQuestionAlerts key={workspaceParam} workspace={workspaceParam}
+                question={guidedClarification} runState={guidedRunState} stale={guidedRunStateStale} />
               <label
                 className="lyra-studio-icon-control lyra-studio-select-control"
                 title={`Text size: ${
@@ -5078,6 +4845,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           {guidedClarification && (
             <GuidedClarification key={guidedClarification.requestId}
               request={guidedClarification} sending={guidedClarificationSending}
+              error={guidedClarificationError}
               onAnswer={(answer) => { respondToGuidedClarification(answer); }} />
           )}
           {guidedApproval && (
@@ -5497,7 +5265,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               : "hidden xl:flex",
           )}
         >
-          <GuidedProgressMap
+          <GuidedProgressMap labels={GUIDED_SPECIALIST_LABELS}
             durable={guidedLedgerSteps !== null}
             backgroundJobs={Boolean(guidedRunState?.available)}
             steps={guidedPhaseSteps}

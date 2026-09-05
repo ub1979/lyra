@@ -42,6 +42,7 @@ jobs:
       - name: Generate test slices
         id: matrix
         run: |
+          python3 scripts/lyra_code_map.py --check
           MATRIX=$(python3 scripts/run_tests_parallel.py --generate-slices ${{ inputs.slice_count }})
           echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
 

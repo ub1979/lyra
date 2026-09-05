@@ -4337,57 +4337,6 @@ async def update_hermes():
         status_code=404,
         detail="Self-update is disabled for this private distribution.",
     )
-    if _dashboard_local_update_managed_externally():
-        message = (
-            "Hermes updates are managed outside this dashboard in "
-            "containerized environments. The built-in local updater is "
-            "disabled here."
-        )
-        _record_completed_action("hermes-update", message, exit_code=1)
-        return {
-            "ok": False,
-            "pid": None,
-            "name": "hermes-update",
-            "error": "dashboard_update_managed_externally",
-            "message": message,
-            "update_command": "managed outside dashboard",
-        }
-
-    install_method = detect_install_method(PROJECT_ROOT)
-    if install_method == "docker":
-        message = format_docker_update_message()
-        _record_completed_action("hermes-update", message, exit_code=1)
-        return {
-            "ok": False,
-            "pid": None,
-            "name": "hermes-update",
-            "error": "docker_update_unsupported",
-            "message": message,
-            "update_command": recommended_update_command_for_method(install_method),
-        }
-
-    if install_method in {"nix", "nixos"}:
-        message = recommended_update_command_for_method(install_method)
-        _record_completed_action("hermes-update", message, exit_code=1)
-        return {
-            "ok": False,
-            "pid": None,
-            "name": "hermes-update",
-            "error": "nix_update_unsupported",
-            "message": message,
-            "update_command": message,
-        }
-
-    try:
-        proc = _spawn_hermes_action(["update"], "hermes-update")
-    except Exception as exc:
-        _log.exception("Failed to spawn hermes update")
-        raise HTTPException(status_code=500, detail=f"Failed to start update: {exc}")
-    return {
-        "ok": True,
-        "pid": proc.pid,
-        "name": "hermes-update",
-    }
 
 
 def _recent_upstream_commits(n: int = 20) -> List[Dict[str, Any]]:

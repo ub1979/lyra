@@ -1,5 +1,6 @@
 import { Box, Text, useInput, wrapAnsi } from '@hermes/ink'
-import { useState } from 'react'
+import { decodePromptAnswerFrame, isPromptAnswerFrame } from '@hermes/shared/prompt-answer'
+import { useEffect, useRef, useState } from 'react'
 
 import { isMac } from '../lib/platform.js'
 import type { Theme } from '../theme.js'
@@ -143,6 +144,11 @@ export function ApprovalPrompt({ cols = 80, onChoice, req, t }: ApprovalPromptPr
 }
 
 export function ClarifyPrompt({ cols = 80, onAnswer, onCancel, req, t }: ClarifyPromptProps) {
+  const delivery = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => {
+    if (delivery.current) {clearTimeout(delivery.current)}
+    delivery.current = null
+  }, [req.requestId])
   const [sel, setSel] = useState(0)
   const [custom, setCustom] = useState('')
   const [typing, setTyping] = useState(false)
@@ -156,6 +162,19 @@ export function ClarifyPrompt({ cols = 80, onAnswer, onCancel, req, t }: Clarify
   )
 
   useInput((ch, key) => {
+    if (isPromptAnswerFrame(ch)) {
+      const frame = decodePromptAnswerFrame(ch)
+
+      if (frame?.requestId === req.requestId && !delivery.current) {
+        // Suppress duplicate clicks while the existing RPC is outstanding.
+        // If RPC fails and the prompt remains, permit an explicit later retry.
+        delivery.current = setTimeout(() => { delivery.current = null }, 10_000)
+        onAnswer(frame.answer)
+      }
+
+      return
+    }
+
     if (key.escape) {
       typing && choices.length ? setTyping(false) : onCancel()
 

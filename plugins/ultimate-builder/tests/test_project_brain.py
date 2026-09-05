@@ -43,7 +43,7 @@ def make_project(tmp_path: Path) -> Path:
     (project / "requirements.md").write_text("# Requirements\n", encoding="utf-8")
     brain = project / ".sdlc" / "project-brain.md"
     brain.parent.mkdir()
-    brain.write_text("# Project Brain\n\nVerified memory.\n", encoding="utf-8")
+    brain.write_text("# Project Brain\n\nGoal: [Requirements](requirements.md).\n", encoding="utf-8")
     git(project, "add", "requirements.md", ".sdlc/project-brain.md")
     git(project, "commit", "-m", "Initial project memory")
     return project
@@ -59,6 +59,8 @@ def test_brain_is_current_when_saved_with_latest_project_commit(tmp_path):
     assert state["freshness"] == "current"
     assert state["git_head"] == state["brain_commit"]
     assert state["verified_sources"] == ["requirements.md"]
+    assert state["evidence_status"] == "available"
+    assert state["evidence"][0]["sha256"]
 
 
 def test_brain_needs_update_after_later_project_commit(tmp_path):
@@ -111,3 +113,24 @@ def test_non_git_project_memory_is_visible_but_not_verifiable(tmp_path):
 
     assert state["available"] is True
     assert state["freshness"] == "not_committed"
+    assert state["evidence_status"] == "not_provided"
+
+
+def test_memory_does_not_treat_missing_or_external_citations_as_verified(tmp_path):
+    module = load_project_brain()
+    project = make_project(tmp_path)
+    brain = project / module.BRAIN_RELATIVE_PATH
+    brain.write_text("# Brain\n`missing.md` and [secret](../outside.md)", encoding="utf-8")
+    state = module.project_brain_state(project)
+    assert state["evidence_status"] == "needs_review"
+    assert state["verified_sources"] == []
+    assert [item["state"] for item in state["evidence"]] == ["missing", "outside_project"]
+
+
+def test_unicode_memory_boundary_never_exceeds_response_limit(tmp_path):
+    module = load_project_brain()
+    project = make_project(tmp_path)
+    (project / module.BRAIN_RELATIVE_PATH).write_text("€" * module.MAX_BRAIN_BYTES, encoding="utf-8")
+    state = module.project_brain_state(project)
+    assert len(state["content"].encode("utf-8")) <= module.MAX_BRAIN_BYTES
+    assert state["truncated"] is True

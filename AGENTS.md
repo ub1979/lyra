@@ -28,6 +28,11 @@ reviewing any change:
 
 ## Lyra Version Discipline
 
+For Lyra changes, start with `docs/lyra/CODE_MAP.md` and follow
+`docs/lyra/CHANGE_MANAGEMENT.md`. Regenerate the searchable file inventory
+after changing the maintained file set. These maps are navigation aids,
+not a substitute for reading affected instructions, source and tests.
+
 - Before pushing any change to Lyra, increment the patch component of
   `LYRA_VERSION` in `lyra_version.py` exactly once for that pushed change set.
 - Keep the matching released entry in `CHANGELOG.md`, `LYRA_CHANNEL`, release

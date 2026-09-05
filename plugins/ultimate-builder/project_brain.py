@@ -8,21 +8,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from hermes_cli.project_evidence import evidence_paths, inspect_evidence
+
 
 BRAIN_RELATIVE_PATH = Path(".sdlc/project-brain.md")
 MAX_BRAIN_BYTES = 16 * 1024
-SOURCE_CANDIDATES = (
-    "requirements.md",
-    "design-brief.md",
-    "plan.md",
-    "task-graph.md",
-    "project-plan.md",
-    ".sdlc/progress.md",
-    "review-report.md",
-    "bug-report.md",
-    "security-report.md",
-    "README.md",
-)
 
 
 def _project(path: str | Path) -> Path:
@@ -78,11 +68,15 @@ def project_brain_state(path: str | Path) -> dict[str, Any]:
     raw = b""
     if available:
         try:
-            raw = brain_path.read_bytes()
+            # Bound the read itself, not just the response sent to the browser.
+            if not brain_path.resolve().is_relative_to(project):
+                raise OSError("Project Brain must stay inside its project")
+            with brain_path.open("rb") as stream:
+                raw = stream.read(MAX_BRAIN_BYTES + 1)
         except OSError:
             available = False
     oversized = len(raw) > MAX_BRAIN_BYTES
-    content = raw[:MAX_BRAIN_BYTES].decode("utf-8", errors="replace")
+    content = raw[:MAX_BRAIN_BYTES].decode("utf-8", errors="ignore")
 
     current_head = _git(project, "rev-parse", "HEAD")
     brain_commit = _git(
@@ -95,7 +89,13 @@ def project_brain_state(path: str | Path) -> dict[str, Any]:
     )
     dirty_lines = _git(project, "status", "--porcelain=v1").splitlines()
     dirty = bool(dirty_lines)
-    sources = [name for name in SOURCE_CANDIDATES if (project / name).exists()]
+    evidence = inspect_evidence(project, evidence_paths(content))
+    sources = [item["path"] for item in evidence if item["state"] == "available"]
+    evidence_status = (
+        "not_provided" if not evidence else
+        "available" if all(item["state"] == "available" for item in evidence) else
+        "needs_review"
+    )
 
     updated_at = None
     if available:
@@ -126,6 +126,9 @@ def project_brain_state(path: str | Path) -> dict[str, Any]:
         "brain_commit": brain_commit,
         "working_changes": len(dirty_lines),
         "verified_sources": sources,
+        "evidence": evidence,
+        "evidence_status": evidence_status,
+        "evidence_note": "File availability and fingerprints are checked; claims and test outcomes still need review.",
     }
 
 
@@ -135,5 +138,6 @@ PROJECT_BRAIN_CONTRACT = f"""Project Brain contract:
 - Keep it under {MAX_BRAIN_BYTES // 1024} KB. Preserve durable decisions; replace stale status and next-action text instead of appending a diary of every turn.
 - It must contain: product goal and boundaries; architecture map; durable decisions with rationale and evidence paths; current verified state; open risks/questions; next actions; and a compact evidence map.
 - Never copy secrets, credentials, personal data, full source files, raw chat transcripts, or lengthy test output into it.
+- Cite evidence with project-relative Markdown links or backtick paths. For test claims, cite the saved test report and the version it tested. A file's existence is not proof that a claim is correct; distinguish reported results from independently reviewed results.
 - After verified work, update the brain before the mandatory local commit and stage it in the same commit. Even when no durable decision changed, refresh its verified state and evidence map so Git can prove whether the brain matches the latest project commit.
 """

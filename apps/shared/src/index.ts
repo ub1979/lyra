@@ -43,6 +43,7 @@ export {
   JsonRpcGatewayClient,
   type WebSocketLike
 } from './json-rpc-gateway'
+export { decodePromptAnswerFrame, encodePromptAnswerFrame, isPromptAnswerFrame, MAX_PROMPT_ANSWER_LENGTH } from './prompt-answer-frame'
 export {
   type HermesSkin,
   SKIN_BRANDING_TOKENS,

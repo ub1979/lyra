@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { decodePromptAnswerFrame } from '@hermes/shared'
 import {
   answerGuidedClarification,
   readGuidedClarification,
@@ -7,6 +8,7 @@ import {
 import { decideGuidedWatchdog, GUIDED_TOOL_SILENCE_GRACE_MS } from './guided-turn-watchdog'
 
 const request: GuidedClarificationRequest = {
+  answerProtocol: 'atomic-v1',
   requestId: 'question-1',
   question: 'How should Hello work?',
   choices: ['Introductions only', 'Screening support', 'Safer default']
@@ -37,6 +39,11 @@ function transportHarness() {
 }
 
 describe('guided clarification', () => {
+  it('never sends a new answer frame to an older running server', () => {
+    const h = transportHarness()
+    expect(answerGuidedClarification({ ...request, answerProtocol: undefined }, 'UK', h.transport)).toBe(false)
+    expect(h.frames).toEqual([])
+  })
   it('requires a real request ID and question', () => {
     expect(readGuidedClarification({ request_id: 'r1', question: 'Which country?', choices: ['UK'] })).toEqual({
       requestId: 'r1',
@@ -51,22 +58,23 @@ describe('guided clarification', () => {
     const h = transportHarness()
     expect(answerGuidedClarification(request, choice, h.transport)).toBe(true)
     h.flush()
-    expect(h.frames).toEqual([String(request.choices.indexOf(choice) + 1)])
+    expect(h.frames).toHaveLength(1)
+    expect(decodePromptAnswerFrame(h.frames[0])).toEqual({ requestId: request.requestId, answer: choice })
   })
 
-  it('opens Other before sending the complete custom answer', () => {
+  it('sends the complete custom answer in one request-fenced frame', () => {
     const h = transportHarness()
     answerGuidedClarification(request, 'UK first\nOther countries later', h.transport)
     h.flush()
-    expect(h.frames.slice(0, 7)).toEqual(['\x1b[A', '\x1b[A', '\x1b[A', '\x1b[B', '\x1b[B', '\x1b[B', '\r'])
-    expect(h.frames.slice(7)).toEqual(['\x1b[200~UK first\nOther countries later\x1b[201~', '\r'])
+    expect(h.frames).toHaveLength(1)
+    expect(decodePromptAnswerFrame(h.frames[0])?.answer).toBe('UK first\nOther countries later')
   })
 
   it('uses the text input directly for an open question and strips terminal controls', () => {
     const h = transportHarness()
     answerGuidedClarification({ ...request, choices: [] }, 'UK\x03', h.transport)
     h.flush()
-    expect(h.frames).toEqual(['UK', '\r'])
+    expect(decodePromptAnswerFrame(h.frames[0])?.answer).toBe('UK')
   })
 
   it('does not send delayed keys after the request expires or the socket changes', () => {

@@ -1,13 +1,15 @@
-import { sanitizeGuidedComposerText, writeGuidedPrompt, type GuidedComposerTransport } from './guided-composer-paste'
+import { encodePromptAnswerFrame, MAX_PROMPT_ANSWER_LENGTH } from '@hermes/shared'
+import { sanitizeGuidedComposerText, type GuidedComposerTransport } from './guided-composer-paste'
 
 export interface GuidedClarificationRequest {
   requestId: string
   question: string
   choices: string[]
+  answerProtocol?: string
 }
 
 export function readGuidedClarification(
-  payload: { request_id?: unknown; question?: unknown; choices?: unknown } | undefined
+  payload: { request_id?: unknown; question?: unknown; choices?: unknown; answer_protocol?: unknown } | undefined
 ): GuidedClarificationRequest | null {
   if (
     typeof payload?.request_id !== 'string' ||
@@ -17,6 +19,7 @@ export function readGuidedClarification(
   )
     return null
   return {
+    ...(typeof payload.answer_protocol === 'string' ? { answerProtocol: payload.answer_protocol } : {}),
     requestId: payload.request_id,
     question: payload.question,
     choices: Array.isArray(payload.choices)
@@ -25,41 +28,19 @@ export function readGuidedClarification(
   }
 }
 
-/**
- * Answer the real Ink question, not the normal chat composer. Number keys
- * select a choice; custom text opens Ink's Other input first. Each navigation
- * frame allows a render. isOpen must fence writes to this exact request ID so
- * expiry cannot accidentally submit a new chat message. No routing directives
- * belong in a user's answer.
- */
+/** Deliver one request-fenced frame; no timed navigation or trailing Enter. */
 export function answerGuidedClarification(
   request: GuidedClarificationRequest,
   answer: string,
   transport: GuidedComposerTransport
 ): boolean {
   const text = sanitizeGuidedComposerText(answer).trim()
-  if (!text || !transport.isOpen()) return false
-  const index = request.choices.indexOf(answer)
-  if (index >= 0 && index < 9) {
-    transport.send(String(index + 1))
+  if (request.answerProtocol !== 'atomic-v1') return false
+  if (!text || !transport.isOpen() || text.length > MAX_PROMPT_ANSWER_LENGTH) return false
+  try {
+    transport.send(encodePromptAnswerFrame({ requestId: request.requestId, answer: text }))
     return true
+  } catch {
+    return false
   }
-  const keys = request.choices.length
-    ? [
-        ...Array<string>(request.choices.length).fill('\x1b[A'),
-        ...Array<string>(request.choices.length).fill('\x1b[B'),
-        '\r'
-      ]
-    : []
-  const step = (offset: number) => {
-    if (!transport.isOpen()) return
-    if (offset < keys.length) {
-      transport.send(keys[offset])
-      transport.schedule(() => step(offset + 1), 80)
-    } else {
-      writeGuidedPrompt(text, transport)
-    }
-  }
-  step(0)
-  return true
 }

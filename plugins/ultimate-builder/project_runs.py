@@ -85,7 +85,9 @@ def _project_tasks(
         board = str(board_meta.get("slug") or board_meta.get("id") or "default")
         try:
             with kb.connect_closing(board=board) as conn:
-                for task in kb.list_tasks(conn, include_archived=include_archived):
+                for task in kb.list_tasks(
+                    conn, include_archived=include_archived, workspace_path=str(project)
+                ):
                     if not (task.idempotency_key or "").startswith(TASK_KEY_PREFIX):
                         continue
                     if not task.workspace_path:
@@ -262,6 +264,7 @@ def project_run_state(workspace: str | Path) -> dict[str, Any]:
         # Waiting for a decision is not a worker failure. Expose the saved
         # reason separately so Studio can explain it without guessing from chat.
         wait_reason = ""
+        attention_id = None
         if task.status == "blocked":
             with kb.connect_closing(board=board) as conn:
                 last_block = next(
@@ -274,6 +277,7 @@ def project_run_state(workspace: str | Path) -> dict[str, Any]:
                 )
             if last_block and isinstance(last_block.payload, dict):
                 wait_reason = str(last_block.payload.get("reason") or "")
+                attention_id = str(last_block.id)
         items.append({
             "phase": phase,
             "label": PHASES[phase]["label"],
@@ -284,6 +288,7 @@ def project_run_state(workspace: str | Path) -> dict[str, Any]:
             "last_error": task.last_failure_error or "",
             "block_kind": task.block_kind if task.status == "blocked" else None,
             "wait_reason": wait_reason,
+            "attention_id": attention_id,
             "paused_by_user": wait_reason == PAUSE_REASON,
             "last_activity_at": task.last_heartbeat_at
             or task.completed_at

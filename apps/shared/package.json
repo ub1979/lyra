@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "exports": {
+    "./prompt-answer": "./src/prompt-answer-frame.ts",
     ".": "./src/index.ts",
     "./billing": "./src/billing-types.ts",
     "./billing-policy": "./src/billing-policy.ts",

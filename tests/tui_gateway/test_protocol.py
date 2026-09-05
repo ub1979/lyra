@@ -277,6 +277,8 @@ def test_sensitive_prompt_timeout_emits_expiry(capture, event):
     messages = [json.loads(line) for line in buf.getvalue().splitlines()]
     request, expiry = [message["params"] for message in messages]
     assert request["type"] == event
+    if event == "clarify.request":
+        assert request["payload"]["answer_protocol"] == "atomic-v1"
     assert expiry["type"] == event.removesuffix(".request") + ".expire"
     assert expiry["session_id"] == "s1"
     assert expiry["payload"]["request_id"] == request["payload"]["request_id"]

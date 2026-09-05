@@ -4,11 +4,12 @@ import type { GuidedClarificationRequest } from '../lib/guided-clarification'
 export interface GuidedClarificationProps {
   request: GuidedClarificationRequest
   sending: boolean
+  error?: string
   onAnswer: (answer: string) => void
 }
 
 /** Studio presentation for the existing TUI question, not a second chat. */
-export function GuidedClarification({ request, sending, onAnswer }: GuidedClarificationProps) {
+export function GuidedClarification({ request, sending, error, onAnswer }: GuidedClarificationProps) {
   const [answer, setAnswer] = useState('')
   return (
     <section
@@ -16,6 +17,7 @@ export function GuidedClarification({ request, sending, onAnswer }: GuidedClarif
       className="max-h-[45vh] shrink-0 overflow-y-auto border-b border-current/15 bg-background-base px-4 py-3 text-text-primary"
     >
       <strong className="block text-midground">Lyra needs your answer</strong>
+      {error && <p role="alert" className="mt-2 text-text-primary">{error}</p>}
       <p className="mt-2 whitespace-pre-wrap break-words">{request.question}</p>
       <div className="mt-3 flex flex-wrap gap-2">
         {request.choices.map((choice, index) => (

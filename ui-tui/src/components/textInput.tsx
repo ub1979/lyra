@@ -1,5 +1,6 @@
 import type { InputEvent, Key } from '@hermes/ink'
 import * as Ink from '@hermes/ink'
+import { isPromptAnswerFrame } from '@hermes/shared/prompt-answer'
 import { type MutableRefObject, useEffect, useMemo, useRef, useState } from 'react'
 
 import { setInputSelection } from '../app/inputSelectionStore.js'
@@ -1046,6 +1047,8 @@ export function TextInput({
 
   useInput(
     (inp: string, k: Key, event: InputEvent) => {
+      // A delayed answer must never become a new chat message or editable text.
+      if (isPromptAnswerFrame(inp)) {return}
       const eventRaw = event.keypress.raw
 
       // Configured voice shortcut wins over composer-level defaults like

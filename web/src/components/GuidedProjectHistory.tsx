@@ -60,8 +60,8 @@ function brainStatus(freshness: UltimateBuilderHistory["brain"]["freshness"]): {
   switch (freshness) {
     case "current":
       return {
-        label: "Memory is current",
-        detail: "Verified against the latest saved project version.",
+        label: "Memory saved with this version",
+        detail: "Git versions match. This does not verify every statement in the memory.",
         tone: "bg-emerald-500/10 text-emerald-500",
       };
     case "working_changes":
@@ -332,6 +332,11 @@ export function GuidedProjectHistory({
                         <Markdown content={history.brain.content} />
                       </div>
                       <footer className="flex flex-wrap gap-x-4 gap-y-1 border-t border-current/10 px-5 py-3 text-xs text-text-secondary/80">
+                        <p className="basis-full text-text-primary">
+                          {history.brain.evidence_status === 'available'
+                            ? 'Cited files are available. File fingerprints do not prove claims or test outcomes.'
+                            : 'Evidence needs review: add valid project-file citations before relying on this memory.'}
+                        </p>
                         <span>
                           {history.brain.verified_sources.length} key project
                           {history.brain.verified_sources.length === 1

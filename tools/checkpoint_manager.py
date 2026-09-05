@@ -830,6 +830,12 @@ class CheckpointManager:
         if m:
             entry["deletions"] = int(m.group(1))
 
+    def relocate_project(self, source: str, destination: str) -> bool:
+        """Keep recovery points attached to a project that changed location."""
+        from tools.checkpoint_relocation import relocate_checkpoints
+
+        return relocate_checkpoints(source, destination)
+
     def diff(self, working_dir: str, commit_hash: str) -> Dict:
         """Show diff between a checkpoint and the current working tree."""
         hash_err = _validate_commit_hash(commit_hash)

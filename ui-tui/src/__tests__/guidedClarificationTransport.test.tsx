@@ -1,6 +1,7 @@
 import { PassThrough } from "node:stream";
 
 import { renderSync } from "@hermes/ink";
+import { encodePromptAnswerFrame } from '@hermes/shared/prompt-answer';
 import React from "react";
 import { describe, expect, it } from "vitest";
 
@@ -24,10 +25,11 @@ describe("Studio answers through the real Ink prompt", () => {
     stdout.resume();
     stderr.resume();
     let resolveAnswer!: (text: string) => void;
+    const answers: string[] = [];
     const received = new Promise<string>((resolve) => { resolveAnswer = resolve; });
-    const request = { requestId: "r1", question: "Launch country?", choices };
+    const request = { requestId: "r1", question: "Launch country?", choices, answerProtocol: 'atomic-v1' };
 
-    const instance = renderSync(<ClarifyPrompt onAnswer={resolveAnswer} onCancel={() => resolveAnswer("cancelled")} req={request} t={DEFAULT_THEME} />, {
+    const instance = renderSync(<ClarifyPrompt onAnswer={text => { answers.push(text); resolveAnswer(text); }} onCancel={() => resolveAnswer("cancelled")} req={request} t={DEFAULT_THEME} />, {
       patchConsole: false,
       stdin: stdin as unknown as NodeJS.ReadStream,
       stdout: stdout as unknown as NodeJS.WriteStream,
@@ -40,6 +42,8 @@ describe("Studio answers through the real Ink prompt", () => {
     try {
       await new Promise<void>((resolve) => setImmediate(resolve));
       await new Promise<void>((resolve) => setImmediate(resolve));
+      // Late answers for another question are ignored, never treated as keys.
+      stdin.write(encodePromptAnswerFrame({ requestId: 'expired', answer: 'wrong' }));
       answerGuidedClarification(request, answer, {
         isOpen: () => open,
         send: (frame) => { stdin.write(frame); },
@@ -47,6 +51,9 @@ describe("Studio answers through the real Ink prompt", () => {
       });
       const timeout = new Promise<string>((_, reject) => { timers.push(setTimeout(() => reject(new Error("Ink did not receive the answer")), 5000)); });
       expect(await Promise.race([received, timeout])).toBe(answer);
+      stdin.write(encodePromptAnswerFrame({ requestId: request.requestId, answer }));
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(answers).toEqual([answer]);
     } finally {
       open = false;
       timers.forEach(clearTimeout);

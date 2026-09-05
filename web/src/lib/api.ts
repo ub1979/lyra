@@ -1946,6 +1946,9 @@ export interface UltimateBuilderBrain {
   brain_commit: string;
   working_changes: number;
   verified_sources: string[];
+  evidence_status?: "not_provided" | "available" | "needs_review";
+  evidence_note?: string;
+  evidence?: Array<{ path: string; state: string; sha256: string | null }>;
 }
 
 export interface UltimateBuilderHistory {
@@ -1968,6 +1971,7 @@ export interface UltimateBuilderRunTask {
   block_kind?: string | null;
   wait_reason?: string;
   paused_by_user?: boolean;
+  attention_id?: string | null;
 }
 
 export interface UltimateBuilderRunState {

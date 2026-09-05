@@ -2386,6 +2386,13 @@ def _migrate_add_optional_columns(conn: sqlite3.Connection) -> None:
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_tasks_session_id ON tasks(session_id)"
     )
+    # Very old/minimal boards may predate directory workspaces. Add the column
+    # before its index, using the existing concurrent-migration-safe helper.
+    if "workspace_path" not in cols:
+        _add_column_if_missing(conn, "tasks", "workspace_path", "workspace_path TEXT")
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_tasks_workspace_path ON tasks(workspace_path)"
+    )
 
     # task_events gained a run_id column; back-fill it as NULL for
     # historical events (they predate runs and can't be attributed).
@@ -3194,9 +3201,13 @@ def list_tasks(
     order_by: Optional[str] = None,
     workflow_template_id: Optional[str] = None,
     current_step_key: Optional[str] = None,
+    workspace_path: Optional[str] = None,
 ) -> list[Task]:
     query = "SELECT * FROM tasks WHERE 1=1"
     params: list[Any] = []
+    if workspace_path is not None:
+        query += " AND workspace_path = ?"
+        params.append(workspace_path)
     if assignee is not None:
         query += " AND assignee = ?"
         params.append(_canonical_assignee(assignee))
