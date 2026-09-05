@@ -1735,6 +1735,7 @@ docs/lyra/CODE_MAP.md	docs	md: CODE MAP
 docs/lyra/changes/2026-09-05-live-chat-feedback.md	docs	md: 2026 09 05 live chat feedback
 docs/lyra/changes/2026-09-05-studio-reliability.md	docs	md: 2026 09 05 studio reliability
 docs/lyra/changes/2026-09-06-project-job-routing.md	docs	md: 2026 09 06 project job routing
+docs/lyra/changes/2026-09-06-project-workflow-verification.md	docs	md: 2026 09 06 project workflow verification
 docs/lyra/file-index.tsv	docs	tsv: file index
 docs/middleware/README.md	docs	md: README
 docs/observability/README.md	docs	md: README
@@ -4387,6 +4388,7 @@ tests/e2e/test_discord_adapter.py	tests	Behavioral tests: discord adapter
 tests/e2e/test_platform_commands.py	tests	Behavioral tests: platform commands
 tests/fakes/__init__.py	tests	Behavioral tests:   init
 tests/fakes/fake_ha_server.py	tests	Behavioral tests: fake ha server
+tests/fixtures/lyra_workflow_worker.py	tests	Behavioral tests: lyra workflow worker
 tests/fixtures/plugins/example-dashboard/dashboard/manifest.json	tests	Behavioral tests: manifest
 tests/fixtures/plugins/example-dashboard/dashboard/plugin_api.py	tests	Behavioral tests: plugin api
 tests/gateway/__init__.py	tests	Behavioral tests:   init
@@ -6260,6 +6262,7 @@ tests/tui_gateway/test_image_routing_stale_model.py	tests	Behavioral tests: imag
 tests/tui_gateway/test_inline_rpc_gil_starvation.py	tests	Behavioral tests: inline rpc gil starvation
 tests/tui_gateway/test_interim_assistant_callback.py	tests	Behavioral tests: interim assistant callback
 tests/tui_gateway/test_iso_certify_seam.py	tests	Behavioral tests: iso certify seam
+tests/tui_gateway/test_lyra_project_workflow.py	tests	Behavioral tests: lyra project workflow
 tests/tui_gateway/test_make_agent_provider.py	tests	Behavioral tests: make agent provider
 tests/tui_gateway/test_mcp_late_refresh_thread_owner.py	tests	Behavioral tests: mcp late refresh thread owner
 tests/tui_gateway/test_mcp_reload_rev.py	tests	Behavioral tests: mcp reload rev
