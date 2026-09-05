@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -60,6 +61,73 @@ def test_reopening_chat_reuses_existing_phase_job(tmp_path, monkeypatch):
 
     assert second["tasks"][0]["task_id"] == first["tasks"][0]["task_id"]
     assert second["tasks"][0]["reused"] is True
+
+
+def test_invalid_automatic_worker_is_rejected_before_any_job_is_created(tmp_path, monkeypatch):
+    monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
+    project = tmp_path / "project"
+    project.mkdir()
+    module = load_project_runs()
+    with pytest.raises(ValueError, match="does not exist"):
+        module.queue_project_run(project, ["researcher", "sw-architect"], assignee="missing-lyra-worker")
+    assert module.project_run_state(project)["tasks"] == []
+
+
+def test_generic_project_jobs_remain_visible_and_recover_after_assignment(tmp_path, monkeypatch):
+    monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
+    project = tmp_path / "project"
+    project.mkdir()
+    other = tmp_path / "other"
+    other.mkdir()
+    module = load_project_runs()
+    managed = module.queue_project_run(project, ["sw-architect"])["tasks"][0]["task_id"]
+    with module.kb.connect_closing() as conn:
+        assert module.kb.claim_task(conn, managed)
+        assert module.kb.complete_task(conn, managed, result="Architecture done")
+        generic = module.kb.create_task(conn, title="Build task graph", assignee="missing-lyra-worker",
+            workspace_kind="dir", workspace_path=str(project), idempotency_key="custom-task-graph")
+        unrelated = module.kb.create_task(conn, title="Other project", assignee="default",
+            workspace_kind="dir", workspace_path=str(other))
+    state = load_project_runs().project_run_state(project)
+    assert state["state"] == "needs_attention"
+    assert not state["active"]
+    tasks = {task["task_id"]: task for task in state["tasks"]}
+    assert set(tasks) == {managed, generic}
+    assert tasks[generic]["label"] == "Build task graph"
+    assert tasks[generic]["status"] == "ready"
+    assert "cannot start automatically" in tasks[generic]["dispatch_issue"]
+    assert tasks[managed]["status"] == "done"
+    with module.kb.connect_closing() as conn:
+        # Reading Studio status never rewrites a legitimate external lane.
+        assert module.kb.get_task(conn, generic).assignee == "missing-lyra-worker"
+        assert module.kb.assign_task(conn, generic, "default")
+    queued = module.project_run_state(project)
+    assert queued["state"] == "queued"
+    assert queued["active"]
+    assert all(not task["dispatch_issue"] for task in queued["tasks"])
+    assert module.control_project_run(project, "pause")["changed"] == [generic]
+    with module.kb.connect_closing() as conn:
+        assert module.kb.get_task(conn, unrelated).status == "ready"
+    assert module.control_project_run(project, "resume")["changed"] == [generic]
+    with module.kb.connect_closing() as conn:
+        assert module.kb.claim_task(conn, generic)
+    assert module.project_run_state(project)["state"] == "working"
+
+
+def test_generic_jobs_move_with_their_project(tmp_path, monkeypatch):
+    monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
+    source = tmp_path / "source"
+    source.mkdir()
+    destination = tmp_path / "destination"
+    module = load_project_runs()
+    with module.kb.connect_closing() as conn:
+        task_id = module.kb.create_task(conn, title="Custom project job", assignee="default",
+            workspace_kind="dir", workspace_path=str(source))
+    source.rename(destination)
+    assert module.relocate_project_runs(source, destination)["changed"] == [task_id]
+    assert module.project_run_state(destination)["tasks"][0]["task_id"] == task_id
 
 
 def test_pause_and_resume_only_touch_user_paused_jobs(tmp_path, monkeypatch):

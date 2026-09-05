@@ -1972,11 +1972,12 @@ export interface UltimateBuilderRunTask {
   wait_reason?: string;
   paused_by_user?: boolean;
   attention_id?: string | null;
+  dispatch_issue?: string;
 }
 
 export interface UltimateBuilderRunState {
   available: boolean;
-  state: "working" | "needs_attention" | "idle" | "unavailable";
+  state: "working" | "queued" | "needs_attention" | "idle" | "unavailable";
   active: boolean;
   task_count: number;
   active_task_count: number;

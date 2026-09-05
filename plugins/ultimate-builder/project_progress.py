@@ -118,7 +118,9 @@ def _merge_project_run_state(
             phases.append(phase)
             by_id[phase_id] = phase
         status = task.get("status")
-        if status == "running":
+        if task.get("dispatch_issue"):
+            phase.update(state="blocked", status="Waiting for an available worker")
+        elif status == "running":
             phase.update(state="now", status="Working safely in the background")
         elif status in {"ready", "todo", "scheduled"}:
             phase.update(state="pending", status="Queued safely")

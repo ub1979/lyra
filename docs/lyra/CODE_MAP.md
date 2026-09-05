@@ -24,6 +24,7 @@ Durable project jobs → Hermes Kanban dispatcher → isolated worker sessions
 | Worker presentation | `web/src/lib/project-agent-activity.ts`, `web/src/components/ProjectAgentJobs.tsx` | Pure state and rendering tests |
 | Phase reports / evidence | `plugins/ultimate-builder/project_progress.py`, `hermes_cli/project_evidence.py` | Negative status, missing file and path-escape tests |
 | Project jobs | `plugins/ultimate-builder/project_runs.py` | Real SQLite lifecycle tests |
+| Project worker eligibility | `hermes_cli/project_job_status.py` | Queue rejection, external-worker visibility and assignment-recovery tests |
 | Indexed job storage | `hermes_cli/kanban_db.py` | Database, migration and query-plan tests |
 | Project Brain | `plugins/ultimate-builder/project_brain.py` | Real Git freshness and citation tests |
 | Project move / trash / history | `plugins/ultimate-builder/dashboard/plugin_api.py` | API and relocation tests |

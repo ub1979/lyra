@@ -1734,6 +1734,7 @@ docs/lyra/CHANGE_MANAGEMENT.md	docs	md: CHANGE MANAGEMENT
 docs/lyra/CODE_MAP.md	docs	md: CODE MAP
 docs/lyra/changes/2026-09-05-live-chat-feedback.md	docs	md: 2026 09 05 live chat feedback
 docs/lyra/changes/2026-09-05-studio-reliability.md	docs	md: 2026 09 05 studio reliability
+docs/lyra/changes/2026-09-06-project-job-routing.md	docs	md: 2026 09 06 project job routing
 docs/lyra/file-index.tsv	docs	tsv: file index
 docs/middleware/README.md	docs	md: README
 docs/observability/README.md	docs	md: README
@@ -1948,6 +1949,7 @@ hermes_cli/profile_describer.py	hermes_cli	Profile describer — auto-generate `
 hermes_cli/profile_distribution.py	hermes_cli	Profile distributions — shareable, packaged Hermes profiles via git.
 hermes_cli/profiles.py	hermes_cli	Profile management for multiple isolated Hermes instances.
 hermes_cli/project_evidence.py	hermes_cli	Bounded, project-local evidence checks; never execute untrusted reports.
+hermes_cli/project_job_status.py	hermes_cli	Explain automatic project-worker eligibility without changing Kanban state.
 hermes_cli/projects_cmd.py	hermes_cli	``hermes project`` CLI — manage first-class, multi-folder Projects.
 hermes_cli/projects_db.py	hermes_cli	Per-profile first-class Project store.
 hermes_cli/prompt_size.py	hermes_cli	Prompt-size diagnostic: ``hermes prompt-size``.
@@ -2052,7 +2054,7 @@ hermes_cli/web_dist/assets/RulesCompressed-Regular-BSXFyF4x.woff2	hermes_cli	Gen
 hermes_cli/web_dist/assets/RulesExpanded-Bold-DZA7s8Pa.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Regular-l8uVympt.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/index-BFUDwX70.css	hermes_cli	Generated asset; edit its source and rebuild
-hermes_cli/web_dist/assets/index-D42hI7i_.js	hermes_cli	Generated asset; edit its source and rebuild
+hermes_cli/web_dist/assets/index-CeBTzjj9.js	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Bold.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Italic.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Regular.woff2	hermes_cli	Generated asset; edit its source and rebuild

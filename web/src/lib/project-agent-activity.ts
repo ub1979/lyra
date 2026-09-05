@@ -24,7 +24,7 @@ const STATUS_LABELS: Record<string, string> = {
 /** Saved job identity/state is authoritative; prose and phase plans are not. */
 function presentTask(task: UltimateBuilderRunTask, stale: boolean): ProjectAgentActivityItem {
   const paused = task.status === 'blocked' && task.paused_by_user
-  const status = paused
+  const status = task.dispatch_issue ? 'Cannot start automatically' : paused
     ? 'Paused by you'
     : task.status === 'blocked' && task.block_kind === 'needs_input'
       ? 'Waiting for your input'
@@ -34,14 +34,14 @@ function presentTask(task: UltimateBuilderRunTask, stale: boolean): ProjectAgent
     phase: task.phase,
     label: task.label,
     status: stale ? `Last known: ${status}` : status,
-    detail:
+    detail: task.dispatch_issue || (
       task.status === 'blocked' || task.status === 'triage'
         ? paused
           ? 'Use Resume workers to continue.'
           : task.wait_reason || task.last_error || 'Ask Lyra what is needed to continue.'
-        : '',
+        : ''),
     running: !stale && task.status === 'running',
-    attention: !stale && !paused && ['blocked', 'triage'].includes(task.status)
+    attention: !stale && !paused && (Boolean(task.dispatch_issue) || ['blocked', 'triage'].includes(task.status))
   }
 }
 
@@ -54,8 +54,9 @@ export function projectAgentActivity(state: UltimateBuilderRunState | null, stal
 export function projectAgentSummary(items: readonly ProjectAgentActivityItem[], chatWorkers = 0): string {
   const running = items.filter(item => item.running).length + chatWorkers
   const attention = items.filter(item => item.attention).length
+  const queued = items.filter(item => ['Queued to start', 'Waiting for earlier work', 'Scheduled'].includes(item.status)).length
   return (
-    [running ? `${running} working` : '', attention ? `${attention} need attention` : ''].filter(Boolean).join(' · ') ||
+    [running ? `${running} working` : '', attention ? `${attention} need attention` : '', queued ? `${queued} queued` : ''].filter(Boolean).join(' · ') ||
     (items.length ? 'Saved jobs' : 'No workers')
   )
 }

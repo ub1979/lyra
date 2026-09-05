@@ -42,7 +42,7 @@ describe('saved project agent activity', () => {
         job({ task_id: 'c', status: 'ready' })
       ])
     )
-    expect(projectAgentSummary(items, 1)).toBe('2 working · 1 need attention')
+    expect(projectAgentSummary(items, 1)).toBe('2 working · 1 need attention · 1 queued')
   })
 
   it('retains stale history without claiming it is live, then recovers', () => {
@@ -50,6 +50,20 @@ describe('saved project agent activity', () => {
     expect(projectAgentActivity(state, true)[0]).toMatchObject({ status: 'Last known: Working', running: false })
     expect(projectAgentActivity(state, false)[0].running).toBe(true)
     expect(projectAgentActivity(null)).toEqual([])
+  })
+
+  it('explains generic jobs that cannot start and distinguishes queued from running', () => {
+    const task = job({ phase: 'job:default:custom', label: 'Build task graph', status: 'ready',
+      dispatch_issue: 'Ask Lyra to correct the worker assignment.' })
+    const items = projectAgentActivity(savedRun([task]))
+    expect(items[0]).toMatchObject({ label: 'Build task graph', status: 'Cannot start automatically',
+      detail: task.dispatch_issue, attention: true, running: false })
+    expect(projectAgentSummary(items)).toBe('1 need attention')
+    const queued = projectAgentActivity(savedRun([{ ...task, dispatch_issue: '' }]))
+    expect(queued[0]).toMatchObject({ status: 'Queued to start', attention: false, running: false })
+    expect(projectAgentSummary(queued)).toBe('1 queued')
+    const stale = projectAgentActivity(savedRun([task]), true)
+    expect(stale[0]).toMatchObject({ status: 'Last known: Cannot start automatically', attention: false })
   })
 
   it('does not mix jobs on different boards or mutate the server snapshot', () => {

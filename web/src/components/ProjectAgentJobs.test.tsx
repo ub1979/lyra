@@ -7,6 +7,13 @@ import { projectAgentActivity } from '../lib/project-agent-activity'
 import { job, savedRun } from '../lib/project-agent-activity.fixtures'
 
 describe('Studio agent activity rendering', () => {
+  it('shows generic project jobs with their actual start problem', () => {
+    const items = projectAgentActivity(savedRun([job({ phase: 'job:default:custom', label: 'Build task graph',
+      status: 'ready', dispatch_issue: 'This job has no available worker.' })]))
+    const html = renderToStaticMarkup(<ProjectAgentJobs items={items} stale={false} />)
+    expect(html).toContain('Build task graph: Cannot start automatically')
+    expect(html).toContain('This job has no available worker.')
+  })
   it('keeps the coordinator as Lyra even when the legacy parser guesses QA', () => {
     const activity = analyzeGuidedChatOutput('checking project status')
     const html = renderToStaticMarkup(

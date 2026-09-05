@@ -42,6 +42,16 @@ def test_completed_job_without_evidence_is_not_verified(tmp_path):
     assert "Verified" not in result["phases"][0]["status"]
 
 
+def test_undispatchable_job_needs_attention_in_the_project_map():
+    result = progress_module()._merge_project_run_state({"phases": []}, {"tasks": [{
+        "phase": "job:default:custom", "label": "Build planning", "status": "ready",
+        "dispatch_issue": "Assigned worker unavailable",
+    }]})
+    assert result["phases"][0]["label"] == "Build planning"
+    assert result["phases"][0]["state"] == "blocked"
+    assert result["phases"][0]["status"] == "Waiting for an available worker"
+
+
 def test_evidence_available_does_not_claim_tests_were_verified(tmp_path):
     module = progress_module()
     (tmp_path / "report.md").write_text("An agent's report")

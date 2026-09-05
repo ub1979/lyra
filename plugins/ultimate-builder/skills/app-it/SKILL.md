@@ -285,6 +285,19 @@ was reopened. Use `--force-new` only for an explicitly approved revision after
 a prior run finished. A short disposable lookup may still use `delegate_task`,
 but any specialist phase Lyra promises to complete must use a durable job.
 
+Use `hermes project-run queue` for every automatic phase, including task
+planning (`--phases task-planner`). Do not substitute a raw `hermes kanban create`
+command. Specialist IDs such as `sw-architect` are phase/skill names, not worker
+profiles; omit `--assignee` to use the configured profile unless an existing
+profile was explicitly chosen. Never invent a profile from an agent's name.
+
+After queueing and before each progress report, read project-run status. A
+`ready`, `todo`, or `scheduled` job is queued, not running. Only a `running` job
+justifies saying the agent has started. If `dispatch_issue` is present, say the
+worker cannot start and explain the needed correction. A successful queue
+command alone is not evidence of work underway. Never say "nothing is blocked"
+without checking the latest saved state.
+
 Work through the enabled team one phase at a time, in the umbrella's delivery
 order, and do not stop after a single phase: when one finishes, mark it done and
 start the next one in the same flow. Do not do a specialist's work yourself

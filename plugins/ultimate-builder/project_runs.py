@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from hermes_cli import kanban_db as kb
+from hermes_cli.project_job_status import project_job_dispatch_issue, validate_project_worker
 
 
 TASK_KEY_PREFIX = "lyra-project:v1:"
@@ -80,6 +81,7 @@ def _phase_from_task(task: kb.Task) -> str | None:
 def _project_tasks(
     project: Path, *, include_archived: bool = True
 ) -> list[tuple[str, kb.Task]]:
+    """Find every job belonging to this exact workspace, regardless of creator."""
     found: list[tuple[str, kb.Task]] = []
     for board_meta in kb.list_boards(include_archived=False):
         board = str(board_meta.get("slug") or board_meta.get("id") or "default")
@@ -88,8 +90,6 @@ def _project_tasks(
                 for task in kb.list_tasks(
                     conn, include_archived=include_archived, workspace_path=str(project)
                 ):
-                    if not (task.idempotency_key or "").startswith(TASK_KEY_PREFIX):
-                        continue
                     if not task.workspace_path:
                         continue
                     candidate = (
@@ -161,6 +161,7 @@ def queue_project_run(
     providers = providers or {}
     origin = _origin()
     worker_profile = assignee or str(origin["profile"] or "default")
+    validate_project_worker(worker_profile)
     board = kb.get_current_board()
     existing = _project_tasks(project, include_archived=True)
     latest_by_phase: dict[str, tuple[str, kb.Task]] = {}
@@ -251,14 +252,11 @@ def project_run_state(workspace: str | Path) -> dict[str, Any]:
     latest: dict[str, tuple[str, kb.Task]] = {}
     for item in tasks:
         phase = _phase_from_task(item[1])
-        if (
-            phase
-            and phase in PHASES
-            and (
-                phase not in latest or item[1].created_at >= latest[phase][1].created_at
-            )
-        ):
-            latest[phase] = item
+        # Generic project jobs have their own identity. Never hide them or merge
+        # them into a completed specialist phase based on a title or skill name.
+        key = phase if phase in PHASES else f"job:{item[0]}:{item[1].id}"
+        if key not in latest or item[1].created_at >= latest[key][1].created_at:
+            latest[key] = item
     items = []
     for phase, (board, task) in latest.items():
         # Waiting for a decision is not a worker failure. Expose the saved
@@ -280,10 +278,11 @@ def project_run_state(workspace: str | Path) -> dict[str, Any]:
                 attention_id = str(last_block.id)
         items.append({
             "phase": phase,
-            "label": PHASES[phase]["label"],
+            "label": PHASES[phase]["label"] if phase in PHASES else task.title,
             "task_id": task.id,
             "board": board,
             "status": task.status,
+            "dispatch_issue": project_job_dispatch_issue(task),
             "attempts": task.consecutive_failures,
             "last_error": task.last_failure_error or "",
             "block_kind": task.block_kind if task.status == "blocked" else None,
@@ -296,9 +295,16 @@ def project_run_state(workspace: str | Path) -> dict[str, Any]:
             or task.created_at,
         })
     items.sort(key=lambda item: int(item["last_activity_at"] or 0))
-    active = [item for item in items if item["status"] in RUNNING_STATUSES]
-    blocked = [item for item in items if item["status"] in {"blocked", "triage"}]
-    state = "working" if active else "needs_attention" if blocked else "idle"
+    active = [
+        item for item in items
+        if item["status"] in RUNNING_STATUSES and not item["dispatch_issue"]
+    ]
+    blocked = [
+        item for item in items
+        if item["status"] in {"blocked", "triage"} or item["dispatch_issue"]
+    ]
+    running = any(item["status"] == "running" for item in items)
+    state = "working" if running else "needs_attention" if blocked else "queued" if active else "idle"
     return {
         "available": bool(items),
         "state": state,
