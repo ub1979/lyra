@@ -312,6 +312,7 @@ interface GuidedAgentEventEnvelope {
       preview?: string;
       rendered?: string;
       result_text?: string;
+      status?: string;
       summary?: string;
       smart_denied?: boolean;
       stored_session_id?: string;
@@ -643,6 +644,8 @@ function GuidedRuntimePanel({
   runState,
   runStateStale,
   waitingForInput,
+  sendingAnswer,
+  compacting,
   defaultModelLabel,
   lastSignalAt,
   onRetry,
@@ -657,6 +660,8 @@ function GuidedRuntimePanel({
   runState: UltimateBuilderRunState | null;
   runStateStale: boolean;
   waitingForInput: boolean;
+  sendingAnswer: boolean;
+  compacting: boolean;
   defaultModelLabel: string;
   lastSignalAt: number;
   onRetry: () => void;
@@ -746,6 +751,8 @@ function GuidedRuntimePanel({
       {activity.phase === "working" && (
         <GuidedCoordinatorActivity
           waitingForInput={waitingForInput}
+          sendingAnswer={sendingAnswer}
+          compacting={compacting}
           text={activity.text}
           lastSignalAt={lastSignalAt}
           onRetry={onRetry}
@@ -1801,7 +1808,15 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         if (frame.method !== "event" || !frame.params?.type) return;
 
         const { type, payload } = frame.params;
-        handleGuidedClarificationEvent(type, payload);
+        const questionResolved = handleGuidedClarificationEvent(type, payload);
+        if (type === "clarify.resolved") {
+          if (questionResolved) {
+            setGuidedLastSignalAt(Date.now());
+            setGuidedActivity({ phase: "working", text: payload?.status === "cancelled"
+              ? "Question closed. Continuing…" : "Answer received. Lyra is continuing with your request…", specialist: APP_IT_SPECIALIST });
+          }
+          return;
+        }
         if (type === "clarify.request") {
           if (payload?.request_id && payload.question) {
             const id = `clarify-${payload.request_id}`;
@@ -2055,6 +2070,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           guidedActiveToolsRef.current = next;
           setGuidedRunningTool(latestGuidedRunningTool(next));
           setGuidedLastSignalAt(Date.now());
+          // Older backends confirm questions via tool completion. Do not leave
+          // their waiting label visible while the following model call runs.
+          if (payload?.name === "clarify") {
+            setGuidedActivity({ phase: "working", text: "Question handled. Continuing…", specialist: APP_IT_SPECIALIST });
+          }
           return;
         }
         if (type === "message.complete") {
@@ -4538,6 +4558,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                     runState={guidedRunState}
                     runStateStale={guidedRunStateStale}
                     waitingForInput={Boolean(guidedClarification || guidedApproval)}
+                    sendingAnswer={guidedClarificationSending}
+                    compacting={guidedCompacting}
                     defaultModelLabel={guidedDefaultModelLabel}
                     lastSignalAt={guidedLastSignalAt}
                     onRetry={retryLastGuidedMessage}
@@ -4798,6 +4820,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 runState={guidedRunState}
                 runStateStale={guidedRunStateStale}
                 waitingForInput={Boolean(guidedClarification || guidedApproval)}
+                sendingAnswer={guidedClarificationSending}
+                compacting={guidedCompacting}
                 defaultModelLabel={guidedDefaultModelLabel}
                 lastSignalAt={guidedLastSignalAt}
                 onRetry={retryLastGuidedMessage}
@@ -5053,21 +5077,6 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 })}
 
                 {!hasModelConnectionError &&
-                  guidedActivity.phase === "working" && (
-                    <div className="flex justify-start">
-                      <div className="max-w-[88%] rounded-2xl rounded-bl-md border border-current/10 bg-midground/5 px-4 py-3 sm:max-w-[78%]">
-                        <div className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-midground">
-                          <Bot className="h-3.5 w-3.5" />
-                          Lyra
-                        </div>
-                        <p className="text-sm text-text-secondary">
-                          {coordinatorActivityMessage(guidedProjectJobs, guidedActiveWorkers.length)}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                {!hasModelConnectionError &&
                   guidedMessages.length === 0 &&
                   guidedActivity.phase === "idle" && (
                     <div className="rounded-xl border border-current/10 bg-midground/5 p-5 text-text-secondary">
@@ -5096,6 +5105,19 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               addGuidedAttachments(Array.from(event.dataTransfer.files));
             }}
           >
+            {!hasModelConnectionError && guidedActivity.phase === "working" && (
+              <div className="mx-auto mb-2 max-h-[25vh] max-w-3xl overflow-y-auto text-sm">
+                <GuidedCoordinatorActivity
+                  text={guidedActivity.text || coordinatorActivityMessage(guidedProjectJobs, guidedActiveWorkers.length)}
+                  compacting={guidedCompacting}
+                  waitingForInput={Boolean(guidedClarification || guidedApproval)}
+                  sendingAnswer={guidedClarificationSending}
+                  lastSignalAt={guidedLastSignalAt}
+                  runningTool={guidedRunningTool}
+                  onRetry={retryLastGuidedMessage}
+                />
+              </div>
+            )}
             {guidedAttachments.length > 0 && (
               <ul className="mx-auto mb-2 flex max-w-3xl flex-wrap gap-2">
                 {guidedAttachments.map((file, index) => (

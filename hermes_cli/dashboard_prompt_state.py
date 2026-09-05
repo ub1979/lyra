@@ -38,7 +38,7 @@ class DashboardPromptState:
             kind == "tool.complete" and payload.get("name") == "clarify"
         ):
             self._pending.pop(channel, None)
-        elif kind == "clarify.expire":
+        elif kind in {"clarify.expire", "clarify.resolved"}:
             pending = self._pending.get(channel)
             if pending and pending[0] == request_id:
                 self._pending.pop(channel, None)

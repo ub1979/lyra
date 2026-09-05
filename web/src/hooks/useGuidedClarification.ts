@@ -11,6 +11,7 @@ interface ClarificationEventPayload {
   choices?: unknown
   name?: unknown
   answer_protocol?: unknown
+  status?: unknown
 }
 
 /** Owns only the lifetime and PTY answer transport of a pending TUI question. */
@@ -42,6 +43,11 @@ export function useGuidedClarification(socketRef: { current: WebSocket | null })
 
   const handleEvent = useCallback(
     (type: string, payload?: ClarificationEventPayload) => {
+      if (type === 'clarify.resolved') {
+        if (!pending.current || payload?.request_id !== pending.current.requestId) return false
+        clear()
+        return true
+      }
       if (type === 'clarify.request') {
         const next = readGuidedClarification(payload)
         if (next && next.requestId !== pending.current?.requestId) {
@@ -60,6 +66,7 @@ export function useGuidedClarification(socketRef: { current: WebSocket | null })
       ) {
         clear()
       }
+      return false
     },
     [clear]
   )

@@ -9,6 +9,31 @@ import { decodePromptAnswerFrame } from '@hermes/shared'
 describe('clarification event-to-answer integration', () => {
   afterEach(() => vi.useRealTimers())
 
+  it('confirms the matching answer before any tool or message completes', async () => {
+    vi.useFakeTimers()
+    const host = document.createElement('div')
+    const root = createRoot(host)
+    const send = vi.fn()
+    const socketRef = { current: { readyState: WebSocket.OPEN, send } as unknown as WebSocket }
+    let control!: ReturnType<typeof useGuidedClarification>
+    function Harness() { control = useGuidedClarification(socketRef); return null }
+    try {
+      await act(async () => { root.render(<Harness />) })
+      await act(async () => {
+        control.handleEvent('clarify.request', { answer_protocol: 'atomic-v1', request_id: 'q2', question: 'Country?' })
+        control.answer('UK')
+      })
+      await act(async () => { expect(control.handleEvent('clarify.resolved', { request_id: 'q1', status: 'answered' })).toBe(false) })
+      expect(control.sending).toBe(true)
+      await act(async () => { expect(control.handleEvent('clarify.resolved', { request_id: 'q2', status: 'answered' })).toBe(true) })
+      expect(control.request).toBeNull()
+      expect(control.sending).toBe(false)
+      await act(async () => { vi.advanceTimersByTime(60_000) })
+      expect(control.error).toBe('')
+      expect(send).toHaveBeenCalledTimes(1)
+    } finally { await act(async () => root.unmount()) }
+  })
+
   it('allows a safe request-fenced retry after a disconnect with no delivery confirmation', async () => {
     vi.useFakeTimers()
     const host = document.createElement('div')

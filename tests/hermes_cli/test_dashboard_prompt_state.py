@@ -51,6 +51,16 @@ def test_bounded_cache_ignores_malformed_frames():
     assert state.replay("b") is not None
 
 
+def test_answer_confirmation_clears_only_the_matching_question():
+    state = DashboardPromptState()
+    question = event("clarify.request", request_id="q2", question="Country?")
+    state.observe("hello", question)
+    state.observe("hello", event("clarify.resolved", request_id="q1", status="answered"))
+    assert state.replay("hello") == question
+    state.observe("hello", event("clarify.resolved", request_id="q2", status="answered"))
+    assert state.replay("hello") is None
+
+
 def test_real_broadcast_and_subscriber_route_replay_pending_question(monkeypatch):
     """Use the real handlers with an in-memory socket, without timing races."""
     import asyncio
@@ -91,7 +101,7 @@ def test_real_broadcast_and_subscriber_route_replay_pending_question(monkeypatch
         await web_server.events_ws(other)
         assert other.sent == []
         await web_server._broadcast_event(
-            app, "original", event("tool.complete", name="clarify")
+            app, "original", event("clarify.resolved", request_id="r1", status="answered")
         )
         reopened = Socket("original")
         await web_server.events_ws(reopened)

@@ -18,6 +18,7 @@ Durable project jobs → Hermes Kanban dispatcher → isolated worker sessions
 | Project map / agent artwork | `web/src/components/GuidedProgressMap.tsx`, `web/src/components/GuidedAgentAvatar.tsx` | Rendering tests and production build |
 | Durable status polling | `web/src/hooks/useProjectLedger.ts` | Hook tests; project API tests |
 | Question lifetime / retry | `web/src/hooks/useGuidedClarification.ts` | Hook integration tests |
+| Live chat feedback / summarizing | `web/src/components/GuidedCoordinatorActivity.tsx` | Timed heartbeat and question-delivery rendering tests |
 | Atomic question transport | `apps/shared/src/prompt-answer-frame.ts`, `ui-tui/src/components/prompts.tsx` | Real Ink transport tests |
 | Optional computer alerts | `web/src/components/StudioQuestionAlerts.tsx`, `web/src/lib/question-notifications.ts` | Permission, replay and failure tests |
 | Worker presentation | `web/src/lib/project-agent-activity.ts`, `web/src/components/ProjectAgentJobs.tsx` | Pure state and rendering tests |

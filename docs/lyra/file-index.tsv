@@ -1732,6 +1732,7 @@ docs/hermes-kanban-v1-spec.pdf	docs	pdf: hermes kanban v1 spec
 docs/kanban/multi-gateway.md	docs	md: multi gateway
 docs/lyra/CHANGE_MANAGEMENT.md	docs	md: CHANGE MANAGEMENT
 docs/lyra/CODE_MAP.md	docs	md: CODE MAP
+docs/lyra/changes/2026-09-05-live-chat-feedback.md	docs	md: 2026 09 05 live chat feedback
 docs/lyra/changes/2026-09-05-studio-reliability.md	docs	md: 2026 09 05 studio reliability
 docs/lyra/file-index.tsv	docs	tsv: file index
 docs/middleware/README.md	docs	md: README
@@ -2050,8 +2051,8 @@ hermes_cli/web_dist/assets/RulesCompressed-Medium-CA76_CrB.woff2	hermes_cli	Gene
 hermes_cli/web_dist/assets/RulesCompressed-Regular-BSXFyF4x.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Bold-DZA7s8Pa.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Regular-l8uVympt.woff2	hermes_cli	Generated asset; edit its source and rebuild
-hermes_cli/web_dist/assets/index-D7bnTWUh.js	hermes_cli	Generated asset; edit its source and rebuild
-hermes_cli/web_dist/assets/index-DAZ753rJ.css	hermes_cli	Generated asset; edit its source and rebuild
+hermes_cli/web_dist/assets/index-BFUDwX70.css	hermes_cli	Generated asset; edit its source and rebuild
+hermes_cli/web_dist/assets/index-D42hI7i_.js	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Bold.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Italic.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Regular.woff2	hermes_cli	Generated asset; edit its source and rebuild
@@ -6933,6 +6934,7 @@ web/src/components/GuidedAgentAvatar.tsx	web	tsx: GuidedAgentAvatar
 web/src/components/GuidedAppPreview.tsx	web	tsx: GuidedAppPreview
 web/src/components/GuidedClarification.test.tsx	web	Behavioral tests: GuidedClarification.test
 web/src/components/GuidedClarification.tsx	web	tsx: GuidedClarification
+web/src/components/GuidedCoordinatorActivity.test.tsx	web	Behavioral tests: GuidedCoordinatorActivity.test
 web/src/components/GuidedCoordinatorActivity.tsx	web	tsx: GuidedCoordinatorActivity
 web/src/components/GuidedProgressMap.test.tsx	web	Behavioral tests: GuidedProgressMap.test
 web/src/components/GuidedProgressMap.tsx	web	tsx: GuidedProgressMap

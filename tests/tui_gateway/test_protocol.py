@@ -242,6 +242,45 @@ def test_emit_without_payload(capture):
 # ── Blocking prompt round-trip ───────────────────────────────────────
 
 
+def test_question_confirms_answer_without_waiting_for_tool_completion(capture):
+    server, buf = capture
+    result = []
+    worker = threading.Thread(target=lambda: result.append(
+        server._block("clarify.request", "s1", {"question": "Country?"}, timeout=2)
+    ))
+    worker.start()
+    try:
+        deadline = time.monotonic() + 1
+        while not server._pending and time.monotonic() < deadline:
+            threading.Event().wait(0.001)
+        request_id = next(iter(server._pending))
+        first = server.handle_request({"id": "a1", "method": "clarify.respond",
+            "params": {"request_id": request_id, "answer": "UK"}})
+        assert first["result"]["status"] == "ok"
+        worker.join(timeout=2)
+        assert not worker.is_alive()
+        assert result == ["UK"]
+        frames = [json.loads(line)["params"] for line in buf.getvalue().splitlines()]
+        assert [frame["type"] for frame in frames] == ["clarify.request", "clarify.resolved"]
+        assert frames[1]["session_id"] == "s1"
+        assert frames[1]["payload"] == {"request_id": request_id, "status": "answered"}
+    finally:
+        worker.join(timeout=3)
+
+
+def test_question_retry_cannot_overwrite_an_accepted_answer(server):
+    # The consumer has not yet removed this request, as when two RPC replies
+    # arrive before the waiting thread is scheduled again.
+    event = threading.Event()
+    server._pending["q1"] = ("s1", event)
+    for answer in ("UK", "Canada"):
+        response = server.handle_request({"id": answer, "method": "clarify.respond",
+            "params": {"request_id": "q1", "answer": answer}})
+        assert response["result"]["status"] == "ok"
+    assert event.is_set()
+    assert server._answers["q1"] == "UK"
+
+
 def test_block_and_respond(capture):
     server, _ = capture
     result = [None]

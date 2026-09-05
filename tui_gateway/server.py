@@ -2653,6 +2653,14 @@ def _block(event: str, sid: str, payload: dict, timeout: float | None = 300) -> 
             answer_present = rid in _answers
             answer = _answers.pop(rid, "")
 
+    # Confirm the specific question before tool completion or the next model
+    # call. Never include the answer in this status event (it may be private).
+    if event == "clarify.request" and answer_present:
+        _emit("clarify.resolved", sid, {
+            "request_id": rid,
+            "status": "answered" if answer else "cancelled",
+        })
+
     # Emit an `.expire` notification on timeout for every blocking request type
     # whose `*.respond` handler tolerates a late reply (allow_expired=True).
     # All four blocking bridges — secret, sudo, clarify, terminal.read — share
@@ -12915,7 +12923,7 @@ def _(rid, params: dict) -> dict:
 # ── Methods: respond ─────────────────────────────────────────────────
 
 
-def _respond(rid, params, key, *, allow_expired=False):
+def _respond(rid, params, key, *, allow_expired=False, first_answer_wins=False):
     r = params.get("request_id", "")
     with _prompt_lock:
         entry = _pending.get(r)
@@ -12924,6 +12932,8 @@ def _respond(rid, params, key, *, allow_expired=False):
                 return _ok(rid, {"status": "expired"})
             return _err(rid, 4009, f"no pending {key} request")
         _, ev = entry
+        if first_answer_wins and r in _answers:
+            return _ok(rid, {"status": "ok"})
         _answers[r] = params.get(key, "")
         ev.set()
     return _ok(rid, {"status": "ok"})
@@ -12935,7 +12945,7 @@ def _(rid, params: dict) -> dict:
     # from _pending) while the card is still visible — common when a WebSocket
     # reconnect during the wait drops tool.complete. A late answer must resolve
     # gracefully instead of hitting the raw 4009 "no pending answer request".
-    return _respond(rid, params, "answer", allow_expired=True)
+    return _respond(rid, params, "answer", allow_expired=True, first_answer_wins=True)
 
 
 @method("terminal.read.respond")

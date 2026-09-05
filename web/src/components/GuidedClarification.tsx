@@ -16,7 +16,7 @@ export function GuidedClarification({ request, sending, error, onAnswer }: Guide
       aria-label="Lyra needs your answer"
       className="max-h-[45vh] shrink-0 overflow-y-auto border-b border-current/15 bg-background-base px-4 py-3 text-text-primary"
     >
-      <strong className="block text-midground">Lyra needs your answer</strong>
+      <strong role="status" className="block text-midground">{sending ? 'Sending your answer…' : 'Lyra needs your answer'}</strong>
       {error && <p role="alert" className="mt-2 text-text-primary">{error}</p>}
       <p className="mt-2 whitespace-pre-wrap break-words">{request.question}</p>
       <div className="mt-3 flex flex-wrap gap-2">
@@ -57,7 +57,9 @@ export function GuidedClarification({ request, sending, error, onAnswer }: Guide
           {sending ? 'Sending…' : 'Send answer'}
         </button>
       </form>
-      <p className="mt-2 text-sm text-text-secondary">Waiting for your answer is normal—not a stuck tool.</p>
+      <p className="mt-2 text-sm text-text-secondary">{sending
+        ? 'Waiting for confirmation from Lyra. Your answer will be confirmed here.'
+        : 'Lyra will continue once it receives your answer.'}</p>
     </section>
   )
 }
