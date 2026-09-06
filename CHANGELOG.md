@@ -9,6 +9,22 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.21] - 2026-09-06 — consistent Studio model selection
+
+### Fixed
+
+- **Existing Studio chats now use the Main AI model selected in Settings.**
+  Reconnecting or retrying no longer combines an old saved GLM model with
+  Claude CLI. Both the model and provider are taken from the selected pair.
+- **Saved-job model repair accepts the whole project team.** Requirements and
+  other interactive specialists no longer cause the update to be rejected.
+- **The active model label reflects the running conversation.** Reading Settings
+  no longer changes the label before the conversation has actually switched.
+- **A failed model switch stops before submitting to the old model.** The saved
+  conversation remains available for retry after fixing the connection.
+
+Restart Lyra after updating so both the backend and embedded chat load this fix.
+
 ## [0.19.20] - 2026-09-06 — portable AI connections
 
 ### Fixed

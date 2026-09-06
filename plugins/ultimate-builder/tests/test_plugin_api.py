@@ -249,6 +249,30 @@ def test_confirmed_model_routing_is_forwarded_to_saved_project_jobs(
     }
 
 
+def test_whole_studio_team_repairs_real_saved_job(tmp_path, monkeypatch):
+    module = load_plugin_api()
+    monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
+    project = tmp_path / "project"
+    project.mkdir()
+    runs = module._project_runs_module()
+    queued = runs.queue_project_run(
+        project, ["sw-developer"], models={"sw-developer": "glm-5-2:cloud"},
+        providers={"sw-developer": "ollama-local"},
+    )
+    task_id = queued["tasks"][0]["task_id"]
+    # This is Studio's actual team shape, including mandatory Requirements.
+    result = module.sync_project_run_routing(module.ProjectRunRoutingRequest(
+        workspace=str(project), phases=["req-engineer", "sw-architect", "sw-developer"],
+        models={}, providers={},
+    ))
+    assert result["changed"] == [task_id]
+    with runs.kb.connect_closing() as conn:
+        task = runs.kb.get_task(conn, task_id)
+        assert task.model_override is None
+        assert task.provider_override is None
+
+
 def test_real_move_and_trash_routes_preserve_recovery_points(tmp_path, monkeypatch):
     from tools import checkpoint_manager as cp
 

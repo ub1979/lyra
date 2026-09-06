@@ -1360,10 +1360,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           [activeProvider, info.model].filter(Boolean).join(" · ") ||
             "Project default",
         );
-        setGuidedUsage((current) => ({
-          ...current,
-          model: info.model || current.model,
-        }));
+        // The coordinator badge is updated by session.info from the actual
+        // running agent. Reading Settings alone does not switch that agent.
         setGuidedModelCaps({
           model: info.model,
           supportsVision: info.capabilities?.supports_vision ?? null,
@@ -1379,7 +1377,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           } catch {
             if (active) {
               setBanner(
-                "Lyra changed the project model, but could not update saved agent jobs yet. Retry after the project connection is ready.",
+                "Your AI choice is saved, but Lyra could not update the saved agent jobs. Reopen the project to retry that update.",
               );
             }
           }

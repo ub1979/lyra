@@ -1742,6 +1742,7 @@ docs/lyra/changes/2026-09-06-project-git-isolation.md	docs	md: 2026 09 06 projec
 docs/lyra/changes/2026-09-06-project-job-routing.md	docs	md: 2026 09 06 project job routing
 docs/lyra/changes/2026-09-06-project-workflow-verification.md	docs	md: 2026 09 06 project workflow verification
 docs/lyra/changes/2026-09-06-review-handoff.md	docs	md: 2026 09 06 review handoff
+docs/lyra/changes/2026-09-06-studio-model-retry.md	docs	md: 2026 09 06 studio model retry
 docs/lyra/file-index.tsv	docs	tsv: file index
 docs/middleware/README.md	docs	md: README
 docs/observability/README.md	docs	md: README
@@ -2063,7 +2064,7 @@ hermes_cli/web_dist/assets/RulesCompressed-Medium-CA76_CrB.woff2	hermes_cli	Gene
 hermes_cli/web_dist/assets/RulesCompressed-Regular-BSXFyF4x.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Bold-DZA7s8Pa.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Regular-l8uVympt.woff2	hermes_cli	Generated asset; edit its source and rebuild
-hermes_cli/web_dist/assets/index-7ipr_-5K.js	hermes_cli	Generated asset; edit its source and rebuild
+hermes_cli/web_dist/assets/index-B2ZRms-k.js	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/index-Dtu0QdSj.css	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Bold.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Italic.woff2	hermes_cli	Generated asset; edit its source and rebuild
@@ -6299,6 +6300,7 @@ tests/tui_gateway/test_slash_worker_ansi.py	tests	Behavioral tests: slash worker
 tests/tui_gateway/test_slash_worker_mcp_discovery.py	tests	Behavioral tests: slash worker mcp discovery
 tests/tui_gateway/test_slash_worker_profile_home.py	tests	Behavioral tests: slash worker profile home
 tests/tui_gateway/test_slash_worker_sys_path.py	tests	Behavioral tests: slash worker sys path
+tests/tui_gateway/test_studio_model_routing.py	tests	Behavioral tests: studio model routing
 tests/tui_gateway/test_subagent_child_mirror.py	tests	Behavioral tests: subagent child mirror
 tests/tui_gateway/test_subprocess_encoding.py	tests	Behavioral tests: subprocess encoding
 tests/tui_gateway/test_undo_command.py	tests	Behavioral tests: undo command
@@ -6442,6 +6444,7 @@ tui_gateway/project_tree.py	tui_gateway	Authoritative project -> repo -> lane ->
 tui_gateway/render.py	tui_gateway	Rendering bridge — routes TUI content through Python-side renderers.
 tui_gateway/server.py	tui_gateway	py: server
 tui_gateway/slash_worker.py	tui_gateway	Persistent slash-command worker — one HermesCLI per TUI session.
+tui_gateway/studio_model_routing.py	tui_gateway	Model ownership for the Studio coordinator, separate from worker pins.
 tui_gateway/synthetic_turn.py	tui_gateway	Synthetic GIL-heavy turn driver for the AC-4 isolation certify harness.
 tui_gateway/transport.py	tui_gateway	Transport abstraction for the tui_gateway JSON-RPC server.
 tui_gateway/turn_marker.py	tui_gateway	Durable interrupted-turn markers for the desktop/TUI auto-continue path.

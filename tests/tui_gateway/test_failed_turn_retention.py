@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import threading
 import types
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -187,6 +188,26 @@ def test_completed_turn_still_clears_inflight(emits, turn_env):
     assert completes[0]["status"] == "complete"
     assert "error" not in completes[0]
     assert server._inflight_snapshot(session) is None
+
+
+def test_model_switch_failure_never_calls_previous_model(emits, turn_env, monkeypatch):
+    run = MagicMock()
+    agent = types.SimpleNamespace(
+        session_id="session-key", model="glm-5-2:cloud", run_conversation=run,
+        clear_interrupt=lambda: None,
+    )
+    session = _session(agent=agent, running=True)
+
+    def failed_switch(*args):
+        raise ValueError("Lyra could not use your selected AI model claude-opus-4-6")
+
+    monkeypatch.setattr(server, "_sync_agent_model_with_config", failed_switch)
+    server._run_prompt_submit("rid", "sid", session, "retry my saved work")
+    run.assert_not_called()
+    completed = _events(emits, "message.complete")
+    assert completed[0]["status"] == "error"
+    assert completed[0]["recoverable"] is True
+    assert server._inflight_snapshot(session)["user"] == "retry my saved work"
 
 
 # ── Exception path ─────────────────────────────────────────────────────

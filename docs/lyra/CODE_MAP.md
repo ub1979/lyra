@@ -35,6 +35,7 @@ Durable project jobs → Hermes Kanban dispatcher → isolated worker sessions
 | Recovery snapshots / relocation | `tools/checkpoint_manager.py`, `tools/checkpoint_relocation.py` | Real Git snapshot, move, restore and conflict tests |
 | Dashboard / PTY / event replay | `hermes_cli/web_server.py`, `hermes_cli/dashboard_prompt_state.py` | Server, auth and replay tests |
 | Chat engine | `tui_gateway/`, `ui-tui/src/app/`, `run_agent.py` | Gateway and Ink suites |
+| Studio main AI choice / resumed model | `tui_gateway/studio_model_routing.py`, `tui_gateway/server.py`, `ui-tui/src/app/useSessionLifecycle.ts` | Saved GLM → selected Claude subprocess test, resume RPC and failure-retention tests |
 | Model configuration / routing | `hermes_cli/config.py`, `hermes_cli/external_cli.py`, `agent/`, `plugins/model-providers/` | Provider/config, trusted CLI discovery and routing tests |
 | Remote control | `gateway/`, Telegram routes in `hermes_cli/web_server.py` | Gateway/platform and onboarding tests |
 | Release gates | `.github/workflows/ci.yml`, `scripts/run_tests_parallel.py` | CI classification/discovery tests |

@@ -376,7 +376,8 @@ def test_sess_found(server):
 # ── session.resume payload ────────────────────────────────────────────
 
 
-def test_session_resume_returns_hydrated_messages(server, monkeypatch):
+@pytest.mark.parametrize("skills", [None, ["ultimate-builder:app-it"]])
+def test_session_resume_returns_hydrated_messages(server, monkeypatch, skills):
     class _DB:
         def get_session(self, _sid):
             return {"id": "20260409_010101_abc123"}
@@ -407,7 +408,8 @@ def test_session_resume_returns_hydrated_messages(server, monkeypatch):
             ]
 
     monkeypatch.setattr(server, "_get_db", lambda: _DB())
-    monkeypatch.setattr(server, "_make_agent", lambda sid, key, session_id=None, session_db=None, **_kwargs: object())
+    make_agent = MagicMock(return_value=object())
+    monkeypatch.setattr(server, "_make_agent", make_agent)
     monkeypatch.setattr(server, "_init_session", lambda sid, key, agent, history, cols=80, **_kwargs: None)
     monkeypatch.setattr(server, "_session_info", lambda _agent, _session=None: {"model": "test/model"})
 
@@ -417,11 +419,13 @@ def test_session_resume_returns_hydrated_messages(server, monkeypatch):
             "method": "session.resume",
             # eager_build: exercise the synchronous build path (this test
             # monkeypatches _make_agent/_init_session/_session_info).
-            "params": {"session_id": "20260409_010101_abc123", "cols": 100, "eager_build": True},
+            "params": {"session_id": "20260409_010101_abc123", "cols": 100, "eager_build": True,
+                       **({"skills": skills} if skills is not None else {})},
         }
     )
 
     assert "error" not in resp
+    assert make_agent.call_args.kwargs.get("skills_override") == skills
     assert resp["result"]["message_count"] == 3
     assert resp["result"]["messages"] == [
         {"role": "user", "text": "hello"},
@@ -430,7 +434,8 @@ def test_session_resume_returns_hydrated_messages(server, monkeypatch):
     ]
 
 
-def test_session_resume_defaults_to_deferred_build(server, monkeypatch):
+@pytest.mark.parametrize("skills", [None, ["ultimate-builder:app-it"]])
+def test_session_resume_defaults_to_deferred_build(server, monkeypatch, skills):
     """A normal cold resume (no ``eager_build``) must return the full display
     transcript immediately and register an upgradable live session WITHOUT
     building the agent on the response path — that eager build is the
@@ -486,7 +491,8 @@ def test_session_resume_defaults_to_deferred_build(server, monkeypatch):
         {
             "id": "r1",
             "method": "session.resume",
-            "params": {"session_id": target, "cols": 100},
+            "params": {"session_id": target, "cols": 100,
+                       **({"skills": skills} if skills is not None else {})},
         }
     )
 
@@ -508,6 +514,7 @@ def test_session_resume_defaults_to_deferred_build(server, monkeypatch):
 
     sid = result["session_id"]
     session = server._sessions[sid]
+    assert session.get("create_skills") == skills
     # Registered but not built: agent is None and the resume key is carried so a
     # later prompt.submit / _sess() upgrade continues THIS stored conversation.
     assert session["agent"] is None

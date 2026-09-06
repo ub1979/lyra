@@ -295,7 +295,10 @@ def sync_project_run_routing(
     """Synchronize active project jobs with a user-confirmed routing map."""
     project = _workspace(workspace)
     requested = {str(phase).strip() for phase in phases if str(phase).strip()}
-    unknown = requested.difference(PHASES)
+    # Studio submits its whole team. Interactive/support specialists are valid
+    # selections even though they have no durable phase job to update.
+    support_specialists = {"req-engineer", "oop-restructurer", "health", "learn"}
+    unknown = requested.difference(PHASES).difference(support_specialists)
     if unknown:
         raise ValueError(f"Unknown project phase: {', '.join(sorted(unknown))}")
 

@@ -3843,19 +3843,28 @@ def _apply_model_switch(
 
 def _sync_agent_model_with_config(sid: str, session: dict) -> None:
     """Adopt a config.yaml model change at turn start, like gateways do per
-    message. Sessions pinned with /model keep their choice; a failed switch
-    keeps the current model and never blocks the turn.
+    message. Ordinary sessions pinned with /model keep their choice. Studio's
+    coordinator follows Main AI settings, including after resume; if that
+    switch fails, stop before making a request with the previous model.
     """
     agent = session.get("agent")
-    if agent is None or session.get("model_override"):
+    from tui_gateway.studio_model_routing import is_studio_coordinator
+
+    studio = is_studio_coordinator(
+        session.get("create_skills")
+        if session.get("create_skills") is not None
+        else _parse_tui_skills_env()
+    )
+    if agent is None or (session.get("model_override") and not studio):
         return
     target = _config_model_target()
     if not target[0]:
         return
     seen = session.get("config_model_seen")
     # Record first so a broken config gets one attempt per edit, not per turn.
-    session["config_model_seen"] = target
-    if target == seen:
+    if not studio:
+        session["config_model_seen"] = target
+    if target == seen and not studio:
         return
     model, provider = target
     # Already running the configured model (branched/resumed session before
@@ -3864,6 +3873,10 @@ def _sync_agent_model_with_config(sid: str, session: dict) -> None:
     if model == getattr(agent, "model", "") and (
         not provider or provider == getattr(agent, "provider", "")
     ):
+        if studio:
+            session.pop("model_override", None)
+            session.pop("provider_override", None)
+            session["config_model_seen"] = target
         return
     raw = f"{model} --provider {provider}" if provider else model
     try:
@@ -3880,7 +3893,18 @@ def _sync_agent_model_with_config(sid: str, session: dict) -> None:
             # into config.yaml as the permanent global model.
             persist_override=False,
         )
+        if studio:
+            session.pop("model_override", None)
+            session.pop("provider_override", None)
+            session["config_model_seen"] = target
     except Exception as e:
+        if studio:
+            # A failed settings switch must not submit to the previous model.
+            # Leave it retryable so a repaired connection can succeed next turn.
+            raise ValueError(
+                f"Lyra could not use your selected AI model {model}: {e}. "
+                "Check AI settings and retry; your conversation is saved."
+            ) from e
         _emit(
             "error",
             sid,
@@ -5614,6 +5638,12 @@ def _make_agent(
         if skills_override is not None
         else _parse_tui_skills_env()
     )
+    from tui_gateway.studio_model_routing import studio_model_override
+
+    studio_override = studio_model_override(cfg, startup_skills)
+    if studio_override is not None:
+        model_override = studio_override
+        provider_override = studio_override["provider"]
     if startup_skills:
         from agent.skill_commands import build_preloaded_skills_prompt
 
@@ -7164,6 +7194,13 @@ def _(rid, params: dict) -> dict:
     if not target:
         return _err(rid, 4006, "session_id required")
     try:
+        resume_skills = (
+            _normalize_tui_skills(params.get("skills"))
+            if "skills" in params else None
+        )
+    except ValueError as exc:
+        return _err(rid, 4008, str(exc))
+    try:
         cols = int(params.get("cols", 80))
     except (TypeError, ValueError):
         cols = 80
@@ -7229,6 +7266,8 @@ def _(rid, params: dict) -> dict:
     )
 
     def _reuse_live_payload(sid: str, session: dict) -> dict:
+        if resume_skills is not None:
+            session["create_skills"] = resume_skills
         payload = _live_session_payload(
             sid,
             session,
@@ -7386,6 +7425,8 @@ def _(rid, params: dict) -> dict:
             model_override=overrides.get("model_override"),
             resume_runtime_overrides=overrides or None,
         )
+        if resume_skills is not None:
+            record["create_skills"] = resume_skills
         if (live := _claim_or_reuse_live(sid, target, record, lease)) is not None:
             return _ok(rid, _reuse_live_payload(*live))
 
@@ -7460,6 +7501,7 @@ def _(rid, params: dict) -> dict:
                 session_id=target,
                 session_db=db,
                 platform_override=source,
+                **({"skills_override": resume_skills} if resume_skills is not None else {}),
                 **stored_runtime_overrides,
             )
         finally:
@@ -7486,6 +7528,8 @@ def _(rid, params: dict) -> dict:
             if lease is not None:
                 lease.release()
             other_sid, other_session = live
+            if resume_skills is not None:
+                other_session["create_skills"] = resume_skills
             payload = _live_session_payload(
                 other_sid,
                 other_session,
@@ -7516,6 +7560,8 @@ def _(rid, params: dict) -> dict:
                 if init_home_token is not None:
                     reset_hermes_home_override(init_home_token)
             if sid in _sessions:
+                if resume_skills is not None:
+                    _sessions[sid]["create_skills"] = resume_skills
                 if stored_runtime_overrides.get("model_override") is not None:
                     _sessions[sid]["model_override"] = stored_runtime_overrides[
                         "model_override"
