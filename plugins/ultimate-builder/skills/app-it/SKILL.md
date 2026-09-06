@@ -70,11 +70,13 @@ and deletions.
 
 Before changing files, inspect `git status` and preserve unrelated user
 changes. After verification, stage only files belonging to the current work
-and commit them with a clear message. If the project is not yet a Git
-repository, initialize it before the first project change and create a baseline
-commit. A local commit is mandatory even when the user has not asked for a
-remote push. Pushing to a remote remains a separate action and requires an
-explicit user request.
+and commit them with a clear message. Before any Git action, verify that
+`git rev-parse --show-toplevel` is exactly the selected project workspace. The
+project repository is prepared by Lyra before work begins; if the root differs,
+stop and report the isolation problem. Never stage or commit through Lyra's
+application repository. A local commit is mandatory even when the user has not
+asked for a remote push. Pushing to a remote remains a separate action and
+requires an explicit user request in the main Lyra conversation.
 
 ## Project Brain is automatic
 

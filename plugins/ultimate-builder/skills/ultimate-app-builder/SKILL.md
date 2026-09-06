@@ -133,6 +133,12 @@ and current Git state. If it is absent, create it before the first completed
 change. If `.sdlc/context.md` exists, use it once as migration input. Do not
 overwrite unrelated user changes.
 
+Before any Git action, verify that `git rev-parse --show-toplevel` resolves to
+the exact selected workspace. Run Git from that project root only. Never stage,
+commit, reset, merge, rebase, or push Lyra's application repository while doing
+project work. If the repository root differs, stop and report the isolation
+problem instead of trying to repair the parent repository.
+
 The Project Brain is automatic for every phase. Keep it under 16 KB and use it
 as a retrieval map containing product boundaries, architecture, durable
 decisions with rationale and evidence paths, current verified state, open

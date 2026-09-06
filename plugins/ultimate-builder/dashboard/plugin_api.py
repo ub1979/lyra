@@ -100,6 +100,10 @@ def _project_brain_module():
     return _load_project_module("project_brain")
 
 
+def _project_repository_module():
+    return _load_project_module("project_repository")
+
+
 def _parse_progress_ledger(markdown):
     return _load_project_module("project_progress")._parse_progress_ledger(markdown)
 
@@ -697,14 +701,18 @@ def register_project(payload: ProjectRegisterRequest) -> dict[str, Any]:
     }
     if project in protected_roots:
         raise HTTPException(status_code=403, detail="Choose the project folder itself.")
-    marker = project / _PROJECT_MARKER
+    repository_module = _project_repository_module()
     try:
-        marker.write_text("Managed by Lyra\n", encoding="utf-8")
-    except OSError as exc:
+        repository = repository_module.ensure_project_repository(
+            project,
+            lyra_checkout=_LYRA_CHECKOUT,
+            managed_roots=_ALLOWED_CHECKOUT_WORKSPACES,
+        )
+    except repository_module.ProjectRepositoryError as exc:
         raise HTTPException(
-            status_code=500, detail="Lyra could not prepare this project folder."
+            status_code=409, detail=str(exc)
         ) from exc
-    return {"ok": True, "project": str(project)}
+    return {"ok": True, "project": str(project), "repository": repository}
 
 
 @router.post("/project/move")

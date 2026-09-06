@@ -67,6 +67,8 @@ def test_build_command_injects_normal_idrak_turn(tmp_path, monkeypatch):
     assert response == "Ultimate Builder started in the current Lyra conversation."
     assert len(ctx.injected) == 1
     assert "skill_view(name='ultimate-builder:ultimate-app-builder')" in ctx.injected[0]
+    assert (tmp_path / ".git").is_dir()
+    assert (tmp_path / ".lyra-project").is_file()
 
 
 def test_build_command_protects_lyra_checkout():
@@ -98,6 +100,8 @@ def test_dashboard_enforces_requirements_gate_with_real_skill_loading():
     assert "disabled_specialist_labels: disabledLabels" in dashboard
     assert "specialist_models: specialistModels" in dashboard
     assert "delegate_task.model" in dashboard
+    assert "project_git_rule" in dashboard
+    assert "Never stage, commit, reset, merge, rebase, or push Lyra's application repository" in dashboard
     assert '"LLM for " + skill[1]' in dashboard
     assert 'requireSafeWorkspace(item.path)' in dashboard
     assert 'api.getDefaultCwd()' in dashboard

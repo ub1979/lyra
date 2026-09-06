@@ -61,6 +61,23 @@ def _project_brain_contract() -> str:
     return str(module.PROJECT_BRAIN_CONTRACT)
 
 
+def _ensure_project_repository(project: Path) -> dict[str, object]:
+    path = Path(__file__).resolve().with_name("project_repository.py")
+    spec = importlib.util.spec_from_file_location(
+        "lyra_ultimate_builder_project_repository_for_jobs", path
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Could not load project Git isolation")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    checkout = Path(__file__).resolve().parents[2]
+    return module.ensure_project_repository(
+        project,
+        lyra_checkout=checkout,
+        managed_roots=(checkout / "my_projects", checkout / "song-maker-studio"),
+    )
+
+
 def _workspace(path: str | Path) -> Path:
     project = Path(path).expanduser().resolve(strict=False)
     if not project.is_dir():
@@ -113,9 +130,9 @@ Required outcome: complete the {info["label"]} phase and leave {info["artifact"]
 
 {_project_brain_contract()}
 
-Read the repository instructions, then the Project Brain, requirements.md, plan.md, and .sdlc/progress.md when present. Adopt existing partial work; never restart completed work merely because this is a recovered job. Preserve unrelated user changes. Before editing, inspect Git status. Work only in this project.
+Read the repository instructions, then the Project Brain, requirements.md, plan.md, and .sdlc/progress.md when present. Adopt existing partial work; never restart completed work merely because this is a recovered job. Preserve unrelated user changes. Before editing, verify `git rev-parse --show-toplevel` resolves to this exact workspace, then inspect Git status. Run every Git command from this project root; never stage or commit files in Lyra's application repository. Work only in this project.
 
-Update .sdlc/progress.md to running when work starts. Perform the real work and verification required by the loaded specialist playbook. Save every project change in a local Git commit after verification, staging only files from this task. Initialize Git and create a baseline commit first if needed. Never push to a remote unless the user separately asks in their main Lyra conversation.
+Update .sdlc/progress.md to running when work starts. Perform the real work and verification required by the loaded specialist playbook. Save every project change in a local Git commit after verification, staging only files from this task. The project repository is prepared before dispatch; stop and report an isolation error if its root is no longer this workspace. Never push to a remote unless the user separately asks in their main Lyra conversation.
 
 Before finishing, update the ledger to verified or blocked with plain evidence paths. Use the Kanban completion action only when the phase is genuinely complete; otherwise use the Kanban block action with the exact user decision or missing capability needed. Your final summary must be plain language: what the user can do now, whether the whole application is finished, what remains, and any blocker. Do not lead with roadmap codes, schema names, or raw test counts.
 """
@@ -164,6 +181,7 @@ def queue_project_run(
     origin = _origin()
     worker_profile = assignee or str(origin["profile"] or "default")
     validate_project_worker(worker_profile)
+    repository = _ensure_project_repository(project)
     board = kb.get_current_board()
     existing = _project_tasks(project, include_archived=True)
     latest_by_phase: dict[str, tuple[str, kb.Task]] = {}
@@ -239,6 +257,7 @@ def queue_project_run(
         "project": str(project),
         "board": board,
         "tasks": created,
+        "repository": repository,
         "message": "Project agents were saved as recoverable background jobs.",
     }
 

@@ -8,6 +8,18 @@ PORT="${LYRA_PORT:-9119}"
 cd "$PROJECT_DIR"
 mkdir -p "$WORKSPACE_DIR"
 
+# Keep generated projects out of this application's Git history. This is a
+# repository-local setting; project repositories below my_projects have their
+# own .git directories and their own hooks/configuration.
+if command -v git >/dev/null 2>&1 && git rev-parse --git-dir >/dev/null 2>&1; then
+  CURRENT_HOOKS_PATH="$(git config --local --get core.hooksPath || true)"
+  if [[ -z "$CURRENT_HOOKS_PATH" || "$CURRENT_HOOKS_PATH" == ".githooks" ]]; then
+    git config --local core.hooksPath .githooks
+  else
+    echo "Warning: Lyra's project privacy Git guard is not active because this checkout uses custom Git hooks."
+  fi
+fi
+
 if command -v lsof >/dev/null 2>&1; then
   RUNNING_PID="$(lsof -tiTCP:"$PORT" -sTCP:LISTEN 2>/dev/null | head -n 1 || true)"
   if [[ -n "$RUNNING_PID" ]]; then

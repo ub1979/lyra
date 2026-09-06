@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT="$(git rev-parse --show-toplevel)"
+PYTHON="$ROOT/.venv/bin/python"
+if [[ ! -x "$PYTHON" ]]; then
+  PYTHON="python3"
+fi
+exec "$PYTHON" "$ROOT/scripts/lyra_git_guard.py" pre-commit

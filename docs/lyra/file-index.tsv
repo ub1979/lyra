@@ -1,6 +1,8 @@
 path	area	summary
 .dockerignore	root	configuration: .dockerignore
 .gitattributes	root	configuration: .gitattributes
+.githooks/pre-commit	.githooks	configuration: pre commit
+.githooks/pre-push	.githooks	configuration: pre push
 .github/ISSUE_TEMPLATE/bug_report.yml	.github	yml: bug report
 .github/ISSUE_TEMPLATE/config.yml	.github	yml: config
 .github/ISSUE_TEMPLATE/feature_request.yml	.github	yml: feature request
@@ -1734,6 +1736,7 @@ docs/lyra/CHANGE_MANAGEMENT.md	docs	md: CHANGE MANAGEMENT
 docs/lyra/CODE_MAP.md	docs	md: CODE MAP
 docs/lyra/changes/2026-09-05-live-chat-feedback.md	docs	md: 2026 09 05 live chat feedback
 docs/lyra/changes/2026-09-05-studio-reliability.md	docs	md: 2026 09 05 studio reliability
+docs/lyra/changes/2026-09-06-project-git-isolation.md	docs	md: 2026 09 06 project git isolation
 docs/lyra/changes/2026-09-06-project-job-routing.md	docs	md: 2026 09 06 project job routing
 docs/lyra/changes/2026-09-06-project-workflow-verification.md	docs	md: 2026 09 06 project workflow verification
 docs/lyra/changes/2026-09-06-review-handoff.md	docs	md: 2026 09 06 review handoff
@@ -3000,6 +3003,7 @@ plugins/ultimate-builder/dashboard/plugin_api.py	plugins	Dashboard API for Ultim
 plugins/ultimate-builder/plugin.yaml	plugins	yaml: plugin
 plugins/ultimate-builder/project_brain.py	plugins	Verified, bounded project memory for Lyra Studio builds.
 plugins/ultimate-builder/project_progress.py	plugins	Parse project progress conservatively and separate reports from evidence.
+plugins/ultimate-builder/project_repository.py	plugins	Create and verify project-local Git repositories without touching Lyra Git.
 plugins/ultimate-builder/project_run_cli.py	plugins	CLI adapter for durable Lyra project jobs.
 plugins/ultimate-builder/project_runs.py	plugins	Durable Ultimate Builder phase runs backed by Hermes Kanban.
 plugins/ultimate-builder/scripts/evaluate_candidates.py	plugins	py: evaluate candidates
@@ -3037,6 +3041,7 @@ plugins/ultimate-builder/tests/test_plugin_api.py	plugins	Behavioral tests: plug
 plugins/ultimate-builder/tests/test_preview_api.py	plugins	Behavioral tests: preview api
 plugins/ultimate-builder/tests/test_project_brain.py	plugins	Behavioral tests: project brain
 plugins/ultimate-builder/tests/test_project_progress.py	plugins	Behavioral tests: project progress
+plugins/ultimate-builder/tests/test_project_repository.py	plugins	Behavioral tests: project repository
 plugins/ultimate-builder/tests/test_project_runs.py	plugins	Behavioral tests: project runs
 plugins/video_gen/deepinfra/__init__.py	plugins	DeepInfra video generation backend.
 plugins/video_gen/deepinfra/plugin.yaml	plugins	yaml: plugin
@@ -3109,6 +3114,7 @@ scripts/kill_modal.sh	scripts	sh: kill modal
 scripts/lib/node-bootstrap.sh	scripts	sh: node bootstrap
 scripts/lint_diff.py	scripts	py: lint diff
 scripts/lyra_code_map.py	scripts	Generate a deterministic file inventory for AI-assisted Lyra maintenance.
+scripts/lyra_git_guard.py	scripts	Reject generated project content from Lyra application commits and pushes.
 scripts/profile-tui.py	scripts	py: profile tui
 scripts/release.py	scripts	py: release
 scripts/run_tests.sh	scripts	sh: run tests
@@ -5832,6 +5838,7 @@ tests/test_lazy_session_regressions.py	tests	Behavioral tests: lazy session regr
 tests/test_lint_config.py	tests	Behavioral tests: lint config
 tests/test_live_system_guard_self_test.py	tests	Behavioral tests: live system guard self test
 tests/test_lyra_code_map.py	tests	Behavioral tests: lyra code map
+tests/test_lyra_git_guard.py	tests	Behavioral tests: lyra git guard
 tests/test_lyra_project_privacy.py	tests	Behavioral tests: lyra project privacy
 tests/test_lyra_test_discovery.py	tests	Behavioral tests: lyra discovery
 tests/test_mcp_serve.py	tests	Behavioral tests: mcp serve

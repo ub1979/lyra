@@ -38,6 +38,8 @@ def test_queue_creates_dependency_ordered_recoverable_jobs(tmp_path, monkeypatch
         "sw-architect",
     ]
     assert [task["status"] for task in queued["tasks"]] == ["ready", "todo"]
+    assert queued["repository"]["root"] == str(project.resolve())
+    assert queued["repository"]["has_remote"] is False
     assert state["available"] is True
     assert state["active_task_count"] == 2
     with module.kb.connect_closing() as conn:
@@ -109,6 +111,7 @@ def test_invalid_automatic_worker_is_rejected_before_any_job_is_created(tmp_path
     with pytest.raises(ValueError, match="does not exist"):
         module.queue_project_run(project, ["researcher", "sw-architect"], assignee="missing-lyra-worker")
     assert module.project_run_state(project)["tasks"] == []
+    assert not (project / ".git").exists()
 
 
 def test_generic_project_jobs_remain_visible_and_recover_after_assignment(tmp_path, monkeypatch):

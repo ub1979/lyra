@@ -688,6 +688,7 @@
             ? "Speak as Lyra. Begin with a warm one-sentence greeting, explain that you will help shape the project and choose the right agents, then ask exactly ONE short product question. Hand the detailed interview to the requirements agent rather than running it yourself. Then recommend the smallest useful agent team and ask permission before adding it. Do not write code before the team and requirements are approved."
             : "Speak as Lyra. Inspect the existing workspace read-only, then begin with a warm one-sentence greeting, briefly say what the project appears to be, and ask exactly ONE question about the outcome the user wants. Recommend the smallest useful specialist team and ask permission before adding it.",
           coordination_rule: "Remain the user's single point of contact. Coordinate only the currently enabled specialist phases and verify each phase's evidence. Specialist delegates return before you continue. Stop for user approval at requirements, visual preview for UI projects, team changes, and final delivery. Present checkpoints with Approve / Change / Skip options. Never ask the user to wake or resume an internal workflow.",
+          project_git_rule: "The selected workspace owns a separate local Git repository prepared by Lyra. Before every Git action, verify that git rev-parse --show-toplevel is exactly the workspace. Run Git from that root only. Never stage, commit, reset, merge, rebase, or push Lyra's application repository during project work. Never push the project unless the user explicitly requests it in this conversation.",
           skill_change_rule: "When proposing the smallest useful team, emit exactly one [APP_IT_SKILLS_SET:comma-separated-ids] marker. The dashboard will hide it and show editable checkboxes; the marker is a proposal, not approval. Do not use newly proposed agents until an IDRAK_INTERNAL_SKILLS_UPDATE arrives after the user confirms the selection. Treat that selection and specialist_models map as authoritative and acknowledge it briefly without emitting another marker.",
           model_routing_rule: "For every delegate_task specialist phase, look up its specialist id in specialist_models. When a model is assigned, pass that exact value in delegate_task.model (or the task item's model field for a batch). Never substitute another model. When no model is assigned, omit the model field so the configured delegation/session default is inherited. These assignments apply to specialist delegates only; the coordinating conversation keeps its session model.",
           delivery_rule: templateId === "mvp"
@@ -754,7 +755,7 @@
           ),
           h("div", { className: "ub-studio-nav-actions" },
             h("span", { className: "ub-studio-ready" }, h("i", null), "Ready"),
-            h("span", { className: "ub-version" }, "v0.19.17 beta"),
+            h("span", { className: "ub-version" }, "v0.19.18 beta"),
             textSizeControl(),
             themeToggle(),
             h("button", {

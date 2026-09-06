@@ -88,6 +88,26 @@ def _status_prompt(raw_args: str) -> str:
     )
 
 
+def _prepare_project_repository(cwd: Path | None = None) -> None:
+    project = (cwd or Path.cwd()).expanduser().resolve(strict=False)
+    path = _ROOT / "project_repository.py"
+    spec = importlib.util.spec_from_file_location(
+        "lyra_ultimate_builder_project_repository_for_command", path
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Could not load project Git isolation")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    try:
+        module.ensure_project_repository(
+            project,
+            lyra_checkout=_LYRA_CHECKOUT,
+            managed_roots=_ALLOWED_CHECKOUT_WORKSPACES,
+        )
+    except module.ProjectRepositoryError as exc:
+        raise RuntimeError(str(exc)) from exc
+
+
 def register(ctx) -> None:
     cli_path = _ROOT / "project_run_cli.py"
     spec = importlib.util.spec_from_file_location(
@@ -102,6 +122,10 @@ def register(ctx) -> None:
         prompt = _command_prompt(raw_args)
         if prompt.startswith("Usage:") or prompt.startswith("Lyra protected"):
             return prompt
+        try:
+            _prepare_project_repository()
+        except RuntimeError as exc:
+            return f"Lyra could not safely prepare this project's local history: {exc}"
         if ctx.inject_message(prompt):
             return "Ultimate Builder started in the current Lyra conversation."
         return (

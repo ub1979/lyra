@@ -9,6 +9,26 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.18] - 2026-09-06 — private project histories
+
+### Added
+
+- **Every Lyra project now owns its local history.** Opening a project, starting
+  `/ultimate-build`, or queuing saved project work creates or verifies a Git
+  repository inside that project before an agent can make a commit.
+- **Lyra protects its own releases from project files.** Local commit and push
+  safeguards refuse generated project content, including an accidentally
+  staged nested-project link.
+
+### Fixed
+
+- **Project commits can no longer move Lyra's `main` branch.** Project agents
+  verify the exact project root before Git work and stop safely when an older
+  project is still attached to Lyra's history.
+- **Existing project work is preserved during setup.** Lyra's marker-only first
+  commit does not sweep in staged, unstaged, or untracked files, and it never
+  adds a remote or pushes without a separate user request.
+
 ## [0.19.17] - 2026-09-06 — reliable project handoffs
 
 ### Added

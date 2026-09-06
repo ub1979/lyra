@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import subprocess
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -259,9 +260,18 @@ def test_register_and_move_project_without_overwriting(tmp_path, monkeypatch):
 
     destination = destination_parent / "music-app"
     assert registered["ok"] is True
+    assert registered["repository"]["root"] == str(project.resolve())
+    assert registered["repository"]["has_remote"] is False
     assert moved["destination"] == str(destination)
     assert not project.exists()
     assert (destination / module._PROJECT_MARKER).is_file()
+    repository_root = subprocess.run(
+        ["git", "-C", str(destination), "rev-parse", "--show-toplevel"],
+        capture_output=True,
+        check=True,
+        text=True,
+    ).stdout.strip()
+    assert repository_root == str(destination.resolve())
 
     project = source_parent / "music-app"
     project.mkdir(parents=True)
