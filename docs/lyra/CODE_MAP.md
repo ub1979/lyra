@@ -24,6 +24,8 @@ Durable project jobs → Hermes Kanban dispatcher → isolated worker sessions
 | Worker presentation | `web/src/lib/project-agent-activity.ts`, `web/src/components/ProjectAgentJobs.tsx` | Pure state and rendering tests |
 | Phase reports / evidence | `plugins/ultimate-builder/project_progress.py`, `hermes_cli/project_evidence.py` | Negative status, missing file and path-escape tests |
 | Project jobs | `plugins/ultimate-builder/project_runs.py` | Real SQLite lifecycle tests |
+| Job creation notification policy | `hermes_cli/kanban_notifications.py` | CLI/tool/phase creation, opt-out and idempotent subscription tests |
+| Saved review / input handoff | `hermes_cli/project_job_attention.py`, `web/src/lib/project-attention.ts`, `web/src/components/ProjectAttention.tsx` | Latest-event metadata, coordinator envelope and actionable/stale panel tests |
 | Approval → worker → chat recovery | `tests/tui_gateway/test_lyra_project_workflow.py`, `tests/fixtures/lyra_workflow_worker.py` | Real prompt/event handlers, subprocess, Git/SQLite, notification retry and final chat event; controlled model/socket boundaries |
 | Project worker eligibility | `hermes_cli/project_job_status.py` | Queue rejection, external-worker visibility and assignment-recovery tests |
 | Indexed job storage | `hermes_cli/kanban_db.py` | Database, migration and query-plan tests |

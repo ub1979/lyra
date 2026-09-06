@@ -1972,6 +1972,7 @@ export interface UltimateBuilderRunTask {
   wait_reason?: string;
   paused_by_user?: boolean;
   attention_id?: string | null;
+  attention_kind?: "review" | "input" | "blocked" | null;
   dispatch_issue?: string;
 }
 

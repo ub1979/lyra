@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { UltimateBuilderRunState } from '../lib/api'
 import type { GuidedClarificationRequest } from '../lib/guided-clarification'
 import { QuestionNotifications } from '../lib/question-notifications'
+import { needsTechnicalReview } from '../lib/project-attention'
 
 interface StudioQuestionAlertsProps {
   workspace: string
@@ -37,10 +38,10 @@ export function StudioQuestionAlerts({ workspace, question, runState, stale }: S
     const alerts = question ? [{ id: question.requestId, title: 'Lyra needs your answer' }] : []
     if (!stale)
       for (const task of runState?.tasks ?? []) {
-        if (task.status === 'blocked' && task.block_kind === 'needs_input' && !task.paused_by_user) {
+        if (['blocked', 'triage'].includes(task.status) && task.block_kind === 'needs_input' && !task.paused_by_user) {
           alerts.push({
             id: `${task.board}:${task.task_id}:${task.attention_id ?? task.last_activity_at}`,
-            title: `${task.label} needs your answer`
+            title: needsTechnicalReview(task) ? 'Project work is waiting for review' : `${task.label} needs your answer`
           })
         }
       }

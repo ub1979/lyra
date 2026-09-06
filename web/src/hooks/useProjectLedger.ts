@@ -21,6 +21,9 @@ export function useProjectLedger(guided: boolean, workspaceParam: string) {
       try {
         const state = await api.getUltimateBuilderState(workspaceParam)
         if (cancelled) return
+        // The API can preserve phase history while its job reader fails.
+        // A successful HTTP response is not proof that the job state is live.
+        if (state.run_state?.state === 'unavailable') throw new Error('Project jobs unavailable')
         setGuidedLedger({
           workspace: workspaceParam,
           steps: state.phase_state.available

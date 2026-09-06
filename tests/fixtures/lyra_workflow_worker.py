@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import subprocess
+import sys
 import time
 
 from hermes_cli import kanban_db as kb
@@ -52,12 +53,21 @@ def main() -> None:
     ):
         subprocess.run(["git", *args], cwd=workspace, check=True, timeout=10)
     with kb.connect_closing() as conn:
-        assert kb.complete_task(
-            conn,
-            task_id,
-            result="Controlled research evidence committed locally",
-            expected_run_id=run_id,
-        )
+        if "--review" in sys.argv:
+            assert kb.block_task(
+                conn,
+                task_id,
+                kind="needs_input",
+                reason="review-required: Check research-report.md before the next task.",
+                expected_run_id=run_id,
+            )
+        else:
+            assert kb.complete_task(
+                conn,
+                task_id,
+                result="Controlled research evidence committed locally",
+                expected_run_id=run_id,
+            )
 
 
 if __name__ == "__main__":

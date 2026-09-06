@@ -12,6 +12,8 @@ from typing import Any, Iterable
 
 from hermes_cli import kanban_db as kb
 from hermes_cli.project_job_status import project_job_dispatch_issue, validate_project_worker
+from hermes_cli.project_job_attention import task_attention
+from hermes_cli.kanban_notifications import subscribe_task_origin
 
 
 TASK_KEY_PREFIX = "lyra-project:v1:"
@@ -185,11 +187,14 @@ def queue_project_run(
                 and previous[1].status in ACTIVE_STATUSES | {"done"}
             ):
                 task = previous[1]
+                with kb.connect_closing(board=previous[0]) as origin_conn:
+                    subscribed = subscribe_task_origin(origin_conn, task.id)
                 created.append({
                     "task_id": task.id,
                     "phase": phase,
                     "status": task.status,
                     "reused": True,
+                    "subscribed": subscribed,
                 })
                 parent_ids = [task.id]
                 continue
@@ -219,22 +224,14 @@ def queue_project_run(
                 goal_max_turns=30,
                 session_id=origin["session_id"],
             )
-            if origin["platform"] and origin["chat_id"]:
-                kb.add_notify_sub(
-                    conn,
-                    task_id=task_id,
-                    platform=str(origin["platform"]),
-                    chat_id=str(origin["chat_id"]),
-                    thread_id=origin["thread_id"],
-                    user_id=origin["user_id"],
-                    notifier_profile=str(origin["profile"]),
-                )
+            subscribed = subscribe_task_origin(conn, task_id)
             task = kb.get_task(conn, task_id)
             created.append({
                 "task_id": task_id,
                 "phase": phase,
                 "status": task.status if task else "ready",
                 "reused": False,
+                "subscribed": subscribed,
             })
             parent_ids = [task_id]
     return {
@@ -261,21 +258,8 @@ def project_run_state(workspace: str | Path) -> dict[str, Any]:
     for phase, (board, task) in latest.items():
         # Waiting for a decision is not a worker failure. Expose the saved
         # reason separately so Studio can explain it without guessing from chat.
-        wait_reason = ""
-        attention_id = None
-        if task.status == "blocked":
-            with kb.connect_closing(board=board) as conn:
-                last_block = next(
-                    (
-                        event
-                        for event in reversed(kb.list_events(conn, task.id))
-                        if event.kind == "blocked"
-                    ),
-                    None,
-                )
-            if last_block and isinstance(last_block.payload, dict):
-                wait_reason = str(last_block.payload.get("reason") or "")
-                attention_id = str(last_block.id)
+        with kb.connect_closing(board=board) as conn:
+            attention = task_attention(conn, task)
         items.append({
             "phase": phase,
             "label": PHASES[phase]["label"] if phase in PHASES else task.title,
@@ -285,10 +269,9 @@ def project_run_state(workspace: str | Path) -> dict[str, Any]:
             "dispatch_issue": project_job_dispatch_issue(task),
             "attempts": task.consecutive_failures,
             "last_error": task.last_failure_error or "",
-            "block_kind": task.block_kind if task.status == "blocked" else None,
-            "wait_reason": wait_reason,
-            "attention_id": attention_id,
-            "paused_by_user": wait_reason == PAUSE_REASON,
+            "block_kind": task.block_kind if task.status in {"blocked", "triage"} else None,
+            **attention,
+            "paused_by_user": attention["wait_reason"] == PAUSE_REASON,
             "last_activity_at": task.last_heartbeat_at
             or task.completed_at
             or task.started_at

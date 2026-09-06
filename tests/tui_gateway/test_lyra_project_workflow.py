@@ -155,15 +155,64 @@ def approve_after_reconnect(rt):
 
 
 @pytest.mark.parametrize("fail_first_delivery", [False, True])
-def test_approval_to_worker_to_resumed_chat(runtime, monkeypatch, fail_first_delivery):
+@pytest.mark.parametrize("creation", ["phase", "raw-review"])
+def test_approval_to_worker_to_resumed_chat(
+    runtime, monkeypatch, fail_first_delivery, creation
+):
     rt = runtime
     approve_after_reconnect(rt)
-    queued = rt.runs.queue_project_run(rt.project, ["researcher"])
-    task_id = queued["tasks"][0]["task_id"]
+    if creation == "raw-review":
+        # Real CLI parser/handler in a fresh process, as a terminal tool calls
+        # it. The test never manually adds a notification subscription.
+        script = (
+            "import argparse; from hermes_cli.kanban import build_parser, kanban_command; "
+            "p=argparse.ArgumentParser(); build_parser(p.add_subparsers()); "
+            "raise SystemExit(kanban_command(p.parse_args()))"
+        )
+        command = [
+            sys.executable,
+            "-c",
+            script,
+            "kanban",
+            "create",
+            "Initial project setup",
+            "--assignee",
+            "default",
+            "--workspace",
+            f"dir:{rt.project}",
+            "--idempotency-key",
+            "raw-review-regression",
+            "--json",
+        ]
+        queued = json.loads(
+            subprocess.run(
+                command, check=True, capture_output=True, text=True, timeout=15
+            ).stdout
+        )
+        repeated = json.loads(
+            subprocess.run(
+                command, check=True, capture_output=True, text=True, timeout=15
+            ).stdout
+        )
+        assert queued["subscribed"] and repeated["subscribed"]
+        task_id = queued["id"]
+        assert repeated["id"] == task_id
+        monkeypatch.setattr(
+            rt.kb,
+            "_resolve_hermes_argv",
+            lambda: [
+                sys.executable,
+                str(ROOT / "tests/fixtures/lyra_workflow_worker.py"),
+                "--review",
+            ],
+        )
+    else:
+        queued = rt.runs.queue_project_run(rt.project, ["researcher"])
+        task_id = queued["tasks"][0]["task_id"]
+        retry = rt.runs.queue_project_run(rt.project, ["researcher"])
+        assert retry["tasks"][0]["task_id"] == task_id
+        assert retry["tasks"][0]["reused"]
     assert rt.runs.project_run_state(rt.project)["state"] == "queued"
-    retry = rt.runs.queue_project_run(rt.project, ["researcher"])
-    assert retry["tasks"][0]["task_id"] == task_id
-    assert retry["tasks"][0]["reused"]
 
     with rt.kb.connect_closing() as conn:
         dispatched = rt.kb.dispatch_once(conn, max_spawn=1)
@@ -177,11 +226,18 @@ def test_approval_to_worker_to_resumed_chat(runtime, monkeypatch, fail_first_del
             assert not rt.kb.dispatch_once(conn, max_spawn=1).spawned
         # No browser/session exists when the worker finishes.
         (rt.project / "allow-completion").touch()
+        expected_status = "blocked" if creation == "raw-review" else "done"
         until(
             lambda: (
-                rt.runs.project_run_state(rt.project)["tasks"][0]["status"] == "done"
+                rt.runs.project_run_state(rt.project)["tasks"][0]["status"]
+                == expected_status
             )
         )
+        if creation == "raw-review":
+            state = rt.runs.project_run_state(rt.project)
+            assert state["state"] == "needs_attention"
+            assert state["tasks"][0]["attention_kind"] == "review"
+            assert state["tasks"][0]["attention_id"]
         evidence = subprocess.run(
             ["git", "show", "HEAD:research-report.md"],
             cwd=rt.project,
@@ -265,14 +321,24 @@ def test_approval_to_worker_to_resumed_chat(runtime, monkeypatch, fail_first_del
             poller.join(timeout=6)
         assert not poller.is_alive()
     assert len(delivered) == 1
-    assert "Status: done" in delivered[0]
+    data = json.loads(delivered[0].split("\nJob data: ", 1)[1])
+    assert data["task_status"] == expected_status
+    assert data["task_id"] == task_id
+    if creation == "raw-review":
+        assert data["attention_kind"] == "review"
+        assert data["wait_reason"].startswith("review-required:")
     assert str(rt.project) in delivered[0]
     session.pop("_kanban_notification_next_poll", None)
     assert rt.server._claim_kanban_tui_notification("resumed", session) is None
     frames = [
         json.loads(line) for line in rt.server._real_stdout.getvalue().splitlines()
     ]
-    assert any("finished. Lyra is checking" in str(frame) for frame in frames)
+    notice = (
+        "paused for review"
+        if creation == "raw-review"
+        else "finished. Lyra is checking"
+    )
+    assert any(notice in str(frame) for frame in frames)
     completed = [
         frame["params"]["payload"]
         for frame in frames

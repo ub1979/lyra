@@ -10,7 +10,7 @@ describe('project status polling', () => {
     vi.useRealTimers()
     vi.restoreAllMocks()
   })
-  it('does not overlap requests and marks retained data stale after failure', async () => {
+  it.each(['network', 'job-reader'])('does not overlap requests and marks retained data stale after %s failure', async (failure) => {
     vi.useFakeTimers()
     let resolve!: (state: UltimateBuilderState) => void
     const read = vi.spyOn(api, 'getUltimateBuilderState').mockImplementationOnce(
@@ -43,7 +43,8 @@ describe('project status polling', () => {
         } as unknown as UltimateBuilderState)
       })
       expect(state?.stale).toBe(false)
-      read.mockRejectedValueOnce(new Error('offline'))
+      if (failure === 'network') read.mockRejectedValueOnce(new Error('offline'))
+      else read.mockResolvedValueOnce({ run_state: { state: 'unavailable' } } as UltimateBuilderState)
       await act(async () => {
         vi.advanceTimersByTime(5_000)
       })

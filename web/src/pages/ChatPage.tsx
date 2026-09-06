@@ -21,6 +21,8 @@ import { GuidedProgressMap } from '../components/GuidedProgressMap';
 import { GuidedAgentAvatar } from '../components/GuidedAgentAvatar';
 import { useProjectLedger } from '../hooks/useProjectLedger';
 import { StudioQuestionAlerts } from '../components/StudioQuestionAlerts';
+import { ProjectAttention } from '../components/ProjectAttention';
+import { projectAttentionPrompt } from '../lib/project-attention';
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
@@ -2368,7 +2370,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     (
       value: string,
       displayValue?: string,
-      options: { applyAgentRouting?: boolean } = {},
+      options: { applyAgentRouting?: boolean; preserveDraft?: boolean } = {},
     ) => {
     const text = value.trim();
     const ws = wsRef.current;
@@ -2446,7 +2448,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       schedule: (run, delayMs) => window.setTimeout(run, delayMs),
       send: (data) => ws.send(data),
     });
-    setGuidedInput("");
+    if (!options.preserveDraft) setGuidedInput("");
     },
     [respondToGuidedClarification, guidedClarificationRef],
   );
@@ -5118,6 +5120,34 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 />
               </div>
             )}
+            <ProjectAttention
+              state={guidedRunState}
+              stale={guidedRunStateStale}
+              disabledReason={
+                !guidedAgentReady || ptyState !== "open"
+                  ? "Reconnect the project chat below to ask Lyra for a review."
+                  : guidedModelReview
+                    ? "Choose the highlighted replacement models first."
+                    : guidedClarification || guidedApproval
+                      ? "Answer the open question above first. Your review request will not replace that answer."
+                      : guidedActivity.phase === "working" || guidedAttachBusy
+                        ? "Lyra is handling your current message. You can request this review once it finishes."
+                        : undefined
+              }
+              onReview={(task) => {
+                // The ref may see a question before React paints the disabled
+                // button. Never send a review request as that question's answer.
+                if (guidedClarificationRef.current) {
+                  setBanner("Answer the open question first, then request the review.");
+                  return;
+                }
+                submitGuidedText(
+                  projectAttentionPrompt(task),
+                  "Please check the paused project work and explain the next step.",
+                  { applyAgentRouting: false, preserveDraft: true },
+                );
+              }}
+            />
             {guidedAttachments.length > 0 && (
               <ul className="mx-auto mb-2 flex max-w-3xl flex-wrap gap-2">
                 {guidedAttachments.map((file, index) => (

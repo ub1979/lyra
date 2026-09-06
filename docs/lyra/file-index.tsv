@@ -1736,6 +1736,7 @@ docs/lyra/changes/2026-09-05-live-chat-feedback.md	docs	md: 2026 09 05 live chat
 docs/lyra/changes/2026-09-05-studio-reliability.md	docs	md: 2026 09 05 studio reliability
 docs/lyra/changes/2026-09-06-project-job-routing.md	docs	md: 2026 09 06 project job routing
 docs/lyra/changes/2026-09-06-project-workflow-verification.md	docs	md: 2026 09 06 project workflow verification
+docs/lyra/changes/2026-09-06-review-handoff.md	docs	md: 2026 09 06 review handoff
 docs/lyra/file-index.tsv	docs	tsv: file index
 docs/middleware/README.md	docs	md: README
 docs/observability/README.md	docs	md: README
@@ -1909,6 +1910,7 @@ hermes_cli/kanban.py	hermes_cli	CLI for the Hermes Kanban board — ``hermes kan
 hermes_cli/kanban_db.py	hermes_cli	SQLite-backed Kanban board for multi-profile, multi-project collaboration.
 hermes_cli/kanban_decompose.py	hermes_cli	Kanban decomposer — fan a triage task out into a graph of child tasks.
 hermes_cli/kanban_diagnostics.py	hermes_cli	Kanban diagnostics — structured, actionable distress signals for tasks.
+hermes_cli/kanban_notifications.py	hermes_cli	Shared caller notification policy for Kanban CLI and model-tool creation.
 hermes_cli/kanban_specify.py	hermes_cli	Kanban triage specifier — flesh out a one-liner into a real spec.
 hermes_cli/kanban_swarm.py	hermes_cli	Kanban Swarm v1: thin swarm topology helpers on top of Kanban.
 hermes_cli/local_ollama.py	hermes_cli	Small, keyless integration with the Ollama app running on this computer.
@@ -1950,6 +1952,7 @@ hermes_cli/profile_describer.py	hermes_cli	Profile describer — auto-generate `
 hermes_cli/profile_distribution.py	hermes_cli	Profile distributions — shareable, packaged Hermes profiles via git.
 hermes_cli/profiles.py	hermes_cli	Profile management for multiple isolated Hermes instances.
 hermes_cli/project_evidence.py	hermes_cli	Bounded, project-local evidence checks; never execute untrusted reports.
+hermes_cli/project_job_attention.py	hermes_cli	Read and explain durable project review/input handoffs without changing jobs.
 hermes_cli/project_job_status.py	hermes_cli	Explain automatic project-worker eligibility without changing Kanban state.
 hermes_cli/projects_cmd.py	hermes_cli	``hermes project`` CLI — manage first-class, multi-folder Projects.
 hermes_cli/projects_db.py	hermes_cli	Per-profile first-class Project store.
@@ -2054,8 +2057,8 @@ hermes_cli/web_dist/assets/RulesCompressed-Medium-CA76_CrB.woff2	hermes_cli	Gene
 hermes_cli/web_dist/assets/RulesCompressed-Regular-BSXFyF4x.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Bold-DZA7s8Pa.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Regular-l8uVympt.woff2	hermes_cli	Generated asset; edit its source and rebuild
-hermes_cli/web_dist/assets/index-BFUDwX70.css	hermes_cli	Generated asset; edit its source and rebuild
-hermes_cli/web_dist/assets/index-CeBTzjj9.js	hermes_cli	Generated asset; edit its source and rebuild
+hermes_cli/web_dist/assets/index-CuO_zPkF.css	hermes_cli	Generated asset; edit its source and rebuild
+hermes_cli/web_dist/assets/index-XuRv8Uvm.js	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Bold.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Italic.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Regular.woff2	hermes_cli	Generated asset; edit its source and rebuild
@@ -5136,6 +5139,7 @@ tests/hermes_cli/test_kanban_boards.py	tests	Behavioral tests: kanban boards
 tests/hermes_cli/test_kanban_cli.py	tests	Behavioral tests: kanban cli
 tests/hermes_cli/test_kanban_cli_dispatch_passthrough.py	tests	Behavioral tests: kanban cli dispatch passthrough
 tests/hermes_cli/test_kanban_core_functionality.py	tests	Behavioral tests: kanban core functionality
+tests/hermes_cli/test_kanban_creation_notifications.py	tests	Behavioral tests: kanban creation notifications
 tests/hermes_cli/test_kanban_db.py	tests	Behavioral tests: kanban db
 tests/hermes_cli/test_kanban_db_init.py	tests	Behavioral tests: kanban db init
 tests/hermes_cli/test_kanban_db_repair.py	tests	Behavioral tests: kanban db repair
@@ -5258,6 +5262,7 @@ tests/hermes_cli/test_profile_export_credentials.py	tests	Behavioral tests: prof
 tests/hermes_cli/test_profile_install_env_encoding.py	tests	Behavioral tests: profile install env encoding
 tests/hermes_cli/test_profiles.py	tests	Behavioral tests: profiles
 tests/hermes_cli/test_profiles_s6_hooks.py	tests	Behavioral tests: profiles s6 hooks
+tests/hermes_cli/test_project_job_attention.py	tests	Behavioral tests: project job attention
 tests/hermes_cli/test_project_plugin_rce_bypass.py	tests	Behavioral tests: project plugin rce bypass
 tests/hermes_cli/test_project_venv_root.py	tests	Behavioral tests: project venv root
 tests/hermes_cli/test_projects_cli.py	tests	Behavioral tests: projects cli
@@ -6957,6 +6962,8 @@ web/src/components/ProfileScopeBanner.tsx	web	tsx: ProfileScopeBanner
 web/src/components/ProfileSwitcher.tsx	web	tsx: ProfileSwitcher
 web/src/components/ProjectAgentJobs.test.tsx	web	Behavioral tests: ProjectAgentJobs.test
 web/src/components/ProjectAgentJobs.tsx	web	tsx: ProjectAgentJobs
+web/src/components/ProjectAttention.test.tsx	web	Behavioral tests: ProjectAttention.test
+web/src/components/ProjectAttention.tsx	web	tsx: ProjectAttention
 web/src/components/ReasoningPicker.tsx	web	* ReasoningPicker — sets the main model's reasoning effort from the dashboard
 web/src/components/ScheduleBuilder.tsx	web	tsx: ScheduleBuilder
 web/src/components/SidebarFooter.tsx	web	tsx: SidebarFooter
@@ -7068,6 +7075,7 @@ web/src/lib/nested.ts	web	ts: nested
 web/src/lib/project-agent-activity.fixtures.ts	web	ts: project agent activity.fixtures
 web/src/lib/project-agent-activity.test.ts	web	Behavioral tests: project-agent-activity.test
 web/src/lib/project-agent-activity.ts	web	ts: project agent activity
+web/src/lib/project-attention.ts	web	ts: project attention
 web/src/lib/prompt-answer-frame.test.ts	web	Behavioral tests: prompt-answer-frame.test
 web/src/lib/pty-mobile-input.test.ts	web	Behavioral tests: pty-mobile-input.test
 web/src/lib/pty-mobile-input.ts	web	ts: pty mobile input

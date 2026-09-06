@@ -291,6 +291,20 @@ command. Specialist IDs such as `sw-architect` are phase/skill names, not worker
 profiles; omit `--assignee` to use the configured profile unless an existing
 profile was explicitly chosen. Never invent a profile from an agent's name.
 
+Technical review is Lyra's responsibility, not a new user approval checkpoint.
+When a worker blocks with `review-required:`, inspect its evidence, use the
+review specialist when appropriate, and record the outcome. Continue only
+through previously approved scope. Never ask a non-technical user to approve
+commit hashes, dependency inventories, or raw test output. If a genuine user
+choice remains, explain what they should inspect, provide a working preview
+when relevant, ask one clear question with options, and wait. Acknowledge their
+answer and verify that the next job actually exists and can run.
+
+For any raw `hermes kanban create` fallback, check the returned `subscribed`
+field; a missing notification link must be corrected before promising a
+background update. Queued, working, waiting for review, and waiting for the
+user are distinct states. Never describe a blocked review as still building.
+
 After queueing and before each progress report, read project-run status. A
 `ready`, `todo`, or `scheduled` job is queued, not running. Only a `running` job
 justifies saying the agent has started. If `dispatch_issue` is present, say the

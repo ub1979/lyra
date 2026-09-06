@@ -1,4 +1,5 @@
 import type { UltimateBuilderRunState, UltimateBuilderRunTask } from './api'
+import { needsTechnicalReview } from './project-attention'
 
 export interface ProjectAgentActivityItem {
   id: string
@@ -26,6 +27,8 @@ function presentTask(task: UltimateBuilderRunTask, stale: boolean): ProjectAgent
   const paused = task.status === 'blocked' && task.paused_by_user
   const status = task.dispatch_issue ? 'Cannot start automatically' : paused
     ? 'Paused by you'
+    : needsTechnicalReview(task)
+      ? 'Waiting for Lyra to review'
     : task.status === 'blocked' && task.block_kind === 'needs_input'
       ? 'Waiting for your input'
       : (STATUS_LABELS[task.status] ?? 'Status unknown')
@@ -34,7 +37,11 @@ function presentTask(task: UltimateBuilderRunTask, stale: boolean): ProjectAgent
     phase: task.phase,
     label: task.label,
     status: stale ? `Last known: ${status}` : status,
-    detail: task.dispatch_issue || (
+    detail: needsTechnicalReview(task)
+      ? 'The worker has paused for a technical check. Use Review with Lyra above the message box; you do not need to inspect code.'
+      : task.status === 'triage'
+        ? 'This step has paused repeatedly. Ask Lyra to explain the problem before trying again.'
+      : task.dispatch_issue || (
       task.status === 'blocked' || task.status === 'triage'
         ? paused
           ? 'Use Resume workers to continue.'

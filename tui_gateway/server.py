@@ -11084,6 +11084,8 @@ def _claim_kanban_tui_notification(sid: str, session: dict) -> dict | None:
                     if not events:
                         continue
                     task = _kb.get_task(conn, task_id)
+                    from hermes_cli.project_job_attention import task_attention
+
                     return {
                         "type": "kanban_task",
                         "task_id": task_id,
@@ -11095,6 +11097,7 @@ def _claim_kanban_tui_notification(sid: str, session: dict) -> dict | None:
                         "thread_id": str(sub.get("thread_id") or ""),
                         "old_cursor": old_cursor,
                         "event_cursor": new_cursor,
+                        **(task_attention(conn, task) if task else {}),
                     }
     except Exception:
         logger.exception("TUI durable project notification poll failed")
@@ -11120,23 +11123,9 @@ def _rewind_kanban_tui_notification(evt: dict) -> None:
 
 
 def _kanban_tui_notification_text(evt: dict) -> tuple[str, str]:
-    status = str(evt.get("task_status") or "")
-    title = str(evt.get("task_title") or "Project agent")
-    visible = (
-        f"{title} needs your attention. Lyra is checking what is needed."
-        if status in {"blocked", "triage"}
-        else f"{title} finished. Lyra is checking the result and what comes next."
-    )
-    internal = (
-        "IDRAK_INTERNAL_PROJECT_TASK_UPDATE: A saved project agent has changed "
-        f"state. Title: {title}. Status: {status}. Workspace: "
-        f"{evt.get('workspace_path') or 'the current project'}. Inspect the "
-        "workspace and .sdlc/progress.md, verify the result, then explain it in "
-        "plain language. Say whether the whole application is finished and what "
-        "remains. Continue only through approved checkpoints and saved durable "
-        "project jobs. Do not expose task ids or internal roadmap codes."
-    )
-    return visible, internal
+    from hermes_cli.project_job_attention import notification_text
+
+    return notification_text(evt)
 
 
 def _notification_poller_loop(

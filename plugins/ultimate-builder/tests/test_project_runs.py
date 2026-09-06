@@ -63,6 +63,43 @@ def test_reopening_chat_reuses_existing_phase_job(tmp_path, monkeypatch):
     assert second["tasks"][0]["reused"] is True
 
 
+@pytest.mark.parametrize("enabled", [True, False])
+def test_reused_phase_repairs_missing_origin_subscription_unless_opted_out(tmp_path, monkeypatch, enabled):
+    from hermes_cli import kanban_notifications
+    from gateway.session_context import set_session_vars
+
+    monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
+    monkeypatch.setattr(kanban_notifications, "load_config", lambda: {
+        "kanban": {"auto_subscribe_on_create": enabled},
+    })
+    project = tmp_path / "project"
+    project.mkdir()
+    module = load_project_runs()
+    tokens = set_session_vars(session_key="")
+    try:
+        first = module.queue_project_run(project, ["sw-developer"])
+        assert not first["tasks"][0]["subscribed"]
+        linked = set_session_vars(session_key="resumed-project-chat")
+        try:
+            for _ in range(2):
+                reused = module.queue_project_run(project, ["sw-developer"])["tasks"][0]
+                assert reused["reused"]
+                assert reused["task_id"] == first["tasks"][0]["task_id"]
+                assert reused["subscribed"] is enabled
+            with module.kb.connect_closing() as conn:
+                subscriptions = module.kb.list_notify_subs(conn)
+            assert len(subscriptions) == (1 if enabled else 0)
+            if enabled:
+                assert subscriptions[0]["chat_id"] == "resumed-project-chat"
+        finally:
+            for token in reversed(linked):
+                token.var.reset(token)
+    finally:
+        for token in reversed(tokens):
+            token.var.reset(token)
+
+
 def test_invalid_automatic_worker_is_rejected_before_any_job_is_created(tmp_path, monkeypatch):
     monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
     monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
