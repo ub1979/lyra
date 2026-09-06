@@ -9,6 +9,31 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.17] - 2026-09-06 — reliable project handoffs
+
+### Added
+
+- **Saved project work stays visible.** Studio now shows durable agent activity,
+  pending questions, and a clear “Review with Lyra” action even after a browser
+  disconnect or when the side panels are collapsed.
+- **Project history has stronger recovery support.** Verified progress, saved
+  jobs, questions, and technical-review handoffs survive reloads and restarts.
+
+### Fixed
+
+- **Lyra no longer appears idle while project agents are working.** The agent
+  list and project map use saved job state instead of guessing from chat text.
+- **Question and review handoffs reach the correct conversation.** CLI-created
+  and Studio-created jobs share the same notification policy, retry safely, and
+  keep technical review separate from user approval.
+- **Long waits are explained.** Active model and tool work now produces visible
+  status, while stale project status is shown as unavailable instead of empty.
+
+### Changed
+
+- **Generated projects are excluded from Lyra releases.** The `my_projects`
+  workspace remains local and is not tracked or published with the application.
+
 ## [0.19.16] - 2026-08-30 — durable project memory
 
 ### Added

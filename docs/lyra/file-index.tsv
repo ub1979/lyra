@@ -5832,6 +5832,7 @@ tests/test_lazy_session_regressions.py	tests	Behavioral tests: lazy session regr
 tests/test_lint_config.py	tests	Behavioral tests: lint config
 tests/test_live_system_guard_self_test.py	tests	Behavioral tests: live system guard self test
 tests/test_lyra_code_map.py	tests	Behavioral tests: lyra code map
+tests/test_lyra_project_privacy.py	tests	Behavioral tests: lyra project privacy
 tests/test_lyra_test_discovery.py	tests	Behavioral tests: lyra discovery
 tests/test_mcp_serve.py	tests	Behavioral tests: mcp serve
 tests/test_mini_swe_runner.py	tests	Behavioral tests: mini swe runner
