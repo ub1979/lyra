@@ -1736,6 +1736,7 @@ docs/lyra/CHANGE_MANAGEMENT.md	docs	md: CHANGE MANAGEMENT
 docs/lyra/CODE_MAP.md	docs	md: CODE MAP
 docs/lyra/changes/2026-09-05-live-chat-feedback.md	docs	md: 2026 09 05 live chat feedback
 docs/lyra/changes/2026-09-05-studio-reliability.md	docs	md: 2026 09 05 studio reliability
+docs/lyra/changes/2026-09-06-natural-decisions.md	docs	md: 2026 09 06 natural decisions
 docs/lyra/changes/2026-09-06-project-git-isolation.md	docs	md: 2026 09 06 project git isolation
 docs/lyra/changes/2026-09-06-project-job-routing.md	docs	md: 2026 09 06 project job routing
 docs/lyra/changes/2026-09-06-project-workflow-verification.md	docs	md: 2026 09 06 project workflow verification
@@ -2060,8 +2061,8 @@ hermes_cli/web_dist/assets/RulesCompressed-Medium-CA76_CrB.woff2	hermes_cli	Gene
 hermes_cli/web_dist/assets/RulesCompressed-Regular-BSXFyF4x.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Bold-DZA7s8Pa.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Regular-l8uVympt.woff2	hermes_cli	Generated asset; edit its source and rebuild
-hermes_cli/web_dist/assets/index-CuO_zPkF.css	hermes_cli	Generated asset; edit its source and rebuild
-hermes_cli/web_dist/assets/index-XuRv8Uvm.js	hermes_cli	Generated asset; edit its source and rebuild
+hermes_cli/web_dist/assets/index-CTu3xekG.js	hermes_cli	Generated asset; edit its source and rebuild
+hermes_cli/web_dist/assets/index-Dtu0QdSj.css	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Bold.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Italic.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Regular.woff2	hermes_cli	Generated asset; edit its source and rebuild
@@ -6950,6 +6951,8 @@ web/src/components/CopyMessageButton.tsx	web	tsx: CopyMessageButton
 web/src/components/DeleteConfirmDialog.tsx	web	tsx: DeleteConfirmDialog
 web/src/components/GuidedAgentAvatar.tsx	web	tsx: GuidedAgentAvatar
 web/src/components/GuidedAppPreview.tsx	web	tsx: GuidedAppPreview
+web/src/components/GuidedApprovalActions.test.tsx	web	Behavioral tests: GuidedApprovalActions.test
+web/src/components/GuidedApprovalActions.tsx	web	tsx: GuidedApprovalActions
 web/src/components/GuidedClarification.test.tsx	web	Behavioral tests: GuidedClarification.test
 web/src/components/GuidedClarification.tsx	web	tsx: GuidedClarification
 web/src/components/GuidedCoordinatorActivity.test.tsx	web	Behavioral tests: GuidedCoordinatorActivity.test

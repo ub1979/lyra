@@ -5,10 +5,10 @@ export interface ProjectAgentJobsProps {
   stale: boolean
 }
 
-/** Read-only projection of durable jobs; these IDs are not chat-worker controls. */
+/** Read-only live-agent projection; these durable IDs are not process controls. */
 export function ProjectAgentJobs({ items, stale }: ProjectAgentJobsProps) {
   return (
-    <div className="min-w-0 space-y-2" aria-label="Saved project agents">
+    <div className="min-w-0 space-y-2" aria-label="Active project agents">
       {stale && (
         <p role="status" className="rounded-xl border border-current/15 p-2 text-text-secondary">
           Project status is temporarily unavailable. Showing the last saved update.

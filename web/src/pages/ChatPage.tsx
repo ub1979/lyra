@@ -128,12 +128,18 @@ import { useSearchParams } from "react-router-dom";
 import { ChatSidebar } from "@/components/ChatSidebar";
 import { CopyMessageButton } from "@/components/CopyMessageButton";
 import { GuidedAppPreview } from "@/components/GuidedAppPreview";
+import { GuidedApprovalActions } from "@/components/GuidedApprovalActions";
 import { GuidedProjectHistory } from "@/components/GuidedProjectHistory";
 import { GuidedCoordinatorActivity } from "@/components/GuidedCoordinatorActivity";
 import { GuidedClarification } from "@/components/GuidedClarification";
 import { useGuidedClarification } from "@/hooks/useGuidedClarification";
 import { ProjectAgentJobs } from "@/components/ProjectAgentJobs";
-import { coordinatorActivityMessage, projectAgentActivity, projectAgentSummary } from "@/lib/project-agent-activity";
+import {
+  activeProjectAgentActivity,
+  coordinatorActivityMessage,
+  projectAgentActivity,
+  projectAgentSummary,
+} from "@/lib/project-agent-activity";
 import { Markdown } from "@/components/Markdown";
 import { ChatSessionList } from "@/components/ChatSessionList";
 import { usePageHeader } from "@/contexts/usePageHeader";
@@ -273,6 +279,7 @@ interface GuidedMessage {
   id: string;
   role: "user" | "assistant" | "error";
   content: string;
+  plain?: boolean;
 }
 
 interface GuidedRunningTool {
@@ -331,6 +338,8 @@ interface GuidedApprovalRequest {
   choices: GuidedApprovalChoice[];
   command: string;
   description: string;
+  fingerprint: string;
+  messageId: string;
 }
 
 interface GuidedModelReviewRequest {
@@ -653,7 +662,6 @@ function GuidedRuntimePanel({
   onRetry,
   onStopWorker,
   paused,
-  recentWorkers,
   runningTool,
   usage,
 }: {
@@ -669,12 +677,13 @@ function GuidedRuntimePanel({
   onRetry: () => void;
   onStopWorker: (id: string) => void;
   paused: boolean;
-  recentWorkers: readonly GuidedWorkerRuntime[];
   runningTool: GuidedRunningTool | null;
   usage: GuidedUsageSnapshot;
 }) {
   const model = usage.model || defaultModelLabel;
-  const jobs = projectAgentActivity(runState, runStateStale);
+  const jobs = activeProjectAgentActivity(
+    projectAgentActivity(runState, runStateStale),
+  );
   const workingCount = activeWorkers.length + jobs.filter((job) => job.running).length;
   const status = runStateStale ? "Status unavailable" : projectAgentSummary(jobs, activeWorkers.length);
 
@@ -813,16 +822,10 @@ function GuidedRuntimePanel({
               </p>
             </article>
           ))}
-          {!activeWorkers.length && recentWorkers.length > 0 && (
-            <p className="rounded-lg border border-current/10 px-2.5 py-2 text-[10px] text-text-secondary">
-              Last: {recentWorkers[0].label} · {recentWorkers[0].status} ·{" "}
-              {recentWorkers[0].calls} calls
-            </p>
-          )}
-          {!jobs.length && !runStateStale && !activeWorkers.length && !recentWorkers.length && (
+          {!jobs.length && !runStateStale && !activeWorkers.length && (
             <p className="rounded-lg border border-dashed border-current/15 px-2.5 py-3 text-[10px] leading-4 text-text-secondary">
-              Background agents will appear here while Lyra keeps chatting
-              with you.
+              No project agents are working right now. Completed work and next
+              phases stay in the Project Map.
             </p>
           )}
         </div>
@@ -1133,6 +1136,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     useState<GuidedUsageSnapshot>(EMPTY_GUIDED_USAGE);
   const [guidedApproval, setGuidedApproval] =
     useState<GuidedApprovalRequest | null>(null);
+  const guidedApprovalRef = useRef<GuidedApprovalRequest | null>(null);
+  const guidedApprovalSequenceRef = useRef(0);
   const {
     request: guidedClarification,
     sending: guidedClarificationSending,
@@ -1172,9 +1177,6 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const guidedActiveWorkers = guidedWorkers.filter(
     (worker) => worker.status === "running" || worker.status === "stopping",
   );
-  const guidedRecentWorkers = guidedWorkers.filter(
-    (worker) => worker.status !== "running" && worker.status !== "stopping",
-  );
   const guidedUnavailableDraftModels = unavailableGuidedModelAssignments(
     guidedSkillModelDraft,
     guidedSkillDraftIds,
@@ -1198,6 +1200,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const guidedProgressSummary = guidedPhaseSummary(guidedPhaseSteps);
   const latestGuidedMessage = guidedMessages[guidedMessages.length - 1] ?? null;
   const showRequirementsApproval =
+    !guidedClarification &&
+    !guidedApproval &&
     guidedActivity.phase === "idle" &&
     latestGuidedMessage?.role === "assistant" &&
     guidedSelectedSpecialistIds.includes("req-engineer") &&
@@ -1209,6 +1213,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     );
   const showWorkflowApproval =
     !showRequirementsApproval &&
+    !guidedClarification &&
+    !guidedApproval &&
     guidedActivity.phase === "idle" &&
     latestGuidedMessage?.role === "assistant" &&
     /\b(?:reply\s+\**approve|approve to continue|approval before)\b/i.test(
@@ -1217,6 +1223,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const showRequirementChoices =
     !showRequirementsApproval &&
     !showWorkflowApproval &&
+    !guidedClarification &&
+    !guidedApproval &&
     guidedActivity.phase === "idle" &&
     latestGuidedMessage?.role === "assistant" &&
     guidedSelectedSpecialistIds.includes("req-engineer") &&
@@ -1381,6 +1389,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     guidedTurnSettledRef.current = true;
     setGuidedActivity({ phase: "idle", text: "", specialist: null });
     setGuidedWorkers([]);
+    guidedApprovalRef.current = null;
     setGuidedApproval(null);
     clearGuidedClarification();
     guidedModelReviewRef.current = null;
@@ -1823,8 +1832,19 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           if (payload?.request_id && payload.question) {
             const id = `clarify-${payload.request_id}`;
             const question = payload.question;
-            setGuidedMessages((messages) => messages.some((message) => message.id === id)
-              ? messages : [...messages, { id, role: "assistant", content: question }]);
+            setGuidedMessages((messages) =>
+              messages.some((message) => message.id === id)
+                ? messages
+                : [
+                    ...messages,
+                    {
+                      id,
+                      role: "assistant",
+                      content: question,
+                      plain: true,
+                    },
+                  ],
+            );
           }
           setGuidedLastSignalAt(Date.now());
           setGuidedActivity({ phase: "working", text: "Waiting for your answer…", specialist: APP_IT_SPECIALIST });
@@ -1882,19 +1902,45 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             return;
           }
         if (type === "approval.request") {
-          setGuidedApproval({
-            choices: guidedApprovalChoices({
-              allowPermanent: payload?.allow_permanent,
-              choices: payload?.choices,
-              smartDenied: payload?.smart_denied,
-            }),
-            command:
-              typeof payload?.command === "string" ? payload.command : "",
-            description:
-              typeof payload?.description === "string"
-                ? payload.description
-                : "This action needs your approval",
+          const choices = guidedApprovalChoices({
+            allowPermanent: payload?.allow_permanent,
+            choices: payload?.choices,
+            smartDenied: payload?.smart_denied,
           });
+          const command =
+            typeof payload?.command === "string" ? payload.command : "";
+          const description =
+            typeof payload?.description === "string"
+              ? payload.description
+              : "This action needs your approval";
+          const fingerprint = JSON.stringify({ choices, command, description });
+          const previous = guidedApprovalRef.current;
+          const messageId =
+            previous?.fingerprint === fingerprint
+              ? previous.messageId
+              : `approval-${Date.now()}-${(guidedApprovalSequenceRef.current += 1)}`;
+          const approval = {
+            choices,
+            command,
+            description,
+            fingerprint,
+            messageId,
+          };
+          guidedApprovalRef.current = approval;
+          setGuidedApproval(approval);
+          setGuidedMessages((messages) =>
+            messages.some((message) => message.id === messageId)
+              ? messages
+              : [
+                  ...messages,
+                  {
+                    id: messageId,
+                    role: "assistant",
+                    content: description,
+                    plain: true,
+                  },
+                ],
+          );
           setGuidedLastSignalAt(Date.now());
           setGuidedActivity((current) => ({
             phase: "working",
@@ -2080,6 +2126,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           return;
         }
         if (type === "message.complete") {
+          guidedApprovalRef.current = null;
           setGuidedApproval(null);
           // A completed parent message is also a definitive boundary for any
           // child phase, even when a provider omitted subagent.complete.
@@ -2464,6 +2511,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       // Its numbered choices are the transport contract; forwarding the key
       // resolves the exact pending request even for profile-scoped gateways.
       socket.send(key);
+      guidedApprovalRef.current = null;
       setGuidedApproval(null);
       setGuidedLastSignalAt(Date.now());
       setGuidedActivity((current) => ({
@@ -4566,7 +4614,6 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                     lastSignalAt={guidedLastSignalAt}
                     onRetry={retryLastGuidedMessage}
                     paused={guidedPaused}
-                    recentWorkers={guidedRecentWorkers}
                     runningTool={guidedRunningTool}
                     usage={guidedUsage}
                     onStopWorker={(id) => stopGuidedWorkers(id)}
@@ -4828,7 +4875,6 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 lastSignalAt={guidedLastSignalAt}
                 onRetry={retryLastGuidedMessage}
                 paused={guidedPaused}
-                recentWorkers={guidedRecentWorkers}
                 runningTool={guidedRunningTool}
                 usage={guidedUsage}
                 onStopWorker={(id) => stopGuidedWorkers(id)}
@@ -4865,42 +4911,6 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                   Retry
                 </Button>
               )}
-            </div>
-          )}
-
-          {guidedClarification && (
-            <GuidedClarification key={guidedClarification.requestId}
-              request={guidedClarification} sending={guidedClarificationSending}
-              error={guidedClarificationError}
-              onAnswer={(answer) => { respondToGuidedClarification(answer); }} />
-          )}
-          {guidedApproval && (
-            <div className="shrink-0 border-b border-warning/35 bg-warning/[0.07] px-4 py-3 sm:px-7">
-              <div role="alert" className="mx-auto max-w-3xl">
-                <strong className="block text-sm text-warning">
-                  Approval needed
-                </strong>
-                <p className="mt-1 text-sm text-text-primary">
-                  {guidedApproval.description}
-                </p>
-                {guidedApproval.command && (
-                  <pre className="mt-2 max-h-28 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-current/15 bg-background-base/70 p-2.5 text-[11px] leading-5 text-text-secondary">
-                    {guidedApproval.command}
-                  </pre>
-                )}
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {guidedApproval.choices.map((choice) => (
-                    <Button
-                      key={choice}
-                      size="sm"
-                      outlined={choice !== "once"}
-                      onClick={() => respondToGuidedApproval(choice)}
-                    >
-                      {GUIDED_APPROVAL_LABELS[choice]}
-                    </Button>
-                  ))}
-                </div>
-              </div>
             </div>
           )}
 
@@ -4992,11 +5002,32 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                           />
                         ) : null}
                       </div>
-                      {message.role === "assistant" ? (
+                      {message.role === "assistant" && !message.plain ? (
                         <Markdown content={message.content} />
                       ) : (
                         message.content
                       )}
+                      {guidedClarification &&
+                        message.id ===
+                          `clarify-${guidedClarification.requestId}` && (
+                          <GuidedClarification
+                            request={guidedClarification}
+                            sending={guidedClarificationSending}
+                            error={guidedClarificationError}
+                            onAnswer={(answer) => {
+                              respondToGuidedClarification(answer);
+                            }}
+                          />
+                        )}
+                      {guidedApproval &&
+                        message.id === guidedApproval.messageId && (
+                          <GuidedApprovalActions
+                            choices={guidedApproval.choices}
+                            command={guidedApproval.command}
+                            labels={GUIDED_APPROVAL_LABELS}
+                            onChoose={respondToGuidedApproval}
+                          />
+                        )}
                       {showRequirementsApproval &&
                         message.id === latestGuidedMessage?.id && (
                           <div className="mt-3 flex flex-wrap gap-2 border-t border-current/10 pt-3">

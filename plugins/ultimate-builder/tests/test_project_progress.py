@@ -42,14 +42,25 @@ def test_completed_job_without_evidence_is_not_verified(tmp_path):
     assert "Verified" not in result["phases"][0]["status"]
 
 
-def test_undispatchable_job_needs_attention_in_the_project_map():
+def test_adhoc_job_stays_out_of_the_delivery_phase_map():
     result = progress_module()._merge_project_run_state({"phases": []}, {"tasks": [{
         "phase": "job:default:custom", "label": "Build planning", "status": "ready",
         "dispatch_issue": "Assigned worker unavailable",
     }]})
-    assert result["phases"][0]["label"] == "Build planning"
-    assert result["phases"][0]["state"] == "blocked"
-    assert result["phases"][0]["status"] == "Waiting for an available worker"
+    assert result["phases"] == []
+
+
+def test_named_phase_keeps_live_worker_status_in_the_project_map():
+    result = progress_module()._merge_project_run_state({"phases": []}, {"tasks": [{
+        "phase": "sw-developer", "label": "Development", "status": "running",
+    }]})
+    assert result["phases"] == [{
+        "id": "sw-developer",
+        "label": "Development",
+        "status": "Working safely in the background",
+        "state": "now",
+        "evidence": "",
+    }]
 
 
 def test_evidence_available_does_not_claim_tests_were_verified(tmp_path):

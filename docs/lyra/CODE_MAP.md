@@ -17,9 +17,9 @@ Durable project jobs → Hermes Kanban dispatcher → isolated worker sessions
 | Studio composition | `web/src/pages/ChatPage.tsx` | Web suite and production build |
 | Project map / agent artwork | `web/src/components/GuidedProgressMap.tsx`, `web/src/components/GuidedAgentAvatar.tsx` | Rendering tests and production build |
 | Durable status polling | `web/src/hooks/useProjectLedger.ts` | Hook tests; project API tests |
-| Question lifetime / retry | `web/src/hooks/useGuidedClarification.ts` | Hook integration tests |
+| Question lifetime / retry | `web/src/hooks/useGuidedClarification.ts`, `web/src/components/GuidedClarification.tsx` | Inline-message and hook integration tests |
 | Live chat feedback / summarizing | `web/src/components/GuidedCoordinatorActivity.tsx` | Timed heartbeat and question-delivery rendering tests |
-| Atomic question transport | `apps/shared/src/prompt-answer-frame.ts`, `ui-tui/src/components/prompts.tsx` | Real Ink transport tests |
+| Atomic question / approval transport | `apps/shared/src/prompt-answer-frame.ts`, `ui-tui/src/components/prompts.tsx`, `web/src/components/GuidedApprovalActions.tsx` | Real Ink transport and inline-action tests |
 | Optional computer alerts | `web/src/components/StudioQuestionAlerts.tsx`, `web/src/lib/question-notifications.ts` | Permission, replay and failure tests |
 | Worker presentation | `web/src/lib/project-agent-activity.ts`, `web/src/components/ProjectAgentJobs.tsx` | Pure state and rendering tests |
 | Phase reports / evidence | `plugins/ultimate-builder/project_progress.py`, `hermes_cli/project_evidence.py` | Negative status, missing file and path-escape tests |

@@ -24,12 +24,12 @@ export function GuidedProgressMap({ durable, backgroundJobs, steps, labels }: Gu
           <span>Project map</span>
         </span>
         <strong className="shrink-0 whitespace-nowrap rounded-full border border-current/15 px-2 py-0.5 text-[9px] uppercase tracking-wider text-midground">
-          {backgroundJobs ? 'Saved project jobs' : durable ? 'Project record' : 'Chat signals'}
+          {backgroundJobs ? 'Saved progress' : durable ? 'Project record' : 'Chat signals'}
         </strong>
       </div>
       <p className="mt-2 text-[9px] leading-3 text-text-secondary">
         {backgroundJobs
-          ? 'Saved job status and local evidence. Completed reports still need review; browser disconnects do not erase them.'
+          ? 'Delivery phases from saved progress and local evidence. Completed reports still need review; browser disconnects do not erase them.'
           : durable
             ? 'Saved phase reports with local evidence checks. No estimated percentage.'
             : 'Waiting for a project progress record; these are conversation signals only.'}

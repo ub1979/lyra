@@ -4,20 +4,23 @@ import { GuidedClarification } from './GuidedClarification'
 import { GuidedCoordinatorActivity } from './GuidedCoordinatorActivity'
 
 describe('Studio question presentation', () => {
-  it('shows the hidden question, every option and a custom answer field', () => {
+  it('attaches every option without repeating Lyra’s question', () => {
+    const question = 'How should employers use Hello?'
     const html = renderToStaticMarkup(
-      <GuidedClarification
-        request={{
-          requestId: 'r',
-          question: 'How should employers use Hello?',
-          choices: ['Introductions only', 'Screening support', 'Safer default']
-        }}
-        sending={false}
-        onAnswer={() => {}}
-      />
+      <article>
+        <p>{question}</p>
+        <GuidedClarification
+          request={{
+            requestId: 'r',
+            question,
+            choices: ['Introductions only', 'Screening support', 'Safer default']
+          }}
+          sending={false}
+          onAnswer={() => {}}
+        />
+      </article>
     )
     for (const text of [
-      'How should employers use Hello?',
       'Introductions only',
       'Screening support',
       'Safer default',
@@ -25,6 +28,7 @@ describe('Studio question presentation', () => {
       'Send answer'
     ])
       expect(html).toContain(text)
+    expect(html.split(question)).toHaveLength(2)
   })
   it('shows waiting for the user, not a stuck tool or a QA agent', () => {
     const html = renderToStaticMarkup(

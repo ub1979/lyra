@@ -3,16 +3,26 @@ import { describe, expect, it } from 'vitest'
 import { ProjectAgentJobs } from './ProjectAgentJobs'
 import { GuidedCoordinatorActivity } from './GuidedCoordinatorActivity'
 import { analyzeGuidedChatOutput } from '../lib/guided-chat-output'
-import { projectAgentActivity } from '../lib/project-agent-activity'
+import { activeProjectAgentActivity, projectAgentActivity } from '../lib/project-agent-activity'
 import { job, savedRun } from '../lib/project-agent-activity.fixtures'
 
 describe('Studio agent activity rendering', () => {
-  it('shows generic project jobs with their actual start problem', () => {
-    const items = projectAgentActivity(savedRun([job({ phase: 'job:default:custom', label: 'Build task graph',
-      status: 'ready', dispatch_issue: 'This job has no available worker.' })]))
+  it('shows only work happening now, not queued, completed or waiting jobs', () => {
+    const items = activeProjectAgentActivity(
+      projectAgentActivity(
+        savedRun([
+          job({ task_id: 'active', label: 'Development', status: 'running' }),
+          job({ task_id: 'done', label: 'Research', status: 'done' }),
+          job({ task_id: 'queued', label: 'Architecture', status: 'ready' }),
+          job({ task_id: 'waiting', label: 'Quality assurance', status: 'blocked' })
+        ])
+      )
+    )
     const html = renderToStaticMarkup(<ProjectAgentJobs items={items} stale={false} />)
-    expect(html).toContain('Build task graph: Cannot start automatically')
-    expect(html).toContain('This job has no available worker.')
+    expect(html).toContain('Development: Working')
+    expect(html).not.toContain('Research')
+    expect(html).not.toContain('Architecture')
+    expect(html).not.toContain('Quality assurance')
   })
   it('keeps the coordinator as Lyra even when the legacy parser guesses QA', () => {
     const activity = analyzeGuidedChatOutput('checking project status')
@@ -24,26 +34,26 @@ describe('Studio agent activity rendering', () => {
     expect(html).not.toContain('qa-engineer')
   })
 
-  it('renders completed Research beside Architecture waiting for a decision', () => {
-    const items = projectAgentActivity(
-      savedRun([
-        job({ status: 'done' }),
-        job({
-          task_id: 'architecture-1',
-          phase: 'sw-architect',
-          label: 'Architecture',
-          status: 'blocked',
-          block_kind: 'needs_input',
-          wait_reason: 'Which launch country?'
-        })
-      ])
+  it('keeps historical jobs out of the active projection', () => {
+    const items = activeProjectAgentActivity(
+      projectAgentActivity(
+        savedRun([
+          job({ status: 'done' }),
+          job({
+            task_id: 'architecture-1',
+            phase: 'sw-architect',
+            label: 'Architecture',
+            status: 'blocked',
+            block_kind: 'needs_input',
+            wait_reason: 'Which launch country?'
+          })
+        ])
+      )
     )
     const html = renderToStaticMarkup(<ProjectAgentJobs items={items} stale={false} />)
-    expect(html).toContain('Research: Completed')
-    expect(html).toContain('Architecture: Waiting for your input')
-    expect(html).toContain('Which launch country?')
-    expect(html).not.toContain('No workers')
-    // Saved job IDs must never become buttons targeting process-local workers.
+    expect(html).not.toContain('Research')
+    expect(html).not.toContain('Architecture')
+    expect(html).not.toContain('Which launch country?')
     expect(html).not.toContain('<button')
   })
 

@@ -8,17 +8,19 @@ export interface GuidedClarificationProps {
   onAnswer: (answer: string) => void
 }
 
-/** Studio presentation for the existing TUI question, not a second chat. */
+/** Answer controls attached to the Lyra message that already contains the question. */
 export function GuidedClarification({ request, sending, error, onAnswer }: GuidedClarificationProps) {
   const [answer, setAnswer] = useState('')
   return (
-    <section
-      aria-label="Lyra needs your answer"
-      className="max-h-[45vh] shrink-0 overflow-y-auto border-b border-current/15 bg-background-base px-4 py-3 text-text-primary"
-    >
-      <strong role="status" className="block text-midground">{sending ? 'Sending your answer…' : 'Lyra needs your answer'}</strong>
-      {error && <p role="alert" className="mt-2 text-text-primary">{error}</p>}
-      <p className="mt-2 whitespace-pre-wrap break-words">{request.question}</p>
+    <div aria-label="Answer Lyra" className="mt-3 border-t border-current/10 pt-3 text-text-primary">
+      <strong role="status" className="block text-sm text-midground">
+        {sending ? 'Sending your answer…' : 'Choose an answer'}
+      </strong>
+      {error && (
+        <p role="alert" className="mt-2 text-text-primary">
+          {error}
+        </p>
+      )}
       <div className="mt-3 flex flex-wrap gap-2">
         {request.choices.map((choice, index) => (
           <button
@@ -57,9 +59,11 @@ export function GuidedClarification({ request, sending, error, onAnswer }: Guide
           {sending ? 'Sending…' : 'Send answer'}
         </button>
       </form>
-      <p className="mt-2 text-sm text-text-secondary">{sending
-        ? 'Waiting for confirmation from Lyra. Your answer will be confirmed here.'
-        : 'Lyra will continue once it receives your answer.'}</p>
-    </section>
+      <p className="mt-2 text-sm text-text-secondary">
+        {sending
+          ? 'Waiting for confirmation from Lyra. Your answer will be confirmed here.'
+          : 'Lyra will continue once it receives your answer.'}
+      </p>
+    </div>
   )
 }

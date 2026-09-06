@@ -25,13 +25,15 @@ const STATUS_LABELS: Record<string, string> = {
 /** Saved job identity/state is authoritative; prose and phase plans are not. */
 function presentTask(task: UltimateBuilderRunTask, stale: boolean): ProjectAgentActivityItem {
   const paused = task.status === 'blocked' && task.paused_by_user
-  const status = task.dispatch_issue ? 'Cannot start automatically' : paused
-    ? 'Paused by you'
-    : needsTechnicalReview(task)
-      ? 'Waiting for Lyra to review'
-    : task.status === 'blocked' && task.block_kind === 'needs_input'
-      ? 'Waiting for your input'
-      : (STATUS_LABELS[task.status] ?? 'Status unknown')
+  const status = task.dispatch_issue
+    ? 'Cannot start automatically'
+    : paused
+      ? 'Paused by you'
+      : needsTechnicalReview(task)
+        ? 'Waiting for Lyra to review'
+        : task.status === 'blocked' && task.block_kind === 'needs_input'
+          ? 'Waiting for your input'
+          : (STATUS_LABELS[task.status] ?? 'Status unknown')
   return {
     id: `${task.board}:${task.task_id}`,
     phase: task.phase,
@@ -41,12 +43,12 @@ function presentTask(task: UltimateBuilderRunTask, stale: boolean): ProjectAgent
       ? 'The worker has paused for a technical check. Use Review with Lyra above the message box; you do not need to inspect code.'
       : task.status === 'triage'
         ? 'This step has paused repeatedly. Ask Lyra to explain the problem before trying again.'
-      : task.dispatch_issue || (
-      task.status === 'blocked' || task.status === 'triage'
-        ? paused
-          ? 'Use Resume workers to continue.'
-          : task.wait_reason || task.last_error || 'Ask Lyra what is needed to continue.'
-        : ''),
+        : task.dispatch_issue ||
+          (task.status === 'blocked' || task.status === 'triage'
+            ? paused
+              ? 'Use Resume workers to continue.'
+              : task.wait_reason || task.last_error || 'Ask Lyra what is needed to continue.'
+            : ''),
     running: !stale && task.status === 'running',
     attention: !stale && !paused && (Boolean(task.dispatch_issue) || ['blocked', 'triage'].includes(task.status))
   }
@@ -58,13 +60,25 @@ export function projectAgentActivity(state: UltimateBuilderRunState | null, stal
   return (state?.tasks ?? []).map(task => presentTask(task, stale))
 }
 
+/** Agent Activity is a live surface; history and queued work belong to the map. */
+export function activeProjectAgentActivity(items: readonly ProjectAgentActivityItem[]): ProjectAgentActivityItem[] {
+  return items.filter(item => item.running)
+}
+
 export function projectAgentSummary(items: readonly ProjectAgentActivityItem[], chatWorkers = 0): string {
   const running = items.filter(item => item.running).length + chatWorkers
   const attention = items.filter(item => item.attention).length
-  const queued = items.filter(item => ['Queued to start', 'Waiting for earlier work', 'Scheduled'].includes(item.status)).length
+  const queued = items.filter(item =>
+    ['Queued to start', 'Waiting for earlier work', 'Scheduled'].includes(item.status)
+  ).length
   return (
-    [running ? `${running} working` : '', attention ? `${attention} need attention` : '', queued ? `${queued} queued` : ''].filter(Boolean).join(' · ') ||
-    (items.length ? 'Saved jobs' : 'No workers')
+    [
+      running ? `${running} working` : '',
+      attention ? `${attention} need attention` : '',
+      queued ? `${queued} queued` : ''
+    ]
+      .filter(Boolean)
+      .join(' · ') || (items.length ? 'Saved jobs' : 'No active work')
   )
 }
 

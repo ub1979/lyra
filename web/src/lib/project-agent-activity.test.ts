@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { job, savedRun } from './project-agent-activity.fixtures'
-import { coordinatorActivityMessage, projectAgentActivity, projectAgentSummary } from './project-agent-activity'
+import {
+  activeProjectAgentActivity,
+  coordinatorActivityMessage,
+  projectAgentActivity,
+  projectAgentSummary
+} from './project-agent-activity'
 
 describe('saved project agent activity', () => {
   it('restores Research without any chat worker events and retains it after completion', () => {
@@ -43,6 +48,7 @@ describe('saved project agent activity', () => {
       ])
     )
     expect(projectAgentSummary(items, 1)).toBe('2 working · 1 need attention · 1 queued')
+    expect(activeProjectAgentActivity(items).map(item => item.id)).toEqual(['default:research-1'])
   })
 
   it('retains stale history without claiming it is live, then recovers', () => {
@@ -53,11 +59,20 @@ describe('saved project agent activity', () => {
   })
 
   it('explains generic jobs that cannot start and distinguishes queued from running', () => {
-    const task = job({ phase: 'job:default:custom', label: 'Build task graph', status: 'ready',
-      dispatch_issue: 'Ask Lyra to correct the worker assignment.' })
+    const task = job({
+      phase: 'job:default:custom',
+      label: 'Build task graph',
+      status: 'ready',
+      dispatch_issue: 'Ask Lyra to correct the worker assignment.'
+    })
     const items = projectAgentActivity(savedRun([task]))
-    expect(items[0]).toMatchObject({ label: 'Build task graph', status: 'Cannot start automatically',
-      detail: task.dispatch_issue, attention: true, running: false })
+    expect(items[0]).toMatchObject({
+      label: 'Build task graph',
+      status: 'Cannot start automatically',
+      detail: task.dispatch_issue,
+      attention: true,
+      running: false
+    })
     expect(projectAgentSummary(items)).toBe('1 need attention')
     const queued = projectAgentActivity(savedRun([{ ...task, dispatch_issue: '' }]))
     expect(queued[0]).toMatchObject({ status: 'Queued to start', attention: false, running: false })

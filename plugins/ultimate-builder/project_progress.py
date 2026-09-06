@@ -102,8 +102,13 @@ def _merge_project_run_state(
     """Overlay persisted worker truth onto the project's phase ledger."""
     phases = [dict(phase) for phase in ledger.get("phases", [])]
     by_id = {phase["id"]: phase for phase in phases}
+    # Generic Kanban task IDs describe implementation units, not delivery
+    # phases. They remain in run_state for recovery and attention, but putting
+    # them in the phase map duplicates the Agent Activity/history surfaces.
     task_by_phase = {
-        task["phase"]: task for task in run_state.get("tasks", []) if task.get("phase")
+        task["phase"]: task
+        for task in run_state.get("tasks", [])
+        if task.get("phase") and not str(task["phase"]).startswith("job:")
     }
     for phase_id, task in task_by_phase.items():
         phase = by_id.get(phase_id)

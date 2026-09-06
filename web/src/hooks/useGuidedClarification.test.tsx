@@ -74,7 +74,10 @@ describe('clarification event-to-answer integration', () => {
     function Harness() {
       control = useGuidedClarification(socketRef)
       return control.request ? (
-        <GuidedClarification request={control.request} sending={control.sending} onAnswer={control.answer} />
+        <article>
+          <p>{control.request.question}</p>
+          <GuidedClarification request={control.request} sending={control.sending} onAnswer={control.answer} />
+        </article>
       ) : null
     }
     await act(async () => {

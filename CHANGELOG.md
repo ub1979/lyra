@@ -9,6 +9,19 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.19] - 2026-09-06 — natural project decisions
+
+### Changed
+
+- **Questions now feel like part of the conversation.** Lyra asks once in its
+  normal chat message, with answer choices and the custom-answer field directly
+  below instead of repeating the question in a separate notice.
+- **Approvals use the same natural pattern.** Approval choices sit beneath
+  Lyra's message, while command details stay collapsed unless requested.
+- **The Studio side panels now have separate jobs.** Agent Activity shows only
+  agents working now; Project Map shows delivery phases and no longer repeats
+  ad-hoc saved task titles.
+
 ## [0.19.18] - 2026-09-06 — private project histories
 
 ### Added
