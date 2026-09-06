@@ -240,14 +240,16 @@ Constraints: preserve unrelated changes; use real tools; return at most 15
 lines with verdict, counts, evidence paths, and blockers.
 ```
 
-When guided setup provides a `specialist_models` mapping, pass each assignment
-as `--model phase=model-id` on `hermes project-run queue`. Omit it when the
-specialist has no assignment so the worker inherits its configured default.
-Never apply one specialist's assignment to another phase. The coordinating
-conversation remains on its session model. Exact assignments are
-provider-specific. After a provider change, use only the replacement map the
-user confirms in the dashboard. Do not guess a cross-provider equivalent or
-reuse an unavailable id from the previous provider.
+When guided setup provides `specialist_models` and `specialist_providers`, pass
+each assignment as both `--model phase=model-id` and
+`--provider phase=provider-id` on `hermes project-run queue`. Omit both when the
+specialist has no assignment so the worker follows the current project model
+and an older saved override is cleared. Never apply one specialist's assignment
+to another phase. The coordinating conversation remains on its session model.
+Exact assignments are provider-specific. After a provider change, use only the
+replacement maps the user confirms in the dashboard. Do not guess a
+cross-provider equivalent or reuse an unavailable id from the previous
+provider.
 
 ## Step 3: implement vertical slices
 

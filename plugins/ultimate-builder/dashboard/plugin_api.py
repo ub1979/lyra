@@ -79,6 +79,13 @@ class ProjectRunControlRequest(BaseModel):
     action: str = Field(pattern=r"^(pause|resume|stop)$")
 
 
+class ProjectRunRoutingRequest(BaseModel):
+    workspace: str = Field(min_length=1, max_length=8_192)
+    phases: list[str] = Field(max_length=32)
+    models: dict[str, str] = Field(default_factory=dict, max_length=32)
+    providers: dict[str, str] = Field(default_factory=dict, max_length=32)
+
+
 class ProjectRegisterRequest(BaseModel):
     workspace: str = Field(min_length=1, max_length=8_192)
 
@@ -683,6 +690,24 @@ def control_project_run(payload: ProjectRunControlRequest) -> dict[str, Any]:
     project = _project(payload.workspace)
     try:
         return _project_runs_module().control_project_run(project, payload.action)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/run/routing")
+def sync_project_run_routing(payload: ProjectRunRoutingRequest) -> dict[str, Any]:
+    """Apply a confirmed agent model/provider map to existing saved jobs."""
+    safety = _workspace_safety(payload.workspace)
+    if not safety["allowed"]:
+        raise HTTPException(status_code=403, detail=safety["reason"])
+    project = _project(payload.workspace)
+    try:
+        return _project_runs_module().sync_project_run_routing(
+            project,
+            payload.phases,
+            models=payload.models,
+            providers=payload.providers,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

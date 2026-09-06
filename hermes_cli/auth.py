@@ -6820,13 +6820,15 @@ def _probe_claude_cli_auth(command: str) -> Dict[str, Any]:
 
 def get_external_process_provider_status(provider_id: str) -> Dict[str, Any]:
     """Status snapshot for providers that run a local subprocess."""
+    from hermes_cli.external_cli import resolve_external_cli_command
+
     pconfig = PROVIDER_REGISTRY.get(provider_id)
     if not pconfig or pconfig.auth_type != "external_process":
         return {"configured": False}
 
     command, args, base_url = _external_process_runtime(provider_id)
 
-    resolved_command = shutil.which(command) if command else None
+    resolved_command = resolve_external_cli_command(provider_id, command)
     auth_status: Dict[str, Any] = {}
     if provider_id == "claude-cli" and resolved_command:
         auth_status = _probe_claude_cli_auth(resolved_command)
@@ -7033,6 +7035,8 @@ def resolve_api_key_provider_credentials(provider_id: str) -> Dict[str, Any]:
 
 def resolve_external_process_provider_credentials(provider_id: str) -> Dict[str, Any]:
     """Resolve runtime details for local subprocess-backed providers."""
+    from hermes_cli.external_cli import resolve_external_cli_command
+
     pconfig = PROVIDER_REGISTRY.get(provider_id)
     if not pconfig or pconfig.auth_type != "external_process":
         raise AuthError(
@@ -7042,7 +7046,7 @@ def resolve_external_process_provider_credentials(provider_id: str) -> Dict[str,
         )
 
     command, args, base_url = _external_process_runtime(provider_id)
-    resolved_command = shutil.which(command) if command else None
+    resolved_command = resolve_external_cli_command(provider_id, command)
     if not resolved_command and not base_url.startswith("acp+tcp://"):
         raise AuthError(
             f"Could not find the {pconfig.name} command '{command}'.",

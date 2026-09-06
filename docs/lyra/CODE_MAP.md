@@ -23,7 +23,7 @@ Durable project jobs → Hermes Kanban dispatcher → isolated worker sessions
 | Optional computer alerts | `web/src/components/StudioQuestionAlerts.tsx`, `web/src/lib/question-notifications.ts` | Permission, replay and failure tests |
 | Worker presentation | `web/src/lib/project-agent-activity.ts`, `web/src/components/ProjectAgentJobs.tsx` | Pure state and rendering tests |
 | Phase reports / evidence | `plugins/ultimate-builder/project_progress.py`, `hermes_cli/project_evidence.py` | Negative status, missing file and path-escape tests |
-| Project jobs | `plugins/ultimate-builder/project_runs.py` | Real SQLite lifecycle tests |
+| Project jobs / model repair | `plugins/ultimate-builder/project_runs.py`, `web/src/lib/guided-agent-model-preferences.ts` | Real SQLite lifecycle and provider/project isolation tests |
 | Project-local Git boundary | `plugins/ultimate-builder/project_repository.py`, `scripts/lyra_git_guard.py`, `.githooks/` | Real parent/project repository, commit-hook and push-hook tests |
 | Job creation notification policy | `hermes_cli/kanban_notifications.py` | CLI/tool/phase creation, opt-out and idempotent subscription tests |
 | Saved review / input handoff | `hermes_cli/project_job_attention.py`, `web/src/lib/project-attention.ts`, `web/src/components/ProjectAttention.tsx` | Latest-event metadata, coordinator envelope and actionable/stale panel tests |
@@ -35,7 +35,7 @@ Durable project jobs → Hermes Kanban dispatcher → isolated worker sessions
 | Recovery snapshots / relocation | `tools/checkpoint_manager.py`, `tools/checkpoint_relocation.py` | Real Git snapshot, move, restore and conflict tests |
 | Dashboard / PTY / event replay | `hermes_cli/web_server.py`, `hermes_cli/dashboard_prompt_state.py` | Server, auth and replay tests |
 | Chat engine | `tui_gateway/`, `ui-tui/src/app/`, `run_agent.py` | Gateway and Ink suites |
-| Model configuration / routing | `hermes_cli/config.py`, `agent/`, `plugins/model-providers/` | Provider/config tests |
+| Model configuration / routing | `hermes_cli/config.py`, `hermes_cli/external_cli.py`, `agent/`, `plugins/model-providers/` | Provider/config, trusted CLI discovery and routing tests |
 | Remote control | `gateway/`, Telegram routes in `hermes_cli/web_server.py` | Gateway/platform and onboarding tests |
 | Release gates | `.github/workflows/ci.yml`, `scripts/run_tests_parallel.py` | CI classification/discovery tests |
 

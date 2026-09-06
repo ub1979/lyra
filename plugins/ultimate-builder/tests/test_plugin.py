@@ -99,7 +99,8 @@ def test_dashboard_enforces_requirements_gate_with_real_skill_loading():
     assert "enabled_specialist_labels: enabledLabels" in dashboard
     assert "disabled_specialist_labels: disabledLabels" in dashboard
     assert "specialist_models: specialistModels" in dashboard
-    assert "delegate_task.model" in dashboard
+    assert "specialist_providers: specialistProviders" in dashboard
+    assert "pass both the exact model and its matching provider" in dashboard
     assert "project_git_rule" in dashboard
     assert "Never stage, commit, reset, merge, rebase, or push Lyra's application repository" in dashboard
     assert '"LLM for " + skill[1]' in dashboard

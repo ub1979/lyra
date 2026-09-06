@@ -211,6 +211,44 @@ class _IdleProjectRuns:
         return {"ok": True}
 
 
+def test_confirmed_model_routing_is_forwarded_to_saved_project_jobs(
+    tmp_path, monkeypatch
+):
+    module = load_plugin_api()
+    project = tmp_path / "project"
+    project.mkdir()
+    observed = {}
+
+    class FakeProjectRuns:
+        @staticmethod
+        def sync_project_run_routing(workspace, phases, *, models, providers):
+            observed.update(
+                workspace=workspace,
+                phases=phases,
+                models=models,
+                providers=providers,
+            )
+            return {"project": str(workspace), "changed": ["task-1"]}
+
+    monkeypatch.setattr(module, "_project_runs_module", FakeProjectRuns)
+    result = module.sync_project_run_routing(
+        module.ProjectRunRoutingRequest(
+            workspace=str(project),
+            phases=["sw-developer"],
+            models={"sw-developer": "claude-sonnet-4-6"},
+            providers={"sw-developer": "claude-cli"},
+        )
+    )
+
+    assert result["changed"] == ["task-1"]
+    assert observed == {
+        "workspace": project.resolve(),
+        "phases": ["sw-developer"],
+        "models": {"sw-developer": "claude-sonnet-4-6"},
+        "providers": {"sw-developer": "claude-cli"},
+    }
+
+
 def test_real_move_and_trash_routes_preserve_recovery_points(tmp_path, monkeypatch):
     from tools import checkpoint_manager as cp
 

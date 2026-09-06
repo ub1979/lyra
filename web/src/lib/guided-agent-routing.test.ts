@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   guidedApprovalChoices,
   guidedApprovalKey,
+  guidedModelRoutingTurnDirective,
   guidedPlainLanguageTurnDirective,
   guidedRequirementsTurnDirective,
   unavailableGuidedModelAssignments,
@@ -41,6 +42,24 @@ describe("guidedRequirementsTurnDirective", () => {
     });
     expect(directive).toMatch(/already approved/i);
     expect(directive).toMatch(/must not reactivate Requirements/i);
+  });
+});
+
+describe("guidedModelRoutingTurnDirective", () => {
+  it("binds explicit agent models to the active provider and supersedes old context", () => {
+    const directive = guidedModelRoutingTurnDirective("claude-cli", {
+      researcher: "claude-sonnet-4-6",
+    });
+    expect(directive).toContain('"provider":"claude-cli"');
+    expect(directive).toContain('"researcher":"claude-sonnet-4-6"');
+    expect(directive).toContain('"researcher":"claude-cli"');
+    expect(directive).toMatch(/replaces every earlier model assignment/i);
+  });
+
+  it("makes an empty map explicitly mean Follow project model", () => {
+    expect(guidedModelRoutingTurnDirective("claude-cli", {})).toMatch(
+      /missing specialist model means Follow project model/i,
+    );
   });
 });
 

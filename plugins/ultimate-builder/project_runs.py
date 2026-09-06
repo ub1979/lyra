@@ -97,6 +97,19 @@ def _phase_from_task(task: kb.Task) -> str | None:
     return parts[3] if len(parts) >= 5 else None
 
 
+def _validate_routing(
+    phases: set[str], models: dict[str, str], providers: dict[str, str]
+) -> None:
+    if set(models).difference(phases) or set(providers).difference(phases):
+        raise ValueError("Model routing contains a phase outside the selected team")
+    for phase in phases:
+        model = str(models.get(phase) or "").strip()
+        provider = str(providers.get(phase) or "").strip()
+        if bool(model) != bool(provider):
+            missing = "provider" if model else "model"
+            raise ValueError(f"Routing for {phase} requires its {missing}")
+
+
 def _project_tasks(
     project: Path, *, include_archived: bool = True
 ) -> list[tuple[str, kb.Task]]:
@@ -178,6 +191,7 @@ def queue_project_run(
 
     models = models or {}
     providers = providers or {}
+    _validate_routing(set(requested), models, providers)
     origin = _origin()
     worker_profile = assignee or str(origin["profile"] or "default")
     validate_project_worker(worker_profile)
@@ -198,6 +212,8 @@ def queue_project_run(
     run_token = f"{int(time.time())}-{os.getpid()}"
     with kb.connect_closing(board=board) as conn:
         for phase in requested:
+            model = models.get(phase) or None
+            provider = providers.get(phase) or None
             previous = latest_by_phase.get(phase)
             if (
                 previous
@@ -207,6 +223,15 @@ def queue_project_run(
                 task = previous[1]
                 with kb.connect_closing(board=previous[0]) as origin_conn:
                     subscribed = subscribe_task_origin(origin_conn, task.id)
+                    if task.status != "done":
+                        # Reopening a project must also adopt its current model
+                        # routing. Otherwise a queued Ollama override survives a
+                        # later switch to Claude and is retried against the wrong
+                        # provider indefinitely. An omitted model deliberately
+                        # clears both overrides (Follow project model).
+                        kb.set_model_override(
+                            origin_conn, task.id, model, provider=provider
+                        )
                 created.append({
                     "task_id": task.id,
                     "phase": phase,
@@ -216,8 +241,6 @@ def queue_project_run(
                 })
                 parent_ids = [task.id]
                 continue
-            model = models.get(phase) or None
-            provider = providers.get(phase) or None
             task_id = kb.create_task(
                 conn,
                 title=f"Lyra project: {PHASES[phase]['label']}",
@@ -260,6 +283,39 @@ def queue_project_run(
         "repository": repository,
         "message": "Project agents were saved as recoverable background jobs.",
     }
+
+
+def sync_project_run_routing(
+    workspace: str | Path,
+    phases: Iterable[str],
+    *,
+    models: dict[str, str] | None = None,
+    providers: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """Synchronize active project jobs with a user-confirmed routing map."""
+    project = _workspace(workspace)
+    requested = {str(phase).strip() for phase in phases if str(phase).strip()}
+    unknown = requested.difference(PHASES)
+    if unknown:
+        raise ValueError(f"Unknown project phase: {', '.join(sorted(unknown))}")
+
+    models = models or {}
+    providers = providers or {}
+    _validate_routing(requested, models, providers)
+
+    changed: list[str] = []
+    for board, task in _project_tasks(project, include_archived=False):
+        phase = _phase_from_task(task)
+        if phase not in requested or task.status == "done":
+            continue
+        model = models.get(phase) or None
+        provider = providers.get(phase) or None
+        if task.model_override == model and task.provider_override == provider:
+            continue
+        with kb.connect_closing(board=board) as conn:
+            kb.set_model_override(conn, task.id, model, provider=provider)
+        changed.append(task.id)
+    return {"project": str(project), "changed": changed}
 
 
 def project_run_state(workspace: str | Path) -> dict[str, Any]:

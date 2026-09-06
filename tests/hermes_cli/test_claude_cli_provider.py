@@ -17,7 +17,10 @@ from hermes_cli.providers import normalize_provider as normalize_provider_identi
 
 def _patch_clean_config(monkeypatch):
     monkeypatch.setattr("hermes_cli.config.load_config", lambda: {})
-    monkeypatch.setattr("hermes_cli.auth.shutil.which", lambda command: "/opt/bin/claude")
+    monkeypatch.setattr(
+        "hermes_cli.external_cli.resolve_external_cli_command",
+        lambda provider, command: "/opt/bin/claude",
+    )
 
 
 def test_claude_code_alias_is_distinct_from_anthropic_api():

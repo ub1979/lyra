@@ -61,6 +61,24 @@ export function guidedRequirementsTurnDirective({
   );
 }
 
+/** Override any provider/model map frozen in an older conversation prefix. */
+export function guidedModelRoutingTurnDirective(
+  provider: string,
+  models: Readonly<Record<string, string>>,
+): string {
+  const owner = provider.trim();
+  const providers = Object.fromEntries(
+    Object.entries(models)
+      .filter(([, model]) => Boolean(model.trim()) && Boolean(owner))
+      .map(([agentId]) => [agentId, owner]),
+  );
+  return `IDRAK_INTERNAL_MODEL_ROUTING: ${JSON.stringify({
+    provider: owner,
+    specialist_models: models,
+    specialist_providers: providers,
+  })}. This current project routing replaces every earlier model assignment. A missing specialist model means Follow project model. Always pass the matching provider with an explicit specialist model.`;
+}
+
 export type GuidedUnavailableModelAssignment = {
   agentId: string;
   model: string;

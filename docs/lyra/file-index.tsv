@@ -1737,6 +1737,7 @@ docs/lyra/CODE_MAP.md	docs	md: CODE MAP
 docs/lyra/changes/2026-09-05-live-chat-feedback.md	docs	md: 2026 09 05 live chat feedback
 docs/lyra/changes/2026-09-05-studio-reliability.md	docs	md: 2026 09 05 studio reliability
 docs/lyra/changes/2026-09-06-natural-decisions.md	docs	md: 2026 09 06 natural decisions
+docs/lyra/changes/2026-09-06-portable-ai-routing.md	docs	md: 2026 09 06 portable ai routing
 docs/lyra/changes/2026-09-06-project-git-isolation.md	docs	md: 2026 09 06 project git isolation
 docs/lyra/changes/2026-09-06-project-job-routing.md	docs	md: 2026 09 06 project job routing
 docs/lyra/changes/2026-09-06-project-workflow-verification.md	docs	md: 2026 09 06 project workflow verification
@@ -1899,6 +1900,7 @@ hermes_cli/dingtalk_auth.py	hermes_cli	DingTalk Device Flow authorization.
 hermes_cli/doctor.py	hermes_cli	Doctor command for hermes CLI.
 hermes_cli/dump.py	hermes_cli	Dump command for hermes CLI.
 hermes_cli/env_loader.py	hermes_cli	Helpers for loading Hermes .env files consistently across entrypoints.
+hermes_cli/external_cli.py	hermes_cli	Safe discovery for subscription-backed command-line model providers.
 hermes_cli/fallback_cmd.py	hermes_cli	hermes fallback — manage the fallback provider chain.
 hermes_cli/fallback_config.py	hermes_cli	Helpers for reading the effective fallback provider chain from config.
 hermes_cli/gateway.py	hermes_cli	Gateway subcommand for hermes CLI.
@@ -2061,7 +2063,7 @@ hermes_cli/web_dist/assets/RulesCompressed-Medium-CA76_CrB.woff2	hermes_cli	Gene
 hermes_cli/web_dist/assets/RulesCompressed-Regular-BSXFyF4x.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Bold-DZA7s8Pa.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Regular-l8uVympt.woff2	hermes_cli	Generated asset; edit its source and rebuild
-hermes_cli/web_dist/assets/index-CTu3xekG.js	hermes_cli	Generated asset; edit its source and rebuild
+hermes_cli/web_dist/assets/index-7ipr_-5K.js	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/index-Dtu0QdSj.css	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Bold.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Italic.woff2	hermes_cli	Generated asset; edit its source and rebuild
@@ -5107,6 +5109,7 @@ tests/hermes_cli/test_env_export_prefix.py	tests	Behavioral tests: env export pr
 tests/hermes_cli/test_env_load_cache.py	tests	Behavioral tests: env load cache
 tests/hermes_cli/test_env_loader.py	tests	Behavioral tests: env loader
 tests/hermes_cli/test_env_sanitize_on_load.py	tests	Behavioral tests: env sanitize on load
+tests/hermes_cli/test_external_cli.py	tests	Behavioral tests: external cli
 tests/hermes_cli/test_fallback_cmd.py	tests	Behavioral tests: fallback cmd
 tests/hermes_cli/test_fallback_config.py	tests	Behavioral tests: fallback config
 tests/hermes_cli/test_fireworks_provider.py	tests	Behavioral tests: fireworks provider
@@ -7048,6 +7051,8 @@ web/src/lib/dashboard-modal-shell.ts	web	* Shared dashboard dialog shell classes
 web/src/lib/format.ts	web	* Format a token count as a human-readable string (e.g. 1M, 128K, 4096).
 web/src/lib/fuzzy.ts	web	ts: fuzzy
 web/src/lib/gatewayClient.ts	web	* Browser WebSocket client for the tui_gateway JSON-RPC protocol.
+web/src/lib/guided-agent-model-preferences.test.ts	web	Behavioral tests: guided-agent-model-preferences.test
+web/src/lib/guided-agent-model-preferences.ts	web	ts: guided agent model preferences
 web/src/lib/guided-agent-routing.test.ts	web	Behavioral tests: guided-agent-routing.test
 web/src/lib/guided-agent-routing.ts	web	ts: guided agent routing
 web/src/lib/guided-agent-runtime.test.ts	web	Behavioral tests: guided-agent-runtime.test

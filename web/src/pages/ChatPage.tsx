@@ -80,12 +80,18 @@ import {
 import {
   guidedApprovalChoices,
   guidedApprovalKey,
+  guidedModelRoutingTurnDirective,
   guidedPlainLanguageTurnDirective,
   guidedRequirementsTurnDirective,
   unavailableGuidedModelAssignments,
   type GuidedApprovalChoice,
   type GuidedUnavailableModelAssignment,
 } from "@/lib/guided-agent-routing";
+import {
+  guidedModelProviders,
+  readGuidedModelPreferences,
+  writeGuidedModelPreferences,
+} from "@/lib/guided-agent-model-preferences";
 import {
   GUIDED_MODEL_SILENCE_TIMEOUT_MS,
   GUIDED_TOOL_SILENCE_GRACE_MS,
@@ -255,7 +261,6 @@ function generateChannelId(scope?: string): string {
 const DEFAULT_TERMINAL_BACKGROUND = "#000000";
 const DEFAULT_TERMINAL_FOREGROUND = "#f0e6d2";
 const MODEL_CONNECTION_ERROR_MARKER = "[[IDRAK_MODEL_CONNECTION_ERROR]]";
-const GUIDED_SKILL_MODELS_STORAGE_KEY = "idrak-it.builder.skill-models.v1";
 const GUIDED_ACTIVITY_PANEL_STORAGE_KEY = "lyra-studio-activity-panel";
 const GUIDED_PROGRESS_PANEL_STORAGE_KEY = "lyra-studio-progress-panel";
 
@@ -418,25 +423,6 @@ function guidedSpecialistStorageKey(workspace: string): string {
   return `idrak-it.guided-specialists.v1:${workspace || "default"}`;
 }
 
-function readGuidedSkillModels(): Record<string, string> {
-  try {
-    const value = JSON.parse(
-      window.localStorage.getItem(GUIDED_SKILL_MODELS_STORAGE_KEY) ?? "{}",
-    ) as unknown;
-    if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-    return Object.fromEntries(
-      Object.entries(value).filter(
-        (entry): entry is [string, string] =>
-          GUIDED_SELECTABLE_SPECIALIST_IDS.includes(entry[0]) &&
-          typeof entry[1] === "string" &&
-          Boolean(entry[1].trim()),
-      ),
-    );
-  } catch {
-    return {};
-  }
-}
-
 function specialistIdsFromBuilderSeed(
   seed: string | null,
   workspace: string,
@@ -575,6 +561,7 @@ function guidedWelcomeSeed(
   workspace: string,
   specialists: readonly string[],
   models: Readonly<Record<string, string>>,
+  providers: Readonly<Record<string, string>>,
   projectSummary: string,
 ): string {
   return `IDRAK_INTERNAL_SETUP_BEGIN ${JSON.stringify({
@@ -593,6 +580,7 @@ function guidedWelcomeSeed(
       (id) => GUIDED_SPECIALIST_LABELS[id],
     ),
     specialist_models: models,
+    specialist_providers: providers,
     user_request:
       "Start this project conversation now with Lyra's greeting and first focused question.",
   })} IDRAK_INTERNAL_SETUP_END`;
@@ -1124,11 +1112,13 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const [guidedSkillDraftIds, setGuidedSkillDraftIds] = useState<string[]>([]);
   const [guidedSkillModels, setGuidedSkillModels] = useState<
     Record<string, string>
-  >(() => (typeof window === "undefined" ? {} : readGuidedSkillModels()));
+  >({});
   const [guidedSkillModelDraft, setGuidedSkillModelDraft] = useState<
     Record<string, string>
   >({});
   const guidedSkillModelsRef = useRef(guidedSkillModels);
+  const [guidedModelProvider, setGuidedModelProvider] = useState("");
+  const guidedModelProviderRef = useRef("");
   const [guidedModelOptions, setGuidedModelOptions] = useState<string[]>([]);
   const [guidedDefaultModelLabel, setGuidedDefaultModelLabel] =
     useState("Project default");
@@ -1307,25 +1297,40 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     if (!guided || !isActive) return;
     let active = true;
     Promise.all([api.getModelInfo(), api.getModelOptions()])
-      .then(([info, options]) => {
+      .then(async ([info, options]) => {
         if (!active) return;
         const providers = options.providers ?? [];
         const provider =
           providers.find((item) => item.slug === info.provider) ??
           providers.find((item) => item.is_current);
+        const activeProvider = info.provider || provider?.slug || "";
         const providerModels = Array.from(
           new Set((provider?.models ?? []).filter(Boolean)),
         );
+        const scopedModels = readGuidedModelPreferences(
+          window.localStorage,
+          workspaceParam,
+          activeProvider,
+          GUIDED_SELECTABLE_SPECIALIST_IDS,
+        );
+        const scopedProviders = guidedModelProviders(
+          scopedModels,
+          activeProvider,
+        );
+        guidedSkillModelsRef.current = scopedModels;
+        setGuidedSkillModels(scopedModels);
+        guidedModelProviderRef.current = activeProvider;
+        setGuidedModelProvider(activeProvider);
         setGuidedModelOptions(providerModels);
         const unavailable = unavailableGuidedModelAssignments(
-          guidedSkillModelsRef.current,
+          scopedModels,
           guidedSelectedSpecialistIdsRef.current,
           providerModels,
         );
         if (unavailable.length) {
           const review: GuidedModelReviewRequest = {
             projectModel: info.model,
-            provider: info.provider,
+            provider: activeProvider,
             unavailable,
           };
           guidedModelReviewRef.current = review;
@@ -1338,13 +1343,13 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               GUIDED_SELECTABLE_SPECIALIST_IDS,
             ),
           );
-          setGuidedSkillModelDraft({ ...guidedSkillModelsRef.current });
+          setGuidedSkillModelDraft({ ...scopedModels });
           setGuidedSkillsOpen(true);
           const labels = unavailable.map(
             ({ agentId }) => GUIDED_SPECIALIST_LABELS[agentId] ?? agentId,
           );
           setBanner(
-            `Choose replacement models for ${labels.join(", ")} after switching to ${info.provider}. ` +
+            `Choose replacement models for ${labels.join(", ")} after switching to ${activeProvider}. ` +
               "Lyra will not guess or silently replace them.",
           );
         } else if (guidedModelReviewRef.current) {
@@ -1352,7 +1357,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           setGuidedModelReview(null);
         }
         setGuidedDefaultModelLabel(
-          [info.provider, info.model].filter(Boolean).join(" · ") ||
+          [activeProvider, info.model].filter(Boolean).join(" · ") ||
             "Project default",
         );
         setGuidedUsage((current) => ({
@@ -1363,6 +1368,22 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           model: info.model,
           supportsVision: info.capabilities?.supports_vision ?? null,
         });
+        if (!unavailable.length) {
+          try {
+            await api.syncUltimateBuilderRunRouting(
+              workspaceParam,
+              guidedSelectedSpecialistIdsRef.current,
+              scopedModels,
+              scopedProviders,
+            );
+          } catch {
+            if (active) {
+              setBanner(
+                "Lyra changed the project model, but could not update saved agent jobs yet. Retry after the project connection is ready.",
+              );
+            }
+          }
+        }
       })
       .catch(() => {
         if (active) setGuidedModelOptions([]);
@@ -1370,7 +1391,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     return () => {
       active = false;
     };
-  }, [guided, isActive]);
+  }, [guided, isActive, workspaceParam]);
 
   // ChatPage stays mounted while the user visits model settings. When they
   // return, reload the newly selected project's own transcript instead of
@@ -1396,6 +1417,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     setGuidedModelReview(null);
     setGuidedRecommendedSpecialistIds([]);
     setGuidedTeamRecommendationPending(false);
+    guidedSkillModelsRef.current = {};
+    setGuidedSkillModels({});
+    guidedModelProviderRef.current = "";
+    setGuidedModelProvider("");
   }, [clearGuidedClarification, guided, guidedMessageWorkspace, workspaceParam]);
 
   // Keep the preloaded skill set aligned with the project URL as the
@@ -2193,8 +2218,12 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                   (termRef.current?.buffer.active.length ?? 1) - 1,
                 );
                 lastGuidedResponseRef.current = "";
+                const modelRouting = guidedModelRoutingTurnDirective(
+                  guidedModelProviderRef.current,
+                  guidedSkillModelsRef.current,
+                );
                 writeGuidedPrompt(
-                  `${guidedPlainLanguageTurnDirective()}\n${advanceTo
+                  `${guidedPlainLanguageTurnDirective()}\n${modelRouting}\n${advanceTo
                     ? `IDRAK_INTERNAL_CONTINUE: Start the ${advanceLabel} phase now. Load skill_view(name="ultimate-builder:${advanceTo}"), emit [APP_IT_PHASE:${advanceTo}] in your next reply, run or delegate that phase, verify its artifact, then emit [APP_IT_PHASE_DONE:${advanceTo}] and continue with the next enabled phase. Do not merely describe the next action. Stop for: any approval checkpoint (requirements summary, visual preview, final delivery), a real user decision, permission request, blocker, or final completion. At approval checkpoints, present options (Approve / Change / Skip) and wait.`
                     : "IDRAK_INTERNAL_CONTINUE: Continue the selected workflow now. Perform the promised tool call or specialist delegation, verify its artifact, and then advance through later enabled phases. Do not merely describe the next action. Stop for: any approval checkpoint (requirements summary, visual preview, final delivery), a real user decision, permission request, blocker, or final completion. At approval checkpoints, present options (Approve / Change / Skip) and wait."}`,
                   {
@@ -2477,7 +2506,13 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       specialist: guidedDefaultSpecialistRef.current,
     });
     setGuidedOutput("");
-    const routing: string[] = [guidedPlainLanguageTurnDirective()];
+    const routing: string[] = [
+      guidedPlainLanguageTurnDirective(),
+      guidedModelRoutingTurnDirective(
+        guidedModelProviderRef.current,
+        guidedSkillModelsRef.current,
+      ),
+    ];
     if (options.applyAgentRouting !== false) {
       routing.push(
         guidedRequirementsTurnDirective({
@@ -2527,6 +2562,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     (
       specialists: readonly string[],
       models: Readonly<Record<string, string>>,
+      providers: Readonly<Record<string, string>>,
       displayValue: string,
     ) => {
       const labels = specialists.map(
@@ -2536,6 +2572,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         enabled_specialists: specialists,
         enabled_specialist_labels: labels,
         specialist_models: models,
+        specialist_providers: providers,
       })} IDRAK_INTERNAL_SKILLS_UPDATE_END`;
       submitGuidedText(payload, displayValue, { applyAgentRouting: false });
     },
@@ -2579,7 +2616,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     [],
   );
 
-  const saveGuidedSkills = useCallback(() => {
+  const saveGuidedSkills = useCallback(async () => {
     if (
       !guidedAgentReadyRef.current ||
       wsRef.current?.readyState !== WebSocket.OPEN
@@ -2611,15 +2648,31 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       );
       return;
     }
+    const providers = guidedModelProviders(models, guidedModelProvider);
+    try {
+      await api.syncUltimateBuilderRunRouting(
+        workspaceParam,
+        selected,
+        models,
+        providers,
+      );
+    } catch {
+      setBanner(
+        "Lyra could not update the saved agent jobs. Your choices were not changed; try again when the project connection is ready.",
+      );
+      return;
+    }
     applyGuidedSpecialistIds(selected);
     guidedSkillModelsRef.current = models;
     setGuidedSkillModels(models);
     guidedModelReviewRef.current = null;
     setGuidedModelReview(null);
     try {
-      window.localStorage.setItem(
-        GUIDED_SKILL_MODELS_STORAGE_KEY,
-        JSON.stringify(models),
+      writeGuidedModelPreferences(
+        window.localStorage,
+        workspaceParam,
+        guidedModelProvider,
+        models,
       );
     } catch {
       // Live routing still works for this conversation.
@@ -2628,6 +2681,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     sendGuidedProjectState(
       selected,
       models,
+      providers,
       labels.length
         ? `Updated project agents: ${labels.join(", ")}`
         : "Updated project agents: Lyra only",
@@ -2640,7 +2694,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     guidedSkillDraftIds,
     guidedSkillModelDraft,
     guidedModelOptions,
+    guidedModelProvider,
     sendGuidedProjectState,
+    workspaceParam,
   ]);
 
   const addGuidedAttachments = useCallback(
@@ -2942,8 +2998,12 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     window.setTimeout(() => {
       const active = wsRef.current;
       if (!active || active.readyState !== WebSocket.OPEN) return;
+      const modelRouting = guidedModelRoutingTurnDirective(
+        guidedModelProviderRef.current,
+        guidedSkillModelsRef.current,
+      );
       writeGuidedPrompt(
-        `${guidedPlainLanguageTurnDirective()}\n${lastUserMessage.content}`,
+        `${guidedPlainLanguageTurnDirective()}\n${modelRouting}\n${lastUserMessage.content}`,
         {
         isOpen: () => wsRef.current?.readyState === WebSocket.OPEN,
         schedule: (run, delayMs) => window.setTimeout(run, delayMs),
@@ -3616,6 +3676,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                   workspaceParam,
                   guidedSelectedSpecialistIdsRef.current,
                   guidedSkillModelsRef.current,
+                  guidedModelProviders(
+                    guidedSkillModelsRef.current,
+                    guidedModelProviderRef.current,
+                  ),
                   projectSummary,
                 );
                 writeGuidedPrompt(welcome, {
@@ -4502,7 +4566,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 Cancel
               </Button>
               <Button
-                onClick={saveGuidedSkills}
+                onClick={() => void saveGuidedSkills()}
                 disabled={
                   !guidedAgentReady ||
                   ptyState !== "open" ||

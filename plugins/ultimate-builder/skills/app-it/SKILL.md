@@ -225,8 +225,10 @@ state.
 Manual dashboard selections are authoritative. When an
 `IDRAK_INTERNAL_SKILLS_UPDATE_BEGIN` message arrives, acknowledge the new team
 briefly and use only those specialists until the user changes it again. Treat
-the message's `specialist_models` map as the current routing configuration;
-it replaces earlier assignments for subsequent delegates.
+the message's `specialist_models` and `specialist_providers` maps as one
+current routing configuration; they replace earlier assignments for subsequent
+delegates. A specialist omitted from `specialist_models` follows the project
+model and clears any older explicit model/provider override.
 
 ## Phase protocol
 
@@ -273,9 +275,10 @@ next user approval checkpoint:
 hermes project-run queue --workspace "<absolute project path>" --phases "researcher,ui-designer,sw-architect"
 ```
 
-Add `--model phase=model-id` for each entry in `specialist_models`; add the
-matching `--provider phase=provider-id` only when the confirmed routing map
-provides it. Never invent a replacement model. The returned task ids are
+Add `--model phase=model-id` and the matching
+`--provider phase=provider-id` for every confirmed assignment. Never pass one
+without the other, reuse an assignment from a previous provider, or invent a
+replacement model. The returned task ids are
 internal. Tell the user only that the named agents are saved as recoverable
 background work and can continue when the browser is closed. Computer sleep
 pauses execution; Lyra recovers it after the computer wakes and its background
@@ -327,10 +330,10 @@ is next; never identify the phase by an internal roadmap or change-request
 code. Then continue. Stop only at the approval checkpoints below, a real user
 decision, a permission request, or a blocker.
 
-Honor `specialist_models`: pass the assigned model on the corresponding
-`hermes project-run queue` phase. An unassigned specialist inherits the project
-default.
-Exact assignments are valid only while the active provider exposes that model.
+Honor `specialist_models` together with `specialist_providers`: pass both on
+the corresponding `hermes project-run queue` phase. An unassigned specialist
+follows the current project model, clearing any stale saved override. Exact
+assignments are valid only while the active provider exposes that model.
 After a provider change, wait for the dashboard's user-confirmed replacement
 map. Do not guess an equivalent model, silently replace the assignment, or keep
 searching for the old provider's model id.

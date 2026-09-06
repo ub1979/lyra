@@ -30,6 +30,7 @@ def test_queue_creates_dependency_ordered_recoverable_jobs(tmp_path, monkeypatch
         project,
         ["researcher", "sw-architect"],
         models={"researcher": "research-model"},
+        providers={"researcher": "research-provider"},
     )
     state = module.project_run_state(project)
 
@@ -47,6 +48,7 @@ def test_queue_creates_dependency_ordered_recoverable_jobs(tmp_path, monkeypatch
         second = module.kb.get_task(conn, queued["tasks"][1]["task_id"])
         subscriptions = module.kb.list_notify_subs(conn)
     assert first is not None and first.model_override == "research-model"
+    assert first.provider_override == "research-provider"
     assert second is not None and second.status == "todo"
     assert subscriptions[0]["platform"] == "tui"
     assert subscriptions[0]["chat_id"] == "project-chat-1"
@@ -63,6 +65,98 @@ def test_reopening_chat_reuses_existing_phase_job(tmp_path, monkeypatch):
 
     assert second["tasks"][0]["task_id"] == first["tasks"][0]["task_id"]
     assert second["tasks"][0]["reused"] is True
+
+
+def test_reused_phase_replaces_or_clears_stale_model_routing(tmp_path, monkeypatch):
+    monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
+    project = tmp_path / "project"
+    project.mkdir()
+    module = load_project_runs()
+
+    first = module.queue_project_run(
+        project,
+        ["sw-developer"],
+        models={"sw-developer": "glm-5-2:cloud"},
+        providers={"sw-developer": "ollama-local"},
+    )
+    task_id = first["tasks"][0]["task_id"]
+    reused = module.queue_project_run(
+        project,
+        ["sw-developer"],
+        models={"sw-developer": "claude-sonnet-4-6"},
+        providers={"sw-developer": "claude-cli"},
+    )
+    assert reused["tasks"][0]["task_id"] == task_id
+    with module.kb.connect_closing() as conn:
+        task = module.kb.get_task(conn, task_id)
+    assert task is not None
+    assert task.model_override == "claude-sonnet-4-6"
+    assert task.provider_override == "claude-cli"
+
+    module.queue_project_run(project, ["sw-developer"])
+    with module.kb.connect_closing() as conn:
+        task = module.kb.get_task(conn, task_id)
+    assert task is not None
+    assert task.model_override is None
+    assert task.provider_override is None
+
+
+@pytest.mark.parametrize(
+    ("models", "providers", "missing"),
+    [
+        ({"sw-developer": "glm-5-2:cloud"}, {}, "provider"),
+        ({}, {"sw-developer": "ollama-local"}, "model"),
+    ],
+)
+def test_queue_rejects_incomplete_model_routing(
+    tmp_path, monkeypatch, models, providers, missing
+):
+    monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
+    project = tmp_path / "project"
+    project.mkdir()
+    module = load_project_runs()
+
+    with pytest.raises(ValueError, match=missing):
+        module.queue_project_run(
+            project,
+            ["sw-developer"],
+            models=models,
+            providers=providers,
+        )
+
+    assert module.project_run_state(project)["tasks"] == []
+
+
+def test_confirmed_routing_repairs_existing_blocked_job(tmp_path, monkeypatch):
+    monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
+    project = tmp_path / "project"
+    project.mkdir()
+    module = load_project_runs()
+    queued = module.queue_project_run(
+        project,
+        ["sw-developer"],
+        models={"sw-developer": "glm-5-2:cloud"},
+        providers={"sw-developer": "ollama-local"},
+    )
+    task_id = queued["tasks"][0]["task_id"]
+    with module.kb.connect_closing() as conn:
+        assert module.kb.claim_task(conn, task_id)
+        assert module.kb.block_task(
+            conn, task_id, reason="Model unavailable", kind="capability"
+        )
+
+    result = module.sync_project_run_routing(
+        project,
+        ["sw-developer"],
+        models={"sw-developer": "claude-sonnet-4-6"},
+        providers={"sw-developer": "claude-cli"},
+    )
+    assert result["changed"] == [task_id]
+    with module.kb.connect_closing() as conn:
+        task = module.kb.get_task(conn, task_id)
+    assert task is not None
+    assert task.model_override == "claude-sonnet-4-6"
+    assert task.provider_override == "claude-cli"
 
 
 @pytest.mark.parametrize("enabled", [True, False])

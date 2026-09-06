@@ -387,6 +387,20 @@ export const api = {
         body: JSON.stringify({ workspace, action }),
       },
     ),
+  syncUltimateBuilderRunRouting: (
+    workspace: string,
+    phases: readonly string[],
+    models: Readonly<Record<string, string>>,
+    providers: Readonly<Record<string, string>>,
+  ) =>
+    fetchJSON<{ project: string; changed: string[] }>(
+      "/api/plugins/ultimate-builder/run/routing",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workspace, phases, models, providers }),
+      },
+    ),
   getSessionMessages: (id: string, profile = getManagementProfile()) =>
     fetchJSON<SessionMessagesResponse>(
       appendProfileParam(`/api/sessions/${encodeURIComponent(id)}/messages`, profile),

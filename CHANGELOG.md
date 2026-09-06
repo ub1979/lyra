@@ -9,6 +9,19 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.20] - 2026-09-06 — portable AI connections
+
+### Fixed
+
+- **Claude Code now connects from its normal user installation.** Lyra finds
+  Claude in trusted per-user install folders even when a desktop or background
+  process started with a more limited PATH than Terminal.
+- **Agent models no longer leak across AI providers or projects.** Model choices
+  are saved per project and provider, always travel with their provider, and
+  repair existing queued work when the project model changes.
+- **Old Ollama assignments are cleared safely.** Choosing Claude Code or
+  “Follow project model” can no longer retry Claude with an old GLM model id.
+
 ## [0.19.19] - 2026-09-06 — natural project decisions
 
 ### Changed

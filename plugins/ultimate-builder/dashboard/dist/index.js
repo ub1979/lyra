@@ -85,7 +85,8 @@
 
   const CUSTOM_TEMPLATES_KEY = "idrak-it.builder.templates.v1";
   const RECENT_PROJECTS_KEY = "idrak-it.builder.projects.v1";
-  const SKILL_MODELS_KEY = "idrak-it.builder.skill-models.v1";
+  const LEGACY_SKILL_MODELS_KEY = "idrak-it.builder.skill-models.v1";
+  const SKILL_MODELS_KEY_PREFIX = "idrak-it.builder.skill-models.v2";
   const STUDIO_THEME_KEY = "lyra-studio-color-mode";
   const STUDIO_THEME_EVENT = "lyra-studio-theme-change";
   const STUDIO_TEXT_SIZE_KEY = "lyra-studio-text-size";
@@ -147,6 +148,18 @@
     } catch (_) {
       return {};
     }
+  }
+
+  function skillModelsKey(provider, workspace) {
+    if (!provider || !workspace) return "";
+    return SKILL_MODELS_KEY_PREFIX + ":" + encodeURIComponent(provider) + ":" + encodeURIComponent(workspace);
+  }
+
+  function writeSkillModels(provider, workspace, models) {
+    const key = skillModelsKey(provider, workspace);
+    if (!key) return;
+    writeStored(key, models);
+    try { localStorage.removeItem(LEGACY_SKILL_MODELS_KEY); } catch (_) {}
   }
 
   function projectSessionKey(workspace) {
@@ -336,7 +349,7 @@
     const [customTemplates, setCustomTemplates] = useState(() => readStored(CUSTOM_TEMPLATES_KEY, []));
     const [recentProjects, setRecentProjects] = useState(() => readStored(RECENT_PROJECTS_KEY, []));
     const [templateName, setTemplateName] = useState("");
-    const [skillModels, setSkillModels] = useState(() => readStoredMap(SKILL_MODELS_KEY));
+    const [skillModels, setSkillModels] = useState({});
     const [modelInfo, setModelInfo] = useState({ provider: "", model: "" });
     const [modelOptions, setModelOptions] = useState([]);
     const [modelsLoading, setModelsLoading] = useState(true);
@@ -461,10 +474,12 @@
             || providers.find((item) => item.is_current)
             || null;
           const models = provider && Array.isArray(provider.models) ? provider.models : [];
+          const providerId = String((info && info.provider) || (provider && provider.slug) || "");
           setModelInfo({
-            provider: String((info && info.provider) || (provider && provider.slug) || ""),
+            provider: providerId,
             model: String((info && info.model) || (options && options.model) || ""),
           });
+          setSkillModels(readStoredMap(skillModelsKey(providerId, "launcher")));
           setModelOptions(Array.from(new Set(models.map(String).filter(Boolean))));
         })
         .catch(() => {})
@@ -489,7 +504,7 @@
         const next = { ...current };
         if (model) next[id] = model;
         else delete next[id];
-        writeStored(SKILL_MODELS_KEY, next);
+        writeSkillModels(modelInfo.provider, "launcher", next);
         return next;
       });
     };
@@ -508,7 +523,7 @@
       setSelected(withRequired(template.skills));
       if (template.models && typeof template.models === "object") {
         setSkillModels(template.models);
-        writeStored(SKILL_MODELS_KEY, template.models);
+        writeSkillModels(modelInfo.provider, "launcher", template.models);
       }
     };
 
@@ -679,6 +694,10 @@
             .filter((id) => typeof skillModels[id] === "string" && skillModels[id].trim())
             .map((id) => [id, skillModels[id].trim()]),
         );
+        const specialistProviders = Object.fromEntries(
+          Object.keys(specialistModels).map((id) => [id, modelInfo.provider]),
+        );
+        writeSkillModels(modelInfo.provider, workspace, specialistModels);
         const codeChangesAllowed = ["sw-developer", "oop-restructurer", "debugger"]
           .some((skill) => selected.has(skill));
         const request = brief.trim() || defaultBrief(templateId, mode === "existing");
@@ -689,8 +708,8 @@
             : "Speak as Lyra. Inspect the existing workspace read-only, then begin with a warm one-sentence greeting, briefly say what the project appears to be, and ask exactly ONE question about the outcome the user wants. Recommend the smallest useful specialist team and ask permission before adding it.",
           coordination_rule: "Remain the user's single point of contact. Coordinate only the currently enabled specialist phases and verify each phase's evidence. Specialist delegates return before you continue. Stop for user approval at requirements, visual preview for UI projects, team changes, and final delivery. Present checkpoints with Approve / Change / Skip options. Never ask the user to wake or resume an internal workflow.",
           project_git_rule: "The selected workspace owns a separate local Git repository prepared by Lyra. Before every Git action, verify that git rev-parse --show-toplevel is exactly the workspace. Run Git from that root only. Never stage, commit, reset, merge, rebase, or push Lyra's application repository during project work. Never push the project unless the user explicitly requests it in this conversation.",
-          skill_change_rule: "When proposing the smallest useful team, emit exactly one [APP_IT_SKILLS_SET:comma-separated-ids] marker. The dashboard will hide it and show editable checkboxes; the marker is a proposal, not approval. Do not use newly proposed agents until an IDRAK_INTERNAL_SKILLS_UPDATE arrives after the user confirms the selection. Treat that selection and specialist_models map as authoritative and acknowledge it briefly without emitting another marker.",
-          model_routing_rule: "For every delegate_task specialist phase, look up its specialist id in specialist_models. When a model is assigned, pass that exact value in delegate_task.model (or the task item's model field for a batch). Never substitute another model. When no model is assigned, omit the model field so the configured delegation/session default is inherited. These assignments apply to specialist delegates only; the coordinating conversation keeps its session model.",
+          skill_change_rule: "When proposing the smallest useful team, emit exactly one [APP_IT_SKILLS_SET:comma-separated-ids] marker. The dashboard will hide it and show editable checkboxes; the marker is a proposal, not approval. Do not use newly proposed agents until an IDRAK_INTERNAL_SKILLS_UPDATE arrives after the user confirms the selection. Treat that selection plus the specialist_models and specialist_providers maps as authoritative and acknowledge it briefly without emitting another marker.",
+          model_routing_rule: "For every specialist phase, look up its id in specialist_models and specialist_providers. When a model is assigned, pass both the exact model and its matching provider to the durable project job. Never send a model to a different provider or substitute another model. When no model is assigned, omit both fields so the configured project model is inherited. These assignments apply to specialist agents only; the coordinating conversation keeps its session model.",
           delivery_rule: templateId === "mvp"
             ? "This is the MVP fast path. Keep artifacts and research proportional to the requested app. After requirements approval: if the project has a UI, you MUST generate a quick visual preview (1-3 static HTML/CSS mockups in .sdlc/preview/) and STOP to show the user and get their explicit approval before writing any application code. Present: 'Preview ready — open .sdlc/preview/index.html. Does this look like what you want? Approve / Change / Skip.' Then move to development, smoke QA, and concise run documentation; do not invent architecture or task-planning phases when they are disabled."
             : "Use the selected specialist phases at appropriate depth for the project.",
@@ -701,6 +720,7 @@
           disabled_specialists: disabled,
           disabled_specialist_labels: disabledLabels,
           specialist_models: specialistModels,
+          specialist_providers: specialistProviders,
           default_specialist_model: modelInfo.model,
           default_specialist_provider: modelInfo.provider,
           code_changes_allowed: codeChangesAllowed,
@@ -755,7 +775,7 @@
           ),
           h("div", { className: "ub-studio-nav-actions" },
             h("span", { className: "ub-studio-ready" }, h("i", null), "Ready"),
-            h("span", { className: "ub-version" }, "v0.19.19 beta"),
+            h("span", { className: "ub-version" }, "v0.19.20 beta"),
             textSizeControl(),
             themeToggle(),
             h("button", {
