@@ -8,6 +8,7 @@ export function useProjectLedger(guided: boolean, workspaceParam: string) {
     workspace: string
     steps: GuidedPhaseStep[] | null
     runState: UltimateBuilderRunState | null
+    updatedAt: number | null
     stale: boolean
   } | null>(null)
   useEffect(() => {
@@ -35,6 +36,7 @@ export function useProjectLedger(guided: boolean, workspaceParam: string) {
               }))
             : null,
           runState: state.run_state ?? null,
+          updatedAt: state.phase_state.updated_at ?? null,
           stale: false
         })
       } catch {
@@ -44,6 +46,7 @@ export function useProjectLedger(guided: boolean, workspaceParam: string) {
           workspace: workspaceParam,
           steps: current?.workspace === workspaceParam ? current.steps : null,
           runState: current?.workspace === workspaceParam ? current.runState : null,
+          updatedAt: current?.workspace === workspaceParam ? current.updatedAt : null,
           stale: true
         }))
       } finally {

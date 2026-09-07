@@ -4742,6 +4742,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                     durable={guidedLedgerSteps !== null}
                     backgroundJobs={Boolean(guidedRunState?.available)}
                     steps={guidedPhaseSteps}
+                    updatedAt={guidedLedger?.updatedAt}
                   />
                 </div>
               </details>
@@ -5464,6 +5465,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             durable={guidedLedgerSteps !== null}
             backgroundJobs={Boolean(guidedRunState?.available)}
             steps={guidedPhaseSteps}
+            updatedAt={guidedLedger?.updatedAt}
           />
         </aside>
         </div>

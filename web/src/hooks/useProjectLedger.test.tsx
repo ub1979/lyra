@@ -37,12 +37,14 @@ describe('project status polling', () => {
         resolve({
           phase_state: {
             available: true,
+            updated_at: 1_788_778_000,
             phases: [{ id: 'researcher', label: 'Research', state: 'pending', status: 'Queued' }]
           },
           run_state: null
         } as unknown as UltimateBuilderState)
       })
       expect(state?.stale).toBe(false)
+      expect(state?.updatedAt).toBe(1_788_778_000)
       if (failure === 'network') read.mockRejectedValueOnce(new Error('offline'))
       else read.mockResolvedValueOnce({ run_state: { state: 'unavailable' } } as UltimateBuilderState)
       await act(async () => {
@@ -50,6 +52,7 @@ describe('project status polling', () => {
       })
       expect(state?.stale).toBe(true)
       expect(state?.steps?.[0].label).toBe('Research')
+      expect(state?.updatedAt).toBe(1_788_778_000)
     } finally {
       await act(async () => root.unmount())
     }

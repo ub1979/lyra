@@ -1012,12 +1012,13 @@ class AIAgent:
         - CLI: ``thinking_callback`` updates the prompt_toolkit spinner text.
         - TUI / Desktop: the same callback is bridged to the ``thinking.delta``
           event, which both render as the live spinner/status line.
-        - Gateway: ``_touch_activity`` stores the text as the activity
-          description, which the "⏳ Working — N min" heartbeat includes.
+        - Gateway: the text becomes the current activity description without
+          resetting the liveness timestamp. A timer notice is not proof that
+          the provider or worker made progress.
 
         Never raises — a wait notice must not break the API-call wait loop.
         """
-        self._touch_activity(text)
+        self._describe_activity(text)
         _thinking_cb = getattr(self, "thinking_callback", None)
         if _thinking_cb:
             try:
@@ -3451,6 +3452,10 @@ class AIAgent:
                 # covers import-time failures (kanban_tools unavailable,
                 # etc.) on niche deployment surfaces.
                 pass
+
+    def _describe_activity(self, desc: str) -> None:
+        """Update visible status without treating a timer notice as progress."""
+        self._last_activity_desc = desc
 
     def _capture_rate_limits(self, http_response: Any) -> None:
         """Parse x-ratelimit-* headers from an HTTP response and cache the state.

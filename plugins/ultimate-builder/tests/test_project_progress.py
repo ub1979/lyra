@@ -63,6 +63,15 @@ def test_named_phase_keeps_live_worker_status_in_the_project_map():
     }]
 
 
+def test_project_map_uses_the_latest_ledger_or_worker_timestamp():
+    module = progress_module()
+    merged = module._merge_project_run_state(
+        {"phases": [], "updated_at_epoch": 100},
+        {"tasks": [], "last_activity_at": 200},
+    )
+    assert merged["updated_at"] == 200
+
+
 def test_evidence_available_does_not_claim_tests_were_verified(tmp_path):
     module = progress_module()
     (tmp_path / "report.md").write_text("An agent's report")

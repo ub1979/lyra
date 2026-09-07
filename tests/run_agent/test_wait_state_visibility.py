@@ -4,8 +4,8 @@ Long provider waits (slow/overloaded backend, no first byte, reasoning model
 thinking for minutes) used to leave CLI/TUI/Desktop users staring at a generic
 "cogitating..." spinner with no explanation. ``AIAgent._emit_wait_notice``
 rewrites the live spinner/status line (via ``thinking_callback``, bridged to
-``thinking.delta`` for TUI/Desktop) and updates the activity tracker (which the
-gateway's "⏳ Working — N min" heartbeat includes).
+``thinking.delta`` for TUI/Desktop). Timer-generated notices update the visible
+description but never count as proof that the provider made progress.
 """
 
 from __future__ import annotations
@@ -41,26 +41,30 @@ def _make_agent(tmp_path, monkeypatch, **kwargs):
     )
 
 
-def test_emit_wait_notice_updates_spinner_and_activity(tmp_path, monkeypatch):
-    """The notice reaches the live display callback AND the activity tracker."""
+def test_emit_wait_notice_updates_spinner_without_resetting_liveness(tmp_path, monkeypatch):
+    """The notice reaches the display but does not conceal a silent provider."""
     seen: list = []
     agent = _make_agent(tmp_path, monkeypatch, thinking_callback=seen.append)
+    agent._last_activity_ts = 123.0
 
     agent._emit_wait_notice("⏳ waiting on test-model — 30s with no response yet")
 
     assert seen == ["⏳ waiting on test-model — 30s with no response yet"]
     summary = agent.get_activity_summary()
     assert "waiting on test-model" in summary["last_activity_desc"]
+    assert summary["last_activity_ts"] == 123.0
 
 
-def test_emit_wait_notice_without_callback_still_touches_activity(tmp_path, monkeypatch):
-    """No thinking_callback bound (gateway sessions) — activity still updates."""
+def test_emit_wait_notice_without_callback_still_describes_wait(tmp_path, monkeypatch):
+    """Gateway sessions retain the explanation without a false heartbeat."""
     agent = _make_agent(tmp_path, monkeypatch)
     agent.thinking_callback = None
+    agent._last_activity_ts = 456.0
 
     agent._emit_wait_notice("⏳ waiting on test-model — 60s")
 
     assert "waiting on test-model" in agent.get_activity_summary()["last_activity_desc"]
+    assert agent.get_activity_summary()["last_activity_ts"] == 456.0
 
 
 def test_emit_wait_notice_swallows_callback_errors(tmp_path, monkeypatch):

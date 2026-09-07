@@ -27,6 +27,8 @@ ACTIVE_STATUSES = frozenset({
     "scheduled",
 })
 RUNNING_STATUSES = frozenset({"todo", "ready", "running", "scheduled"})
+QUIET_ACTIVITY_SECONDS = 2 * 60
+STALLED_ACTIVITY_SECONDS = 10 * 60
 
 PHASES: dict[str, dict[str, str]] = {
     "researcher": {"label": "Research", "artifact": "research-report.md"},
@@ -78,6 +80,24 @@ def _ensure_project_repository(project: Path) -> dict[str, object]:
     )
 
 
+def _ensure_project_status(project: Path) -> dict[str, Any]:
+    """Create the compact recovery snapshot before a worker can start."""
+    modules = {}
+    for name in ("project_progress", "project_status"):
+        path = Path(__file__).resolve().with_name(f"{name}.py")
+        spec = importlib.util.spec_from_file_location(
+            f"lyra_ultimate_builder_{name}_for_jobs", path
+        )
+        if spec is None or spec.loader is None:
+            raise RuntimeError(f"Could not load {name}")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        modules[name] = module
+    return modules["project_status"].load_project_status(
+        project, modules["project_progress"]._parse_progress_ledger
+    )
+
+
 def _workspace(path: str | Path) -> Path:
     project = Path(path).expanduser().resolve(strict=False)
     if not project.is_dir():
@@ -95,6 +115,23 @@ def _phase_from_task(task: kb.Task) -> str | None:
         return None
     parts = key.split(":")
     return parts[3] if len(parts) >= 5 else None
+
+
+def _activity_health(
+    status: str, last_activity_at: int | None, *, now: int | None = None
+) -> tuple[str, int | None]:
+    """Classify visibility only; the dispatcher remains recovery authority."""
+    if status != "running":
+        return "settled", None
+    current = int(time.time()) if now is None else int(now)
+    if last_activity_at is None:
+        return "stalled", None
+    age = max(0, current - int(last_activity_at))
+    if age >= STALLED_ACTIVITY_SECONDS:
+        return "stalled", age
+    if age >= QUIET_ACTIVITY_SECONDS:
+        return "quiet", age
+    return "fresh", age
 
 
 def _validate_routing(
@@ -143,9 +180,9 @@ Required outcome: complete the {info["label"]} phase and leave {info["artifact"]
 
 {_project_brain_contract()}
 
-Read the repository instructions, then the Project Brain, requirements.md, plan.md, and .sdlc/progress.md when present. Adopt existing partial work; never restart completed work merely because this is a recovered job. Preserve unrelated user changes. Before editing, verify `git rev-parse --show-toplevel` resolves to this exact workspace, then inspect Git status. Run every Git command from this project root; never stage or commit files in Lyra's application repository. Work only in this project.
+Read the repository instructions and `.sdlc/status.json` first when present. It is the compact current-state snapshot. Read `.sdlc/progress.md` only when the snapshot is missing, older than the ledger, or you need historical evidence; then read the Project Brain and only the requirements/plan sections needed for this phase. Adopt existing partial work; never restart completed work merely because this is a recovered job. Preserve unrelated user changes. Before editing, verify `git rev-parse --show-toplevel` resolves to this exact workspace, then inspect Git status. Run every Git command from this project root; never stage or commit files in Lyra's application repository. Work only in this project.
 
-Update .sdlc/progress.md to running when work starts. Perform the real work and verification required by the loaded specialist playbook. Save every project change in a local Git commit after verification, staging only files from this task. The project repository is prepared before dispatch; stop and report an isolation error if its root is no longer this workspace. Never push to a remote unless the user separately asks in their main Lyra conversation.
+Update `.sdlc/progress.md` to running when work starts; Lyra regenerates `.sdlc/status.json` atomically from that ledger, so do not hand-edit the snapshot. Perform the real work and verification required by the loaded specialist playbook. Save every project change in a local Git commit after verification, staging only files from this task. The project repository is prepared before dispatch; stop and report an isolation error if its root is no longer this workspace. Never push to a remote unless the user separately asks in their main Lyra conversation.
 
 Before finishing, update the ledger to verified or blocked with plain evidence paths. Use the Kanban completion action only when the phase is genuinely complete; otherwise use the Kanban block action with the exact user decision or missing capability needed. Your final summary must be plain language: what the user can do now, whether the whole application is finished, what remains, and any blocker. Do not lead with roadmap codes, schema names, or raw test counts.
 """
@@ -196,6 +233,7 @@ def queue_project_run(
     worker_profile = assignee or str(origin["profile"] or "default")
     validate_project_worker(worker_profile)
     repository = _ensure_project_repository(project)
+    status_snapshot = _ensure_project_status(project)
     board = kb.get_current_board()
     existing = _project_tasks(project, include_archived=True)
     latest_by_phase: dict[str, tuple[str, kb.Task]] = {}
@@ -281,6 +319,10 @@ def queue_project_run(
         "board": board,
         "tasks": created,
         "repository": repository,
+        "status_snapshot": {
+            "path": ".sdlc/status.json",
+            "updated_at": status_snapshot["updated_at"],
+        },
         "message": "Project agents were saved as recoverable background jobs.",
     }
 
@@ -338,6 +380,15 @@ def project_run_state(workspace: str | Path) -> dict[str, Any]:
         # reason separately so Studio can explain it without guessing from chat.
         with kb.connect_closing(board=board) as conn:
             attention = task_attention(conn, task)
+        last_activity_at = (
+            task.last_heartbeat_at
+            or task.completed_at
+            or task.started_at
+            or task.created_at
+        )
+        activity_health, activity_age_seconds = _activity_health(
+            task.status, last_activity_at
+        )
         items.append({
             "phase": phase,
             "label": PHASES[phase]["label"] if phase in PHASES else task.title,
@@ -350,10 +401,9 @@ def project_run_state(workspace: str | Path) -> dict[str, Any]:
             "block_kind": task.block_kind if task.status in {"blocked", "triage"} else None,
             **attention,
             "paused_by_user": attention["wait_reason"] == PAUSE_REASON,
-            "last_activity_at": task.last_heartbeat_at
-            or task.completed_at
-            or task.started_at
-            or task.created_at,
+            "last_activity_at": last_activity_at,
+            "activity_health": activity_health,
+            "activity_age_seconds": activity_age_seconds,
         })
     items.sort(key=lambda item: int(item["last_activity_at"] or 0))
     active = [
@@ -362,10 +412,12 @@ def project_run_state(workspace: str | Path) -> dict[str, Any]:
     ]
     blocked = [
         item for item in items
-        if item["status"] in {"blocked", "triage"} or item["dispatch_issue"]
+        if item["status"] in {"blocked", "triage"}
+        or item["dispatch_issue"]
+        or item["activity_health"] == "stalled"
     ]
     running = any(item["status"] == "running" for item in items)
-    state = "working" if running else "needs_attention" if blocked else "queued" if active else "idle"
+    state = "needs_attention" if blocked else "working" if running else "queued" if active else "idle"
     return {
         "available": bool(items),
         "state": state,

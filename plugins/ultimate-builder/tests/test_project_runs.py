@@ -19,6 +19,53 @@ def load_project_runs():
     return module
 
 
+@pytest.mark.parametrize(
+    ("last_activity_at", "expected"),
+    [(950, "fresh"), (800, "quiet"), (300, "stalled"), (None, "stalled")],
+)
+def test_running_activity_health_never_hides_silence(last_activity_at, expected):
+    module = load_project_runs()
+    health, age = module._activity_health("running", last_activity_at, now=1_000)
+    assert health == expected
+    assert age == (None if last_activity_at is None else 1_000 - last_activity_at)
+
+
+def test_completed_activity_is_settled_not_stalled():
+    assert load_project_runs()._activity_health("done", 1, now=1_000) == (
+        "settled",
+        None,
+    )
+
+
+def test_worker_reads_compact_status_before_detailed_progress():
+    body = load_project_runs()._task_body(Path("/project"), "sw-developer")
+    assert body.index(".sdlc/status.json") < body.index(".sdlc/progress.md")
+    assert "do not hand-edit the snapshot" in body
+
+
+def test_stalled_saved_job_changes_the_project_state_to_attention(tmp_path, monkeypatch):
+    monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
+    project = tmp_path / "project"
+    project.mkdir()
+    module = load_project_runs()
+    task_id = module.queue_project_run(project, ["sw-developer"])["tasks"][0]["task_id"]
+    now = int(module.time.time())
+    with module.kb.connect_closing() as conn:
+        assert module.kb.claim_task(conn, task_id)
+        with module.kb.write_txn(conn):
+            conn.execute(
+                "UPDATE tasks SET last_heartbeat_at = ? WHERE id = ?",
+                (now - module.STALLED_ACTIVITY_SECONDS, task_id),
+            )
+    monkeypatch.setattr(module.time, "time", lambda: now)
+
+    state = module.project_run_state(project)
+
+    assert state["state"] == "needs_attention"
+    assert state["active"] is True
+    assert state["tasks"][0]["activity_health"] == "stalled"
+
+
 def test_queue_creates_dependency_ordered_recoverable_jobs(tmp_path, monkeypatch):
     monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
     monkeypatch.setenv("HERMES_SESSION_KEY", "project-chat-1")
@@ -41,6 +88,8 @@ def test_queue_creates_dependency_ordered_recoverable_jobs(tmp_path, monkeypatch
     assert [task["status"] for task in queued["tasks"]] == ["ready", "todo"]
     assert queued["repository"]["root"] == str(project.resolve())
     assert queued["repository"]["has_remote"] is False
+    assert queued["status_snapshot"]["path"] == ".sdlc/status.json"
+    assert (project / ".sdlc" / "status.json").is_file()
     assert state["available"] is True
     assert state["active_task_count"] == 2
     with module.kb.connect_closing() as conn:

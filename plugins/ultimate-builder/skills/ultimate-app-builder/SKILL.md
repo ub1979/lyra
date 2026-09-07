@@ -127,11 +127,13 @@ file and the live tool schema win.
 ## Step 0: establish state
 
 Inspect the repository, its instructions, Git state, available tools,
-`.sdlc/project-brain.md`, and `.sdlc/progress.md`. Read the Project Brain before
-planning or editing, but verify its claims against cited source files, tests,
-and current Git state. If it is absent, create it before the first completed
-change. If `.sdlc/context.md` exists, use it once as migration input. Do not
-overwrite unrelated user changes.
+`.sdlc/project-brain.md`, `.sdlc/status.json`, and `.sdlc/progress.md`. Read the
+small status snapshot first. Read the detailed progress ledger only when the
+snapshot is missing, older than the ledger, or its cited history is needed.
+Read the Project Brain before planning or editing, but verify its claims against
+cited source files, tests, and current Git state. If it is absent, create it
+before the first completed change. If `.sdlc/context.md` exists, use it once as
+migration input. Do not overwrite unrelated user changes.
 
 Before any Git action, verify that `git rev-parse --show-toplevel` resolves to
 the exact selected workspace. Run Git from that project root only. Never stage,
@@ -171,6 +173,8 @@ Updated:
 
 Use statuses `pending`, `running`, `blocked`, `failed`, and `verified`.
 Update the ledger after every delegate finishes or blocks.
+Lyra owns and atomically regenerates `.sdlc/status.json` from this ledger; do
+not hand-edit or append history to the compact snapshot.
 
 Mirror each transition to the conversation with the phase protocol in the
 `app-it` playbook: `[APP_IT_PHASE:<id>]` when a phase starts running,

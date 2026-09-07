@@ -211,6 +211,32 @@ class _IdleProjectRuns:
         return {"ok": True}
 
 
+def test_state_uses_compact_snapshot_instead_of_returning_full_ledger(
+    tmp_path, monkeypatch
+):
+    module = load_plugin_api()
+    monkeypatch.setattr(module, "_project_runs_module", lambda: _IdleProjectRuns)
+    project = tmp_path / "project"
+    sdlc = project / ".sdlc"
+    sdlc.mkdir(parents=True)
+    (sdlc / "progress.md").write_text(
+        "| Phase | Status | Evidence |\n"
+        "|---|---|---|\n"
+        "| Research | Complete | `research-report.md` |\n",
+        encoding="utf-8",
+    )
+
+    first = module.state(str(project))
+    second = module.state(str(project))
+
+    assert "progress" not in first
+    assert first["status_snapshot"]["path"] == ".sdlc/status.json"
+    assert first["status_snapshot"]["cache"] == "refreshed"
+    assert second["status_snapshot"]["cache"] == "hit"
+    assert (sdlc / "status.json").stat().st_size < 2_000
+    assert first["phase_state"]["updated_at"] is not None
+
+
 def test_confirmed_model_routing_is_forwarded_to_saved_project_jobs(
     tmp_path, monkeypatch
 ):

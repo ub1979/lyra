@@ -1911,13 +1911,21 @@ export interface UltimateBuilderPhase {
 export interface UltimateBuilderState {
   project: string;
   has_sdlc: boolean;
-  progress: string;
   phase_state: {
     available: boolean;
     source: string;
+    updated_at: number | null;
     phases: UltimateBuilderPhase[];
   };
   run_state?: UltimateBuilderRunState;
+  status_snapshot?: {
+    schema_version: number;
+    path: string;
+    cache: "hit" | "refreshed" | "memory";
+    updated_at: string | null;
+    updated_at_epoch: number | null;
+    summary: { done: number; open: number; blocked: number; active: number };
+  };
 }
 
 export interface UltimateBuilderRecoveryPoint {
@@ -1982,6 +1990,8 @@ export interface UltimateBuilderRunTask {
   attempts: number;
   last_error: string;
   last_activity_at: number | null;
+  activity_health?: "fresh" | "quiet" | "stalled" | "settled";
+  activity_age_seconds?: number | null;
   block_kind?: string | null;
   wait_reason?: string;
   paused_by_user?: boolean;

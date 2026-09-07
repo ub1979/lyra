@@ -16,7 +16,7 @@ Durable project jobs → Hermes Kanban dispatcher → isolated worker sessions
 |---|---|---|
 | Studio composition | `web/src/pages/ChatPage.tsx` | Web suite and production build |
 | Project map / agent artwork | `web/src/components/GuidedProgressMap.tsx`, `web/src/components/GuidedAgentAvatar.tsx` | Rendering tests and production build |
-| Durable status polling | `web/src/hooks/useProjectLedger.ts` | Hook tests; project API tests |
+| Compact project status / polling | `plugins/ultimate-builder/project_status.py`, `web/src/hooks/useProjectLedger.ts` | Atomic snapshot, malformed/stale fallback, hook and project API tests |
 | Question lifetime / retry | `web/src/hooks/useGuidedClarification.ts`, `web/src/components/GuidedClarification.tsx` | Inline-message and hook integration tests |
 | Live chat feedback / summarizing / message time | `web/src/components/GuidedCoordinatorActivity.tsx`, `web/src/lib/guided-turn-watchdog.ts`, `web/src/lib/studio-time.ts` | Timed heartbeat, reconnect, cancellation-control and date/time tests |
 | Atomic question / approval transport | `apps/shared/src/prompt-answer-frame.ts`, `ui-tui/src/components/prompts.tsx`, `web/src/components/GuidedApprovalActions.tsx` | Real Ink transport and inline-action tests |

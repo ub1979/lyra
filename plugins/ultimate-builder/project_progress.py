@@ -171,5 +171,10 @@ def _merge_project_run_state(
             if run_state.get("available")
             else ledger.get("source", ".sdlc/progress.md")
         ),
+        "updated_at": max(
+            int(ledger.get("updated_at_epoch") or 0),
+            int(run_state.get("last_activity_at") or 0),
+        )
+        or None,
         "phases": phases,
     }

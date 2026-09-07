@@ -1743,6 +1743,7 @@ docs/lyra/changes/2026-09-06-project-job-routing.md	docs	md: 2026 09 06 project 
 docs/lyra/changes/2026-09-06-project-workflow-verification.md	docs	md: 2026 09 06 project workflow verification
 docs/lyra/changes/2026-09-06-review-handoff.md	docs	md: 2026 09 06 review handoff
 docs/lyra/changes/2026-09-06-studio-model-retry.md	docs	md: 2026 09 06 studio model retry
+docs/lyra/changes/2026-09-07-compact-project-status.md	docs	md: 2026 09 07 compact project status
 docs/lyra/changes/2026-09-07-studio-liveness-time.md	docs	md: 2026 09 07 studio liveness time
 docs/lyra/file-index.tsv	docs	tsv: file index
 docs/middleware/README.md	docs	md: README
@@ -2065,6 +2066,8 @@ hermes_cli/web_dist/assets/RulesCompressed-Medium-CA76_CrB.woff2	hermes_cli	Gene
 hermes_cli/web_dist/assets/RulesCompressed-Regular-BSXFyF4x.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Bold-DZA7s8Pa.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Regular-l8uVympt.woff2	hermes_cli	Generated asset; edit its source and rebuild
+hermes_cli/web_dist/assets/index-DfBZQcxm.js	hermes_cli	Generated asset; edit its source and rebuild
+hermes_cli/web_dist/assets/index-xIyDNyYZ.css	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Bold.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Italic.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Regular.woff2	hermes_cli	Generated asset; edit its source and rebuild
@@ -3009,6 +3012,7 @@ plugins/ultimate-builder/project_progress.py	plugins	Parse project progress cons
 plugins/ultimate-builder/project_repository.py	plugins	Create and verify project-local Git repositories without touching Lyra Git.
 plugins/ultimate-builder/project_run_cli.py	plugins	CLI adapter for durable Lyra project jobs.
 plugins/ultimate-builder/project_runs.py	plugins	Durable Ultimate Builder phase runs backed by Hermes Kanban.
+plugins/ultimate-builder/project_status.py	plugins	Maintain Lyra's small, validated project-status projection.
 plugins/ultimate-builder/scripts/evaluate_candidates.py	plugins	py: evaluate candidates
 plugins/ultimate-builder/skills/app-it/SKILL.md	plugins	md: SKILL
 plugins/ultimate-builder/skills/app-it/agents/openai.yaml	plugins	yaml: openai
@@ -3046,6 +3050,7 @@ plugins/ultimate-builder/tests/test_project_brain.py	plugins	Behavioral tests: p
 plugins/ultimate-builder/tests/test_project_progress.py	plugins	Behavioral tests: project progress
 plugins/ultimate-builder/tests/test_project_repository.py	plugins	Behavioral tests: project repository
 plugins/ultimate-builder/tests/test_project_runs.py	plugins	Behavioral tests: project runs
+plugins/ultimate-builder/tests/test_project_status.py	plugins	Behavioral tests: project status
 plugins/video_gen/deepinfra/__init__.py	plugins	DeepInfra video generation backend.
 plugins/video_gen/deepinfra/plugin.yaml	plugins	yaml: plugin
 plugins/video_gen/fal/__init__.py	plugins	FAL.ai video generation backend.

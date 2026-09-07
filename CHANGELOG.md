@@ -9,6 +9,29 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.23] - 2026-09-07 — compact truthful project status
+
+### Added
+
+- **Projects now have a small `.sdlc/status.json` snapshot.** Studio reads the
+  validated snapshot for routine progress instead of repeatedly parsing or
+  transmitting the growing Markdown history. Lyra rebuilds it atomically only
+  when the detailed ledger changes.
+- **Project Map shows its exact last-update date and time.** Active jobs also
+  distinguish fresh, quiet, and stopped activity without hiding the worker or
+  taking Lyra chat away.
+
+### Fixed
+
+- **Timer-generated waiting notices no longer impersonate real activity.** A
+  provider that emits no output cannot keep resetting the worker heartbeat
+  merely because Lyra explains that it is still waiting.
+- **Long work no longer silently looks healthy forever.** After two minutes
+  without a real update Studio says that it is waiting; after ten minutes it
+  clearly offers recovery guidance while Lyra remains available for chat.
+
+Restart Lyra after updating so the status projection and liveness fix load.
+
 ## [0.19.22] - 2026-09-07 — visible progress and message time
 
 ### Fixed

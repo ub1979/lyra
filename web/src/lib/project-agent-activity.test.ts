@@ -58,6 +58,24 @@ describe('saved project agent activity', () => {
     expect(projectAgentActivity(null)).toEqual([])
   })
 
+  it('keeps quiet work visible and clearly flags a stopped activity signal', () => {
+    const quiet = projectAgentActivity(savedRun([job({ activity_health: 'quiet' })]))
+    expect(quiet[0]).toMatchObject({
+      status: 'Working — waiting for a fresh update',
+      running: true,
+      attention: false
+    })
+    expect(quiet[0].detail).toContain('exact last update')
+
+    const stalled = projectAgentActivity(savedRun([job({ activity_health: 'stalled' })]))
+    expect(stalled[0]).toMatchObject({
+      status: 'No fresh activity — recovery available',
+      running: true,
+      attention: true
+    })
+    expect(stalled[0].detail).toContain('Lyra remains available')
+  })
+
   it('explains generic jobs that cannot start and distinguishes queued from running', () => {
     const task = job({
       phase: 'job:default:custom',

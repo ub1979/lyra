@@ -21,7 +21,7 @@ export interface LyraUpdateStatus {
 export interface LyraVersion {
   version: string | null;
   channel: string | null;
-  /** Ready to print: "beta v0.19.22". */
+  /** Ready to print: "beta v0.19.23". */
   display: string | null;
   release_name: string | null;
   released: string | null;

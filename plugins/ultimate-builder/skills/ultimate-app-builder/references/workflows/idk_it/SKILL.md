@@ -38,14 +38,15 @@ Disk is the pipeline's memory; keep the conversation window lean:
 - **Pass paths, not contents.** Agents get file paths to requirements.md / plan.md / task-graph.md — never paste document bodies into agent prompts (exception: fix-loop findings, which are quoted verbatim).
 - **Read selectively.** From agent reports, read only the verdict/summary section and MAJOR+ findings — not the whole file. Details stay on disk for the next agent that needs them.
 - **Agents reply short.** Every spawned agent writes full detail to its output file and returns ≤15 lines: verdict, counts, artifact paths, flagged items.
-- **State lives in `.sdlc/`.** Between phases rely on the ledger + verified
+- **State lives in `.sdlc/`.** Between phases rely on the compact `status.json`
+  snapshot first, then consult the detailed ledger only when needed, plus the verified
   `project-brain.md` + `learnings.jsonl`, not on remembering the conversation.
   If context feels heavy, refresh the bounded Project Brain and continue from
   its evidence map — that is also what makes recovery reliable.
 - **One-line status updates** between phases; no re-narration of what previous phases did.
 
 ### Rule 6: DURABLE PROGRESS — EVERY PHASE RECORDED IN THE LEDGER
-After EVERY phase (success or failure), append to `.sdlc/progress.md`. `resume` recovers state from this ledger — never from memory. FORBIDDEN: relying on conversation context as the record; context gets compressed, the ledger is the source of truth.
+After EVERY phase (success or failure), append to `.sdlc/progress.md`. Lyra atomically projects its current state into `.sdlc/status.json`; routine `resume` checks read that small snapshot first and open the ledger only for missing, stale, or detailed evidence. FORBIDDEN: relying on conversation context as the record; context gets compressed.
 
 ---
 
@@ -79,7 +80,7 @@ Before agents work, ensure they have what they need:
 
 ## Step 0 — Detect Intent & Discover Environment
 
-Determine: (1) which command matches, (2) is there an existing codebase, (3) do requirements.md / plan.md / task-graph.md exist, (4) progress — check `.sdlc/progress.md` first (authoritative), then file detection, (5) connected MCP servers.
+Determine: (1) which command matches, (2) is there an existing codebase, (3) do requirements.md / plan.md / task-graph.md exist, (4) progress — check `.sdlc/status.json` first, then the ledger only when needed, then file detection, (5) connected MCP servers.
 
 **MCP discovery (once at pipeline start)**: list connected servers and their tools, test connectivity (e.g. `mcp__mongodb__list-databases`), and pass the inventory to EVERY agent via the prompt template. If a critical server is missing (e.g. MongoDB project with no MongoDB MCP), warn the user immediately — agents will fall back to CLI tools.
 
@@ -117,11 +118,12 @@ IF ambiguous -> ask ONE question: "What would you like to do?" with options
 
 ### State Detection
 
-Check `.sdlc/progress.md` FIRST (authoritative). Fall back to file detection only if the ledger is missing:
+Check `.sdlc/status.json` FIRST. Read `.sdlc/progress.md` only when the snapshot is missing, older, or detailed history is required. Fall back to file detection only if both are missing:
 
 | File | Means |
 |------|-------|
-| `.sdlc/progress.md` | Authoritative progress record — read first for `resume` |
+| `.sdlc/status.json` | Compact current state — read first for `resume` |
+| `.sdlc/progress.md` | Detailed progress and evidence history — read on demand |
 | `mvp-brief.md` | MVP Fast Path was used — scope + build sketch |
 | `.sdlc/debt.md` | MVP shortcut ledger — the roadmap for `promote` |
 | `requirements.md` | Requirements phase complete |
@@ -471,7 +473,7 @@ The payoff of the Evolvability Contract: upgrade an MVP built by the Fast Path (
 5. Stop — no code.
 
 ### Command: `resume`
-1. Read `.sdlc/progress.md` FIRST (authoritative); if missing, fall back to file detection
+1. Read `.sdlc/status.json` first; consult `.sdlc/progress.md` only if missing, older, or more detail is needed; if both are missing, fall back to file detection
 2. Determine where the pipeline stopped (last ledger entry + next expected phase)
 3. Ask: "I see [X, Y] done. Continue from [next step]?" then spawn the next agent
 4. 📝 Ledger: append "Resumed" entry with timestamp and starting phase
@@ -513,7 +515,7 @@ The payoff of the Evolvability Contract: upgrade an MVP built by the Fast Path (
 | **tech-writer** | Test API examples against running endpoints; run Quick Start fresh; execute CLI commands; verify links; compile examples |
 | **security-auditor** | Git-history secret scan; npm audit/pip-audit; OWASP Top 10 tests; SAST; verify findings via active exploitation |
 
-**Orchestrator provides each agent**: working directory; pre-installed tools; input documents; error-recovery support (catch, analyze, fix/install, retry, escalate); evidence collection (logs, test results, screenshots saved); ledger context from `.sdlc/progress.md`.
+**Orchestrator provides each agent**: working directory; pre-installed tools; input documents; error-recovery support (catch, analyze, fix/install, retry, escalate); evidence collection (logs, test results, screenshots saved); compact state from `.sdlc/status.json`, with ledger detail from `.sdlc/progress.md` only when needed.
 
 ---
 
@@ -535,7 +537,8 @@ Project context:
 Input files:
 - requirements.md / plan.md / task-graph.md: [paths, if they exist]
 - Existing code: [path] (if exists)
-- Progress ledger: .sdlc/progress.md (read for context on prior phases)
+- Current status: .sdlc/status.json (read first)
+- Progress ledger: .sdlc/progress.md (read only for required history/evidence)
 
 Available MCP servers and tools:
 [Inventory discovered at startup, e.g. "MongoDB MCP: connected — tools: find,
@@ -598,7 +601,7 @@ Detect from language: detailed instructions = Guided; "handle it" = Autonomous.
 | User wants to skip a question | Record the gap as an assumption or risk and ask the next single question. If they choose Use smart defaults, resolve the remaining gaps and present the complete requirements summary for approval. |
 | QA finds >10 bugs | Suggest re-reviewing architecture first. |
 | Fix-review-QA loop >3 iterations | Stop. Suggest architect reassessment. Ledger: "Fix loop exceeded — escalated." |
-| Conversation interrupted | On resume, read `.sdlc/progress.md`. Never rely on memory alone. |
+| Conversation interrupted | On resume, read `.sdlc/status.json`, then ledger detail only when needed. Never rely on memory alone. |
 | Ledger missing on resume | Fall back to file detection. Warn user; recreate ledger from detected state. |
 
 ---

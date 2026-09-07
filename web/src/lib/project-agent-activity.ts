@@ -26,32 +26,44 @@ const STATUS_LABELS: Record<string, string> = {
 /** Saved job identity/state is authoritative; prose and phase plans are not. */
 function presentTask(task: UltimateBuilderRunTask, stale: boolean): ProjectAgentActivityItem {
   const paused = task.status === 'blocked' && task.paused_by_user
-  const status = task.dispatch_issue
-    ? 'Cannot start automatically'
-    : paused
-      ? 'Paused by you'
-      : needsTechnicalReview(task)
-        ? 'Waiting for Lyra to review'
-        : task.status === 'blocked' && task.block_kind === 'needs_input'
-          ? 'Waiting for your input'
-          : (STATUS_LABELS[task.status] ?? 'Status unknown')
+  const quiet = task.status === 'running' && task.activity_health === 'quiet'
+  const stalled = task.status === 'running' && task.activity_health === 'stalled'
+  let status = STATUS_LABELS[task.status] ?? 'Status unknown'
+  if (quiet) status = 'Working — waiting for a fresh update'
+  if (stalled) status = 'No fresh activity — recovery available'
+  if (task.status === 'blocked' && task.block_kind === 'needs_input') status = 'Waiting for your input'
+  if (needsTechnicalReview(task)) status = 'Waiting for Lyra to review'
+  if (paused) status = 'Paused by you'
+  if (task.dispatch_issue) status = 'Cannot start automatically'
+
+  let detail = ''
+  if (quiet) {
+    detail = 'No new activity has been recorded recently. Lyra is still watching this saved job, and its exact last update is shown below.'
+  }
+  if (stalled) {
+    detail = 'This saved job has stopped reporting activity. Lyra remains available; ask Lyra to check it, or use Pause workers and Resume workers to restart it safely.'
+  }
+  if (task.status === 'triage') {
+    detail = 'This step has paused repeatedly. Ask Lyra to explain the problem before trying again.'
+  }
+  if (task.status === 'blocked') {
+    detail = paused
+      ? 'Use Resume workers to continue.'
+      : task.wait_reason || task.last_error || 'Ask Lyra what is needed to continue.'
+  }
+  if (needsTechnicalReview(task)) {
+    detail = 'The worker has paused for a technical check. Use Review with Lyra above the message box; you do not need to inspect code.'
+  }
+  if (task.dispatch_issue) detail = task.dispatch_issue
+
   return {
     id: `${task.board}:${task.task_id}`,
     phase: task.phase,
     label: task.label,
     status: stale ? `Last known: ${status}` : status,
-    detail: needsTechnicalReview(task)
-      ? 'The worker has paused for a technical check. Use Review with Lyra above the message box; you do not need to inspect code.'
-      : task.status === 'triage'
-        ? 'This step has paused repeatedly. Ask Lyra to explain the problem before trying again.'
-        : task.dispatch_issue ||
-          (task.status === 'blocked' || task.status === 'triage'
-            ? paused
-              ? 'Use Resume workers to continue.'
-              : task.wait_reason || task.last_error || 'Ask Lyra what is needed to continue.'
-            : ''),
+    detail,
     running: !stale && task.status === 'running',
-    attention: !stale && !paused && (Boolean(task.dispatch_issue) || ['blocked', 'triage'].includes(task.status)),
+    attention: !stale && !paused && (stalled || Boolean(task.dispatch_issue) || ['blocked', 'triage'].includes(task.status)),
     lastActivityAt: task.last_activity_at
   }
 }

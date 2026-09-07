@@ -1,5 +1,6 @@
 import { CheckCircle2, Map as MapIcon } from 'lucide-react'
 import { guidedPhaseSummary, type GuidedPhaseStep } from '../lib/guided-phase-plan'
+import { formatStudioDateTime, studioDateTimeIso } from '../lib/studio-time'
 import { cn } from '../lib/utils'
 import { GuidedAgentAvatar } from './GuidedAgentAvatar'
 
@@ -8,10 +9,11 @@ interface GuidedProgressMapProps {
   durable: boolean
   backgroundJobs: boolean
   steps: readonly GuidedPhaseStep[]
+  updatedAt?: number | null
 }
 
 /** Responsive presentation of reported phase status, never an estimated timer. */
-export function GuidedProgressMap({ durable, backgroundJobs, steps, labels }: GuidedProgressMapProps) {
+export function GuidedProgressMap({ durable, backgroundJobs, steps, labels, updatedAt }: GuidedProgressMapProps) {
   const summary = guidedPhaseSummary(steps)
   const current = steps.find(step => step.state === 'now') ?? null
   const blocked = steps.filter(step => step.state === 'blocked').length
@@ -34,6 +36,14 @@ export function GuidedProgressMap({ durable, backgroundJobs, steps, labels }: Gu
             ? 'Saved phase reports with local evidence checks. No estimated percentage.'
             : 'Waiting for a project progress record; these are conversation signals only.'}
       </p>
+      {updatedAt && (
+        <time
+          className="mt-1 block text-[9px] leading-3 text-text-secondary"
+          dateTime={studioDateTimeIso(updatedAt * 1000)}
+        >
+          Last update {formatStudioDateTime(updatedAt * 1000)}
+        </time>
+      )}
 
       <div className="mt-3 grid min-w-0 grid-cols-2 gap-2">
         <div className="min-w-0 rounded-lg border border-emerald-500/25 bg-emerald-500/[0.07] p-2">

@@ -111,6 +111,10 @@ def _project_repository_module():
     return _load_project_module("project_repository")
 
 
+def _project_status_module():
+    return _load_project_module("project_status")
+
+
 def _parse_progress_ledger(markdown):
     return _load_project_module("project_progress")._parse_progress_ledger(markdown)
 
@@ -567,7 +571,6 @@ def workspace_safety(path: str = Query(..., min_length=1)) -> dict[str, Any]:
 def state(path: str = Query(..., min_length=1)) -> dict[str, Any]:
     project = _project(path)
     sdlc = project / ".sdlc"
-    progress = sdlc / "progress.md"
     artifacts = []
     for name in _ARTIFACTS:
         item = project / name
@@ -604,8 +607,15 @@ def state(path: str = Query(..., min_length=1)) -> dict[str, Any]:
                     }
                 )
 
-    progress_text = _safe_text(progress)
-    ledger = _parse_progress_ledger(progress_text)
+    status_snapshot = _project_status_module().load_project_status(
+        project, _parse_progress_ledger
+    )
+    ledger = {
+        "available": status_snapshot["available"],
+        "source": status_snapshot["source"],
+        "updated_at_epoch": status_snapshot["updated_at_epoch"],
+        "phases": status_snapshot["phases"],
+    }
     try:
         run_state = _project_runs_module().project_run_state(project)
     except Exception:
@@ -621,9 +631,16 @@ def state(path: str = Query(..., min_length=1)) -> dict[str, Any]:
     return {
         "project": str(project),
         "has_sdlc": sdlc.is_dir(),
-        "progress": progress_text,
         "phase_state": _merge_project_run_state(ledger, run_state, project),
         "run_state": run_state,
+        "status_snapshot": {
+            "schema_version": status_snapshot["schema_version"],
+            "path": ".sdlc/status.json",
+            "cache": status_snapshot["cache"],
+            "updated_at": status_snapshot["updated_at"],
+            "updated_at_epoch": status_snapshot["updated_at_epoch"],
+            "summary": status_snapshot["summary"],
+        },
         "artifacts": artifacts,
         "learning_candidates": candidates,
     }

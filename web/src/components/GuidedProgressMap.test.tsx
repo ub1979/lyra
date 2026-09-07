@@ -9,6 +9,7 @@ describe('project map report presentation', () => {
         durable
         backgroundJobs
         labels={{ researcher: 'Research' }}
+        updatedAt={Date.UTC(2026, 8, 7, 10, 5) / 1000}
         steps={[
           { id: 'researcher', label: 'Research', state: 'pending', status: 'Reported complete — evidence needs review' }
         ]}
@@ -18,5 +19,7 @@ describe('project map report presentation', () => {
     expect(html).toContain('Completed reports still need review')
     expect(html).not.toContain('Verified')
     expect(html).not.toContain('%')
+    expect(html).toContain('Last update')
+    expect(html).toContain('2026')
   })
 })
