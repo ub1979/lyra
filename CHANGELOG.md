@@ -9,6 +9,26 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.25] - 2026-09-07 — lean context with project memory
+
+### Improved
+
+- **Less repeated context for Lyra's coordinator.** Its fixed, smaller toolset
+  retains requirements questions, research, file tools, Project Brain, memory
+  and past-chat retrieval. Specialist workers keep their normal capabilities.
+- **Short live project-job summaries** report current work, freshness and
+  attention without repeatedly loading full job histories. Detailed reports
+  remain available; omitted information is clearly identified.
+- **Caching remains stable.** Tools and earlier messages are not rewritten
+  between phases, and no extra AI summary is generated for each turn.
+
+### Fixed
+
+- Context estimates now include startup instructions added to model requests.
+
+Restart Lyra when current work has safely finished to load the new coordinator
+setup. Existing jobs and saved projects are preserved.
+
 ## [0.19.24] - 2026-09-07 — small visible development jobs
 
 ### Added

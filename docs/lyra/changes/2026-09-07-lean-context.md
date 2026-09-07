@@ -53,5 +53,17 @@ changed: existing cache support remains enabled, without per-turn memory reloads
 schema changes, or repeated AI summarization. No paid-model quality benchmark
 or whole-repository release certification is claimed.
 
-Local commit after verification. Not pushed or activated in the running Lyra.
-No version bump until the next authorized release change set.
+Implementation committed locally as `c6ef75f57`. User authorized the push on
+2026-09-07. Release change set increments Lyra once, from 0.19.24 to 0.19.25,
+with matching metadata, package versions and labels. No project files included;
+no active application or worker restart. Release verification recorded below.
+
+- Release checks: 36 Python version/context/model/reconnect workflow tests and
+  all 395 web tests passed. Web typecheck and production build passed.
+- Web lint completed with zero errors and 31 pre-existing warnings in unchanged
+  UI files; the build also reports its existing large-bundle warning. No full
+  repository or paid-model quality certification is implied.
+- Rebuilt web output is byte-identical; the separate builder dashboard's source
+  and distributed version label both read v0.19.25 beta.
+- Outgoing commits contain no generated project files. `my_projects/**` remains
+  ignored. Unrelated local output and pnpm files are not included.
