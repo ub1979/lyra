@@ -105,34 +105,61 @@ def _merge_project_run_state(
     # Generic Kanban task IDs describe implementation units, not delivery
     # phases. They remain in run_state for recovery and attention, but putting
     # them in the phase map duplicates the Agent Activity/history surfaces.
-    task_by_phase = {
-        task["phase"]: task
-        for task in run_state.get("tasks", [])
-        if task.get("phase") and not str(task["phase"]).startswith("job:")
-    }
-    for phase_id, task in task_by_phase.items():
+    tasks_by_phase: dict[str, list[dict[str, Any]]] = {}
+    for task in run_state.get("tasks", []):
+        phase_id = str(task.get("phase") or "")
+        if phase_id and not phase_id.startswith("job:"):
+            tasks_by_phase.setdefault(phase_id, []).append(task)
+    for phase_id, tasks in tasks_by_phase.items():
         phase = by_id.get(phase_id)
         if phase is None:
             phase = {
                 "id": phase_id,
-                "label": task.get("label") or phase_id,
+                "label": tasks[0].get("label") or phase_id,
                 "status": "Not started",
                 "state": "pending",
                 "evidence": "",
             }
             phases.append(phase)
             by_id[phase_id] = phase
-        status = task.get("status")
-        if task.get("dispatch_issue"):
-            phase.update(state="blocked", status="Waiting for an available worker")
-        elif status == "running":
-            phase.update(state="now", status="Working safely in the background")
-        elif status in {"ready", "todo", "scheduled"}:
-            phase.update(state="pending", status="Queued safely")
-        elif status in {"blocked", "triage"}:
-            phase.update(state="blocked", status="Needs your attention")
-        elif status == "done":
-            phase.update(state="done", status="Reported complete")
+        blocked = [
+            task
+            for task in tasks
+            if task.get("dispatch_issue") or task.get("status") in {"blocked", "triage"}
+        ]
+        running = [task for task in tasks if task.get("status") == "running"]
+        queued = [
+            task for task in tasks if task.get("status") in {"ready", "todo", "scheduled"}
+        ]
+        if blocked:
+            current = blocked[-1]
+            phase.update(
+                state="blocked",
+                label=current.get("label") or phase["label"],
+                status=(
+                    "Waiting for an available worker"
+                    if current.get("dispatch_issue")
+                    else "This work item needs attention"
+                ),
+            )
+        elif running:
+            current = running[-1]
+            phase.update(
+                state="now",
+                label=current.get("label") or phase["label"],
+                status=(
+                    f"{len(running)} work items are running"
+                    if len(running) > 1
+                    else "Working safely in the background"
+                ),
+            )
+        elif queued:
+            phase.update(
+                state="pending",
+                status=f"{len(queued)} planned work items queued safely",
+            )
+        elif tasks and all(task.get("status") in {"done", "archived"} for task in tasks):
+            phase.update(state="done", status="All planned work items reported complete")
 
     # A ledger can be left saying "running" after an old browser-owned worker
     # vanished. Do not keep presenting that as live work when no saved job owns it.
@@ -140,7 +167,7 @@ def _merge_project_run_state(
         if (
             run_state.get("state") != "unavailable"
             and phase.get("state") == "now"
-            and phase.get("id") not in task_by_phase
+            and phase.get("id") not in tasks_by_phase
         ):
             phase.update(
                 state="blocked",

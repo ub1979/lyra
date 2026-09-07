@@ -9,6 +9,29 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.24] - 2026-09-07 — small visible development jobs
+
+### Added
+
+- **Development now follows the project's task graph as small saved jobs.**
+  Each independently verifiable work item gets its own worker, dependency
+  order, evidence, and local commit instead of one job attempting the whole
+  remaining application.
+- **Agent Activity names the exact part being built.** Running work and jobs
+  needing attention remain visible with their task identifier and plain title.
+
+### Fixed
+
+- **An exhausted broad Development job no longer traps the project.** Lyra
+  preserves its history, replaces it with bounded continuation jobs, and keeps
+  later review work waiting for every required part.
+- **Automatic job planning rejects blanket work such as “implement all
+  remaining requirements.”** Lyra requests smaller jobs before saving them.
+- **Worker limits are explained in plain language.** Studio says that progress
+  was saved and a smaller continuation is needed instead of exposing `90/90`.
+
+Restart Lyra after updating so the new scheduler and Studio activity view load.
+
 ## [0.19.23] - 2026-09-07 — compact truthful project status
 
 ### Added

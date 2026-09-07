@@ -17,6 +17,7 @@ from hermes_cli.kanban_notifications import subscribe_task_origin
 
 
 TASK_KEY_PREFIX = "lyra-project:v1:"
+WORK_UNIT_KEY_PREFIX = "lyra-project:v2:"
 PAUSE_REASON = "lyra-project-paused-by-user"
 ACTIVE_STATUSES = frozenset({
     "todo",
@@ -109,12 +110,40 @@ def _workspace_digest(project: Path) -> str:
     return hashlib.sha256(str(project).encode("utf-8")).hexdigest()[:16]
 
 
-def _phase_from_task(task: kb.Task) -> str | None:
+def _task_identity(task: kb.Task) -> tuple[str | None, str | None]:
     key = task.idempotency_key or ""
-    if not key.startswith(TASK_KEY_PREFIX):
-        return None
+    if not key.startswith((TASK_KEY_PREFIX, WORK_UNIT_KEY_PREFIX)):
+        return None, None
     parts = key.split(":")
-    return parts[3] if len(parts) >= 5 else None
+    phase = parts[3] if len(parts) >= 5 else None
+    work_unit = (
+        parts[4]
+        if key.startswith(WORK_UNIT_KEY_PREFIX) and len(parts) >= 6
+        else None
+    )
+    return phase, work_unit
+
+
+def _phase_from_task(task: kb.Task) -> str | None:
+    return _task_identity(task)[0]
+
+
+def _development_plan(project: Path) -> dict[str, Any]:
+    path = Path(__file__).resolve().with_name("project_work_units.py")
+    spec = importlib.util.spec_from_file_location(
+        "lyra_ultimate_builder_project_work_units_for_jobs", path
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Could not load the project work plan")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.load_development_work_units(project)
+
+
+def _iteration_exhausted(task: kb.Task) -> bool:
+    return task.status == "blocked" and "iteration budget exhausted" in (
+        task.last_failure_error or ""
+    ).casefold()
 
 
 def _activity_health(
@@ -188,6 +217,43 @@ Before finishing, update the ledger to verified or blocked with plain evidence p
 """
 
 
+def _work_unit_body(
+    project: Path, unit: dict[str, Any], *, source: str
+) -> str:
+    """Give a worker one independently verifiable unit, never a whole app."""
+    return f"""You are Lyra's Development agent completing one bounded project work item.
+
+Workspace: {project}
+Current work item: {unit["id"]} — {unit["title"]}
+Planning source: {source}
+
+{_project_brain_contract()}
+
+Read the repository instructions, `.sdlc/status.json`, the Project Brain, and
+only the planning sections needed for this work item. Adopt valid partial work;
+never restart accepted work. Before editing, verify `git rev-parse
+--show-toplevel` resolves to this exact workspace and inspect Git status. Run
+every Git command from this project root. Never stage or commit files in Lyra's
+application repository, and never push a remote.
+
+Stay inside this work item. If another planned item is required, record the
+dependency and stop instead of absorbing it into this job. Use the project's
+engineering rules, write focused tests first, run the stated verification, and
+save evidence under `.sdlc/evidence/tasks/{unit["id"]}.txt`. Refresh the Project
+Brain and save verified changes in one local Git commit containing only this
+work item. Do not mark the whole Development phase or application complete;
+later jobs and independent review remain.
+
+Exact work item:
+
+{unit["section"]}
+
+Your final summary must be plain language and name this work item: what now
+works, what was verified, whether this item finished, and any exact dependency
+that prevents it from finishing.
+"""
+
+
 def _origin() -> dict[str, str | None]:
     platform = os.environ.get("HERMES_SESSION_PLATFORM", "").strip()
     chat_id = os.environ.get("HERMES_SESSION_CHAT_ID", "").strip()
@@ -234,90 +300,223 @@ def queue_project_run(
     validate_project_worker(worker_profile)
     repository = _ensure_project_repository(project)
     status_snapshot = _ensure_project_status(project)
+    development_plan = (
+        _development_plan(project) if "sw-developer" in requested else {"source": None, "units": []}
+    )
     board = kb.get_current_board()
     existing = _project_tasks(project, include_archived=True)
-    latest_by_phase: dict[str, tuple[str, kb.Task]] = {}
+    latest_by_identity: dict[tuple[str, str | None], tuple[str, kb.Task]] = {}
     for item in existing:
-        phase = _phase_from_task(item[1])
-        if phase and (
-            phase not in latest_by_phase
-            or item[1].created_at >= latest_by_phase[phase][1].created_at
+        identity = _task_identity(item[1])
+        if identity[0] and (
+            identity not in latest_by_identity
+            or item[1].created_at >= latest_by_identity[identity][1].created_at
         ):
-            latest_by_phase[phase] = item
+            latest_by_identity[identity] = item
 
     created: list[dict[str, Any]] = []
+    skipped_work_units: list[str] = []
+    superseded_tasks: list[str] = []
     parent_ids: list[str] = []
     run_token = f"{int(time.time())}-{os.getpid()}"
+
+    def reuse_task(
+        previous: tuple[str, kb.Task], phase: str, *, work_unit: dict[str, Any] | None = None
+    ) -> str:
+        previous_board, task = previous
+        with kb.connect_closing(board=previous_board) as origin_conn:
+            subscribed = subscribe_task_origin(origin_conn, task.id)
+            if task.status != "done":
+                # Reopening a project must also adopt its current model routing.
+                # An omitted model deliberately clears both overrides.
+                kb.set_model_override(
+                    origin_conn,
+                    task.id,
+                    models.get(phase) or None,
+                    provider=providers.get(phase) or None,
+                )
+        created.append(
+            {
+                "task_id": task.id,
+                "phase": phase,
+                "work_item_id": work_unit["id"] if work_unit else None,
+                "work_item_title": work_unit["title"] if work_unit else None,
+                "status": task.status,
+                "reused": True,
+                "subscribed": subscribed,
+            }
+        )
+        return task.id
+
+    def create_task(
+        conn: Any,
+        phase: str,
+        *,
+        parents: Iterable[str],
+        work_unit: dict[str, Any] | None = None,
+    ) -> str:
+        model = models.get(phase) or None
+        provider = providers.get(phase) or None
+        if work_unit:
+            title = f"Development · {work_unit['id']} · {work_unit['title']}"
+            body = _work_unit_body(
+                project, work_unit, source=str(development_plan["source"])
+            )
+            idempotency_key = (
+                f"{WORK_UNIT_KEY_PREFIX}{_workspace_digest(project)}:{phase}:"
+                f"{work_unit['id']}:{run_token}"
+            )
+            max_runtime_seconds = 2 * 60 * 60
+            goal_max_turns = 12
+        else:
+            title = f"Lyra project: {PHASES[phase]['label']}"
+            body = _task_body(project, phase)
+            idempotency_key = (
+                f"{TASK_KEY_PREFIX}{_workspace_digest(project)}:{phase}:{run_token}"
+            )
+            max_runtime_seconds = 6 * 60 * 60
+            goal_max_turns = 30
+        task_id = kb.create_task(
+            conn,
+            title=title[:200],
+            body=body,
+            assignee=worker_profile,
+            created_by="lyra-project-guide",
+            workspace_kind="dir",
+            workspace_path=str(project),
+            parents=tuple(dict.fromkeys(parents)),
+            idempotency_key=idempotency_key,
+            max_runtime_seconds=max_runtime_seconds,
+            max_retries=3,
+            skills=(
+                "ultimate-builder:ultimate-app-builder",
+                f"ultimate-builder:{phase}",
+            ),
+            model_override=model,
+            provider_override=provider,
+            goal_mode=True,
+            goal_max_turns=goal_max_turns,
+            session_id=origin["session_id"],
+        )
+        subscribed = subscribe_task_origin(conn, task_id)
+        task = kb.get_task(conn, task_id)
+        created.append(
+            {
+                "task_id": task_id,
+                "phase": phase,
+                "work_item_id": work_unit["id"] if work_unit else None,
+                "work_item_title": work_unit["title"] if work_unit else None,
+                "status": task.status if task else "ready",
+                "reused": False,
+                "subscribed": subscribed,
+            }
+        )
+        return task_id
+
+    def supersede_broad_task(
+        previous: tuple[str, kb.Task], replacement_ids: Iterable[str]
+    ) -> None:
+        """Keep downstream gates while retiring an unstarted/failed broad job."""
+        previous_board, task = previous
+        replacements = list(replacement_ids)
+        if previous_board != board or not replacements:
+            return
+        with kb.connect_closing(board=previous_board) as origin_conn:
+            downstream = [
+                row["child_id"]
+                for row in origin_conn.execute(
+                    "SELECT child_id FROM task_links WHERE parent_id=?", (task.id,)
+                ).fetchall()
+            ]
+            for child_id in downstream:
+                for replacement_id in replacements:
+                    kb.link_tasks(
+                        origin_conn, parent_id=replacement_id, child_id=child_id
+                    )
+            if kb.archive_task(origin_conn, task.id):
+                superseded_tasks.append(task.id)
+
     with kb.connect_closing(board=board) as conn:
         for phase in requested:
-            model = models.get(phase) or None
-            provider = providers.get(phase) or None
-            previous = latest_by_phase.get(phase)
+            previous = latest_by_identity.get((phase, None))
+            work_units = development_plan["units"] if phase == "sw-developer" else []
+            # An already-running legacy phase must finish without a duplicate.
+            # An iteration-exhausted broad phase is deliberately replaced by
+            # bounded graph units on the next queue request.
             if (
                 previous
                 and not force_new
                 and previous[1].status in ACTIVE_STATUSES | {"done"}
+                and (
+                    not work_units
+                    or previous[1].status in {"running", "done"}
+                    or (
+                        previous[1].status in {"blocked", "triage"}
+                        and not _iteration_exhausted(previous[1])
+                    )
+                )
             ):
-                task = previous[1]
-                with kb.connect_closing(board=previous[0]) as origin_conn:
-                    subscribed = subscribe_task_origin(origin_conn, task.id)
-                    if task.status != "done":
-                        # Reopening a project must also adopt its current model
-                        # routing. Otherwise a queued Ollama override survives a
-                        # later switch to Claude and is retried against the wrong
-                        # provider indefinitely. An omitted model deliberately
-                        # clears both overrides (Follow project model).
-                        kb.set_model_override(
-                            origin_conn, task.id, model, provider=provider
-                        )
-                created.append({
-                    "task_id": task.id,
-                    "phase": phase,
-                    "status": task.status,
-                    "reused": True,
-                    "subscribed": subscribed,
-                })
-                parent_ids = [task.id]
+                parent_ids = [reuse_task(previous, phase)]
                 continue
-            task_id = kb.create_task(
-                conn,
-                title=f"Lyra project: {PHASES[phase]['label']}",
-                body=_task_body(project, phase),
-                assignee=worker_profile,
-                created_by="lyra-project-guide",
-                workspace_kind="dir",
-                workspace_path=str(project),
-                parents=tuple(parent_ids),
-                idempotency_key=(
-                    f"{TASK_KEY_PREFIX}{_workspace_digest(project)}:{phase}:{run_token}"
-                ),
-                max_runtime_seconds=6 * 60 * 60,
-                max_retries=3,
-                skills=(
-                    "ultimate-builder:ultimate-app-builder",
-                    f"ultimate-builder:{phase}",
-                ),
-                model_override=model,
-                provider_override=provider,
-                goal_mode=True,
-                goal_max_turns=30,
-                session_id=origin["session_id"],
-            )
-            subscribed = subscribe_task_origin(conn, task_id)
-            task = kb.get_task(conn, task_id)
-            created.append({
-                "task_id": task_id,
-                "phase": phase,
-                "status": task.status if task else "ready",
-                "reused": False,
-                "subscribed": subscribed,
-            })
-            parent_ids = [task_id]
+
+            if work_units:
+                inherited_parents = list(parent_ids)
+                if previous and previous[0] == board:
+                    inherited_parents.extend(
+                        row["parent_id"]
+                        for row in conn.execute(
+                            "SELECT parent_id FROM task_links WHERE child_id=?",
+                            (previous[1].id,),
+                        ).fetchall()
+                    )
+                unit_task_ids: dict[str, str] = {}
+                phase_entry_ids: list[str] = []
+                for unit in work_units:
+                    identity = (phase, str(unit["id"]))
+                    unit_previous = latest_by_identity.get(identity)
+                    if (
+                        unit_previous
+                        and not force_new
+                        and unit_previous[1].status in ACTIVE_STATUSES | {"done"}
+                    ):
+                        task_id = reuse_task(unit_previous, phase, work_unit=unit)
+                    elif unit["accepted"] and not force_new:
+                        skipped_work_units.append(str(unit["id"]))
+                        continue
+                    else:
+                        graph_parents = [
+                            unit_task_ids[parent]
+                            for parent in unit["parents"]
+                            if parent in unit_task_ids
+                        ]
+                        task_id = create_task(
+                            conn,
+                            phase,
+                            parents=graph_parents or inherited_parents,
+                            work_unit=unit,
+                        )
+                    unit_task_ids[str(unit["id"])] = task_id
+                    phase_entry_ids.append(task_id)
+                # Every later phase waits for every outstanding development
+                # unit. This is stricter than depending only on graph leaves
+                # and remains correct if a task graph is amended later.
+                parent_ids = phase_entry_ids or parent_ids
+                if previous and previous[1].status not in {"running", "done"}:
+                    supersede_broad_task(previous, phase_entry_ids)
+                continue
+
+            parent_ids = [create_task(conn, phase, parents=parent_ids)]
     return {
         "ok": True,
         "project": str(project),
         "board": board,
         "tasks": created,
+        "work_plan": {
+            "source": development_plan["source"],
+            "unit_count": len(development_plan["units"]),
+            "accepted_units_skipped": skipped_work_units,
+        },
+        "superseded_tasks": superseded_tasks,
         "repository": repository,
         "status_snapshot": {
             "path": ".sdlc/status.json",
@@ -366,16 +565,32 @@ def sync_project_run_routing(
 def project_run_state(workspace: str | Path) -> dict[str, Any]:
     project = _workspace(workspace)
     tasks = _project_tasks(project, include_archived=True)
-    latest: dict[str, tuple[str, kb.Task]] = {}
+    latest: dict[tuple[str, str | None], tuple[str, kb.Task]] = {}
     for item in tasks:
-        phase = _phase_from_task(item[1])
+        phase, work_unit = _task_identity(item[1])
         # Generic project jobs have their own identity. Never hide them or merge
         # them into a completed specialist phase based on a title or skill name.
-        key = phase if phase in PHASES else f"job:{item[0]}:{item[1].id}"
+        key = (
+            (phase, work_unit)
+            if phase in PHASES
+            else (f"job:{item[0]}:{item[1].id}", None)
+        )
         if key not in latest or item[1].created_at >= latest[key][1].created_at:
             latest[key] = item
+    has_development_units = any(
+        identity[0] == "sw-developer" and identity[1] for identity in latest
+    )
     items = []
-    for phase, (board, task) in latest.items():
+    for (phase, work_unit), (board, task) in latest.items():
+        if (
+            phase == "sw-developer"
+            and work_unit is None
+            and has_development_units
+            and (task.status == "archived" or _iteration_exhausted(task))
+        ):
+            # The history remains in Kanban, but once bounded recovery units
+            # exist the superseded broad job must not keep Studio blocked.
+            continue
         # Waiting for a decision is not a worker failure. Expose the saved
         # reason separately so Studio can explain it without guessing from chat.
         with kb.connect_closing(board=board) as conn:
@@ -389,9 +604,19 @@ def project_run_state(workspace: str | Path) -> dict[str, Any]:
         activity_health, activity_age_seconds = _activity_health(
             task.status, last_activity_at
         )
+        work_title = (
+            task.title.split(" · ", 2)[-1]
+            if work_unit and " · " in task.title
+            else None
+        )
+        label = PHASES[phase]["label"] if phase in PHASES else task.title
+        if work_unit:
+            label = f"{label} · {work_unit}: {work_title or 'Planned work item'}"
         items.append({
             "phase": phase,
-            "label": PHASES[phase]["label"] if phase in PHASES else task.title,
+            "label": label,
+            "work_item_id": work_unit,
+            "work_item_title": work_title,
             "task_id": task.id,
             "board": board,
             "status": task.status,

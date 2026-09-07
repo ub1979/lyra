@@ -4,7 +4,8 @@ import {
   activeProjectAgentActivity,
   coordinatorActivityMessage,
   projectAgentActivity,
-  projectAgentSummary
+  projectAgentSummary,
+  visibleProjectAgentActivity
 } from './project-agent-activity'
 
 describe('saved project agent activity', () => {
@@ -38,6 +39,22 @@ describe('saved project agent activity', () => {
     expect(failure[0]).toMatchObject({ status: 'Needs attention', detail: 'Provider unavailable' })
   })
 
+  it('explains an exhausted work item as a saved smaller continuation', () => {
+    const items = projectAgentActivity(savedRun([job({
+      phase: 'sw-developer',
+      label: 'Development · TG-005: Platform ledger',
+      status: 'blocked',
+      last_error: 'Iteration budget exhausted (90/90) — task could not complete'
+    })]))
+    expect(items[0]).toMatchObject({
+      label: 'Development · TG-005: Platform ledger',
+      status: 'Saved safely — needs a smaller continuation',
+      attention: true
+    })
+    expect(items[0].detail).toContain('progress is saved')
+    expect(items[0].detail).not.toContain('90/90')
+  })
+
   it('reports mixed working and waiting jobs, without counting completed or queued jobs', () => {
     const items = projectAgentActivity(
       savedRun([
@@ -49,6 +66,10 @@ describe('saved project agent activity', () => {
     )
     expect(projectAgentSummary(items, 1)).toBe('2 working · 1 need attention · 1 queued')
     expect(activeProjectAgentActivity(items).map(item => item.id)).toEqual(['default:research-1'])
+    expect(visibleProjectAgentActivity(items).map(item => item.id)).toEqual([
+      'default:research-1',
+      'default:a'
+    ])
   })
 
   it('retains stale history without claiming it is live, then recovers', () => {

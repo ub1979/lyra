@@ -147,10 +147,10 @@ import { GuidedClarification } from "@/components/GuidedClarification";
 import { useGuidedClarification } from "@/hooks/useGuidedClarification";
 import { ProjectAgentJobs } from "@/components/ProjectAgentJobs";
 import {
-  activeProjectAgentActivity,
   coordinatorActivityMessage,
   projectAgentActivity,
   projectAgentSummary,
+  visibleProjectAgentActivity,
 } from "@/lib/project-agent-activity";
 import { Markdown } from "@/components/Markdown";
 import { ChatSessionList } from "@/components/ChatSessionList";
@@ -679,7 +679,7 @@ function GuidedRuntimePanel({
   usage: GuidedUsageSnapshot;
 }) {
   const model = usage.model || defaultModelLabel;
-  const jobs = activeProjectAgentActivity(
+  const jobs = visibleProjectAgentActivity(
     projectAgentActivity(runState, runStateStale),
   );
   const workingCount = activeWorkers.length + jobs.filter((job) => job.running).length;

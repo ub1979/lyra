@@ -28,12 +28,14 @@ function presentTask(task: UltimateBuilderRunTask, stale: boolean): ProjectAgent
   const paused = task.status === 'blocked' && task.paused_by_user
   const quiet = task.status === 'running' && task.activity_health === 'quiet'
   const stalled = task.status === 'running' && task.activity_health === 'stalled'
+  const workLimitReached = task.status === 'blocked' && /iteration budget exhausted/i.test(task.last_error ?? '')
   let status = STATUS_LABELS[task.status] ?? 'Status unknown'
   if (quiet) status = 'Working — waiting for a fresh update'
   if (stalled) status = 'No fresh activity — recovery available'
   if (task.status === 'blocked' && task.block_kind === 'needs_input') status = 'Waiting for your input'
   if (needsTechnicalReview(task)) status = 'Waiting for Lyra to review'
   if (paused) status = 'Paused by you'
+  if (workLimitReached) status = 'Saved safely — needs a smaller continuation'
   if (task.dispatch_issue) status = 'Cannot start automatically'
 
   let detail = ''
@@ -50,6 +52,9 @@ function presentTask(task: UltimateBuilderRunTask, stale: boolean): ProjectAgent
     detail = paused
       ? 'Use Resume workers to continue.'
       : task.wait_reason || task.last_error || 'Ask Lyra what is needed to continue.'
+  }
+  if (workLimitReached) {
+    detail = 'This work item used its safe work limit before it finished. Its progress is saved; Lyra should continue the remaining part as a new, smaller job.'
   }
   if (needsTechnicalReview(task)) {
     detail = 'The worker has paused for a technical check. Use Review with Lyra above the message box; you do not need to inspect code.'
@@ -77,6 +82,11 @@ export function projectAgentActivity(state: UltimateBuilderRunState | null, stal
 /** Agent Activity is a live surface; history and queued work belong to the map. */
 export function activeProjectAgentActivity(items: readonly ProjectAgentActivityItem[]): ProjectAgentActivityItem[] {
   return items.filter(item => item.running)
+}
+
+/** Keep live work and stopped work needing action visible in Agent Activity. */
+export function visibleProjectAgentActivity(items: readonly ProjectAgentActivityItem[]): ProjectAgentActivityItem[] {
+  return items.filter(item => item.running || item.attention)
 }
 
 export function projectAgentSummary(items: readonly ProjectAgentActivityItem[], chatWorkers = 0): string {

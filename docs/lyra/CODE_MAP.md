@@ -23,7 +23,8 @@ Durable project jobs → Hermes Kanban dispatcher → isolated worker sessions
 | Optional computer alerts | `web/src/components/StudioQuestionAlerts.tsx`, `web/src/lib/question-notifications.ts` | Permission, replay and failure tests |
 | Worker presentation | `web/src/lib/project-agent-activity.ts`, `web/src/components/ProjectAgentJobs.tsx` | Pure state and rendering tests |
 | Phase reports / evidence | `plugins/ultimate-builder/project_progress.py`, `hermes_cli/project_evidence.py` | Negative status, missing file and path-escape tests |
-| Project jobs / model repair | `plugins/ultimate-builder/project_runs.py`, `web/src/lib/guided-agent-model-preferences.ts` | Real SQLite lifecycle and provider/project isolation tests |
+| Project jobs / bounded development scheduling / model repair | `plugins/ultimate-builder/project_runs.py`, `plugins/ultimate-builder/project_work_units.py`, `web/src/lib/guided-agent-model-preferences.ts` | Task-graph parsing, real SQLite lifecycle, dependency gates and provider/project isolation tests |
+| Automatic job decomposition | `hermes_cli/kanban_decompose.py` | Blanket-scope rejection and bounded replacement tests |
 | Project-local Git boundary | `plugins/ultimate-builder/project_repository.py`, `scripts/lyra_git_guard.py`, `.githooks/` | Real parent/project repository, commit-hook and push-hook tests |
 | Job creation notification policy | `hermes_cli/kanban_notifications.py` | CLI/tool/phase creation, opt-out and idempotent subscription tests |
 | Saved review / input handoff | `hermes_cli/project_job_attention.py`, `web/src/lib/project-attention.ts`, `web/src/components/ProjectAttention.tsx` | Latest-event metadata, coordinator envelope and actionable/stale panel tests |

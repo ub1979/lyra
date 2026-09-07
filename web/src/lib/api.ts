@@ -1984,6 +1984,8 @@ export interface UltimateBuilderHistory {
 export interface UltimateBuilderRunTask {
   phase: string;
   label: string;
+  work_item_id?: string | null;
+  work_item_title?: string | null;
   task_id: string;
   board: string;
   status: string;

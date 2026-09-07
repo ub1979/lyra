@@ -116,6 +116,144 @@ def test_reopening_chat_reuses_existing_phase_job(tmp_path, monkeypatch):
     assert second["tasks"][0]["reused"] is True
 
 
+def test_development_phase_materializes_small_dependency_ordered_jobs(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "task-graph.md").write_text(
+        """# Build plan
+
+### TG-001 — Build account storage
+**Depends on:** architecture approval.
+**Work:** Implement only account storage and its tests.
+
+### TG-002 — Add the account route
+**Depends on:** TG-001.
+**Work:** Implement only the account route and its tests.
+
+### TG-003 — Add the account screen
+**Depends on:** TG-002.
+**Work:** Implement only the account screen and its tests.
+""",
+        encoding="utf-8",
+    )
+    module = load_project_runs()
+
+    queued = module.queue_project_run(
+        project, ["sw-developer", "code-reviewer"]
+    )
+
+    development = [task for task in queued["tasks"] if task["phase"] == "sw-developer"]
+    assert [task["work_item_id"] for task in development] == [
+        "TG-001",
+        "TG-002",
+        "TG-003",
+    ]
+    assert [task["status"] for task in development] == ["ready", "todo", "todo"]
+    assert queued["work_plan"] == {
+        "source": "task-graph.md",
+        "unit_count": 3,
+        "accepted_units_skipped": [],
+    }
+    review = queued["tasks"][-1]
+    assert review["phase"] == "code-reviewer"
+    with module.kb.connect_closing() as conn:
+        first = module.kb.get_task(conn, development[0]["task_id"])
+        second = module.kb.get_task(conn, development[1]["task_id"])
+        third = module.kb.get_task(conn, development[2]["task_id"])
+        review_task = module.kb.get_task(conn, review["task_id"])
+        parent_ids = lambda task_id: [
+            row["parent_id"]
+            for row in conn.execute(
+                "SELECT parent_id FROM task_links WHERE child_id=? ORDER BY parent_id",
+                (task_id,),
+            ).fetchall()
+        ]
+        second_parents = parent_ids(second.id)
+        third_parents = parent_ids(third.id)
+        review_parents = parent_ids(review_task.id)
+    assert "Current work item: TG-001 — Build account storage" in first.body
+    assert "Do not mark the whole Development phase" in first.body
+    assert second_parents == [first.id]
+    assert third_parents == [second.id]
+    assert set(review_parents) == {task["task_id"] for task in development}
+
+
+def test_development_skips_units_with_latest_accepted_evidence(tmp_path, monkeypatch):
+    monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "task-graph.md").write_text(
+        """### TG-001 — Finished foundation
+**Depends on:** none.
+
+### TG-002 — Build the next slice
+**Depends on:** TG-001.
+""",
+        encoding="utf-8",
+    )
+    evidence = project / ".sdlc" / "evidence" / "tasks"
+    evidence.mkdir(parents=True)
+    (evidence / "TG-001.txt").write_text("Final verdict: ACCEPTED\n", encoding="utf-8")
+    module = load_project_runs()
+
+    queued = module.queue_project_run(project, ["sw-developer"])
+
+    assert queued["work_plan"]["accepted_units_skipped"] == ["TG-001"]
+    assert [task["work_item_id"] for task in queued["tasks"]] == ["TG-002"]
+    assert queued["tasks"][0]["status"] == "ready"
+
+
+def test_unstarted_broad_development_is_replaced_without_bypassing_review(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
+    project = tmp_path / "project"
+    project.mkdir()
+    module = load_project_runs()
+    legacy = module.queue_project_run(
+        project, ["sw-developer", "code-reviewer"]
+    )["tasks"]
+    broad = legacy[0]
+    review = legacy[1]
+    (project / "task-graph.md").write_text(
+        """### TG-001 — Build storage
+**Depends on:** none.
+
+### TG-002 — Build route
+**Depends on:** TG-001.
+""",
+        encoding="utf-8",
+    )
+    replacement = module.queue_project_run(project, ["sw-developer"])
+    bounded = replacement["tasks"]
+
+    with module.kb.connect_closing() as conn:
+        assert module.kb.get_task(conn, broad["task_id"]).status == "archived"
+        assert module.kb.get_task(conn, review["task_id"]).status == "todo"
+        review_parents = {
+            row["parent_id"]
+            for row in conn.execute(
+                "SELECT parent_id FROM task_links WHERE child_id=?",
+                (review["task_id"],),
+            ).fetchall()
+        }
+
+    state = module.project_run_state(project)
+
+    bounded_ids = {task["task_id"] for task in bounded}
+    assert replacement["superseded_tasks"] == [broad["task_id"]]
+    assert bounded_ids.issubset(review_parents)
+    assert broad["task_id"] in review_parents
+    visible_development = [
+        task for task in state["tasks"] if task["phase"] == "sw-developer"
+    ]
+    assert {task["task_id"] for task in visible_development} == bounded_ids
+    assert all(task["work_item_id"] for task in visible_development)
+
+
 def test_reused_phase_replaces_or_clears_stale_model_routing(tmp_path, monkeypatch):
     monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
     project = tmp_path / "project"

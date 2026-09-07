@@ -295,6 +295,11 @@ planning (`--phases task-planner`). Do not substitute a raw `hermes kanban creat
 command. Specialist IDs such as `sw-architect` are phase/skill names, not worker
 profiles; omit `--assignee` to use the configured profile unless an existing
 profile was explicitly chosen. Never invent a profile from an agent's name.
+When Development is queued after planning approval, the command reads the
+project's task graph and creates one saved job per named work item with the
+same dependencies. Report the exact work-item title that is running. Never
+create or accept one catch-all job for all remaining requirements; return an
+oversized item to Planning for a smaller split.
 
 Technical review is Lyra's responsibility, not a new user approval checkpoint.
 When a worker blocks with `review-required:`, inspect its evidence, use the

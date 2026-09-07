@@ -63,6 +63,67 @@ def test_named_phase_keeps_live_worker_status_in_the_project_map():
     }]
 
 
+def test_development_map_names_the_exact_running_work_item():
+    result = progress_module()._merge_project_run_state(
+        {"phases": []},
+        {
+            "tasks": [
+                {
+                    "phase": "sw-developer",
+                    "label": "Development · TG-001: Build storage",
+                    "status": "done",
+                },
+                {
+                    "phase": "sw-developer",
+                    "label": "Development · TG-002: Connect account route",
+                    "status": "running",
+                },
+                {
+                    "phase": "sw-developer",
+                    "label": "Development · TG-003: Add account screen",
+                    "status": "todo",
+                },
+            ]
+        },
+    )
+    assert result["phases"] == [
+        {
+            "id": "sw-developer",
+            "label": "Development · TG-002: Connect account route",
+            "status": "Working safely in the background",
+            "state": "now",
+            "evidence": "",
+        }
+    ]
+
+
+def test_development_map_surfaces_a_blocked_work_item_before_running_siblings():
+    result = progress_module()._merge_project_run_state(
+        {"phases": []},
+        {
+            "tasks": [
+                {
+                    "phase": "sw-developer",
+                    "label": "Development · TG-004: Database harness",
+                    "status": "blocked",
+                },
+                {
+                    "phase": "sw-developer",
+                    "label": "Development · TG-005: API edge",
+                    "status": "running",
+                },
+            ]
+        },
+    )
+    assert result["phases"][0] == {
+        "id": "sw-developer",
+        "label": "Development · TG-004: Database harness",
+        "status": "This work item needs attention",
+        "state": "blocked",
+        "evidence": "",
+    }
+
+
 def test_project_map_uses_the_latest_ledger_or_worker_timestamp():
     module = progress_module()
     merged = module._merge_project_run_state(

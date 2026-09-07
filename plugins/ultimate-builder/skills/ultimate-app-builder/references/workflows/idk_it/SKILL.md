@@ -269,6 +269,11 @@ CHECKPOINT: "Project broken into X epics, Y tasks across Z dependency waves. Rev
 
 **Phase 4: Development — spawn `sw-developer` agents (PARALLEL where the DAG allows)**
 
+Lyra runtime note: queue the approved Development phase through `hermes
+project-run queue`. It materializes the task graph into one durable job per
+named unit. Do not create a raw catch-all Kanban job for “all remaining” work;
+an oversized unit goes back to `task-planner` for a smaller split.
+
 *DAG Analysis (MANDATORY before fan-out)* — from task-graph.md:
 1. **Build the DAG**: per epic — what it produces (files, modules, APIs, schemas), what it consumes, which shared files it touches (routes, config, types, package.json).
 2. **Independent clusters**: epics sharing NO files and NO dependency edges can run in parallel.

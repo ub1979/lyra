@@ -82,8 +82,10 @@ Rules:
     PARALLEL. Tasks with parents wait until every parent completes.
   - Prefer parallelism. If two tasks can be done independently, give
     them no parents so the dispatcher fans them out at once.
-  - Use 2-6 tasks for normal work. Don't create 20 tiny tasks. Don't
-    cram everything into 1 task.
+  - Use 2-8 tasks for normal work. Each child must fit one independent work
+    session and one verification cycle. Split by feature, module, or named
+    task-graph unit; never create a child scoped as "all remaining work",
+    "the whole application", "every requirement", or an equivalent blanket.
   - Pick assignees from the roster by matching the task to the profile's
     DESCRIPTION (not just the name). When nothing matches well, use null
     and the system will route to the default_assignee.
@@ -122,6 +124,12 @@ Default assignee (used when no profile fits a task): {default_assignee}
 
 
 _FENCE_RE = re.compile(r"^```(?:json)?\s*|\s*```$", re.MULTILINE)
+_BLANKET_SCOPE = re.compile(
+    r"\b(?:all remaining|every remaining|all requirements?|every requirements?|"
+    r"whole (?:app|application|project)|entire (?:app|application|project)|"
+    r"complete the (?:app|application|project))\b",
+    re.I,
+)
 
 
 @dataclass
@@ -158,6 +166,22 @@ def _extract_json_blob(raw: str) -> Optional[dict]:
     if not isinstance(val, dict):
         return None
     return val
+
+
+def _blanket_child_index(parsed: dict) -> int | None:
+    """Reject fan-out that merely moves a whole project into one child."""
+    if not parsed.get("fanout"):
+        return None
+    tasks = parsed.get("tasks")
+    if not isinstance(tasks, list):
+        return None
+    for index, entry in enumerate(tasks):
+        if not isinstance(entry, dict):
+            continue
+        text = f"{entry.get('title') or ''}\n{entry.get('body') or ''}"
+        if _BLANKET_SCOPE.search(text):
+            return index
+    return None
 
 
 def _profile_author() -> str:
@@ -340,6 +364,43 @@ def decompose_task(
     parsed = _extract_json_blob(raw)
     if parsed is None:
         return DecomposeOutcome(task_id, False, "LLM returned malformed JSON")
+
+    blanket_index = _blanket_child_index(parsed)
+    if blanket_index is not None:
+        correction = (
+            f"Your tasks[{blanket_index}] still contains the whole project or all "
+            "remaining requirements. Replace it with independently verifiable "
+            "feature/module work items that each fit one worker session. Preserve "
+            "real dependencies and return only the corrected JSON object."
+        )
+        try:
+            resp = call_llm(
+                task="kanban_decomposer",
+                messages=[
+                    {"role": "system", "content": _SYSTEM_PROMPT},
+                    {"role": "user", "content": user_msg},
+                    {"role": "assistant", "content": raw},
+                    {"role": "user", "content": correction},
+                ],
+                temperature=0.2,
+                max_tokens=4000,
+                timeout=timeout or 180,
+            )
+            raw = resp.choices[0].message.content or ""
+        except Exception as exc:
+            logger.info(
+                "decompose: bounded-scope correction failed for %s (%s)",
+                task_id,
+                exc,
+            )
+            return DecomposeOutcome(
+                task_id, False, "decomposer could not produce bounded child tasks"
+            )
+        parsed = _extract_json_blob(raw)
+        if parsed is None or _blanket_child_index(parsed) is not None:
+            return DecomposeOutcome(
+                task_id, False, "decomposer returned an unbounded child task twice"
+            )
 
     fanout = bool(parsed.get("fanout"))
     audit_author = author or _profile_author()

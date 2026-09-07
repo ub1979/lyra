@@ -268,6 +268,14 @@ files or state. Give each development delegate:
 - the instruction to create a local Git commit after verification. Never push
   to a remote unless the user explicitly asks.
 
+Queue Development only after the approved `task-graph.md` exists. Lyra
+materializes every structured task heading and its `Depends on` links as a
+separate saved job; do not replace those units with a job called “implement all
+remaining requirements”, “finish the application”, or similar. A development
+job owns one named work item, one evidence file, one test cycle, and one local
+commit. If a unit cannot reasonably finish in one worker session, return it to
+`task-planner` for another split before scheduling it.
+
 After parallel work, run one integration delegate over the combined state.
 
 ## Step 4: independent verification loop

@@ -210,7 +210,14 @@ Epic: E-XXX | Complexity: S/M/L | Agent: sw-developer | qa-engineer | devops-eng
 | **M** | Multiple files, clear scope | CRUD endpoint + tests, a component | Standard model |
 | **L** | Multiple subsystems | Auth middleware + token refresh, realtime system | Standard model; consider splitting |
 
-Rules: split anything larger than L into M/S tasks; each task completable in one agent invocation; include edge-case tasks ("handle payment failure states") and non-functional tasks ("p99 latency < 200ms"); UI tasks reference design-system values.
+Rules: split anything larger than L into M/S tasks; each task must be
+completable in one bounded worker session with one focused verification cycle
+and one local commit. Never use a title or scope equivalent to “all remaining
+requirements”, “the whole application”, or “finish everything”. Include
+edge-case tasks ("handle payment failure states") and non-functional tasks
+("p99 latency < 200ms"); UI tasks reference design-system values. The structured
+task heading and `Depends on` field are executable scheduler inputs, so keep
+them exact and unique.
 
 ---
 

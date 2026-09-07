@@ -113,6 +113,94 @@ def test_decompose_with_fanout_creates_children(kanban_home):
     assert c1.assignee == "engineer"
 
 
+def test_decompose_rejects_blanket_child_and_requests_bounded_replacement(kanban_home):
+    with kb.connect() as conn:
+        tid = kb.create_task(conn, title="build a large application", triage=True)
+
+    broad = _fake_aux_response(jsonlib.dumps({
+        "fanout": True,
+        "rationale": "three stages",
+        "tasks": [
+            {
+                "title": "Implement all remaining requirements",
+                "body": "Build every requirement in the application.",
+                "assignee": "engineer",
+                "parents": [],
+            }
+        ],
+    }))
+    bounded = _fake_aux_response(jsonlib.dumps({
+        "fanout": True,
+        "rationale": "bounded features",
+        "tasks": [
+            {
+                "title": "Implement account storage",
+                "body": "Build and verify only the account storage adapter.",
+                "assignee": "engineer",
+                "parents": [],
+            },
+            {
+                "title": "Connect the account route",
+                "body": "Build and verify only the account route.",
+                "assignee": "engineer",
+                "parents": [0],
+            },
+        ],
+    }))
+    patches = _patch_list_profiles(["orchestrator", "engineer"])
+    for item in patches:
+        item.start()
+    try:
+        with patch(
+            "agent.auxiliary_client.call_llm", side_effect=[broad, bounded]
+        ) as call_llm:
+            outcome = decomp.decompose_task(tid, author="me")
+    finally:
+        for item in patches:
+            item.stop()
+
+    assert outcome.ok
+    assert outcome.child_ids and len(outcome.child_ids) == 2
+    assert call_llm.call_count == 2
+    correction = call_llm.call_args_list[1].kwargs["messages"][-1]["content"]
+    assert "independently verifiable" in correction
+
+
+def test_decompose_never_persists_a_blanket_child_after_correction(kanban_home):
+    with kb.connect() as conn:
+        tid = kb.create_task(conn, title="build a large application", triage=True)
+    response = _fake_aux_response(jsonlib.dumps({
+        "fanout": True,
+        "rationale": "not actually split",
+        "tasks": [{
+            "title": "Complete the whole application",
+            "body": "Implement all remaining work.",
+            "assignee": "engineer",
+            "parents": [],
+        }],
+    }))
+    patches = _patch_list_profiles(["orchestrator", "engineer"])
+    for item in patches:
+        item.start()
+    try:
+        with patch(
+            "agent.auxiliary_client.call_llm", side_effect=[response, response]
+        ):
+            outcome = decomp.decompose_task(tid, author="me")
+    finally:
+        for item in patches:
+            item.stop()
+
+    assert not outcome.ok
+    assert "unbounded child task twice" in outcome.reason
+    with kb.connect() as conn:
+        assert kb.get_task(conn, tid).status == "triage"
+        children = conn.execute(
+            "SELECT child_id FROM task_links WHERE parent_id=?", (tid,)
+        ).fetchall()
+        assert children == []
+
+
 def test_decompose_fanout_false_assigns_default_when_unassigned(kanban_home):
     with kb.connect() as conn:
         tid = kb.create_task(conn, title="just one thing", triage=True)
