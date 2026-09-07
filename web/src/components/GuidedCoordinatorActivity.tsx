@@ -74,7 +74,7 @@ export function GuidedCoordinatorActivity({
           {runningTool && !waitingForInput && (
             <p className="mt-1 text-text-secondary">Tool running · {toolSeconds}s elapsed</p>
           )}
-          {!waitingForInput && (mayBeStalled || summaryQuiet || toolSeconds >= 30) && (
+          {!waitingForInput && (!compacting || summaryQuiet) && (
             <button
               type="button"
               className="mt-2 rounded-full border border-current/20 px-3 py-1 text-midground"

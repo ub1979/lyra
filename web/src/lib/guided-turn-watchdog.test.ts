@@ -10,20 +10,56 @@ import {
   guidedSubagentGraceMs,
   guidedWatchdogMessage,
   isGuidedModelActivityEvent,
+  shouldRestoreGuidedWorkingState,
 } from "./guided-turn-watchdog";
 
 const NOW = 1_000_000;
 
 describe("isGuidedModelActivityEvent", () => {
-  it("counts provider wait heartbeats and reasoning as model activity", () => {
+  it("counts real thinking and reasoning as model activity", () => {
     expect(isGuidedModelActivityEvent("thinking.delta")).toBe(true);
     expect(isGuidedModelActivityEvent("reasoning.delta")).toBe(true);
+  });
+
+  it("does not let a timer-generated provider wait postpone recovery", () => {
+    expect(
+      isGuidedModelActivityEvent("thinking.delta", { provider_wait: true }),
+    ).toBe(false);
   });
 
   it("does not mistake unrelated events for a model heartbeat", () => {
     expect(isGuidedModelActivityEvent("message.start")).toBe(false);
     expect(isGuidedModelActivityEvent("tool.progress")).toBe(false);
     expect(isGuidedModelActivityEvent("error")).toBe(false);
+  });
+});
+
+describe("shouldRestoreGuidedWorkingState", () => {
+  it("restores a server-busy turn after the browser reconnects", () => {
+    expect(
+      shouldRestoreGuidedWorkingState({
+        backendRunning: true,
+        browserPhase: "idle",
+        waitingForInput: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("does not replace a visible question or duplicate working state", () => {
+    expect(
+      shouldRestoreGuidedWorkingState({
+        backendRunning: true,
+        browserPhase: "idle",
+        waitingForInput: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldRestoreGuidedWorkingState({
+        backendRunning: true,
+        browserPhase: "working",
+        waitingForInput: false,
+      }),
+    ).toBe(false);
   });
 });
 

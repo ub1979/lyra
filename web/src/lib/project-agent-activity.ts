@@ -9,6 +9,7 @@ export interface ProjectAgentActivityItem {
   detail: string
   running: boolean
   attention: boolean
+  lastActivityAt: number | null
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -50,7 +51,8 @@ function presentTask(task: UltimateBuilderRunTask, stale: boolean): ProjectAgent
               : task.wait_reason || task.last_error || 'Ask Lyra what is needed to continue.'
             : ''),
     running: !stale && task.status === 'running',
-    attention: !stale && !paused && (Boolean(task.dispatch_issue) || ['blocked', 'triage'].includes(task.status))
+    attention: !stale && !paused && (Boolean(task.dispatch_issue) || ['blocked', 'triage'].includes(task.status)),
+    lastActivityAt: task.last_activity_at
   }
 }
 

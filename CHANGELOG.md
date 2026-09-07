@@ -9,6 +9,27 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.22] - 2026-09-07 — visible progress and message time
+
+### Fixed
+
+- **A busy chat stays visible after reconnecting.** Studio restores the live
+  running state reported by Lyra and always offers Stop & retry while an
+  ordinary turn is active.
+- **Provider waiting notices no longer disguise a silent request as progress.**
+  The explanation remains visible, but only real model output resets the
+  bounded silence timer.
+- **Project-agent work shows when it last reported activity.** Long background
+  builds are distinguishable from jobs that have stopped reporting.
+
+### Added
+
+- **Every Studio message shows its local date and time.** New messages retain
+  their timestamp in existing project-scoped browser storage, while older
+  timestamped messages remain readable.
+
+Restart Lyra after updating so both the backend and Studio load this fix.
+
 ## [0.19.21] - 2026-09-06 — consistent Studio model selection
 
 ### Fixed

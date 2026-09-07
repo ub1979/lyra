@@ -52,17 +52,36 @@ export const GUIDED_SUBAGENT_SPAWN_GRACE_MS = 90_000;
 
 /**
  * Model events that prove the provider request is alive even when no answer
- * text is visible yet. `thinking.delta` carries the backend's 30-second wait
- * heartbeat; `reasoning.delta` covers models that stream private reasoning
- * before their user-facing response.
+ * text is visible yet. A real `thinking.delta` or `reasoning.delta` carries
+ * model output. A timer-generated provider-wait notice is presentation only
+ * and must not postpone recovery forever.
  */
 const GUIDED_MODEL_ACTIVITY_EVENTS = new Set([
   "thinking.delta",
   "reasoning.delta",
 ]);
 
-export function isGuidedModelActivityEvent(eventType: string): boolean {
+export function isGuidedModelActivityEvent(
+  eventType: string,
+  payload?: { provider_wait?: unknown },
+): boolean {
+  if (eventType === "thinking.delta" && payload?.provider_wait === true) {
+    return false;
+  }
   return GUIDED_MODEL_ACTIVITY_EVENTS.has(eventType);
+}
+
+/** A reconnect must restore controls for a turn already running on the server. */
+export function shouldRestoreGuidedWorkingState({
+  backendRunning,
+  browserPhase,
+  waitingForInput,
+}: {
+  backendRunning: unknown;
+  browserPhase: "idle" | "working" | "response";
+  waitingForInput: boolean;
+}): boolean {
+  return backendRunning === true && browserPhase !== "working" && !waitingForInput;
 }
 
 export type GuidedCompressionTransition = "start" | "finish" | null;

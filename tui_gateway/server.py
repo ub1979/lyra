@@ -4914,6 +4914,25 @@ def _mirror_subagent_to_child(event_type: str, payload: dict) -> None:
             _child_mirrors.pop(child_key, None)
 
 
+def _thinking_delta_payload(text: str) -> dict[str, object]:
+    """Tag synthetic provider-wait notices without hiding real reasoning.
+
+    ``_emit_wait_notice`` deliberately reuses the thinking callback so every
+    Hermes surface can explain a slow request. Those timer-generated notices
+    are status, not bytes from the model; Studio must not use them to postpone
+    its own bounded silence watchdog.
+    """
+    value = str(text or "")
+    provider_wait = value.startswith(
+        (
+            "⏳ waiting on ",
+            "⚠ no response from provider",
+            "⚠ no output from provider",
+        )
+    )
+    return {"text": value, "provider_wait": provider_wait}
+
+
 def _agent_cbs(sid: str) -> dict:
     callbacks = {
         "tool_start_callback": lambda tc_id, name, args: _on_tool_start(
@@ -4927,7 +4946,9 @@ def _agent_cbs(sid: str) -> dict:
         ),
         "tool_gen_callback": lambda name: _tool_progress_enabled(sid)
         and _emit("tool.generating", sid, {"name": name}),
-        "thinking_callback": lambda text: _emit("thinking.delta", sid, {"text": text}),
+        "thinking_callback": lambda text: _emit(
+            "thinking.delta", sid, _thinking_delta_payload(text)
+        ),
         # Affection reaction (ily / <3 / good bot) → hearts. Core-detected, so
         # the TUI heart and desktop floating hearts share one signal.
         "reaction_callback": lambda kind: _emit("reaction", sid, {"kind": kind}),

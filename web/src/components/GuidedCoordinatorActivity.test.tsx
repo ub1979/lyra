@@ -7,6 +7,26 @@ import { GuidedCoordinatorActivity } from './GuidedCoordinatorActivity'
 describe('live chat feedback', () => {
   afterEach(() => vi.useRealTimers())
 
+  it('always offers control while an ordinary turn is running', async () => {
+    const host = document.createElement('div')
+    const root = createRoot(host)
+    try {
+      await act(async () => {
+        root.render(
+          <GuidedCoordinatorActivity
+            text="Thinking about your message…"
+            lastSignalAt={Date.now()}
+            runningTool={null}
+            onRetry={() => {}}
+          />
+        )
+      })
+      expect(host.textContent).toContain('Stop & retry')
+    } finally {
+      await act(async () => root.unmount())
+    }
+  })
+
   it('keeps summarizing visible between real heartbeats and distinguishes a missing update', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(100_000)

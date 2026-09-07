@@ -1,4 +1,5 @@
 import type { ProjectAgentActivityItem } from '../lib/project-agent-activity'
+import { formatStudioDateTime, studioDateTimeIso } from '../lib/studio-time'
 
 export interface ProjectAgentJobsProps {
   items: readonly ProjectAgentActivityItem[]
@@ -38,6 +39,14 @@ export function ProjectAgentJobs({ items, stale }: ProjectAgentJobsProps) {
             <p className="mt-2 whitespace-pre-wrap break-words text-text-secondary [overflow-wrap:anywhere]">
               {item.detail}
             </p>
+          )}
+          {item.lastActivityAt && (
+            <time
+              className="mt-1.5 block text-[10px] text-text-secondary"
+              dateTime={studioDateTimeIso(item.lastActivityAt * 1000)}
+            >
+              Last update {formatStudioDateTime(item.lastActivityAt * 1000)}
+            </time>
           )}
         </article>
       ))}

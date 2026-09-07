@@ -23,6 +23,7 @@ describe('Studio agent activity rendering', () => {
     expect(html).not.toContain('Research')
     expect(html).not.toContain('Architecture')
     expect(html).not.toContain('Quality assurance')
+    expect(html).toContain('Last update')
   })
   it('keeps the coordinator as Lyra even when the legacy parser guesses QA', () => {
     const activity = analyzeGuidedChatOutput('checking project status')

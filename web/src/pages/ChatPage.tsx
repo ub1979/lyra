@@ -100,7 +100,13 @@ import {
   guidedCompressionTransition,
   guidedWatchdogMessage,
   isGuidedModelActivityEvent,
+  shouldRestoreGuidedWorkingState,
 } from "@/lib/guided-turn-watchdog";
+import {
+  formatStudioDateTime,
+  studioDateTimeIso,
+  studioMessageTime,
+} from "@/lib/studio-time";
 import {
   Activity,
   ArrowLeft,
@@ -285,6 +291,7 @@ interface GuidedMessage {
   role: "user" | "assistant" | "error";
   content: string;
   plain?: boolean;
+  createdAt?: number;
 }
 
 interface GuidedRunningTool {
@@ -332,6 +339,8 @@ interface GuidedAgentEventEnvelope {
       stored_session_id?: string;
       question?: string;
       request_id?: string;
+      provider_wait?: boolean;
+      running?: boolean;
       text?: string;
       tool_id?: string;
       usage?: unknown;
@@ -619,6 +628,7 @@ function readGuidedMessages(workspace: string): GuidedMessage[] {
         role: "error",
         content:
           "The previous attempt ended without a response. You can retry it when ready.",
+        createdAt: Date.now(),
       });
     }
     return messages;
@@ -1025,6 +1035,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     text: "",
     specialist: null,
   });
+  const guidedActivityRef = useRef(guidedActivity);
   const [guidedLastSignalAt, setGuidedLastSignalAt] = useState(Date.now);
   const [guidedCompacting, setGuidedCompacting] = useState(false);
   const [guidedMessages, setGuidedMessages] = useState<GuidedMessage[]>(() =>
@@ -1248,6 +1259,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           id: `error-${Date.now()}-${Math.random().toString(36).slice(2)}`,
           role: "error",
           content,
+          createdAt: Date.now(),
         },
       ];
     });
@@ -1262,6 +1274,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   useEffect(() => {
     guidedMessagesRef.current = guidedMessages;
   }, [guidedMessages]);
+
+  useEffect(() => {
+    guidedActivityRef.current = guidedActivity;
+  }, [guidedActivity]);
 
   const applyGuidedSpecialistIds = useCallback(
     (ids: readonly string[]) => {
@@ -1516,6 +1532,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           id: `assistant-${Date.now()}-${Math.random().toString(36).slice(2)}`,
           role: "assistant",
           content: response,
+          createdAt: Date.now(),
         },
       ];
     });
@@ -1865,6 +1882,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                       role: "assistant",
                       content: question,
                       plain: true,
+                      createdAt: Date.now(),
                     },
                   ],
             );
@@ -1922,6 +1940,25 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             if (payload?.usage) {
               setGuidedUsage(normalizeGuidedUsage(payload.usage));
             }
+            if (
+              shouldRestoreGuidedWorkingState({
+                backendRunning: payload?.running,
+                browserPhase: guidedActivityRef.current.phase,
+                waitingForInput: Boolean(
+                  guidedClarificationRef.current || guidedApprovalRef.current,
+                ),
+              })
+            ) {
+              const recoveredActivity: GuidedChatPresentation = {
+                phase: "working",
+                text: "Lyra is continuing the active request…",
+                specialist: guidedDefaultSpecialistRef.current,
+              };
+              guidedActivityRef.current = recoveredActivity;
+              guidedTurnSettledRef.current = false;
+              setGuidedLastSignalAt(Date.now());
+              setGuidedActivity(recoveredActivity);
+            }
             return;
           }
         if (type === "approval.request") {
@@ -1961,6 +1998,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                     role: "assistant",
                     content: description,
                     plain: true,
+                    createdAt: Date.now(),
                   },
                 ],
           );
@@ -1991,8 +2029,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           setGuidedLastSignalAt(Date.now());
           return;
         }
-        if (isGuidedModelActivityEvent(type)) {
-          setGuidedLastSignalAt(Date.now());
+        if (type === "thinking.delta" || type === "reasoning.delta") {
+          if (isGuidedModelActivityEvent(type, payload)) {
+            setGuidedLastSignalAt(Date.now());
+          }
           if (type === "thinking.delta") {
             const waitText =
               typeof payload?.text === "string" ? payload.text.trim() : "";
@@ -2434,6 +2474,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       id,
       role: "user",
       content: answer.trim(),
+      createdAt: Date.now(),
     }]);
     setGuidedInput("");
     setGuidedLastSignalAt(Date.now());
@@ -2496,6 +2537,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         id: `user-${Date.now()}-${Math.random().toString(36).slice(2)}`,
         role: "user",
         content: displayValue?.trim() || text,
+        createdAt: Date.now(),
       },
     ]);
     setGuidedActivity({
@@ -5020,6 +5062,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               <div className="space-y-4">
                 {guidedMessages.map((message) => {
                   const copyText = chatMessageCopyText(message);
+                  const messageTime = studioMessageTime(message);
                   return (
                   <div
                     key={message.id}
@@ -5050,6 +5093,13 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                             ? "Problem"
                             : "Lyra"}
                         </span>
+                        <time
+                          className="normal-case font-normal tracking-normal opacity-55"
+                          dateTime={studioDateTimeIso(messageTime)}
+                          title={formatStudioDateTime(messageTime)}
+                        >
+                          {formatStudioDateTime(messageTime)}
+                        </time>
                         {copyText ? (
                           <CopyMessageButton
                             className="-my-1 ml-auto"
