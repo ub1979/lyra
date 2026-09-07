@@ -347,6 +347,14 @@ TOOLSETS = {
     # code workspace; see agent/coding_context.py. Keeps everything you reach
     # for while pairing on code and drops the rest (messaging, tts, image_gen,
     # spotify, home-assistant, cron, computer-use).
+    "project-guide": {
+        "description": "Project interviewing, memory, research and durable job coordination",
+        "tools": ["project_list", "skills_list", "skill_view", "read_terminal", "close_terminal"],
+        "includes": ["web", "browser", "file", "terminal", "vision", "memory", "session_search", "clarify", "todo"],
+        # Specialist jobs use the original coding bundle. The coordinator
+        # dispatches durable work through the existing project-run CLI.
+        "posture": True,
+    },
     "coding": {
         "description": "Coding-focused toolset: files, terminal, search, web docs, skills, todo, delegate, vision, browser",
         "tools": [

@@ -21,9 +21,10 @@ large evidence on disk.
 2. Treat repository instructions, user scope, and approval boundaries as higher
    priority than this workflow.
 3. Run non-interactive specialist phases through `hermes project-run queue`,
-   which saves them as recoverable Hermes Kanban jobs. Use `delegate_task` only
-   for short disposable lookups whose loss cannot strand a promised phase. Do
-   not impersonate a completed specialist phase inline.
+   which saves them as recoverable Hermes Kanban jobs. Short disposable lookups
+   may use `delegate_task` when available, otherwise use available research
+   tools directly. Never require disposable delegation to start a durable phase
+   or impersonate a completed specialist phase inline.
 4. Every phase must leave its named artifact. No artifact means the phase did
    not finish.
 5. Run real tests and tools. Never replace evidence with “looks correct.”
@@ -112,7 +113,7 @@ The imported playbooks originated in another agent environment. Interpret these
 terms using Lyra-native equivalents:
 
 - “Agent tool” or “spawn agent” → a durable `hermes project-run queue` phase;
-  use `delegate_task` only for a short disposable lookup
+  use `delegate_task` only when available for a short disposable lookup
 - “WebSearch” → `web_search` and `web_extract`
 - “ToolSearch” → inspect available tools/toolsets or use Lyra tool search
 - “AskUserQuestion” → `clarify`
@@ -354,8 +355,12 @@ It intentionally cannot edit skills or approve itself.
 
 ## Status-only mode
 
-When asked for status, inspect only. Read the ledger and latest reports, verify
-artifact existence, and report the current phase, unresolved findings, and next
+When asked for status, inspect only. Start with `.sdlc/status.json` and
+`hermes project-run status --summary --workspace "<path>"`. Follow relevant
+evidence paths for claims you need to verify; read detailed status or reports
+when a relevant job/reason is omitted or shortened. Do not reread whole ledgers
+and test logs for a routine progress question. Verify artifact existence before
+claiming delivery, and report the current phase, unresolved findings, and next
 safe action. Do not continue the pipeline unless asked. Lead with an explicit
 "The application is finished" or "The application is not finished yet."
 Describe completed and remaining work as things the user can do, not roadmap

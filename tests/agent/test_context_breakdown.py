@@ -22,6 +22,7 @@ def _make_agent(
         {"type": "function", "function": {"name": "delegate_task", "description": "spawn"}},
     ]
     agent._memory_store = None
+    agent.ephemeral_system_prompt = None
     agent._memory_enabled = True
     agent._user_profile_enabled = True
     agent.context_compressor = MagicMock(
@@ -58,3 +59,19 @@ def test_breakdown_uses_measured_context_when_available():
 
     assert data["context_used"] == 42_000
     assert data["context_percent"] == 21
+
+
+def test_startup_instructions_are_counted_without_changing_history_or_prompt():
+    from copy import deepcopy
+
+    agent, parts = _make_agent()
+    history = [{"role": "user", "content": "My project"}]
+    saved = deepcopy(history)
+    with patch("agent.system_prompt.build_system_prompt_parts", return_value=parts):
+        before = compute_session_context_breakdown(agent, history)
+        agent.ephemeral_system_prompt = "Full startup instructions. " * 100
+        after = compute_session_context_breakdown(agent, history)
+    delta = after["estimated_total"] - before["estimated_total"]
+    assert abs(delta - len(agent.ephemeral_system_prompt) / 4) <= 2
+    assert history == saved
+    assert agent.ephemeral_system_prompt == "Full startup instructions. " * 100

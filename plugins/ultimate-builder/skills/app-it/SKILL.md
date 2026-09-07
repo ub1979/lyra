@@ -102,6 +102,16 @@ commit and stage it with that work. Replace stale status rather than appending
 a session diary. This lets Lyra recover the right facts after context
 compression or a new conversation without trusting old notes blindly.
 
+Retrieve only what the current decision needs: start with this memory map and
+`.sdlc/status.json`, then follow relevant evidence paths. Do not reread the
+whole task graph, progress diary, or test logs for every status question.
+Read full specialist instructions when that specialist is needed; never shorten
+required instructions or skip verification to save tokens. Reuse facts already
+in the conversation when still current; refresh live job status for liveness.
+Never rewrite earlier messages or change toolsets between phases to save tokens:
+that breaks the conversation's cached prefix. Existing context compression is
+the boundary for refreshing long-term context.
+
 Preserve every website or document URL the user supplies and pass it to the
 relevant specialist unchanged. Do not claim a source was inspected until a
 Hermes web or browser tool actually opened it.
@@ -284,11 +294,11 @@ background work and can continue when the browser is closed. Computer sleep
 pauses execution; Lyra recovers it after the computer wakes and its background
 service is available again.
 
-Before queueing, inspect `hermes project-run status --workspace "<path>"` and
+Before queueing, inspect `hermes project-run status --summary --workspace "<path>"` and
 reuse existing active work. Do not create a second job merely because the chat
 was reopened. Use `--force-new` only for an explicitly approved revision after
-a prior run finished. A short disposable lookup may still use `delegate_task`,
-but any specialist phase Lyra promises to complete must use a durable job.
+a prior run finished. Use the available research tools for short lookups;
+any specialist phase Lyra promises to complete must use a durable job.
 
 Use `hermes project-run queue` for every automatic phase, including task
 planning (`--phases task-planner`). Do not substitute a raw `hermes kanban create`
@@ -315,7 +325,11 @@ field; a missing notification link must be corrected before promising a
 background update. Queued, working, waiting for review, and waiting for the
 user are distinct states. Never describe a blocked review as still building.
 
-After queueing and before each progress report, read project-run status. A
+After queueing and before each progress report, read project-run status with
+`--summary`. It is a live, small JSON report, not an AI-generated summary.
+If it reports omitted jobs or truncated reasons relevant to the decision, read
+the detailed status or exact saved job. Completion reports still need review;
+never infer whole-application completion from job counts. A
 `ready`, `todo`, or `scheduled` job is queued, not running. Only a `running` job
 justifies saying the agent has started. If `dispatch_issue` is present, say the
 worker cannot start and explain the needed correction. A successful queue

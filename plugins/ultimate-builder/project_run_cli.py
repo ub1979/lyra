@@ -30,6 +30,7 @@ def setup_parser(parser: argparse.ArgumentParser) -> None:
     queue.add_argument("--force-new", action="store_true")
     status = sub.add_parser("status", help="Read durable project-job state")
     status.add_argument("--workspace", required=True)
+    status.add_argument("--summary", action="store_true", help="Short live status without full job history")
     for action in ("pause", "resume", "stop"):
         control = sub.add_parser(action, help=f"{action.title()} project jobs")
         control.add_argument("--workspace", required=True)
@@ -58,6 +59,10 @@ def handle(args: argparse.Namespace) -> None:
         )
     elif args.project_run_command == "status":
         result = project_runs.project_run_state(args.workspace)
+        if getattr(args, "summary", False):
+            from hermes_cli.project_run_summary import summarize_project_run
+
+            result = summarize_project_run(result)
     else:
         result = project_runs.control_project_run(
             args.workspace, args.project_run_command

@@ -30,8 +30,13 @@ def test_studio_pair_is_atomic_and_does_not_change_worker_or_regular_pins():
 
 
 @pytest.mark.parametrize("use_environment_skills", [False, True])
+@pytest.mark.parametrize("toolsets", [
+    ["coding", "project"],
+    ["web", "browser", "file", "terminal", "vision", "memory", "session_search",
+     "clarify", "todo", "skills", "code_execution", "delegation", "project"],
+])
 def test_resumed_glm_session_invokes_selected_claude_in_real_subprocess(
-    tmp_path, monkeypatch, use_environment_skills
+    tmp_path, monkeypatch, use_environment_skills, toolsets
 ):
     """Real config/provider resolver and CLI subprocess; no paid model call."""
     from agent.claude_cli_client import ClaudeCLIClient
@@ -55,10 +60,11 @@ def test_resumed_glm_session_invokes_selected_claude_in_real_subprocess(
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     monkeypatch.setenv("HERMES_MODEL", "glm-5-2:cloud")
     monkeypatch.setenv("HERMES_TUI_SKILLS", ",".join(STUDIO_SKILLS))
+    monkeypatch.delenv("HERMES_TUI_TOOLSETS", raising=False)
     monkeypatch.setattr(server, "_load_cfg", lambda: cfg)
     monkeypatch.setattr(server, "_get_db", MagicMock())
     monkeypatch.setattr(server, "_load_reasoning_config", lambda *a: None)
-    monkeypatch.setattr(server, "_load_enabled_toolsets", lambda: [])
+    monkeypatch.setattr(server, "_load_enabled_toolsets", lambda: toolsets)
     monkeypatch.setattr(server, "_load_service_tier", lambda: None)
     monkeypatch.setattr(server, "_agent_cbs", lambda *a: {})
     monkeypatch.setattr(
@@ -83,6 +89,8 @@ def test_resumed_glm_session_invokes_selected_claude_in_real_subprocess(
             args = constructor.call_args.kwargs
             assert args["provider"] == "claude-cli"
             assert args["model"] == "claude-opus-4-6"
+            assert args["enabled_toolsets"] == ["project-guide"]
+            assert not args.get("skip_memory", False)
             client = ClaudeCLIClient(command=args["acp_command"])
             response = client.chat.completions.create(
                 model=args["model"], messages=[{"role": "user", "content": "retry"}]

@@ -108,6 +108,13 @@ def compute_session_context_breakdown(
     system_core = _strip_blocks(stable, skills_index)
     system_tail = _strip_blocks(volatile, memory_block, user_block)
     system_prompt_text = "\n\n".join(part for part in (system_core, system_tail) if part).strip()
+    # Startup skills/custom instructions are appended at request time, outside
+    # build_system_prompt_parts. Count them, but never rebuild or mutate history.
+    ephemeral = getattr(agent, "ephemeral_system_prompt", None)
+    if isinstance(ephemeral, str) and ephemeral:
+        system_prompt_text = "\n\n".join(
+            part for part in (system_prompt_text, ephemeral) if part
+        )
 
     tools = list(getattr(agent, "tools", None) or [])
     builtin_tools, mcp_tools, subagent_tools = _split_tools(tools)

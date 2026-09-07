@@ -1734,6 +1734,7 @@ docs/hermes-kanban-v1-spec.pdf	docs	pdf: hermes kanban v1 spec
 docs/kanban/multi-gateway.md	docs	md: multi gateway
 docs/lyra/CHANGE_MANAGEMENT.md	docs	md: CHANGE MANAGEMENT
 docs/lyra/CODE_MAP.md	docs	md: CODE MAP
+docs/lyra/CONTEXT_EFFICIENCY.md	docs	md: CONTEXT EFFICIENCY
 docs/lyra/changes/2026-09-05-live-chat-feedback.md	docs	md: 2026 09 05 live chat feedback
 docs/lyra/changes/2026-09-05-studio-reliability.md	docs	md: 2026 09 05 studio reliability
 docs/lyra/changes/2026-09-06-natural-decisions.md	docs	md: 2026 09 06 natural decisions
@@ -1744,6 +1745,7 @@ docs/lyra/changes/2026-09-06-project-workflow-verification.md	docs	md: 2026 09 0
 docs/lyra/changes/2026-09-06-review-handoff.md	docs	md: 2026 09 06 review handoff
 docs/lyra/changes/2026-09-06-studio-model-retry.md	docs	md: 2026 09 06 studio model retry
 docs/lyra/changes/2026-09-07-compact-project-status.md	docs	md: 2026 09 07 compact project status
+docs/lyra/changes/2026-09-07-lean-context.md	docs	md: 2026 09 07 lean context
 docs/lyra/changes/2026-09-07-small-development-jobs.md	docs	md: 2026 09 07 small development jobs
 docs/lyra/changes/2026-09-07-studio-liveness-time.md	docs	md: 2026 09 07 studio liveness time
 docs/lyra/file-index.tsv	docs	tsv: file index
@@ -1964,6 +1966,7 @@ hermes_cli/profiles.py	hermes_cli	Profile management for multiple isolated Herme
 hermes_cli/project_evidence.py	hermes_cli	Bounded, project-local evidence checks; never execute untrusted reports.
 hermes_cli/project_job_attention.py	hermes_cli	Read and explain durable project review/input handoffs without changing jobs.
 hermes_cli/project_job_status.py	hermes_cli	Explain automatic project-worker eligibility without changing Kanban state.
+hermes_cli/project_run_summary.py	hermes_cli	Bounded, read-only projection of authoritative project job state.
 hermes_cli/projects_cmd.py	hermes_cli	``hermes project`` CLI — manage first-class, multi-folder Projects.
 hermes_cli/projects_db.py	hermes_cli	Per-profile first-class Project store.
 hermes_cli/prompt_size.py	hermes_cli	Prompt-size diagnostic: ``hermes prompt-size``.
@@ -5282,6 +5285,7 @@ tests/hermes_cli/test_profiles.py	tests	Behavioral tests: profiles
 tests/hermes_cli/test_profiles_s6_hooks.py	tests	Behavioral tests: profiles s6 hooks
 tests/hermes_cli/test_project_job_attention.py	tests	Behavioral tests: project job attention
 tests/hermes_cli/test_project_plugin_rce_bypass.py	tests	Behavioral tests: project plugin rce bypass
+tests/hermes_cli/test_project_run_summary.py	tests	Behavioral tests: project run summary
 tests/hermes_cli/test_project_venv_root.py	tests	Behavioral tests: project venv root
 tests/hermes_cli/test_projects_cli.py	tests	Behavioral tests: projects cli
 tests/hermes_cli/test_projects_db.py	tests	Behavioral tests: projects db
@@ -6307,6 +6311,7 @@ tests/tui_gateway/test_slash_worker_ansi.py	tests	Behavioral tests: slash worker
 tests/tui_gateway/test_slash_worker_mcp_discovery.py	tests	Behavioral tests: slash worker mcp discovery
 tests/tui_gateway/test_slash_worker_profile_home.py	tests	Behavioral tests: slash worker profile home
 tests/tui_gateway/test_slash_worker_sys_path.py	tests	Behavioral tests: slash worker sys path
+tests/tui_gateway/test_studio_context.py	tests	Behavioral tests: studio context
 tests/tui_gateway/test_studio_model_routing.py	tests	Behavioral tests: studio model routing
 tests/tui_gateway/test_studio_wait_events.py	tests	Behavioral tests: studio wait events
 tests/tui_gateway/test_subagent_child_mirror.py	tests	Behavioral tests: subagent child mirror
@@ -6452,6 +6457,7 @@ tui_gateway/project_tree.py	tui_gateway	Authoritative project -> repo -> lane ->
 tui_gateway/render.py	tui_gateway	Rendering bridge — routes TUI content through Python-side renderers.
 tui_gateway/server.py	tui_gateway	py: server
 tui_gateway/slash_worker.py	tui_gateway	Persistent slash-command worker — one HermesCLI per TUI session.
+tui_gateway/studio_context.py	tui_gateway	Choose Studio's coordinator capabilities once, at agent construction.
 tui_gateway/studio_model_routing.py	tui_gateway	Model ownership for the Studio coordinator, separate from worker pins.
 tui_gateway/synthetic_turn.py	tui_gateway	Synthetic GIL-heavy turn driver for the AC-4 isolation certify harness.
 tui_gateway/transport.py	tui_gateway	Transport abstraction for the tui_gateway JSON-RPC server.
