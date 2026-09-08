@@ -20,4 +20,5 @@ Compatibility / restart: Newly spawned workers load the fix immediately. Existin
 
 Rollback / retained recovery data: Revert the focused local commit. Existing task events and runs remain the audit trail; no rows are deleted or rewritten.
 
-Local commit / authorized push: Local implementation authorized by the user's continuing reliability request. No second push or Lyra version bump is authorized yet.
+Local commit / authorized push: Implemented in `a475d04fa`. The user authorized
+the combined Lyra 0.19.27 reliability release and push on 2026-09-08.

@@ -9,12 +9,17 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.27] - 2026-09-08 — safe worker handoffs
+
 ### Fixed
 
 - A superseded goal-mode worker can no longer mistake a newer run for its own
   and block that successor while the old process is shutting down.
 - The dispatcher now waits for a terminal worker process to exit, and safely
   terminates a local survivor, before starting another run of the same task.
+
+Restart Lyra after current work reaches a safe boundary. Existing projects,
+jobs and conversations are preserved.
 
 ## [0.19.26] - 2026-09-08 — reliable guided projects
 

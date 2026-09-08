@@ -46,6 +46,5 @@ preserved.
 Rollback / retained recovery data: Revert the focused local commit. Historical
 run and task events remain available; no rows are deleted or rewritten.
 
-Local commit / authorized push: Local implementation is authorized by the
-user's continuing Lyra reliability request. No push, release, or version bump
-is authorized yet.
+Local commit / authorized push: Implemented in `1e606bd66`. The user authorized
+the combined Lyra 0.19.27 reliability release and push on 2026-09-08.
