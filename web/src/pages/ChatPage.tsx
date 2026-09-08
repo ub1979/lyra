@@ -141,7 +141,6 @@ import { ChatSidebar } from "@/components/ChatSidebar";
 import { CopyMessageButton } from "@/components/CopyMessageButton";
 import { GuidedAppPreview } from "@/components/GuidedAppPreview";
 import { GuidedProjectHistory } from "@/components/GuidedProjectHistory";
-import { GuidedCoordinatorActivity } from "@/components/GuidedCoordinatorActivity";
 import { useGuidedClarification } from "@/hooks/useGuidedClarification";
 import { ProjectAgentJobs } from "@/components/ProjectAgentJobs";
 import {
@@ -274,16 +273,6 @@ interface GuidedRunningTool {
   label: string;
   name: string;
   startedAt: number;
-}
-
-function latestGuidedRunningTool(
-  tools: ReadonlyMap<string, GuidedRunningTool>,
-): GuidedRunningTool | null {
-  let latest: GuidedRunningTool | null = null;
-  for (const tool of tools.values()) {
-    if (!latest || tool.startedAt >= latest.startedAt) latest = tool;
-  }
-  return latest;
 }
 
 interface GuidedAgentEventEnvelope {
@@ -614,35 +603,21 @@ function guidedWorkerAvatarId(worker: GuidedWorkerRuntime): string {
   );
 }
 
-function GuidedRuntimePanel({
+export function GuidedRuntimePanel({
   activeWorkers,
-  activity,
   runState,
   runStateStale,
-  waitingForInput,
-  sendingAnswer,
-  compacting,
   defaultModelLabel,
-  lastSignalAt,
-  onRetry,
   onStopWorker,
   paused,
-  runningTool,
   usage,
 }: {
   activeWorkers: readonly GuidedWorkerRuntime[];
-  activity: GuidedChatPresentation;
   runState: UltimateBuilderRunState | null;
   runStateStale: boolean;
-  waitingForInput: boolean;
-  sendingAnswer: boolean;
-  compacting: boolean;
   defaultModelLabel: string;
-  lastSignalAt: number;
-  onRetry: () => void;
   onStopWorker: (id: string) => void;
   paused: boolean;
-  runningTool: GuidedRunningTool | null;
   usage: GuidedUsageSnapshot;
 }) {
   const model = usage.model || defaultModelLabel;
@@ -723,18 +698,6 @@ function GuidedRuntimePanel({
           )}
         </div>
       </details>
-
-      {activity.phase === "working" && (
-        <GuidedCoordinatorActivity
-          waitingForInput={waitingForInput}
-          sendingAnswer={sendingAnswer}
-          compacting={compacting}
-          text={activity.text}
-          lastSignalAt={lastSignalAt}
-          onRetry={onRetry}
-          runningTool={runningTool}
-        />
-      )}
 
       <div className="mt-3 flex min-h-0 flex-1 flex-col">
         <p className="flex flex-wrap items-center justify-between gap-2 text-[10px] uppercase tracking-wider text-text-secondary">
@@ -1043,8 +1006,6 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   // active id (parallel calls are common) so the two-minute model watchdog
   // cannot kill a healthy command while another tool completes first.
   const guidedActiveToolsRef = useRef<Map<string, GuidedRunningTool>>(new Map());
-  const [guidedRunningTool, setGuidedRunningTool] =
-    useState<GuidedRunningTool | null>(null);
   const guidedAutoContinueCountRef = useRef(0);
   // Phase chain, driven by Lyra's [APP_IT_PHASE:...] / [APP_IT_PHASE_DONE:...]
   // markers rather than inferred from her prose.
@@ -1583,7 +1544,6 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     guidedSubagentGraceUntilRef.current = 0;
     guidedActiveToolsRef.current = new Map();
     setGuidedCompacting(false);
-    setGuidedRunningTool(null);
     setGuidedActivity({ phase: "idle", text: "", specialist: null });
     lastGuidedResponseRef.current = "";
     guidedTurnSettledRef.current = true;
@@ -2064,7 +2024,6 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 startedAt: now,
               });
               guidedActiveToolsRef.current = next;
-              setGuidedRunningTool(latestGuidedRunningTool(next));
             } else if (guidedActiveToolsRef.current.size > 0) {
               // A progress/generating event proves the active tool is alive.
               // Extend matching ids when supplied, otherwise all active calls
@@ -2080,7 +2039,6 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 }
               }
               guidedActiveToolsRef.current = next;
-              setGuidedRunningTool(latestGuidedRunningTool(next));
             }
           }
           guidedTurnSettledRef.current = false;
@@ -2124,7 +2082,6 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             }
           }
           guidedActiveToolsRef.current = next;
-          setGuidedRunningTool(latestGuidedRunningTool(next));
           setGuidedLastSignalAt(Date.now());
           // Older backends confirm questions via tool completion. Do not leave
           // their waiting label visible while the following model call runs.
@@ -2141,7 +2098,6 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           guidedSubagentGraceUntilRef.current = 0;
           guidedActiveToolsRef.current = new Map();
           setGuidedCompacting(false);
-          setGuidedRunningTool(null);
             if (payload?.usage) {
               setGuidedUsage(normalizeGuidedUsage(payload.usage));
             }
@@ -2243,7 +2199,6 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           setGuidedApproval(null);
           guidedSubagentGraceUntilRef.current = 0;
           guidedActiveToolsRef.current = new Map();
-          setGuidedRunningTool(null);
           guidedTurnSettledRef.current = true;
           appendGuidedError(payload.message);
           setGuidedActivity({
@@ -2514,7 +2469,6 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     guidedSubagentGraceUntilRef.current = 0;
     guidedActiveToolsRef.current = new Map();
     setGuidedCompacting(false);
-    setGuidedRunningTool(null);
     guidedAutoContinueCountRef.current = 0;
     lastGuidedResponseRef.current = "";
     setGuidedLastSignalAt(Date.now());
@@ -2987,7 +2941,6 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     lastGuidedResponseRef.current = "";
     guidedActiveToolsRef.current = new Map();
     setGuidedCompacting(false);
-    setGuidedRunningTool(null);
     setGuidedOutput("");
     setGuidedLastSignalAt(Date.now());
     setGuidedMessages((messages) =>
@@ -4108,7 +4061,6 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       }
       guidedSubagentGraceUntilRef.current = 0;
       guidedActiveToolsRef.current = new Map();
-      setGuidedRunningTool(null);
       if (decision.reason === "subagent") {
         sendGuidedControlCommand("/agents stop");
         setGuidedWorkers((current) => markGuidedWorkerStopping(current));
@@ -4680,17 +4632,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 <div className="fixed right-4 top-24 z-30 flex max-h-[70vh] w-[min(18rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-current/20 bg-background-base shadow-2xl">
                   <GuidedRuntimePanel
                     activeWorkers={guidedActiveWorkers}
-                    activity={guidedActivity}
                     runState={guidedRunState}
                     runStateStale={guidedRunStateStale}
-                    waitingForInput={Boolean(guidedClarification || guidedApproval)}
-                    sendingAnswer={guidedClarificationSending}
-                    compacting={guidedCompacting}
                     defaultModelLabel={guidedDefaultModelLabel}
-                    lastSignalAt={guidedLastSignalAt}
-                    onRetry={retryLastGuidedMessage}
                     paused={guidedPaused}
-                    runningTool={guidedRunningTool}
                     usage={guidedUsage}
                     onStopWorker={(id) => stopGuidedWorkers(id)}
                   />
@@ -4940,17 +4885,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             >
               <GuidedRuntimePanel
                 activeWorkers={guidedActiveWorkers}
-                activity={guidedActivity}
                 runState={guidedRunState}
                 runStateStale={guidedRunStateStale}
-                waitingForInput={Boolean(guidedClarification || guidedApproval)}
-                sendingAnswer={guidedClarificationSending}
-                compacting={guidedCompacting}
                 defaultModelLabel={guidedDefaultModelLabel}
-                lastSignalAt={guidedLastSignalAt}
-                onRetry={retryLastGuidedMessage}
                 paused={guidedPaused}
-                runningTool={guidedRunningTool}
                 usage={guidedUsage}
                 onStopWorker={(id) => stopGuidedWorkers(id)}
               />

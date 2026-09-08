@@ -1749,6 +1749,7 @@ docs/lyra/changes/2026-09-07-compact-project-status.md	docs	md: 2026 09 07 compa
 docs/lyra/changes/2026-09-07-lean-context.md	docs	md: 2026 09 07 lean context
 docs/lyra/changes/2026-09-07-small-development-jobs.md	docs	md: 2026 09 07 small development jobs
 docs/lyra/changes/2026-09-07-studio-liveness-time.md	docs	md: 2026 09 07 studio liveness time
+docs/lyra/changes/2026-09-08-agent-activity-status-only.md	docs	md: 2026 09 08 agent activity status only
 docs/lyra/changes/2026-09-08-guided-reattach-readiness.md	docs	md: 2026 09 08 guided reattach readiness
 docs/lyra/changes/2026-09-08-local-provider-watchdog-bound.md	docs	md: 2026 09 08 local provider watchdog bound
 docs/lyra/changes/2026-09-08-project-notification-and-watchdog-liveness.md	docs	md: 2026 09 08 project notification and watchdog liveness
@@ -2076,7 +2077,7 @@ hermes_cli/web_dist/assets/RulesCompressed-Regular-BSXFyF4x.woff2	hermes_cli	Gen
 hermes_cli/web_dist/assets/RulesExpanded-Bold-DZA7s8Pa.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Regular-l8uVympt.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/index-BGAdPJZk.css	hermes_cli	Generated asset; edit its source and rebuild
-hermes_cli/web_dist/assets/index-WgzxvjG5.js	hermes_cli	Generated asset; edit its source and rebuild
+hermes_cli/web_dist/assets/index-Cv3K0mAK.js	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Bold.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Italic.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Regular.woff2	hermes_cli	Generated asset; edit its source and rebuild
@@ -6976,8 +6977,6 @@ web/src/components/CopyMessageButton.tsx	web	tsx: CopyMessageButton
 web/src/components/DeleteConfirmDialog.tsx	web	tsx: DeleteConfirmDialog
 web/src/components/GuidedAgentAvatar.tsx	web	tsx: GuidedAgentAvatar
 web/src/components/GuidedAppPreview.tsx	web	tsx: GuidedAppPreview
-web/src/components/GuidedCoordinatorActivity.test.tsx	web	Behavioral tests: GuidedCoordinatorActivity.test
-web/src/components/GuidedCoordinatorActivity.tsx	web	tsx: GuidedCoordinatorActivity
 web/src/components/GuidedProgressMap.test.tsx	web	Behavioral tests: GuidedProgressMap.test
 web/src/components/GuidedProgressMap.tsx	web	tsx: GuidedProgressMap
 web/src/components/GuidedProjectHistory.tsx	web	tsx: GuidedProjectHistory
@@ -7138,6 +7137,7 @@ web/src/pages/ConfigPage.tsx	web	tsx: ConfigPage
 web/src/pages/CronPage.tsx	web	tsx: CronPage
 web/src/pages/EnvPage.tsx	web	tsx: EnvPage
 web/src/pages/FilesPage.tsx	web	tsx: FilesPage
+web/src/pages/GuidedRuntimePanel.test.tsx	web	Behavioral tests: GuidedRuntimePanel.test
 web/src/pages/LogsPage.tsx	web	tsx: LogsPage
 web/src/pages/McpPage.tsx	web	tsx: McpPage
 web/src/pages/ModelsPage.tsx	web	tsx: ModelsPage

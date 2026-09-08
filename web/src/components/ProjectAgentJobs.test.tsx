@@ -1,8 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { ProjectAgentJobs } from './ProjectAgentJobs'
-import { GuidedCoordinatorActivity } from './GuidedCoordinatorActivity'
-import { analyzeGuidedChatOutput } from '../lib/guided-chat-output'
 import {
   activeProjectAgentActivity,
   projectAgentActivity
@@ -28,16 +26,6 @@ describe('Studio agent activity rendering', () => {
     expect(html).not.toContain('Quality assurance')
     expect(html).toContain('Last update')
   })
-  it('keeps the coordinator as Lyra even when the legacy parser guesses QA', () => {
-    const activity = analyzeGuidedChatOutput('checking project status')
-    const html = renderToStaticMarkup(
-      <GuidedCoordinatorActivity text={activity.text} lastSignalAt={Date.now()} runningTool={null} onRetry={() => {}} />
-    )
-    expect(html).toContain('Lyra is handling your message')
-    expect(html).not.toContain('Quality assurance')
-    expect(html).not.toContain('qa-engineer')
-  })
-
   it('keeps historical jobs out of the active projection', () => {
     const items = activeProjectAgentActivity(
       projectAgentActivity(
