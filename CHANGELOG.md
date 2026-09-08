@@ -9,12 +9,17 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.28] - 2026-09-09 — bounded compression recovery
+
 ### Fixed
 
 - Codex-backed context compression now obeys its wall-clock deadline even when
   a silent response stream and its network cleanup both stop responding.
 - After a compression timeout, Lyra now waits at least one full compression
   budget before trying again instead of stalling the user's next reply too.
+
+Restart Lyra to load this repair. Existing projects, jobs, and conversations
+are preserved.
 
 ## [0.19.27] - 2026-09-08 — safe worker handoffs
 

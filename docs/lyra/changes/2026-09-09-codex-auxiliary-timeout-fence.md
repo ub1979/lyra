@@ -44,8 +44,11 @@ host-credential-specific JWT test excluded because it reads the machine's real
 credential instead of its temporary test home). Another 66 compression,
 gateway sync, 413 recovery, Studio workflow, and Studio wait-event tests passed.
 Ruff and `git diff --check` passed. The live saved reply was preserved and the
-project worker resumed; restart/resume validation remains until that active
-worker reaches a safe boundary.
+project worker resumed. After a safe dashboard restart, the same 476,668-token
+saved session reproduced the silent auxiliary request and returned at its real
+300-second deadline with an explicit no-messages-dropped recovery notice. The
+0.19.28 release metadata then passed 559 Python release checks and 9 focused
+web version checks; every distributed product label agreed on `beta v0.19.28`.
 
 Compatibility / restart: The dashboard process must restart to load the fix.
 The saved conversation and the user's pending reply remain intact.
@@ -54,5 +57,5 @@ Rollback / retained recovery data: Revert the focused local commit. No user
 data is rewritten by this change.
 
 Local commit / authorized push: Local repair authorized by the user's request
-to diagnose and fix the recurring Lyra stall. No push or release is authorized
-yet.
+to diagnose and fix the recurring Lyra stall. The user explicitly authorized
+the version bump and Git push on 2026-09-09; ship as Lyra 0.19.28.
