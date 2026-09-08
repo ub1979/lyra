@@ -1751,6 +1751,7 @@ docs/lyra/changes/2026-09-07-studio-liveness-time.md	docs	md: 2026 09 07 studio 
 docs/lyra/changes/2026-09-08-agent-activity-status-only.md	docs	md: 2026 09 08 agent activity status only
 docs/lyra/changes/2026-09-08-delegated-worker-stale-recovery.md	docs	md: 2026 09 08 delegated worker stale recovery
 docs/lyra/changes/2026-09-08-guided-reattach-readiness.md	docs	md: 2026 09 08 guided reattach readiness
+docs/lyra/changes/2026-09-08-guided-restart-error-recovery.md	docs	md: 2026 09 08 guided restart error recovery
 docs/lyra/changes/2026-09-08-kanban-goal-run-fencing.md	docs	md: 2026 09 08 kanban goal run fencing
 docs/lyra/changes/2026-09-08-kanban-terminal-worker-exclusion.md	docs	md: 2026 09 08 kanban terminal worker exclusion
 docs/lyra/changes/2026-09-08-local-provider-watchdog-bound.md	docs	md: 2026 09 08 local provider watchdog bound
@@ -7080,6 +7081,8 @@ web/src/lib/guided-clarification.test.ts	web	Behavioral tests: guided-clarificat
 web/src/lib/guided-clarification.ts	web	ts: guided clarification
 web/src/lib/guided-composer-paste.test.ts	web	Behavioral tests: guided-composer-paste.test
 web/src/lib/guided-composer-paste.ts	web	* Writing a prompt into the TUI composer over the PTY.
+web/src/lib/guided-connection-recovery.test.ts	web	Behavioral tests: guided-connection-recovery.test
+web/src/lib/guided-connection-recovery.ts	web	ts: guided connection recovery
 web/src/lib/guided-phase-plan.test.ts	web	Behavioral tests: guided-phase-plan.test
 web/src/lib/guided-phase-plan.ts	web	* The phase chain: who is working now, what is done, what runs next.
 web/src/lib/guided-project-session.test.ts	web	Behavioral tests: guided-project-session.test

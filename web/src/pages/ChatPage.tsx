@@ -103,6 +103,10 @@ import {
   shouldRestoreGuidedWorkingState,
 } from "@/lib/guided-turn-watchdog";
 import {
+  clearRecoveredGuidedConnectionErrors,
+  isTransientGuidedConnectionSetupError,
+} from "@/lib/guided-connection-recovery";
+import {
   formatStudioDateTime,
   studioDateTimeIso,
   studioMessageTime,
@@ -3520,6 +3524,13 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       setBanner(null);
       setLastCloseCode(null);
       setPtyState("open");
+      if (guided) {
+        // A planned dashboard restart can briefly fail the HTTP auth probe
+        // before the WebSocket exists. Once the saved chat is open again,
+        // that transport error is no longer true and must not remain as a
+        // permanent Problem message in the conversation.
+        setGuidedMessages(clearRecoveredGuidedConnectionErrors);
+      }
       blockedInputNoticeRef.current = false;
       // Connected — cancel any pending reconnect from a prior transient drop.
       if (reconnectTimerRef.current) {
@@ -3891,6 +3902,21 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       clearConnectingTimer();
       if (unmounting) return;
       console.warn("[chat] PTY WebSocket setup failed", error);
+      if (isTransientGuidedConnectionSetupError(error)) {
+        // The server may be between shutdown and bind during a planned
+        // restart. Treat the failed auth/status fetch exactly like a
+        // transient WebSocket close: retry the same attach token with
+        // backoff and keep the temporary outage out of durable chat history.
+        if (guided) {
+          setGuidedActivity({
+            phase: "idle",
+            text: "",
+            specialist: null,
+          });
+        }
+        scheduleReconnect(1006);
+        return;
+      }
       setPtyState("closed");
       setBanner(
         error instanceof Error

@@ -17,6 +17,8 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
   and block that successor while the old process is shutting down.
 - The dispatcher now waits for a terminal worker process to exit, and safely
   terminates a local survivor, before starting another run of the same task.
+- A planned dashboard restart now reconnects the saved project chat quietly
+  instead of preserving a temporary “Failed to fetch” notice as a problem.
 
 Restart Lyra after current work reaches a safe boundary. Existing projects,
 jobs and conversations are preserved.
