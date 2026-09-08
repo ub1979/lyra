@@ -313,11 +313,10 @@ def test_local_non_stream_stale_timeout_uses_existing_local_ceiling(monkeypatch,
     assert agent._compute_non_stream_stale_timeout([]) == 1200.0
 
 
-def test_local_non_stream_stale_timeout_rejects_non_finite_override(monkeypatch, tmp_path):
+def test_local_non_stream_stale_timeout_rejects_unsafe_overrides(monkeypatch, tmp_path):
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     (tmp_path / ".env").write_text("", encoding="utf-8")
     monkeypatch.delenv("HERMES_API_CALL_STALE_TIMEOUT", raising=False)
-    monkeypatch.setenv("HERMES_LOCAL_STREAM_STALE_TIMEOUT", "inf")
     _write_config(tmp_path, "{}\n")
 
     from run_agent import AIAgent
@@ -332,7 +331,9 @@ def test_local_non_stream_stale_timeout_rejects_non_finite_override(monkeypatch,
         platform="cli",
     )
 
-    assert agent._compute_non_stream_stale_timeout([]) == 900.0
+    for unsafe_value in ("inf", "-5", "0"):
+        monkeypatch.setenv("HERMES_LOCAL_STREAM_STALE_TIMEOUT", unsafe_value)
+        assert agent._compute_non_stream_stale_timeout([]) == 900.0
 
 
 def test_explicit_non_stream_stale_timeout_is_honored_for_local_endpoints(monkeypatch, tmp_path):

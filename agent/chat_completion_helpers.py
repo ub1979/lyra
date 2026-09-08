@@ -271,7 +271,7 @@ def _derive_stream_stale_timeout(agent, api_kwargs: dict) -> float:
 
     Mirrors the main streaming path's derivation — provider config → env base
     → context-size scaling → reasoning-model floor — minus the local-endpoint
-    ``float('inf')``/900s disable branch, which cannot apply to Bedrock (its
+    900-second extended-ceiling branch, which cannot apply to Bedrock (its
     endpoint is always the AWS cloud). Factored so the Bedrock streaming
     watchdog shares the exact same patience budget as the OpenAI/Anthropic
     stale-stream detector below.
@@ -2734,6 +2734,8 @@ def interruptible_streaming_api_call(agent, api_kwargs: dict, *, on_first_delta=
             elif (
                 _stream_read_timeout == 120.0
                 and _stream_stale_timeout is not None
+                # Explicit provider/env configuration can still disable the
+                # detector with infinity; never copy that into httpx.
                 and _stream_stale_timeout != float("inf")
                 and _stream_stale_timeout > _stream_read_timeout
             ):
@@ -3718,8 +3720,8 @@ def interruptible_streaming_api_call(agent, api_kwargs: dict, *, on_first_delta=
         # reasoning models) or slow prefill on local providers (Ollama)
         # trigger false inactivity timeouts.  The _call thread touches
         # activity on each chunk, but the gap between API call start
-        # and first chunk can exceed the gateway timeout — especially
-        # when the stale-stream timeout is disabled (local providers).
+        # and first chunk can exceed the gateway timeout — especially for the
+        # deliberately extended local-provider ceiling.
         _hb_now = time.time()
         if _hb_now - _last_heartbeat >= _HEARTBEAT_INTERVAL:
             _last_heartbeat = _hb_now
@@ -3731,6 +3733,8 @@ def interruptible_streaming_api_call(agent, api_kwargs: dict, *, on_first_delta=
                 # unexplained generic spinner, and WHEN recovery kicks in.
                 if (
                     _stream_stale_timeout is not None
+                    # Explicit provider/env configuration may still be
+                    # non-finite even though the implicit local path is bounded.
                     and _stream_stale_timeout != float("inf")
                 ):
                     _recovery = f"; auto-reconnect at {int(_stream_stale_timeout)}s"

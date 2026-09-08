@@ -1379,7 +1379,9 @@ class AIAgent:
 
         ``agent.local_stream_stale_timeout`` is retained as the configuration
         key for compatibility, but now governs both streaming and non-streaming
-        local calls.  Invalid/non-finite values fall back to the safe default.
+        local calls. The environment variable deliberately has final precedence
+        as the existing operator escape hatch. Invalid, non-positive and
+        non-finite values fall back to the finite config/default value.
         """
         local_timeout = 900.0
         try:
