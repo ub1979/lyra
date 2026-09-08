@@ -2098,6 +2098,213 @@ def test_dispatch_respawn_guard_emits_event_for_skipped_task(
     assert guarded_evt.payload.get("reason") == "recent_success"
 
 
+def test_dispatch_waits_for_terminal_worker_then_terminates_before_respawn(
+    kanban_home, all_assignees_spawnable, monkeypatch
+):
+    """A closed run's live process can never overlap its successor run.
+
+    Run-id fencing protects the database from a stale writer, but it does not
+    prevent the stale process from duplicating file/network work.  The ended
+    run must retain enough process identity for dispatch to hold the task
+    during normal unwind, then terminate a survivor before claiming again.
+    """
+    spawned_ids: list[str] = []
+    fake_pid = 424242
+
+    def fake_spawn(task, workspace):
+        spawned_ids.append(task.id)
+
+    monkeypatch.setattr(kb, "_pid_alive", lambda pid: int(pid) == fake_pid)
+
+    with kb.connect() as conn:
+        task_id = kb.create_task(conn, title="no-overlap", assignee="alice")
+        claimed = kb.claim_task(conn, task_id)
+        assert claimed is not None
+        run_id = claimed.current_run_id
+        assert run_id is not None
+        kb._set_worker_pid(conn, task_id, fake_pid)
+
+        assert kb.block_task(
+            conn,
+            task_id,
+            reason="review-required: verify correction",
+            expected_run_id=run_id,
+        )
+        ended = kb.latest_run(conn, task_id)
+        assert ended is not None
+        assert ended.worker_pid == fake_pid
+        assert ended.claim_lock == claimed.claim_lock
+
+        assert kb.unblock_task(conn, task_id)
+        first = kb.dispatch_once(conn, spawn_fn=fake_spawn)
+
+        assert spawned_ids == []
+        assert (task_id, "prior_worker_exiting") in first.respawn_guarded
+        assert kb.get_task(conn, task_id).status == "ready"
+
+        # Move beyond the natural-exit grace. The next tick must terminate the
+        # old process and may spawn only after termination is confirmed.
+        conn.execute(
+            "UPDATE task_runs SET ended_at = ? WHERE id = ?",
+            (int(time.time()) - kb.TERMINAL_WORKER_EXIT_GRACE_SECONDS - 1, run_id),
+        )
+        termination_calls: list[tuple[int, str]] = []
+
+        def fake_terminate(pid, claim_lock):
+            termination_calls.append((int(pid), str(claim_lock)))
+            return {
+                "prev_pid": int(pid),
+                "host_local": True,
+                "termination_attempted": True,
+                "terminated": True,
+                "sigkill": False,
+            }
+
+        monkeypatch.setattr(kb, "_terminate_reclaimed_worker", fake_terminate)
+        second = kb.dispatch_once(conn, spawn_fn=fake_spawn)
+        events = kb.list_events(conn, task_id)
+
+    assert termination_calls == [(fake_pid, claimed.claim_lock)]
+    assert spawned_ids == [task_id]
+    assert second.respawn_guarded == []
+    terminated = [e for e in events if e.kind == "terminal_worker_terminated"]
+    assert len(terminated) == 1
+    assert terminated[0].run_id == run_id
+    assert terminated[0].payload["prior_worker_pid"] == fake_pid
+
+
+def test_dispatch_does_not_respawn_when_terminal_worker_survives_kill(
+    kanban_home, all_assignees_spawnable, monkeypatch
+):
+    """A SIGTERM/SIGKILL survivor keeps the successor unclaimed."""
+    fake_pid = 434343
+    spawned_ids: list[str] = []
+    monkeypatch.setattr(kb, "_pid_alive", lambda pid: int(pid) == fake_pid)
+
+    with kb.connect() as conn:
+        task_id = kb.create_task(conn, title="unkillable-old-run", assignee="alice")
+        claimed = kb.claim_task(conn, task_id)
+        assert claimed is not None and claimed.current_run_id is not None
+        run_id = claimed.current_run_id
+        kb._set_worker_pid(conn, task_id, fake_pid)
+        assert kb.block_task(
+            conn,
+            task_id,
+            reason="temporary handoff",
+            expected_run_id=run_id,
+        )
+        assert kb.unblock_task(conn, task_id)
+        conn.execute(
+            "UPDATE task_runs SET ended_at = ? WHERE id = ?",
+            (int(time.time()) - kb.TERMINAL_WORKER_EXIT_GRACE_SECONDS - 1, run_id),
+        )
+        monkeypatch.setattr(
+            kb,
+            "_terminate_reclaimed_worker",
+            lambda pid, claim_lock: {
+                "prev_pid": int(pid),
+                "host_local": True,
+                "termination_attempted": True,
+                "terminated": False,
+                "sigkill": True,
+            },
+        )
+
+        result = kb.dispatch_once(
+            conn,
+            spawn_fn=lambda task, workspace: spawned_ids.append(task.id),
+        )
+        task = kb.get_task(conn, task_id)
+
+    assert spawned_ids == []
+    assert (task_id, "prior_worker_alive") in result.respawn_guarded
+    assert task is not None and task.status == "ready"
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX worker signalling path")
+def test_dispatch_real_process_exits_before_successor_spawns(
+    kanban_home, all_assignees_spawnable
+):
+    """Exercise terminal-worker exclusion through the real OS process path."""
+    sleeper = subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(60)"],
+        start_new_session=True,
+    )
+    spawned_ids: list[str] = []
+    try:
+        with kb.connect() as conn:
+            task_id = kb.create_task(conn, title="real-process-overlap", assignee="alice")
+            claimed = kb.claim_task(conn, task_id)
+            assert claimed is not None and claimed.current_run_id is not None
+            run_id = claimed.current_run_id
+            kb._set_worker_pid(conn, task_id, sleeper.pid)
+            assert kb.block_task(
+                conn,
+                task_id,
+                reason="handoff complete",
+                expected_run_id=run_id,
+            )
+            assert kb.unblock_task(conn, task_id)
+            conn.execute(
+                "UPDATE task_runs SET ended_at = ? WHERE id = ?",
+                (int(time.time()) - kb.TERMINAL_WORKER_EXIT_GRACE_SECONDS - 1, run_id),
+            )
+
+            kb.dispatch_once(
+                conn,
+                spawn_fn=lambda task, workspace: spawned_ids.append(task.id),
+            )
+
+        sleeper.wait(timeout=5)
+        assert spawned_ids == [task_id]
+    finally:
+        if sleeper.poll() is None:
+            sleeper.terminate()
+            sleeper.wait(timeout=5)
+
+
+def test_old_terminal_pid_requires_exact_worker_command_line(
+    kanban_home, monkeypatch
+):
+    """A long-ended run cannot mistake a recycled PID for its worker."""
+    fake_pid = 454545
+    monkeypatch.setattr(kb, "_pid_alive", lambda pid: int(pid) == fake_pid)
+
+    with kb.connect() as conn:
+        task_id = kb.create_task(conn, title="old-process-identity", assignee="alice")
+        claimed = kb.claim_task(conn, task_id)
+        assert claimed is not None and claimed.current_run_id is not None
+        run_id = claimed.current_run_id
+        kb._set_worker_pid(conn, task_id, fake_pid)
+        assert kb.block_task(
+            conn,
+            task_id,
+            reason="finished",
+            expected_run_id=run_id,
+        )
+        old_now = int(time.time()) + kb.TERMINAL_WORKER_PID_GUARD_WINDOW_SECONDS + 1
+
+        monkeypatch.setattr(
+            "gateway.status._read_process_cmdline",
+            lambda pid: "/usr/bin/python unrelated_service.py",
+        )
+        assert kb._terminal_worker_overlap(
+            conn, task_id, terminate=False, now=old_now,
+        ) is None
+
+        monkeypatch.setattr(
+            "gateway.status._read_process_cmdline",
+            lambda pid: f"hermes work kanban task {task_id}",
+        )
+        overlap = kb._terminal_worker_overlap(
+            conn, task_id, terminate=False, now=old_now,
+        )
+
+    assert overlap is not None
+    assert overlap["reason"] == "prior_worker_exiting"
+    assert overlap["prior_worker_pid"] == fake_pid
+
+
 # ---------------------------------------------------------------------------
 # Workspace resolution
 # ---------------------------------------------------------------------------

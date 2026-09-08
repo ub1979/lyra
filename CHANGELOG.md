@@ -13,6 +13,8 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 - A superseded goal-mode worker can no longer mistake a newer run for its own
   and block that successor while the old process is shutting down.
+- The dispatcher now waits for a terminal worker process to exit, and safely
+  terminates a local survivor, before starting another run of the same task.
 
 ## [0.19.26] - 2026-09-08 — reliable guided projects
 

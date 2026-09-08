@@ -1752,6 +1752,7 @@ docs/lyra/changes/2026-09-08-agent-activity-status-only.md	docs	md: 2026 09 08 a
 docs/lyra/changes/2026-09-08-delegated-worker-stale-recovery.md	docs	md: 2026 09 08 delegated worker stale recovery
 docs/lyra/changes/2026-09-08-guided-reattach-readiness.md	docs	md: 2026 09 08 guided reattach readiness
 docs/lyra/changes/2026-09-08-kanban-goal-run-fencing.md	docs	md: 2026 09 08 kanban goal run fencing
+docs/lyra/changes/2026-09-08-kanban-terminal-worker-exclusion.md	docs	md: 2026 09 08 kanban terminal worker exclusion
 docs/lyra/changes/2026-09-08-local-provider-watchdog-bound.md	docs	md: 2026 09 08 local provider watchdog bound
 docs/lyra/changes/2026-09-08-project-notification-and-watchdog-liveness.md	docs	md: 2026 09 08 project notification and watchdog liveness
 docs/lyra/changes/2026-09-08-single-project-conversation.md	docs	md: 2026 09 08 single project conversation

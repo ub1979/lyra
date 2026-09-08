@@ -214,6 +214,19 @@ DEFAULT_CLAIM_HEARTBEAT_MAX_STALE_SECONDS = 60 * 60
 # signal lands, and the following tick reclaims cleanly.
 RECLAIM_DEFER_GRACE_SECONDS = 120
 
+# A worker normally exits immediately after it closes its task run.  Give that
+# ordinary unwind a short grace before the dispatcher intervenes.  During the
+# grace (and until a host-local survivor is actually gone), the task must not
+# be claimed again: two processes executing different runs of the same task is
+# the exact corruption window that run-id fencing protects the database from,
+# but fencing alone cannot stop duplicated external work.
+TERMINAL_WORKER_EXIT_GRACE_SECONDS = 30
+
+# A recent host-local claim is enough to trust its PID. After this window the
+# PID is trusted only when its live command line still names this exact Kanban
+# task, preventing a recycled PID from identifying an unrelated process.
+TERMINAL_WORKER_PID_GUARD_WINDOW_SECONDS = 15 * 60
+
 
 def _resolve_claim_ttl_seconds(ttl_seconds: Optional[int] = None) -> int:
     """Return the effective claim TTL, honoring the kanban env override.
@@ -3767,6 +3780,11 @@ def _end_run(
     explicitly). Returns the closed run_id or ``None`` if no active run
     existed (e.g. a CLI user calling ``hermes kanban complete`` on a
     task that was never claimed).
+
+    Keep the run's claim lock and worker PID as historical process identity.
+    The task row is still cleared by the caller before this function runs.
+    ``dispatch_once`` uses the ended run identity briefly to ensure the worker
+    has exited before another run of the same task can start.
     """
     now = int(time.time())
     row = conn.execute(
@@ -3784,9 +3802,7 @@ def _end_run(
                error         = ?,
                metadata      = ?,
                ended_at      = ?,
-               claim_lock    = NULL,
-               claim_expires = NULL,
-               worker_pid    = NULL
+               claim_expires = NULL
          WHERE id = ?
            AND ended_at IS NULL
         """,
@@ -6593,6 +6609,83 @@ _RESPAWN_GUARD_PR_URL_RE = re.compile(
 )
 
 
+def _terminal_worker_overlap(
+    conn: sqlite3.Connection,
+    task_id: str,
+    *,
+    terminate: bool,
+    now: Optional[int] = None,
+) -> Optional[dict[str, Any]]:
+    """Describe a recently-ended worker that still owns a live local PID.
+
+    Closing a run is a database transition, not proof that its Python process
+    has exited.  Goal workers in particular can still be unwinding (or wedged)
+    after ``block_task`` clears the task row.  Starting the next run during
+    that window duplicates external work even though run-id fencing prevents
+    the old process from mutating the successor's task state.
+
+    Only a host-local identity is trusted. Recent ended runs use their claim
+    identity directly; older ones must also have a live command line naming
+    this exact Kanban task so a recycled PID cannot identify an unrelated
+    process. After a short natural-exit grace, a real dispatch tick terminates
+    a surviving worker before allowing another claim. Dry-run ticks report the
+    guard without sending a signal.
+    """
+    observed_at = int(time.time()) if now is None else int(now)
+    row = conn.execute(
+        "SELECT id, ended_at, worker_pid, claim_lock FROM task_runs "
+        "WHERE task_id = ? AND ended_at IS NOT NULL "
+        "AND worker_pid IS NOT NULL AND claim_lock IS NOT NULL "
+        "ORDER BY ended_at DESC, id DESC LIMIT 1",
+        (task_id,),
+    ).fetchone()
+    if row is None:
+        return None
+
+    ended_at = int(row["ended_at"])
+    age = max(0, observed_at - ended_at)
+
+    claim_lock = str(row["claim_lock"])
+    host_prefix = f"{_claimer_id().split(':', 1)[0]}:"
+    if not claim_lock.startswith(host_prefix):
+        return None
+
+    pid = int(row["worker_pid"])
+    if not _pid_alive(pid):
+        return None
+    if age > TERMINAL_WORKER_PID_GUARD_WINDOW_SECONDS:
+        try:
+            from gateway.status import _read_process_cmdline
+
+            cmdline = _read_process_cmdline(pid) or ""
+        except Exception:
+            cmdline = ""
+        task_pattern = re.compile(
+            rf"(?:^|\s)kanban\s+task\s+{re.escape(task_id)}(?:\s|$)"
+        )
+        if not task_pattern.search(cmdline):
+            return None
+
+    info: dict[str, Any] = {
+        "reason": "prior_worker_exiting",
+        "prior_run_id": int(row["id"]),
+        "prior_worker_pid": pid,
+        "ended_age_seconds": age,
+        "termination_attempted": False,
+        "terminated": False,
+    }
+    if not terminate or age < TERMINAL_WORKER_EXIT_GRACE_SECONDS:
+        return info
+
+    termination = _terminate_reclaimed_worker(pid, claim_lock)
+    info.update(termination)
+    if termination.get("terminated"):
+        info["reason"] = "prior_worker_terminated"
+    else:
+        info["reason"] = "prior_worker_alive"
+    return info
+
+
 @dataclass
 class DispatchResult:
     """Outcome of a single ``dispatch`` pass."""
@@ -6639,7 +6732,10 @@ class DispatchResult:
 
     Reasons: ``"blocker_auth"`` (quota/auth error — also auto-blocked),
     ``"recent_success"`` (completed run within guard window),
-    ``"active_pr"`` (GitHub PR URL in a recent comment)."""
+    ``"active_pr"`` (GitHub PR URL in a recent comment),
+    ``"prior_worker_exiting"`` (a terminal worker is inside its natural-exit
+    grace), or ``"prior_worker_alive"`` (termination was attempted but the
+    old process still exists)."""
     rate_limited: list[str] = field(default_factory=list)
     """Task ids whose workers bailed on a provider rate-limit / quota wall
     (EX_TEMPFAIL sentinel exit) and were released back to ``ready`` WITHOUT
@@ -8204,6 +8300,46 @@ def _dispatch_once_locked(
             "GROUP BY assignee"
         ):
             _per_profile_running[prow["assignee"]] = int(prow["n"])
+
+    def _prior_worker_blocks_spawn(task_id: str) -> bool:
+        """Enforce process-level run exclusion for one ready/review task."""
+        overlap = _terminal_worker_overlap(
+            conn,
+            task_id,
+            terminate=not dry_run,
+        )
+        if overlap is None:
+            return False
+
+        reason = str(overlap["reason"])
+        if reason == "prior_worker_terminated":
+            # The old process is confirmed gone, so this tick may safely
+            # claim the successor. Keep an audit event because forced cleanup
+            # is a material reliability signal even though it did not delay
+            # useful work.
+            if not dry_run:
+                with write_txn(conn):
+                    _append_event(
+                        conn,
+                        task_id,
+                        "terminal_worker_terminated",
+                        overlap,
+                        run_id=int(overlap["prior_run_id"]),
+                    )
+            return False
+
+        result.respawn_guarded.append((task_id, reason))
+        if not dry_run:
+            with write_txn(conn):
+                _append_event(
+                    conn,
+                    task_id,
+                    "respawn_guarded",
+                    overlap,
+                    run_id=int(overlap["prior_run_id"]),
+                )
+        return True
+
     # Normalize default_assignee once: empty/whitespace string → None so the
     # rest of the loop can use ``if default_assignee:`` as a single check.
     # We also resolve profile_exists once here for the same reason.
@@ -8311,6 +8447,8 @@ def _dispatch_once_locked(
         # still trips the auto-block circuit breaker after failure_limit
         # consecutive failures, so a persistent auth error eventually
         # blocks via the normal path rather than on first occurrence.
+        if _prior_worker_blocks_spawn(row["id"]):
+            continue
         guard_reason = check_respawn_guard(conn, row["id"])
         if guard_reason is not None:
             result.respawn_guarded.append((row["id"], guard_reason))
@@ -8423,6 +8561,8 @@ def _dispatch_once_locked(
             profile_exists = None  # type: ignore[assignment]
         if profile_exists is not None and not profile_exists(row["assignee"]):
             result.skipped_nonspawnable.append(row["id"])
+            continue
+        if _prior_worker_blocks_spawn(row["id"]):
             continue
         if dry_run:
             result.spawned.append((row["id"], row["assignee"], ""))

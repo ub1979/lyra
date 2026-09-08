@@ -29,7 +29,7 @@ Durable project jobs → Hermes Kanban dispatcher → isolated worker sessions
 | Saved review / input handoff | `hermes_cli/project_job_attention.py`, `web/src/lib/project-attention.ts`, `tui_gateway/server.py` | Latest-event metadata, coordinator envelope, notification retry and final chat-event tests |
 | Approval → worker → chat recovery | `tests/tui_gateway/test_lyra_project_workflow.py`, `tests/fixtures/lyra_workflow_worker.py` | Real prompt/event handlers, subprocess, Git/SQLite, notification retry and final chat event; controlled model/socket boundaries |
 | Project worker eligibility | `hermes_cli/project_job_status.py` | Queue rejection, external-worker visibility and assignment-recovery tests |
-| Indexed job storage | `hermes_cli/kanban_db.py` | Database, migration and query-plan tests |
+| Indexed job storage / worker run exclusion | `hermes_cli/kanban_db.py` | Database, migration, process-lifecycle, respawn-exclusion and query-plan tests |
 | Project Brain | `plugins/ultimate-builder/project_brain.py` | Real Git freshness and citation tests |
 | Lean coordinator context / cached tool prefix | `tui_gateway/studio_context.py`, `toolsets.py` | Default and explicit configuration, memory/research retention, worker isolation and real schema-size tests |
 | Delegated worker liveness | `tools/delegate_tool.py` | Parent heartbeat relay, stale-child interruption, hard-timeout diagnostics and async delegation tests |
