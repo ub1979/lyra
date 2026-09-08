@@ -38,6 +38,7 @@ import hashlib
 import json
 import logging
 logger = logging.getLogger(__name__)
+import math
 import os
 import re
 import sys
@@ -1368,6 +1369,43 @@ class AIAgent:
 
         return 90.0, True
 
+    def _resolved_local_provider_stale_timeout(self) -> float:
+        """Return the finite stale ceiling shared by local provider calls.
+
+        Local models can legitimately spend several minutes on prompt prefill,
+        so they use a much longer ceiling than cloud providers.  The ceiling
+        must still be finite: the Studio wait heartbeat is only trustworthy
+        while a backend watchdog will eventually recover a wedged request.
+
+        ``agent.local_stream_stale_timeout`` is retained as the configuration
+        key for compatibility, but now governs both streaming and non-streaming
+        local calls.  Invalid/non-finite values fall back to the safe default.
+        """
+        local_timeout = 900.0
+        try:
+            from hermes_cli.config import load_config_readonly
+
+            config = load_config_readonly()
+            agent_config = config.get("agent") if isinstance(config, dict) else None
+            if isinstance(agent_config, dict):
+                configured = float(agent_config.get("local_stream_stale_timeout"))
+                if configured > 0 and math.isfinite(configured):
+                    local_timeout = configured
+        except (TypeError, ValueError):
+            pass
+        except Exception:
+            logger.debug("Unable to read local provider stale timeout", exc_info=True)
+
+        configured_env = os.getenv("HERMES_LOCAL_STREAM_STALE_TIMEOUT")
+        if configured_env is not None:
+            try:
+                env_timeout = float(configured_env)
+                if env_timeout > 0 and math.isfinite(env_timeout):
+                    return env_timeout
+            except (TypeError, ValueError):
+                pass
+        return local_timeout
+
     def _compute_non_stream_stale_timeout(self, api_payload: Any) -> float:
         """Compute the effective non-stream stale timeout for this request.
 
@@ -1379,7 +1417,11 @@ class AIAgent:
         stale_base, uses_implicit_default = self._resolved_api_call_stale_timeout_base()
         base_url = getattr(self, "_base_url", None) or self.base_url or ""
         if uses_implicit_default and base_url and is_local_endpoint(base_url):
-            return float("inf")
+            # Keep the deliberately generous local-model allowance without
+            # attesting forever when Ollama/LM Studio/llama.cpp wedges.  This
+            # shares the existing 900s local streaming ceiling and its config
+            # override rather than restoring the browser's unsafe 125s guess.
+            return self._resolved_local_provider_stale_timeout()
 
         from agent.chat_completion_helpers import estimate_request_context_tokens
         est_tokens = estimate_request_context_tokens(api_payload)

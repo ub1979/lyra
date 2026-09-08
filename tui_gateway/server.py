@@ -4920,8 +4920,9 @@ def _thinking_delta_payload(text: str) -> dict[str, object]:
     ``_emit_wait_notice`` deliberately reuses the thinking callback so every
     Hermes surface can explain a slow request. The notice is not model output,
     but it is emitted by the same backend supervision loop that owns provider
-    timeout and retry. Mark that backend heartbeat explicitly so Studio checks
-    backend liveness instead of racing its less-informed provider watchdog.
+    timeout and retry. ``backend_heartbeat`` is a protocol/version marker; the
+    liveness proof is that fresh beats keep arriving, and the backend watchdog
+    now always has a finite recovery deadline for implicitly configured calls.
     """
     value = str(text or "")
     provider_wait = value.startswith(

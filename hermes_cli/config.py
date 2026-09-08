@@ -1108,11 +1108,11 @@ DEFAULT_CONFIG = {
         # default is 1800s) plus runtime slack.  Set to 0 to disable the
         # gate and restore pre-fix behaviour (always inject).
         "gateway_auto_continue_freshness": 3600,
-        # Stale-stream ceiling for local providers (Ollama, oMLX, llama-cpp) in
-        # seconds. When the base stale timeout is at its default (180s) and a
-        # local endpoint is detected, this finite ceiling replaces the former
-        # infinite disable so a wedged local server eventually trips the
-        # detector instead of hanging forever. The env var
+        # Stale-call ceiling for local providers (Ollama, oMLX, llama-cpp) in
+        # seconds. This applies to streaming and non-streaming calls when their
+        # base stale timeout is implicit. The generous local ceiling preserves
+        # slow prompt prefill while ensuring a wedged local server eventually
+        # trips the detector instead of hanging forever. The env var
         # ``HERMES_LOCAL_STREAM_STALE_TIMEOUT`` overrides for escape-hatch use.
         "local_stream_stale_timeout": 900,
         # How user-attached images are presented to the main model on each turn.

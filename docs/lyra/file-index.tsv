@@ -1749,6 +1749,7 @@ docs/lyra/changes/2026-09-07-compact-project-status.md	docs	md: 2026 09 07 compa
 docs/lyra/changes/2026-09-07-lean-context.md	docs	md: 2026 09 07 lean context
 docs/lyra/changes/2026-09-07-small-development-jobs.md	docs	md: 2026 09 07 small development jobs
 docs/lyra/changes/2026-09-07-studio-liveness-time.md	docs	md: 2026 09 07 studio liveness time
+docs/lyra/changes/2026-09-08-local-provider-watchdog-bound.md	docs	md: 2026 09 08 local provider watchdog bound
 docs/lyra/changes/2026-09-08-project-notification-and-watchdog-liveness.md	docs	md: 2026 09 08 project notification and watchdog liveness
 docs/lyra/changes/2026-09-08-single-project-conversation.md	docs	md: 2026 09 08 single project conversation
 docs/lyra/file-index.tsv	docs	tsv: file index

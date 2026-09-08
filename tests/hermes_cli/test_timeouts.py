@@ -268,7 +268,7 @@ def test_resolved_api_call_stale_timeout_priority(monkeypatch, tmp_path):
     assert agent2._resolved_api_call_stale_timeout_base() == (90.0, True)
 
 
-def test_default_non_stream_stale_timeout_auto_disables_for_local_endpoints(monkeypatch, tmp_path):
+def test_default_non_stream_stale_timeout_is_finite_for_local_endpoints(monkeypatch, tmp_path):
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     (tmp_path / ".env").write_text("", encoding="utf-8")
     monkeypatch.delenv("HERMES_API_CALL_STALE_TIMEOUT", raising=False)
@@ -285,7 +285,54 @@ def test_default_non_stream_stale_timeout_auto_disables_for_local_endpoints(monk
         platform="cli",
     )
 
-    assert agent._compute_non_stream_stale_timeout([]) == float("inf")
+    assert agent._compute_non_stream_stale_timeout([]) == 900.0
+
+
+def test_local_non_stream_stale_timeout_uses_existing_local_ceiling(monkeypatch, tmp_path):
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    (tmp_path / ".env").write_text("", encoding="utf-8")
+    monkeypatch.delenv("HERMES_API_CALL_STALE_TIMEOUT", raising=False)
+    monkeypatch.delenv("HERMES_LOCAL_STREAM_STALE_TIMEOUT", raising=False)
+    _write_config(tmp_path, """\
+        agent:
+          local_stream_stale_timeout: 1200
+        """)
+
+    from run_agent import AIAgent
+    agent = AIAgent(
+        model="qwen3:32b",
+        provider="ollama-local",
+        api_key="sk-dummy",
+        base_url="http://127.0.0.1:11434/v1",
+        quiet_mode=True,
+        skip_context_files=True,
+        skip_memory=True,
+        platform="cli",
+    )
+
+    assert agent._compute_non_stream_stale_timeout([]) == 1200.0
+
+
+def test_local_non_stream_stale_timeout_rejects_non_finite_override(monkeypatch, tmp_path):
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    (tmp_path / ".env").write_text("", encoding="utf-8")
+    monkeypatch.delenv("HERMES_API_CALL_STALE_TIMEOUT", raising=False)
+    monkeypatch.setenv("HERMES_LOCAL_STREAM_STALE_TIMEOUT", "inf")
+    _write_config(tmp_path, "{}\n")
+
+    from run_agent import AIAgent
+    agent = AIAgent(
+        model="qwen3:32b",
+        provider="ollama-local",
+        api_key="sk-dummy",
+        base_url="http://127.0.0.1:11434/v1",
+        quiet_mode=True,
+        skip_context_files=True,
+        skip_memory=True,
+        platform="cli",
+    )
+
+    assert agent._compute_non_stream_stale_timeout([]) == 900.0
 
 
 def test_explicit_non_stream_stale_timeout_is_honored_for_local_endpoints(monkeypatch, tmp_path):

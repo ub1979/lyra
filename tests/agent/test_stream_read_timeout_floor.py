@@ -25,7 +25,7 @@ from agent.model_metadata import is_local_endpoint
 def _resolve_stale_timeout(base_url, est_tokens, stale_base=180.0):
     """Mirror of the stale-stream detector resolution."""
     if stale_base == 180.0 and base_url and is_local_endpoint(base_url):
-        return float("inf")  # detector disabled for local providers
+        return 900.0  # generous but finite local-provider ceiling
     if est_tokens > 100_000:
         return max(stale_base, 300.0)
     if est_tokens > 50_000:
@@ -102,9 +102,9 @@ class TestLocalUnaffected:
     def test_local_still_raised_to_base(self):
         """Local providers keep their existing behavior (raise to base timeout)."""
         stale = _resolve_stale_timeout("http://localhost:11434", est_tokens=0)
-        assert stale == float("inf")  # detector disabled for local
+        assert stale == 900.0
         read = _resolve_read_timeout("http://localhost:11434", stale)
-        assert read == 1800.0  # not clamped by inf
+        assert read == 1800.0  # local socket timeout remains above stale ceiling
 
     def test_stale_none_falls_back_to_default(self):
         """If the stale value is unresolved, the read timeout keeps its default."""
