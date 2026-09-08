@@ -21,7 +21,16 @@ describe("isGuidedModelActivityEvent", () => {
     expect(isGuidedModelActivityEvent("reasoning.delta")).toBe(true);
   });
 
-  it("does not let a timer-generated provider wait postpone recovery", () => {
+  it("counts a supervised provider wait as backend liveness", () => {
+    expect(
+      isGuidedModelActivityEvent("thinking.delta", {
+        provider_wait: true,
+        backend_heartbeat: true,
+      }),
+    ).toBe(true);
+  });
+
+  it("does not trust a legacy display-only provider wait", () => {
     expect(
       isGuidedModelActivityEvent("thinking.delta", { provider_wait: true }),
     ).toBe(false);

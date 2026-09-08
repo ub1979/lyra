@@ -4915,12 +4915,13 @@ def _mirror_subagent_to_child(event_type: str, payload: dict) -> None:
 
 
 def _thinking_delta_payload(text: str) -> dict[str, object]:
-    """Tag synthetic provider-wait notices without hiding real reasoning.
+    """Tag supervised provider waits without hiding real reasoning.
 
     ``_emit_wait_notice`` deliberately reuses the thinking callback so every
-    Hermes surface can explain a slow request. Those timer-generated notices
-    are status, not bytes from the model; Studio must not use them to postpone
-    its own bounded silence watchdog.
+    Hermes surface can explain a slow request. The notice is not model output,
+    but it is emitted by the same backend supervision loop that owns provider
+    timeout and retry. Mark that backend heartbeat explicitly so Studio checks
+    backend liveness instead of racing its less-informed provider watchdog.
     """
     value = str(text or "")
     provider_wait = value.startswith(
@@ -4930,7 +4931,11 @@ def _thinking_delta_payload(text: str) -> dict[str, object]:
             "⚠ no output from provider",
         )
     )
-    return {"text": value, "provider_wait": provider_wait}
+    return {
+        "text": value,
+        "provider_wait": provider_wait,
+        "backend_heartbeat": provider_wait,
+    }
 
 
 def _agent_cbs(sid: str) -> dict:

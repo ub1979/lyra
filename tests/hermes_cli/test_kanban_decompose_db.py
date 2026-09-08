@@ -68,6 +68,95 @@ def test_decompose_creates_children_and_promotes_root(kanban_home):
     assert c1.assignee == "engineer"
 
 
+def test_decompose_children_inherit_parent_notification_destinations(kanban_home):
+    """Every child can wake every destination subscribed to the workflow."""
+    with kb.connect() as conn:
+        tid = _create_triage(conn, title="reviewable workflow")
+        parent_cursor = max(event.id for event in kb.list_events(conn, tid))
+        kb.add_notify_sub(
+            conn,
+            task_id=tid,
+            platform="tui",
+            chat_id="session-1",
+            notifier_profile="main",
+        )
+        kb.advance_notify_cursor(
+            conn,
+            task_id=tid,
+            platform="tui",
+            chat_id="session-1",
+            new_cursor=parent_cursor,
+        )
+        kb.add_notify_sub(
+            conn,
+            task_id=tid,
+            platform="telegram",
+            chat_id="chat-2",
+            thread_id="thread-3",
+            user_id="user-4",
+            notifier_profile="alerts",
+        )
+
+        child_ids = kb.decompose_triage_task(
+            conn,
+            tid,
+            root_assignee="orchestrator",
+            children=[{"title": "first"}, {"title": "second", "parents": [0]}],
+            author="decomposer",
+        )
+
+        assert child_ids is not None
+        for child_id in child_ids:
+            subscriptions = kb.list_notify_subs(conn, child_id)
+            assert sorted(
+                (
+                    sub["platform"],
+                    sub["chat_id"],
+                    sub["thread_id"],
+                    sub["user_id"],
+                    sub["notifier_profile"],
+                )
+                for sub in subscriptions
+            ) == [
+                ("telegram", "chat-2", "thread-3", "user-4", "alerts"),
+                ("tui", "session-1", "", None, "main"),
+            ]
+
+        first_child = child_ids[0]
+        assert kb.block_task(
+            conn,
+            first_child,
+            reason="review-required: inspect saved work",
+            kind="needs_input",
+        )
+        old_cursor, new_cursor, events = kb.claim_unseen_events_for_sub(
+            conn,
+            task_id=first_child,
+            platform="tui",
+            chat_id="session-1",
+            kinds=("blocked",),
+        )
+
+    assert old_cursor == parent_cursor
+    assert new_cursor > old_cursor
+    assert [event.kind for event in events] == ["blocked"]
+
+
+def test_decompose_unsubscribed_parent_creates_no_child_subscriptions(kanban_home):
+    with kb.connect() as conn:
+        tid = _create_triage(conn)
+        child_ids = kb.decompose_triage_task(
+            conn,
+            tid,
+            root_assignee="orchestrator",
+            children=[{"title": "child"}],
+            author="decomposer",
+        )
+
+        assert child_ids is not None
+        assert kb.list_notify_subs(conn, child_ids[0]) == []
+
+
 def test_decompose_returns_none_when_task_missing(kanban_home):
     with kb.connect() as conn:
         result = kb.decompose_triage_task(

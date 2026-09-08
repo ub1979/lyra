@@ -51,10 +51,10 @@ export const GUIDED_SUBAGENT_SILENCE_GRACE_MS = 120_000;
 export const GUIDED_SUBAGENT_SPAWN_GRACE_MS = 90_000;
 
 /**
- * Model events that prove the provider request is alive even when no answer
- * text is visible yet. A real `thinking.delta` or `reasoning.delta` carries
- * model output. A timer-generated provider-wait notice is presentation only
- * and must not postpone recovery forever.
+ * Events that prove the turn backend is alive even when no answer text is
+ * visible yet. Real thinking/reasoning is model activity. A structured backend
+ * heartbeat means the authoritative provider timeout/retry loop is still
+ * supervising the request, so the browser must not race it with Ctrl-C.
  */
 const GUIDED_MODEL_ACTIVITY_EVENTS = new Set([
   "thinking.delta",
@@ -63,9 +63,14 @@ const GUIDED_MODEL_ACTIVITY_EVENTS = new Set([
 
 export function isGuidedModelActivityEvent(
   eventType: string,
-  payload?: { provider_wait?: unknown },
+  payload?: { provider_wait?: unknown; backend_heartbeat?: unknown },
 ): boolean {
+  if (eventType === "thinking.delta" && payload?.backend_heartbeat === true) {
+    return true;
+  }
   if (eventType === "thinking.delta" && payload?.provider_wait === true) {
+    // Compatibility with an older backend that tagged display-only wait text
+    // but did not attest that its supervision loop was alive.
     return false;
   }
   return GUIDED_MODEL_ACTIVITY_EVENTS.has(eventType);
