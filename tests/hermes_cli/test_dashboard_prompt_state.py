@@ -61,7 +61,28 @@ def test_answer_confirmation_clears_only_the_matching_question():
     assert state.replay("hello") is None
 
 
-def test_real_broadcast_and_subscriber_route_replay_pending_question(monkeypatch):
+def test_session_readiness_replays_after_browser_channel_changes():
+    state = DashboardPromptState()
+    ready = event(
+        "session.info",
+        stored_session_id="session-1",
+        running=True,
+        usage={"model": "gpt-test"},
+    )
+    state.observe("hello", ready)
+
+    assert state.replay_frames("hello") == (ready,)
+    assert state.replay_frames("other-project") == ()
+
+    question = event("clarify.request", request_id="q1", question="Continue?")
+    state.observe("hello", question)
+    assert state.replay_frames("hello") == (ready, question)
+
+    state.observe("hello", event("session.closed"))
+    assert state.replay_frames("hello") == ()
+
+
+def test_real_broadcast_and_subscriber_route_replay_readiness_and_question(monkeypatch):
     """Use the real handlers with an in-memory socket, without timing races."""
     import asyncio
     from types import SimpleNamespace
@@ -89,14 +110,18 @@ def test_real_broadcast_and_subscriber_route_replay_pending_question(monkeypatch
             raise WebSocketDisconnect()
 
     async def scenario():
+        ready = event(
+            "session.info", stored_session_id="session-1", running=False
+        )
         frame = event(
             "clarify.request", request_id="r1", question="Country?", choices=["UK"]
         )
+        await web_server._broadcast_event(app, "original", ready)
         await web_server._broadcast_event(app, "original", frame)
         web_server._get_event_channel_aliases(app)["refreshed"] = "original"
         refreshed = Socket("refreshed")
         await web_server.events_ws(refreshed)
-        assert refreshed.sent == [frame]
+        assert refreshed.sent == [ready, frame]
         other = Socket("other")
         await web_server.events_ws(other)
         assert other.sent == []
@@ -105,6 +130,6 @@ def test_real_broadcast_and_subscriber_route_replay_pending_question(monkeypatch
         )
         reopened = Socket("original")
         await web_server.events_ws(reopened)
-        assert reopened.sent == []
+        assert reopened.sent == [ready]
 
     asyncio.run(scenario())

@@ -142,6 +142,7 @@ export class GatewayClient extends EventEmitter {
   private logs = new CircularBuffer<string>(MAX_GATEWAY_LOG_LINES)
   private pending = new Map<string, Pending>()
   private bufferedEvents = new CircularBuffer<GatewayEvent>(MAX_BUFFERED_EVENTS)
+  private sidecarPendingFrames = new CircularBuffer<string>(MAX_BUFFERED_EVENTS)
   private pendingExit: number | null | undefined
   private ready = false
   private readyTimer: ReturnType<typeof setTimeout> | null = null
@@ -223,6 +224,7 @@ export class GatewayClient extends EventEmitter {
     // its queued microtask becomes a no-op (it captured the old generation).
     this.drainGeneration += 1
     this.bufferedEvents.clear()
+    this.sidecarPendingFrames.clear()
     this.pendingExit = undefined
     this.stdoutRl?.close()
     this.stderrRl?.close()
@@ -284,6 +286,22 @@ export class GatewayClient extends EventEmitter {
       const ws = new WebSocketCtor(this.sidecarUrl)
 
       this.sidecarWs = ws
+
+      ws.addEventListener('open', () => {
+        if (this.sidecarWs !== ws) {
+          return
+        }
+
+        for (const frame of this.sidecarPendingFrames.drain()) {
+          try {
+            ws.send(frame)
+          } catch {
+            this.sidecarPendingFrames.push(frame)
+
+            break
+          }
+        }
+      })
       ws.addEventListener('close', () => {
         if (this.sidecarWs === ws) {
           this.sidecarWs = null
@@ -299,9 +317,19 @@ export class GatewayClient extends EventEmitter {
   }
 
   private mirrorEventToSidecar(rawFrame: string) {
+    if (!this.sidecarUrl) {
+      return
+    }
+
     const ws = this.sidecarWs
 
     if (!ws || ws.readyState !== WS_OPEN) {
+      // Attach mode can replay gateway.ready/session.info immediately after
+      // the primary WS opens, before the mirror WS reaches OPEN. Keep the
+      // bounded startup burst so dashboard readiness cannot depend on socket
+      // scheduling order.
+      this.sidecarPendingFrames.push(rawFrame)
+
       return
     }
 

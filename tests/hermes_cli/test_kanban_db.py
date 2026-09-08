@@ -3449,20 +3449,21 @@ def test_migrate_add_optional_columns_tolerates_concurrent_migration(kanban_home
 # launchd jobs, and other detached processes routinely run with a stripped
 # $PATH that doesn't include the venv's bin/, so a bare `["hermes", ...]`
 # spawn fails with FileNotFoundError and the task gets stuck. The resolver
-# prefers the PATH shim (familiar `ps` output) but falls back to the module
-# form so the spawn keeps working when PATH is missing the shim.
+# stays bound to the dispatcher's interpreter so a stale PATH shim cannot
+# launch workers from a different Hermes installation or SQLite runtime.
 # ---------------------------------------------------------------------------
 
 
-def test_resolve_hermes_argv_prefers_path_shim(monkeypatch):
-    """When `hermes` is on PATH, use the shim — preserves familiar ps output."""
+def test_resolve_hermes_argv_ignores_implicit_path_shim(monkeypatch):
+    """A PATH shim must not replace the dispatcher's running environment."""
     import shutil
+    import sys
     import hermes_cli.kanban_db as kb
 
     monkeypatch.delenv("HERMES_BIN", raising=False)
     monkeypatch.setattr(shutil, "which", lambda name: "/usr/local/bin/hermes")
     argv = kb._resolve_hermes_argv()
-    assert argv == ["/usr/local/bin/hermes"]
+    assert argv == [sys.executable, "-m", "hermes_cli.main"]
 
 
 def test_resolve_hermes_argv_absolutizes_relative_exe_shim(monkeypatch, tmp_path):

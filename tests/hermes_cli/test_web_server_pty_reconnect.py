@@ -46,6 +46,12 @@ def pty_client(monkeypatch, _isolate_hermes_home):
 
     monkeypatch.setattr(ws, "_DASHBOARD_EMBEDDED_CHAT_ENABLED", True)
     monkeypatch.setattr(ws.PtyBridge, "spawn", _OneFrameBridge.spawn)
+    # The FastAPI app is module-global. A prior web-server test may leave the
+    # production bind host behind, which makes TestClient's synthetic
+    # ``testserver`` Host header look cross-origin and rejects every socket in
+    # this file. Keep this fixture independent of suite order.
+    monkeypatch.delattr(ws.app.state, "bound_host", raising=False)
+    monkeypatch.delattr(ws.app.state, "bound_port", raising=False)
     ws.app.state.pty_active_session_files = {}
 
     client = TestClient(ws.app)
@@ -144,7 +150,14 @@ def test_channel_reconnect_resumes_active_session_file(pty_client, monkeypatch):
     ws, client, token = pty_client
     captured = []
 
-    def fake_resolve(resume=None, sidecar_url=None, profile=None, active_session_file=None):
+    def fake_resolve(
+        resume=None,
+        sidecar_url=None,
+        profile=None,
+        active_session_file=None,
+        workspace=None,
+        skills=None,
+    ):
         captured.append(
             {
                 "active_session_file": active_session_file,
@@ -181,7 +194,14 @@ def test_fresh_param_ignores_channel_active_session_file(pty_client, monkeypatch
     active_file.write_text(json.dumps({"session_id": "sess-old"}), encoding="utf-8")
     captured = {}
 
-    def fake_resolve(resume=None, sidecar_url=None, profile=None, active_session_file=None):
+    def fake_resolve(
+        resume=None,
+        sidecar_url=None,
+        profile=None,
+        active_session_file=None,
+        workspace=None,
+        skills=None,
+    ):
         captured["active_session_file"] = active_session_file
         captured["resume"] = resume
         return (["fake-hermes-tui"], None, None)

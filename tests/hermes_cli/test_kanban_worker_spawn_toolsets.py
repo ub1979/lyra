@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import os
 import subprocess
+import sys
 
 
 def _make_task(kb, *, assignee: str):
@@ -123,6 +125,43 @@ def test_default_spawn_never_boots_the_tui(monkeypatch, tmp_path):
 
     assert "--cli" in captured["cmd"]
     assert "HERMES_TUI" not in captured["env"]
+
+
+def test_default_spawn_prepends_dispatcher_runtime_to_worker_path(
+    monkeypatch, tmp_path
+):
+    """Nested worker commands cannot fall back to a stale global Hermes shim."""
+    root = tmp_path / ".hermes"
+    (root / "profiles" / "elias").mkdir(parents=True)
+    root.joinpath("config.yaml").write_text("toolsets:\n  - kanban\n", encoding="utf-8")
+    monkeypatch.setenv("HERMES_HOME", str(root))
+    monkeypatch.setenv("PATH", os.pathsep.join(["/stale/global/bin", "/usr/bin"]))
+
+    from hermes_cli import kanban_db as kb
+
+    monkeypatch.setattr(
+        kb,
+        "_resolve_hermes_argv",
+        lambda: [sys.executable, "-m", "hermes_cli.main"],
+    )
+    captured = {}
+
+    class FakeProc:
+        pid = 4245
+
+    def fake_popen(cmd, *args, **kwargs):
+        captured["env"] = dict(kwargs.get("env") or {})
+        return FakeProc()
+
+    monkeypatch.setattr(subprocess, "Popen", fake_popen)
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    kb._default_spawn(_make_task(kb, assignee="elias"), str(workspace))
+
+    worker_path = captured["env"]["PATH"].split(os.pathsep)
+    assert worker_path[0] == os.path.dirname(os.path.abspath(sys.executable))
+    assert worker_path[1:] == ["/stale/global/bin", "/usr/bin"]
 
 
 def test_default_spawn_model_override_survives_real_cli_parse(monkeypatch, tmp_path):

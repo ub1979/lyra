@@ -18776,13 +18776,13 @@ async def pty_ws(ws: WebSocket) -> None:
             # pending question. The renderer deduplicates by request ID.
             from hermes_cli.dashboard_prompt_state import dashboard_prompt_state
 
-            pending = dashboard_prompt_state(ws.app).replay(publisher_channel)
-            if pending:
+            replay = dashboard_prompt_state(ws.app).replay_frames(publisher_channel)
+            for frame in replay:
                 for subscriber in list(_event_channels.get(channel, ())):
                     try:
-                        await subscriber.send_text(pending)
+                        await subscriber.send_text(frame)
                     except Exception:
-                        _log.debug("Question replay subscriber disconnected", exc_info=True)
+                        _log.debug("Event replay subscriber disconnected", exc_info=True)
 
     await session.attach(ws)
 
@@ -18929,10 +18929,10 @@ async def events_ws(ws: WebSocket) -> None:
         from hermes_cli.dashboard_prompt_state import dashboard_prompt_state
 
         publisher = _get_event_channel_aliases(ws.app).get(channel, channel)
-        pending = dashboard_prompt_state(ws.app).replay(publisher)
-        if pending:
+        replay = dashboard_prompt_state(ws.app).replay_frames(publisher)
+        for frame in replay:
             try:
-                await ws.send_text(pending)
+                await ws.send_text(frame)
             except Exception:
                 event_channels[channel].discard(ws)
                 return

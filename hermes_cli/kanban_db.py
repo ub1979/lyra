@@ -8645,20 +8645,18 @@ def _resolve_hermes_argv() -> list[str]:
     1. ``$HERMES_BIN`` — explicit operator override. Path-like values are
        normalized to absolute paths; bare command names keep normal PATH
        semantics and never prefer a same-directory file before ``PATH``.
-    2. ``shutil.which("hermes")`` — the console-script shim, normalized to
-       an absolute path. On Windows, ``which`` can return a relative
-       ``.\\hermes.CMD`` when the current directory is on ``PATH``; directly
-       launching batch shims is also unsafe with task-derived argv. The
-       dispatcher therefore falls back to the interpreter-bound module form
-       for implicit ``.cmd`` / ``.bat`` shims.
-    3. ``sys.executable -m hermes_cli.main`` — fallback for setups where
-       Hermes is launched from a venv and the ``hermes`` shim is not on
-       the dispatcher's ``$PATH`` (cron, systemd ``User=`` services,
-       launchd jobs, detached processes, etc.). Goes through the running
-       interpreter so the result is independent of ``$PATH``.
+    2. ``sys.executable -m hermes_cli.main`` — bind workers to the exact
+       interpreter and Hermes import tree already running the dispatcher.
 
-    Mirrors ``gateway.run._resolve_hermes_bin`` for the same reason. Kept
-    local (not imported from gateway) because ``hermes_cli`` sits below
+    PATH lookup is deliberately not an implicit fallback. A long-lived
+    gateway can have a different ``$PATH`` shim from its own executable (for
+    example after an update, or when a developer checkout runs beside a
+    managed install). Launching that shim mixes Hermes code and SQLite
+    runtimes inside one worker tree while all processes write the same
+    ``state.db``. Operators who intentionally want another executable can
+    still pin it explicitly with ``HERMES_BIN``.
+
+    Kept local (not imported from gateway) because ``hermes_cli`` sits below
     ``gateway`` in the dependency order.
     """
     import shutil
@@ -8672,9 +8670,6 @@ def _resolve_hermes_argv() -> list[str]:
             return _hermes_path_argv(resolved_env_bin)
         return _module_hermes_argv()
 
-    hermes_bin = _safe_which_no_cwd("hermes") if _IS_WINDOWS else shutil.which("hermes")
-    if hermes_bin:
-        return _hermes_path_argv(hermes_bin)
     return _module_hermes_argv()
 
 
@@ -8770,6 +8765,22 @@ def _default_spawn(
 
     prompt = f"work kanban task {task.id}"
     env = dict(os.environ)
+
+    # Keep every nested ``hermes`` command on the dispatcher's runtime too.
+    # Agents commonly invoke ``hermes kanban ...`` through the terminal while
+    # decomposing/reviewing work. If a stale user-level shim precedes the
+    # active venv on PATH, that nested dispatch can otherwise reintroduce a
+    # different Hermes tree and SQLite library even though this first worker
+    # was launched with ``sys.executable -m`` above.
+    runtime_bin = os.path.dirname(os.path.abspath(sys.executable))
+    inherited_path = env.get("PATH", "")
+    path_parts = [part for part in inherited_path.split(os.pathsep) if part]
+    env["PATH"] = os.pathsep.join(
+        [
+            runtime_bin,
+            *(part for part in path_parts if os.path.abspath(part) != runtime_bin),
+        ]
+    )
 
     # Inject HERMES_HOME so the worker reads the profile-scoped config.yaml
     # (fallback_providers, toolsets, agent settings, etc.) instead of the root

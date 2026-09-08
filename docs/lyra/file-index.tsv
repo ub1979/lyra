@@ -1749,6 +1749,7 @@ docs/lyra/changes/2026-09-07-compact-project-status.md	docs	md: 2026 09 07 compa
 docs/lyra/changes/2026-09-07-lean-context.md	docs	md: 2026 09 07 lean context
 docs/lyra/changes/2026-09-07-small-development-jobs.md	docs	md: 2026 09 07 small development jobs
 docs/lyra/changes/2026-09-07-studio-liveness-time.md	docs	md: 2026 09 07 studio liveness time
+docs/lyra/changes/2026-09-08-guided-reattach-readiness.md	docs	md: 2026 09 08 guided reattach readiness
 docs/lyra/changes/2026-09-08-local-provider-watchdog-bound.md	docs	md: 2026 09 08 local provider watchdog bound
 docs/lyra/changes/2026-09-08-project-notification-and-watchdog-liveness.md	docs	md: 2026 09 08 project notification and watchdog liveness
 docs/lyra/changes/2026-09-08-single-project-conversation.md	docs	md: 2026 09 08 single project conversation
@@ -1900,7 +1901,7 @@ hermes_cli/dashboard_auth/registry.py	hermes_cli	Module-level registry for Dashb
 hermes_cli/dashboard_auth/routes.py	hermes_cli	HTTP routes for the dashboard-auth OAuth round trip.
 hermes_cli/dashboard_auth/token_auth.py	hermes_cli	Route-agnostic non-interactive (bearer-token) auth seam for the dashboard.
 hermes_cli/dashboard_auth/ws_tickets.py	hermes_cli	WS-upgrade auth credentials for gated mode.
-hermes_cli/dashboard_prompt_state.py	hermes_cli	Bounded replay of unanswered dashboard questions across browser reconnects.
+hermes_cli/dashboard_prompt_state.py	hermes_cli	Bounded replay of dashboard readiness and questions across reconnects.
 hermes_cli/dashboard_register.py	hermes_cli	``hermes dashboard register`` — register a self-hosted dashboard OAuth client.
 hermes_cli/debug.py	hermes_cli	``hermes debug`` debug tools for Hermes Agent.
 hermes_cli/default_soul.py	hermes_cli	Default SOUL.md template seeded into HERMES_HOME on first run.
@@ -2075,7 +2076,7 @@ hermes_cli/web_dist/assets/RulesCompressed-Regular-BSXFyF4x.woff2	hermes_cli	Gen
 hermes_cli/web_dist/assets/RulesExpanded-Bold-DZA7s8Pa.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Regular-l8uVympt.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/index-BGAdPJZk.css	hermes_cli	Generated asset; edit its source and rebuild
-hermes_cli/web_dist/assets/index-yXF1HPCp.js	hermes_cli	Generated asset; edit its source and rebuild
+hermes_cli/web_dist/assets/index-WgzxvjG5.js	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Bold.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Italic.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Regular.woff2	hermes_cli	Generated asset; edit its source and rebuild
@@ -7106,6 +7107,8 @@ web/src/lib/project-agent-activity.test.ts	web	Behavioral tests: project-agent-a
 web/src/lib/project-agent-activity.ts	web	ts: project agent activity
 web/src/lib/project-attention.ts	web	ts: project attention
 web/src/lib/prompt-answer-frame.test.ts	web	Behavioral tests: prompt-answer-frame.test
+web/src/lib/pty-attach-token.test.ts	web	Behavioral tests: pty-attach-token.test
+web/src/lib/pty-attach-token.ts	web	ts: pty attach token
 web/src/lib/pty-mobile-input.test.ts	web	Behavioral tests: pty-mobile-input.test
 web/src/lib/pty-mobile-input.ts	web	ts: pty mobile input
 web/src/lib/pty-reconnect.test.ts	web	Behavioral tests: pty-reconnect.test

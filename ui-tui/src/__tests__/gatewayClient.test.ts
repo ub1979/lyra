@@ -263,6 +263,34 @@ describe('GatewayClient websocket attach mode', () => {
     gw.kill()
   })
 
+  it('replays gateway events that arrive before the sidecar websocket opens', async () => {
+    process.env.HERMES_TUI_GATEWAY_URL = 'ws://gateway.test/api/ws?token=abc'
+    process.env.HERMES_TUI_SIDECAR_URL = 'ws://gateway.test/api/pub?token=abc&channel=demo'
+
+    const gw = new GatewayClient()
+
+    gw.start()
+    const gatewaySocket = FakeWebSocket.instances[0]!
+
+    gatewaySocket.open()
+    await vi.waitFor(() => expect(FakeWebSocket.instances).toHaveLength(2))
+    const sidecarSocket = FakeWebSocket.instances[1]!
+
+    const readyFrame = JSON.stringify({
+      jsonrpc: '2.0',
+      method: 'event',
+      params: { type: 'session.info', payload: { stored_session_id: 'sid-1' } }
+    })
+
+    gatewaySocket.message(readyFrame)
+    expect(sidecarSocket.sent).toEqual([])
+
+    sidecarSocket.open()
+    expect(sidecarSocket.sent).toEqual([readyFrame])
+
+    gw.kill()
+  })
+
   it('publishes local dashboard-control events to the sidecar websocket', async () => {
     process.env.HERMES_TUI_GATEWAY_URL = 'ws://gateway.test/api/ws?token=abc'
     process.env.HERMES_TUI_SIDECAR_URL = 'ws://gateway.test/api/pub?token=abc&channel=demo'
