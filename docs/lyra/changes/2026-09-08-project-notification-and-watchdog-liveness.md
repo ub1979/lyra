@@ -53,4 +53,5 @@ recorded child ids without altering task history. The retained backup is
 `~/.hermes/backups/kanban-before-child-notify-20260908-0219.db`.
 
 Local commit / authorized push:
-No push authorized. Local commit pending verification.
+Implemented in `62f0fda5f`. The user authorized the combined Lyra 0.19.26
+reliability release and push on 2026-09-08.

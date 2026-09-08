@@ -16,4 +16,6 @@ Compatibility / restart: Backend processes must restart to use the finite non-st
 
 Rollback / retained recovery data: Revert the focused local commit. No data migration or recovery data is involved.
 
-Local commit / authorized push: Local commit only. No push or release authorized; therefore no Lyra version bump.
+Local commit / authorized push: Implemented in `756668648`, with clarification
+in `30946a74a`. The user authorized the combined Lyra 0.19.26 reliability
+release and push on 2026-09-08.

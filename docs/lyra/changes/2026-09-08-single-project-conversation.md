@@ -16,4 +16,5 @@ Compatibility / restart: A rebuilt Studio page is required. Existing backend que
 
 Rollback / retained recovery data: Revert the focused local commit. Durable jobs and notification subscriptions remain intact throughout.
 
-Local commit / authorized push: Local commit only. No push or release authorized; therefore no Lyra version bump.
+Local commit / authorized push: Implemented in `7b7dc390f`. The user authorized
+the combined Lyra 0.19.26 reliability release and push on 2026-09-08.

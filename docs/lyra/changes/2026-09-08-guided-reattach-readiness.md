@@ -95,4 +95,5 @@ unchanged. Operational pre-conversion database copies were retained under
 
 ## Local commit / authorized push
 
-Local commit only; no push authorized.
+Implemented in `73ff6afcf`. The user authorized the combined Lyra 0.19.26
+reliability release and push on 2026-09-08.

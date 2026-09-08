@@ -16,4 +16,5 @@ Compatibility / restart: Newly spawned Kanban workers import the corrected sourc
 
 Rollback / retained recovery data: Revert the focused local commit. The recovered Hello review kept its shared test changes and task history; no recovery data was deleted.
 
-Local commit / authorized push: Local commit only. No push or release is authorized, so no Lyra version bump is included.
+Local commit / authorized push: Implemented in `7a4118d16`. The user authorized
+the combined Lyra 0.19.26 reliability release and push on 2026-09-08.

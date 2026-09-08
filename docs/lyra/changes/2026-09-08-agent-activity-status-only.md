@@ -16,4 +16,5 @@ Compatibility / restart: The Studio production bundle must be rebuilt and the da
 
 Rollback / retained recovery data: Revert the focused local commit. No project or conversation data is migrated or deleted.
 
-Local commit / authorized push: Local commit only. No push or release is authorized, so no Lyra version bump is included.
+Local commit / authorized push: Implemented in `f65ccea08`. The user authorized
+the combined Lyra 0.19.26 reliability release and push on 2026-09-08.

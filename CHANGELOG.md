@@ -9,6 +9,34 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.26] - 2026-09-08 — reliable guided projects
+
+### Improved
+
+- **One clear project conversation.** Questions, approvals, recovery guidance
+  and typed answers stay in the main chat. Agent Activity shows only Lyra's
+  availability, usage and agents that are actually working.
+- **Long model waits have one bounded supervisor.** Fresh backend heartbeats
+  keep healthy cloud and local requests alive without letting a wedged local
+  provider spin forever.
+- **Project workers use Lyra's active runtime consistently,** including nested
+  commands, so an older command-line installation cannot silently take over a
+  live project database.
+
+### Fixed
+
+- Guided chat now becomes ready again after reload, dashboard restart or PTY
+  reattachment; startup events are buffered and separate browser tabs no
+  longer steal each other's connection.
+- Saved child-job review and input requests reach the originating project chat.
+- Truly silent requests still recover, while display-only wait messages from
+  older backends cannot masquerade as liveness.
+- Stale delegated workers are interrupted and return control to Lyra instead
+  of being hidden behind a healthy-looking outer job heartbeat.
+
+Restart Lyra after current work reaches a safe boundary. Existing projects,
+jobs and conversations are preserved.
+
 ## [0.19.25] - 2026-09-07 — lean context with project memory
 
 ### Improved

@@ -1,5 +1,4 @@
 path	area	summary
-.claude/settings.local.json	.claude	json: settings.local
 .dockerignore	root	configuration: .dockerignore
 .gitattributes	root	configuration: .gitattributes
 .githooks/pre-commit	.githooks	configuration: pre commit
