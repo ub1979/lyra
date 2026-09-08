@@ -2281,6 +2281,44 @@ class TestDelegateHeartbeat(unittest.TestCase):
         self.assertEqual(len(touch_calls), count_after,
                          "Heartbeat continued firing after child error")
 
+    def test_stale_heartbeat_interrupts_child_and_returns_to_parent(self):
+        """A stale child must end delegation, not only stop parent heartbeats."""
+        from tools.delegate_tool import _run_single_child
+
+        parent = _make_mock_parent()
+        stopped = threading.Event()
+        child = MagicMock()
+        child.get_activity_summary.return_value = {
+            "current_tool": None,
+            "api_call_count": 2,
+            "max_iterations": 50,
+            "last_activity_desc": "API call #2 completed",
+        }
+        child.interrupt.side_effect = stopped.set
+
+        def wedged_run(**kwargs):
+            stopped.wait(timeout=0.5)
+            return {"final_response": "late", "completed": True, "api_calls": 2}
+
+        child.run_conversation.side_effect = wedged_run
+
+        started = time.monotonic()
+        with (
+            patch("tools.delegate_tool._HEARTBEAT_INTERVAL", 0.02),
+            patch("tools.delegate_tool._HEARTBEAT_STALE_CYCLES_IDLE", 2),
+        ):
+            result = _run_single_child(
+                task_index=0,
+                goal="Test stale child recovery",
+                child=child,
+                parent_agent=parent,
+            )
+
+        self.assertEqual(result["status"], "timeout")
+        self.assertIn("stale heartbeat", result["error"])
+        child.interrupt.assert_called_once_with()
+        self.assertLess(time.monotonic() - started, 0.4)
+
     def test_heartbeat_includes_child_activity_desc_when_no_tool(self):
         """When child has no current_tool, heartbeat uses last_activity_desc."""
         from tools.delegate_tool import _run_single_child

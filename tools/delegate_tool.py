@@ -633,13 +633,17 @@ _HEARTBEAT_INTERVAL = 30  # seconds between parent activity heartbeats during de
 #   - idle between turns (no current_tool) — probably stuck on a slow API call
 #   - inside a tool (current_tool set) — probably running a legitimately long
 #     operation (terminal command, web fetch, large file read)
-# The idle ceiling stays tight so genuinely stuck children don't mask the gateway
-# timeout. The in-tool ceiling is much higher so legit long-running tools get
+# The idle ceiling stays tight so genuinely stuck children are interrupted and
+# returned to the parent. The in-tool ceiling is much higher so legit tools get
 # time to finish; delegation.child_timeout_seconds (off by default) remains an
 # optional hard cap for users who want one.
 _HEARTBEAT_STALE_CYCLES_IDLE = 15  # 15 * 30s = 450s idle between turns → stale
 _HEARTBEAT_STALE_CYCLES_IN_TOOL = 40  # 40 * 30s = 1200s stuck on same tool → stale
 DEFAULT_TOOLSETS = ["terminal", "file", "web"]
+
+
+class _StaleSubagentError(RuntimeError):
+    """Internal signal that a child stopped making observable progress."""
 
 
 # ---------------------------------------------------------------------------
@@ -1875,6 +1879,8 @@ def _run_single_child(
     _last_seen_iter = [0]
     _last_seen_tool = [None]  # type: list
     _stale_count = [0]
+    _stale_detected = threading.Event()
+    _stale_tool = [None]  # type: list
 
     def _heartbeat_loop():
         while not _heartbeat_stop.wait(_HEARTBEAT_INTERVAL):
@@ -1908,23 +1914,35 @@ def _run_single_child(
 
                 # Pick threshold based on whether the child is currently
                 # inside a tool call. In-tool threshold is high enough to
-                # cover legitimately slow tools; idle threshold stays
-                # tight so the gateway timeout can fire on a truly wedged
-                # child.
+                # cover legitimately slow tools; idle threshold stays tight
+                # so a truly wedged child returns control to its parent.
                 stale_limit = (
                     _HEARTBEAT_STALE_CYCLES_IN_TOOL
                     if child_tool
                     else _HEARTBEAT_STALE_CYCLES_IDLE
                 )
                 if _stale_count[0] >= stale_limit:
+                    _stale_tool[0] = child_tool
+                    _stale_detected.set()
                     logger.warning(
                         "Subagent %d appears stale (no progress for %d "
-                        "heartbeat cycles, tool=%s) — stopping heartbeat",
+                        "heartbeat cycles, tool=%s) — interrupting child",
                         task_index,
                         _stale_count[0],
                         child_tool or "<none>",
                     )
-                    break  # stop touching parent, let gateway timeout fire
+                    try:
+                        if hasattr(child, "interrupt"):
+                            child.interrupt()
+                        elif hasattr(child, "_interrupt_requested"):
+                            child._interrupt_requested = True
+                    except Exception:
+                        logger.debug(
+                            "Failed to interrupt stale subagent %d",
+                            task_index,
+                            exc_info=True,
+                        )
+                    break
 
                 if child_tool:
                     desc = (
@@ -2078,23 +2096,78 @@ def _run_single_child(
 
         _child_future = _timeout_executor.submit(_run_with_thread_capture)
         try:
-            result = _child_future.result(timeout=child_timeout)
+            # Poll the future so heartbeat staleness is a terminal signal for
+            # this delegation call. Merely stopping the parent's heartbeat is
+            # insufficient for Kanban workers because their process supervisor
+            # emits a separate liveness heartbeat even when delegate_task is
+            # wedged waiting for a child.
+            hard_deadline = (
+                time.monotonic() + child_timeout
+                if child_timeout is not None
+                else None
+            )
+            poll_seconds = max(
+                0.01,
+                min(float(_HEARTBEAT_INTERVAL), 1.0),
+            )
+            while True:
+                if _stale_detected.is_set():
+                    raise _StaleSubagentError()
+                wait_seconds = poll_seconds
+                if hard_deadline is not None:
+                    remaining = hard_deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise FuturesTimeoutError()
+                    wait_seconds = min(wait_seconds, remaining)
+                try:
+                    result = _child_future.result(timeout=wait_seconds)
+                except FuturesTimeoutError:
+                    # A completed future can itself raise TimeoutError. Keep
+                    # that as the child's real exception rather than treating
+                    # it as this polling loop's wake-up.
+                    if _child_future.done():
+                        raise
+                    if _stale_detected.is_set():
+                        raise _StaleSubagentError()
+                    if (
+                        hard_deadline is not None
+                        and time.monotonic() >= hard_deadline
+                    ):
+                        raise
+                    continue
+                if _stale_detected.is_set():
+                    raise _StaleSubagentError()
+                break
         except Exception as _timeout_exc:
+            is_stale = _stale_detected.is_set() or isinstance(
+                _timeout_exc,
+                _StaleSubagentError,
+            )
             # Signal the child to stop so its thread can exit cleanly.
-            try:
-                if hasattr(child, "interrupt"):
-                    child.interrupt()
-                elif hasattr(child, "_interrupt_requested"):
-                    child._interrupt_requested = True
-            except Exception:
-                pass
+            if not is_stale:
+                try:
+                    if hasattr(child, "interrupt"):
+                        child.interrupt()
+                    elif hasattr(child, "_interrupt_requested"):
+                        child._interrupt_requested = True
+                except Exception:
+                    pass
 
-            is_timeout = isinstance(_timeout_exc, (FuturesTimeoutError, TimeoutError))
+            is_timeout = is_stale or isinstance(
+                _timeout_exc,
+                (FuturesTimeoutError, TimeoutError),
+            )
             duration = round(time.monotonic() - child_start, 2)
             logger.warning(
                 "Subagent %d %s after %.1fs",
                 task_index,
-                "timed out" if is_timeout else f"raised {type(_timeout_exc).__name__}",
+                (
+                    "stalled"
+                    if is_stale
+                    else "timed out"
+                    if is_timeout
+                    else f"raised {type(_timeout_exc).__name__}"
+                ),
                 duration,
             )
 
@@ -2114,7 +2187,7 @@ def _run_single_child(
                     task_index=task_index,
                     # is_timeout implies a cap was configured (result(timeout=None)
                     # never raises FuturesTimeoutError); guard for the type checker.
-                    timeout_seconds=float(child_timeout or 0.0),
+                    timeout_seconds=float(child_timeout or duration),
                     duration_seconds=float(duration),
                     worker_thread=_worker_thread_holder.get("t"),
                     goal=goal,
@@ -2131,7 +2204,9 @@ def _run_single_child(
                     child_progress_cb(
                         "subagent.complete",
                         preview=(
-                            f"Timed out after {duration}s"
+                            f"Stopped after {duration}s without progress"
+                            if is_stale
+                            else f"Timed out after {duration}s"
                             if is_timeout
                             else str(_timeout_exc)
                         ),
@@ -2142,7 +2217,15 @@ def _run_single_child(
                 except Exception:
                     pass
 
-            if is_timeout:
+            if is_stale:
+                _err = (
+                    f"Subagent stopped after {_stale_count[0]} stale heartbeat "
+                    f"cycles without observable progress "
+                    f"(tool={_stale_tool[0] or '<none>'})."
+                )
+                if diagnostic_path:
+                    _err += f" Diagnostic: {diagnostic_path}"
+            elif is_timeout:
                 if child_api_calls == 0:
                     _err = (
                         f"Subagent timed out after {child_timeout}s without "
