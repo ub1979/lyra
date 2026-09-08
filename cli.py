@@ -16240,6 +16240,18 @@ def _run_kanban_goal_loop_q(cli: "HermesCLI", first_response: str) -> None:
 
     max_turns = task.goal_max_turns or _DEF_TURNS
 
+    # A dependency block may make this card ready again before the process
+    # from the previous run has fully left its outer goal loop. Fence every
+    # status read and fallback mutation to the run that spawned this process;
+    # otherwise the stale loop can observe and block its successor.
+    expected_run_id = None
+    raw_run_id = (_os.environ.get("HERMES_KANBAN_RUN_ID") or "").strip()
+    if raw_run_id:
+        try:
+            expected_run_id = int(raw_run_id)
+        except ValueError:
+            pass
+
     def _run_turn(prompt: str) -> str:
         result = cli.agent.run_conversation(
             user_message=prompt,
@@ -16260,6 +16272,12 @@ def _run_kanban_goal_loop_q(cli: "HermesCLI", first_response: str) -> None:
         c = _kb.connect()
         try:
             t = _kb.get_task(c, task_id)
+            if (
+                t is not None
+                and expected_run_id is not None
+                and t.current_run_id != expected_run_id
+            ):
+                return "superseded"
             return t.status if t is not None else None
         finally:
             try:
@@ -16270,7 +16288,12 @@ def _run_kanban_goal_loop_q(cli: "HermesCLI", first_response: str) -> None:
     def _block(reason: str) -> None:
         c = _kb.connect()
         try:
-            _kb.block_task(c, task_id, reason=reason)
+            _kb.block_task(
+                c,
+                task_id,
+                reason=reason,
+                expected_run_id=expected_run_id,
+            )
         finally:
             try:
                 c.close()

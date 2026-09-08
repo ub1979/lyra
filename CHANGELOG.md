@@ -9,6 +9,11 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+### Fixed
+
+- A superseded goal-mode worker can no longer mistake a newer run for its own
+  and block that successor while the old process is shutting down.
+
 ## [0.19.26] - 2026-09-08 — reliable guided projects
 
 ### Improved

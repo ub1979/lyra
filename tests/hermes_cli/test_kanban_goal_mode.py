@@ -298,6 +298,78 @@ def test_loop_stops_if_task_reclaimed(monkeypatch):
     assert res["outcome"] == "stopped"
 
 
+def test_quiet_goal_loop_cannot_mutate_a_successor_run(
+    kanban_home, monkeypatch
+):
+    """A process finishing run N must not judge or block a fresh run N+1."""
+    import cli as cli_module
+
+    with kb.connect() as conn:
+        tid = kb.create_task(
+            conn,
+            title="shared workspace task",
+            assignee="default",
+            goal_mode=True,
+        )
+        run_one_task = kb.claim_task(conn, tid)
+        assert run_one_task is not None
+        run_one = run_one_task.current_run_id
+        assert run_one is not None
+
+    monkeypatch.setenv("HERMES_KANBAN_TASK", tid)
+    monkeypatch.setenv("HERMES_KANBAN_RUN_ID", str(run_one))
+
+    observed = {}
+
+    def fake_loop(**kwargs):
+        # Reproduce the live race: run one routes to a dependency wait, the
+        # dispatcher promotes it, and run two starts before run one's process
+        # reaches this outer-loop status check.
+        with kb.connect() as conn:
+            assert kb.block_task(
+                conn,
+                tid,
+                reason="wait for dependency",
+                kind="dependency",
+                expected_run_id=run_one,
+            )
+            assert kb.recompute_ready(conn) == 1
+            run_two_task = kb.claim_task(conn, tid)
+            assert run_two_task is not None
+            observed["run_two"] = run_two_task.current_run_id
+
+        observed["status"] = kwargs["task_status_fn"]()
+        # Belt-and-braces: even if a future loop accidentally invokes the
+        # fallback after seeing "superseded", its compare-and-set must be safe.
+        kwargs["block_fn"]("stale run must not block its successor")
+
+    monkeypatch.setattr(goals, "run_kanban_goal_loop", fake_loop)
+
+    class FakeAgent:
+        session_id = "goal-run-fence"
+
+        def run_conversation(self, **_kwargs):
+            pytest.fail("a superseded run must not receive another turn")
+
+    fake_cli = type(
+        "FakeCLI",
+        (),
+        {
+            "agent": FakeAgent(),
+            "conversation_history": [],
+            "session_id": "goal-run-fence",
+        },
+    )()
+    cli_module._run_kanban_goal_loop_q(fake_cli, "looks complete")
+
+    with kb.connect() as conn:
+        current = kb.get_task(conn, tid)
+    assert observed["status"] == "superseded"
+    assert current is not None
+    assert current.status == "running"
+    assert current.current_run_id == observed["run_two"]
+
+
 # ---------------------------------------------------------------------------
 # CLI judge gate tests (hermes kanban complete bypass fix)
 # ---------------------------------------------------------------------------

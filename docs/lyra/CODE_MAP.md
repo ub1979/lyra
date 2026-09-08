@@ -22,7 +22,7 @@ Durable project jobs → Hermes Kanban dispatcher → isolated worker sessions
 | Atomic question / typed approval transport | `apps/shared/src/prompt-answer-frame.ts`, `ui-tui/src/components/prompts.tsx`, `web/src/lib/guided-agent-routing.ts`, `web/src/pages/ChatPage.tsx` | Real Ink transport, explicit typed-choice and request-fencing tests |
 | Worker presentation | `web/src/lib/project-agent-activity.ts`, `web/src/components/ProjectAgentJobs.tsx` | Pure state and rendering tests |
 | Phase reports / evidence | `plugins/ultimate-builder/project_progress.py`, `hermes_cli/project_evidence.py` | Negative status, missing file and path-escape tests |
-| Project jobs / bounded development scheduling / model repair | `plugins/ultimate-builder/project_runs.py`, `plugins/ultimate-builder/project_work_units.py`, `web/src/lib/guided-agent-model-preferences.ts` | Task-graph parsing, real SQLite lifecycle, dependency gates and provider/project isolation tests |
+| Project jobs / bounded development scheduling / model repair | `plugins/ultimate-builder/project_runs.py`, `plugins/ultimate-builder/project_work_units.py`, `web/src/lib/guided-agent-model-preferences.ts`, `cli.py` goal-loop wiring | Task-graph parsing, real SQLite lifecycle, dependency gates, run fencing and provider/project isolation tests |
 | Automatic job decomposition | `hermes_cli/kanban_decompose.py` | Blanket-scope rejection and bounded replacement tests |
 | Project-local Git boundary | `plugins/ultimate-builder/project_repository.py`, `scripts/lyra_git_guard.py`, `.githooks/` | Real parent/project repository, commit-hook and push-hook tests |
 | Job creation notification policy | `hermes_cli/kanban_notifications.py` | CLI/tool/phase creation, opt-out and idempotent subscription tests |
