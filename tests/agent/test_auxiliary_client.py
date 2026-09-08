@@ -5316,6 +5316,53 @@ class TestCodexAuxiliaryAdapterTimeout:
 
         assert time.monotonic() - started < 0.14
 
+    def test_silent_stream_and_blocked_cleanup_cannot_extend_total_timeout(self):
+        """The deadline must not depend on the stream or client close returning.
+
+        A real Codex compression request reproduced both conditions: the event
+        iterator stopped yielding and the timeout timer then blocked inside the
+        synchronous HTTP client ``close()``.  The advertised 300-second bound
+        consequently stretched to 600 seconds (and could be unbounded).
+        """
+
+        class _SilentCreateStream:
+            def __iter__(self):
+                time.sleep(0.45)
+                return iter(())
+
+            def close(self):
+                pass
+
+        class _FakeResponses:
+            def create(self, **kwargs):
+                return _SilentCreateStream()
+
+        def _blocked_close():
+            time.sleep(0.45)
+
+        fake_client = SimpleNamespace(
+            responses=_FakeResponses(),
+            close=_blocked_close,
+        )
+        adapter = _CodexCompletionsAdapter(fake_client, "gpt-5.5")
+
+        started = time.monotonic()
+        with patch(
+            "agent.auxiliary_client._evict_cached_client_instance",
+            return_value=True,
+        ) as evict_cached:
+            with pytest.raises(
+                TimeoutError,
+                match="exceeded 0.1s total timeout",
+            ):
+                adapter.create(
+                    messages=[{"role": "user", "content": "summarize this"}],
+                    timeout=0.05,
+                )
+
+        assert time.monotonic() - started < 0.20
+        evict_cached.assert_called_once_with(fake_client)
+
 
 class TestCodexAuxiliaryToolMessageConversion:
     """Regression for issue #5709.

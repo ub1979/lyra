@@ -3705,8 +3705,12 @@ This compaction should PRIORITISE preserving all information related to the focu
             # summary route can produce within its deadline will fail the
             # same way every time, and re-burning the full timeout every
             # 60s turns each subsequent turn into a multi-minute stall
-            # (#62452). 60s → 300s → 900s (capped); any successful summary
-            # resets the streak via _clear_compression_failure_cooldown().
+            # (#62452). The first cooldown must be at least the built-in
+            # compression deadline: a 60-second cooldown after burning a
+            # 300-second call allowed the very next user reply to burn the
+            # same five minutes again. 300s → 900s → 1800s (capped); any
+            # successful summary resets the streak via
+            # _clear_compression_failure_cooldown().
             # Timeout takes precedence over the streaming-closed short rung:
             # a "timed out" error also matches _is_connection_error, but a
             # deadline exhaustion is the structural repeat-offender class,
@@ -3715,7 +3719,7 @@ This compaction should PRIORITISE preserving all information related to the focu
                 self._consecutive_timeout_failures = (
                     getattr(self, "_consecutive_timeout_failures", 0) + 1
                 )
-                _TIMEOUT_COOLDOWN_LADDER = (60, 300, 900)
+                _TIMEOUT_COOLDOWN_LADDER = (300, 900, 1800)
                 _transient_cooldown = _TIMEOUT_COOLDOWN_LADDER[
                     min(self._consecutive_timeout_failures,
                         len(_TIMEOUT_COOLDOWN_LADDER)) - 1

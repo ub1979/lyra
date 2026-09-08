@@ -11,9 +11,10 @@ Two failure amplifiers when the auxiliary compression route times out:
    ``_fallback_entry_timeout``.
 
 2. A session whose transcript structurally cannot be summarised within the
-   deadline re-attempted every 60s, re-burning the full timeout on every
-   subsequent turn. Fix: consecutive timeout-class failures escalate the
-   cooldown 60s → 300s → 900s; any successful summary resets the streak.
+   deadline re-attempted before the 300-second compression budget it had just
+   burned, stalling the next user reply too. Fix: timeout-class failures start
+   with a cooldown equal to that budget, then escalate 300s → 900s → 1800s;
+   any successful summary resets the streak.
 """
 
 from types import SimpleNamespace
@@ -120,7 +121,7 @@ def test_fallback_candidate_without_entry_timeout_keeps_task_timeout():
 
 
 # ---------------------------------------------------------------------------
-# Escalating timeout cooldown — 60s → 300s → 900s, reset on success
+# Escalating timeout cooldown — 300s → 900s → 1800s, reset on success
 # ---------------------------------------------------------------------------
 
 
@@ -149,17 +150,17 @@ def test_timeout_cooldown_escalates_and_caps():
     c = _make_compressor()
 
     assert _fail_with_timeout(c, 1000.0) is None
-    assert c._summary_failure_cooldown_until == 1000.0 + 60
+    assert c._summary_failure_cooldown_until == 1000.0 + 300
 
     assert _fail_with_timeout(c, 2000.0) is None
-    assert c._summary_failure_cooldown_until == 2000.0 + 300
+    assert c._summary_failure_cooldown_until == 2000.0 + 900
 
     assert _fail_with_timeout(c, 3000.0) is None
-    assert c._summary_failure_cooldown_until == 3000.0 + 900
+    assert c._summary_failure_cooldown_until == 3000.0 + 1800
 
     # Capped: a fourth consecutive timeout stays at the ladder max.
-    assert _fail_with_timeout(c, 4000.0) is None
-    assert c._summary_failure_cooldown_until == 4000.0 + 900
+    assert _fail_with_timeout(c, 5000.0) is None
+    assert c._summary_failure_cooldown_until == 5000.0 + 1800
 
 
 def test_timeout_streak_resets_on_success():
@@ -172,9 +173,9 @@ def test_timeout_streak_resets_on_success():
     c._clear_compression_failure_cooldown()
     assert c._consecutive_timeout_failures == 0
 
-    # The next timeout starts back at the 60s rung.
+    # The next timeout starts back at the 300s rung.
     assert _fail_with_timeout(c, 5000.0) is None
-    assert c._summary_failure_cooldown_until == 5000.0 + 60
+    assert c._summary_failure_cooldown_until == 5000.0 + 300
 
 
 def test_non_timeout_transient_errors_keep_flat_cooldown():
