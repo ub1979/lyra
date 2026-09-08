@@ -57,7 +57,7 @@ function presentTask(task: UltimateBuilderRunTask, stale: boolean): ProjectAgent
     detail = 'This work item used its safe work limit before it finished. Its progress is saved; Lyra should continue the remaining part as a new, smaller job.'
   }
   if (needsTechnicalReview(task)) {
-    detail = 'The worker has paused for a technical check. Use Review with Lyra above the message box; you do not need to inspect code.'
+    detail = 'The worker has paused for a technical check. Lyra will review it through the main conversation; you do not need to inspect code.'
   }
   if (task.dispatch_issue) detail = task.dispatch_issue
 
@@ -84,11 +84,6 @@ export function activeProjectAgentActivity(items: readonly ProjectAgentActivityI
   return items.filter(item => item.running)
 }
 
-/** Keep live work and stopped work needing action visible in Agent Activity. */
-export function visibleProjectAgentActivity(items: readonly ProjectAgentActivityItem[]): ProjectAgentActivityItem[] {
-  return items.filter(item => item.running || item.attention)
-}
-
 export function projectAgentSummary(items: readonly ProjectAgentActivityItem[], chatWorkers = 0): string {
   const running = items.filter(item => item.running).length + chatWorkers
   const attention = items.filter(item => item.attention).length
@@ -104,15 +99,4 @@ export function projectAgentSummary(items: readonly ProjectAgentActivityItem[], 
       .filter(Boolean)
       .join(' · ') || (items.length ? 'Saved jobs' : 'No active work')
   )
-}
-
-/** A chat turn alone does not prove any background worker is running. */
-export function coordinatorActivityMessage(items: readonly ProjectAgentActivityItem[], chatWorkers = 0): string {
-  if (items.some(item => item.attention)) {
-    return 'I’m handling your message. Some project work needs attention; see Project agents for its saved status.'
-  }
-  if (chatWorkers || items.some(item => item.running)) {
-    return 'I’m handling your message while the project agents work in the background.'
-  }
-  return 'I’m handling your message. Project agents are shown separately when they have work to do.'
 }

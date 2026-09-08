@@ -3,7 +3,7 @@ import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useGuidedClarification } from './useGuidedClarification'
-import { GuidedClarification } from '../components/GuidedClarification'
+import { guidedClarificationMessage } from '../lib/guided-clarification'
 import { decodePromptAnswerFrame } from '@hermes/shared'
 
 describe('clarification event-to-answer integration', () => {
@@ -73,12 +73,9 @@ describe('clarification event-to-answer integration', () => {
     let control!: ReturnType<typeof useGuidedClarification>
     function Harness() {
       control = useGuidedClarification(socketRef)
-      return control.request ? (
-        <article>
-          <p>{control.request.question}</p>
-          <GuidedClarification request={control.request} sending={control.sending} onAnswer={control.answer} />
-        </article>
-      ) : null
+      return control.request
+        ? <p>{guidedClarificationMessage(control.request.question, control.request.choices)}</p>
+        : null
     }
     await act(async () => {
       root.render(<Harness />)
@@ -92,8 +89,10 @@ describe('clarification event-to-answer integration', () => {
         })
       })
       expect(host.textContent).toContain('Launch country?')
+      expect(host.textContent).toContain('1. UK')
+      expect(host.querySelector('button')).toBeNull()
       await act(async () => {
-        host.querySelector<HTMLButtonElement>('button')!.click()
+        control.answer('UK')
         control.answer('UK')
       })
       expect(send).toHaveBeenCalledTimes(1)

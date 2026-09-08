@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { decodePromptAnswerFrame } from '@hermes/shared'
 import {
   answerGuidedClarification,
+  guidedClarificationAnswer,
+  guidedClarificationMessage,
   readGuidedClarification,
   type GuidedClarificationRequest
 } from './guided-clarification'
@@ -39,6 +41,26 @@ function transportHarness() {
 }
 
 describe('guided clarification', () => {
+  it('puts the question and choices in one ordinary message for a typed reply', () => {
+    const message = guidedClarificationMessage('Which country?', ['UK', 'Canada'])
+    expect(message).toContain('Which country?')
+    expect(message).toContain('1. UK')
+    expect(message).toContain('2. Canada')
+    expect(message).toContain('type your own answer')
+  })
+
+  it('asks for a typed reply when there are no suggested choices', () => {
+    expect(guidedClarificationMessage('What should change?', [])).toContain(
+      'Type your answer below.'
+    )
+  })
+
+  it('turns a typed list number into the corresponding answer', () => {
+    expect(guidedClarificationAnswer(request, '2')).toBe('Screening support')
+    expect(guidedClarificationAnswer(request, 'My own answer')).toBe('My own answer')
+    expect(guidedClarificationAnswer(request, '9')).toBe('9')
+  })
+
   it('never sends a new answer frame to an older running server', () => {
     const h = transportHarness()
     expect(answerGuidedClarification({ ...request, answerProtocol: undefined }, 'UK', h.transport)).toBe(false)

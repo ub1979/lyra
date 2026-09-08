@@ -5,8 +5,7 @@ import { GuidedCoordinatorActivity } from './GuidedCoordinatorActivity'
 import { analyzeGuidedChatOutput } from '../lib/guided-chat-output'
 import {
   activeProjectAgentActivity,
-  projectAgentActivity,
-  visibleProjectAgentActivity
+  projectAgentActivity
 } from '../lib/project-agent-activity'
 import { job, savedRun } from '../lib/project-agent-activity.fixtures'
 
@@ -62,21 +61,17 @@ describe('Studio agent activity rendering', () => {
     expect(html).not.toContain('<button')
   })
 
-  it('keeps an exact blocked work item visible in Studio', () => {
-    const items = visibleProjectAgentActivity(
-      projectAgentActivity(savedRun([
-        job({
-          phase: 'sw-developer',
-          label: 'Development · TG-005: Platform ledger',
-          status: 'blocked',
-          last_error: 'Iteration budget exhausted (90/90)'
-        })
-      ]))
-    )
+  it('keeps stopped work out of Agent Activity', () => {
+    const items = activeProjectAgentActivity(projectAgentActivity(savedRun([
+      job({
+        phase: 'sw-developer',
+        label: 'Development · TG-005: Platform ledger',
+        status: 'blocked',
+        last_error: 'Iteration budget exhausted (90/90)'
+      })
+    ])))
     const html = renderToStaticMarkup(<ProjectAgentJobs items={items} stale={false} />)
-    expect(html).toContain('Development · TG-005: Platform ledger')
-    expect(html).toContain('Saved safely — needs a smaller continuation')
-    expect(html).toContain('progress is saved')
+    expect(html).not.toContain('Development · TG-005: Platform ledger')
     expect(html).not.toContain('90/90')
   })
 

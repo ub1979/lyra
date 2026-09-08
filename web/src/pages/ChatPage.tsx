@@ -20,9 +20,6 @@ import { FitAddon } from "@xterm/addon-fit";
 import { GuidedProgressMap } from '../components/GuidedProgressMap';
 import { GuidedAgentAvatar } from '../components/GuidedAgentAvatar';
 import { useProjectLedger } from '../hooks/useProjectLedger';
-import { StudioQuestionAlerts } from '../components/StudioQuestionAlerts';
-import { ProjectAttention } from '../components/ProjectAttention';
-import { projectAttentionPrompt } from '../lib/project-attention';
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
@@ -79,7 +76,10 @@ import {
 } from "@/lib/guided-phase-plan";
 import {
   guidedApprovalChoices,
+  guidedApprovalChoiceFromText,
   guidedApprovalKey,
+  guidedApprovalLabel,
+  guidedApprovalMessage,
   guidedModelRoutingTurnDirective,
   guidedPlainLanguageTurnDirective,
   guidedRequirementsTurnDirective,
@@ -140,18 +140,19 @@ import { useSearchParams } from "react-router-dom";
 import { ChatSidebar } from "@/components/ChatSidebar";
 import { CopyMessageButton } from "@/components/CopyMessageButton";
 import { GuidedAppPreview } from "@/components/GuidedAppPreview";
-import { GuidedApprovalActions } from "@/components/GuidedApprovalActions";
 import { GuidedProjectHistory } from "@/components/GuidedProjectHistory";
 import { GuidedCoordinatorActivity } from "@/components/GuidedCoordinatorActivity";
-import { GuidedClarification } from "@/components/GuidedClarification";
 import { useGuidedClarification } from "@/hooks/useGuidedClarification";
 import { ProjectAgentJobs } from "@/components/ProjectAgentJobs";
 import {
-  coordinatorActivityMessage,
+  activeProjectAgentActivity,
   projectAgentActivity,
   projectAgentSummary,
-  visibleProjectAgentActivity,
 } from "@/lib/project-agent-activity";
+import {
+  guidedClarificationAnswer,
+  guidedClarificationMessage,
+} from "@/lib/guided-clarification";
 import { Markdown } from "@/components/Markdown";
 import { ChatSessionList } from "@/components/ChatSessionList";
 import { usePageHeader } from "@/contexts/usePageHeader";
@@ -361,13 +362,6 @@ interface GuidedModelReviewRequest {
   provider: string;
   unavailable: GuidedUnavailableModelAssignment[];
 }
-
-const GUIDED_APPROVAL_LABELS: Record<GuidedApprovalChoice, string> = {
-  always: "Always allow",
-  deny: "Deny",
-  once: "Allow once",
-  session: "Allow this session",
-};
 
 const GUIDED_SPECIALIST_LABELS: Record<string, string> = {
   "app-it": "Lyra",
@@ -679,7 +673,7 @@ function GuidedRuntimePanel({
   usage: GuidedUsageSnapshot;
 }) {
   const model = usage.model || defaultModelLabel;
-  const jobs = visibleProjectAgentActivity(
+  const jobs = activeProjectAgentActivity(
     projectAgentActivity(runState, runStateStale),
   );
   const workingCount = activeWorkers.length + jobs.filter((job) => job.running).length;
@@ -1199,37 +1193,6 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       ordered: orderGuidedPhases(guidedSelectedSpecialistIds),
     });
   const guidedProgressSummary = guidedPhaseSummary(guidedPhaseSteps);
-  const latestGuidedMessage = guidedMessages[guidedMessages.length - 1] ?? null;
-  const showRequirementsApproval =
-    !guidedClarification &&
-    !guidedApproval &&
-    guidedActivity.phase === "idle" &&
-    latestGuidedMessage?.role === "assistant" &&
-    guidedSelectedSpecialistIds.includes("req-engineer") &&
-    /requirements? (?:summary|are ready)|approve requirements?/i.test(
-      latestGuidedMessage.content,
-    ) &&
-    /(?:reply\s+\**approve|does this match|for (?:your )?approval)/i.test(
-      latestGuidedMessage.content,
-    );
-  const showWorkflowApproval =
-    !showRequirementsApproval &&
-    !guidedClarification &&
-    !guidedApproval &&
-    guidedActivity.phase === "idle" &&
-    latestGuidedMessage?.role === "assistant" &&
-    /\b(?:reply\s+\**approve|approve to continue|approval before)\b/i.test(
-      latestGuidedMessage.content,
-    );
-  const showRequirementChoices =
-    !showRequirementsApproval &&
-    !showWorkflowApproval &&
-    !guidedClarification &&
-    !guidedApproval &&
-    guidedActivity.phase === "idle" &&
-    latestGuidedMessage?.role === "assistant" &&
-    guidedSelectedSpecialistIds.includes("req-engineer") &&
-    /[?？]/.test(latestGuidedMessage.content);
   // Lazy-init: the missing-token check happens at construction so the effect
   // body doesn't have to setState (React 19's set-state-in-effect rule).
   // In gated (OAuth) mode the server intentionally omits the session token —
@@ -1872,6 +1835,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           if (payload?.request_id && payload.question) {
             const id = `clarify-${payload.request_id}`;
             const question = payload.question;
+            const choices = Array.isArray(payload.choices)
+              ? payload.choices.filter(
+                  (choice): choice is string => typeof choice === "string",
+                )
+              : [];
             setGuidedMessages((messages) =>
               messages.some((message) => message.id === id)
                 ? messages
@@ -1880,7 +1848,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                     {
                       id,
                       role: "assistant",
-                      content: question,
+                      content: guidedClarificationMessage(question, choices),
                       plain: true,
                       createdAt: Date.now(),
                     },
@@ -1996,7 +1964,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                   {
                     id: messageId,
                     role: "assistant",
-                    content: description,
+                    content: guidedApprovalMessage(
+                      description,
+                      choices,
+                      command,
+                    ),
                     plain: true,
                     createdAt: Date.now(),
                   },
@@ -2467,13 +2439,16 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   }, [guided, isActive, narrow, mobilePanelOpen, modelToolsLabel, setEnd]);
 
   const respondToGuidedClarification = useCallback((answer: string): boolean => {
-    const requestId = guidedClarificationRef.current?.requestId;
-    if (!answerClarification(answer)) return false;
+    const request = guidedClarificationRef.current;
+    const requestId = request?.requestId;
+    if (!request) return false;
+    const resolvedAnswer = guidedClarificationAnswer(request, answer);
+    if (!answerClarification(resolvedAnswer)) return false;
     const id = `answer-${requestId}`;
     setGuidedMessages((messages) => messages.some(message => message.id === id) ? messages : [...messages, {
       id,
       role: "user",
-      content: answer.trim(),
+      content: resolvedAnswer,
       createdAt: Date.now(),
     }]);
     setGuidedInput("");
@@ -2491,6 +2466,45 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     const ws = wsRef.current;
     if (guidedClarificationRef.current) {
       respondToGuidedClarification(text);
+      return;
+    }
+    const approval = guidedApprovalRef.current;
+    if (approval) {
+      const choice = guidedApprovalChoiceFromText(approval.choices, text);
+      if (!choice) {
+        setBanner(
+          `Type one of these approval choices in the message box: ${approval.choices
+            .map(guidedApprovalLabel)
+            .join(", ")}.`,
+        );
+        return;
+      }
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        setBanner("Reconnect the project chat, then send the same approval answer again.");
+        return;
+      }
+      const key = guidedApprovalKey(approval.choices, choice);
+      if (!key) return;
+      ws.send(key);
+      setGuidedMessages((messages) => [
+        ...messages,
+        {
+          id: `approval-answer-${Date.now()}`,
+          role: "user",
+          content: displayValue?.trim() || text,
+          createdAt: Date.now(),
+        },
+      ]);
+      guidedApprovalRef.current = null;
+      setGuidedApproval(null);
+      setGuidedInput("");
+      setBanner(null);
+      setGuidedLastSignalAt(Date.now());
+      setGuidedActivity((current) => ({
+        phase: "working",
+        text: choice === "deny" ? "Stopping that action…" : "Continuing…",
+        specialist: current.specialist ?? APP_IT_SPECIALIST,
+      }));
       return;
     }
     const modelReview = guidedModelReviewRef.current;
@@ -2573,29 +2587,6 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     if (!options.preserveDraft) setGuidedInput("");
     },
     [respondToGuidedClarification, guidedClarificationRef],
-  );
-
-  const respondToGuidedApproval = useCallback(
-    (choice: GuidedApprovalChoice) => {
-      const request = guidedApproval;
-      const socket = wsRef.current;
-      if (!request || !socket || socket.readyState !== WebSocket.OPEN) return;
-      const key = guidedApprovalKey(request.choices, choice);
-      if (!key) return;
-      // The approval overlay lives in the real Ink TUI running inside this PTY.
-      // Its numbered choices are the transport contract; forwarding the key
-      // resolves the exact pending request even for profile-scoped gateways.
-      socket.send(key);
-      guidedApprovalRef.current = null;
-      setGuidedApproval(null);
-      setGuidedLastSignalAt(Date.now());
-      setGuidedActivity((current) => ({
-        phase: "working",
-        text: choice === "deny" ? "Stopping that action…" : "Continuing…",
-        specialist: current.specialist ?? APP_IT_SPECIALIST,
-      }));
-    },
-    [guidedApproval],
   );
 
   const sendGuidedProjectState = useCallback(
@@ -2777,6 +2768,13 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const sendGuidedMessage = useCallback(() => {
     const text = guidedInput.trim();
     const attachments = guidedAttachments;
+    if (
+      attachments.length &&
+      (guidedClarificationRef.current || guidedApprovalRef.current)
+    ) {
+      setBanner("Answer Lyra in the message box before sending attachments.");
+      return;
+    }
     if (!attachments.length) {
       submitGuidedText(guidedInput);
       return;
@@ -2842,6 +2840,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     appendGuidedError,
     guidedAttachBusy,
     guidedAttachments,
+    guidedClarificationRef,
     guidedInput,
     guidedModelCaps,
     scopedProfile,
@@ -4788,8 +4787,6 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               >
                 <MessageCircle className="h-4 w-4" />
               </button>
-              <StudioQuestionAlerts key={workspaceParam} workspace={workspaceParam}
-                question={guidedClarification} runState={guidedRunState} stale={guidedRunStateStale} />
               <label
                 className="lyra-studio-icon-control lyra-studio-select-control"
                 title={`Text size: ${
@@ -5083,7 +5080,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                           ? "whitespace-pre-wrap rounded-br-md bg-midground text-background-base"
                           : message.role === "error"
                           ? "whitespace-pre-wrap rounded-bl-md border border-warning/40 bg-warning/10 text-warning"
-                          : "rounded-bl-md border border-current/10 bg-midground/5 text-text-primary",
+                          : cn(
+                              "rounded-bl-md border border-current/10 bg-midground/5 text-text-primary",
+                              message.plain && "whitespace-pre-wrap",
+                            ),
                       )}
                     >
                       <div className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider">
@@ -5120,93 +5120,6 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                       ) : (
                         message.content
                       )}
-                      {guidedClarification &&
-                        message.id ===
-                          `clarify-${guidedClarification.requestId}` && (
-                          <GuidedClarification
-                            request={guidedClarification}
-                            sending={guidedClarificationSending}
-                            error={guidedClarificationError}
-                            onAnswer={(answer) => {
-                              respondToGuidedClarification(answer);
-                            }}
-                          />
-                        )}
-                      {guidedApproval &&
-                        message.id === guidedApproval.messageId && (
-                          <GuidedApprovalActions
-                            choices={guidedApproval.choices}
-                            command={guidedApproval.command}
-                            labels={GUIDED_APPROVAL_LABELS}
-                            onChoose={respondToGuidedApproval}
-                          />
-                        )}
-                      {showRequirementsApproval &&
-                        message.id === latestGuidedMessage?.id && (
-                          <div className="mt-3 flex flex-wrap gap-2 border-t border-current/10 pt-3">
-                            <Button
-                              size="sm"
-                              onClick={() => submitGuidedText("approve")}
-                            >
-                              Approve requirements
-                            </Button>
-                            <span className="self-center text-xs text-text-secondary">
-                              Or type what you would like changed.
-                            </span>
-                          </div>
-                        )}
-                      {showWorkflowApproval &&
-                        message.id === latestGuidedMessage?.id && (
-                          <div className="mt-3 flex flex-wrap gap-2 border-t border-current/10 pt-3">
-                            <Button
-                              size="sm"
-                              onClick={() => submitGuidedText("approve")}
-                            >
-                              Approve and continue
-                            </Button>
-                            <span className="self-center text-xs text-text-secondary">
-                              Or type what you would like changed.
-                            </span>
-                          </div>
-                        )}
-                      {showRequirementChoices &&
-                        message.id === latestGuidedMessage?.id && (
-                          <div className="mt-3 flex flex-wrap gap-2 border-t border-current/10 pt-3">
-                            <Button
-                              ghost
-                              size="sm"
-                              onClick={() =>
-                                submitGuidedText(
-                                  "Skip this question. Record it as an open decision and ask the next single question.",
-                                )
-                              }
-                            >
-                              Skip this question
-                            </Button>
-                            <Button
-                              ghost
-                              size="sm"
-                              onClick={() =>
-                                submitGuidedText(
-                                  "Decide this question for me using the safest sensible default. Briefly state the default, then ask the next single question.",
-                                )
-                              }
-                            >
-                              Decide for me
-                            </Button>
-                            <Button
-                              ghost
-                              size="sm"
-                              onClick={() =>
-                                submitGuidedText(
-                                  "Use sensible defaults for all remaining requirements questions. Summarize the complete requirements and choices for my approval before any coding.",
-                                )
-                              }
-                            >
-                              Use smart defaults
-                            </Button>
-                          </div>
-                        )}
                       {message.role === "error" && (
                         <Button
                           className="mt-3"
@@ -5251,47 +5164,6 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               addGuidedAttachments(Array.from(event.dataTransfer.files));
             }}
           >
-            {!hasModelConnectionError && guidedActivity.phase === "working" && (
-              <div className="mx-auto mb-2 max-h-[25vh] max-w-3xl overflow-y-auto text-sm">
-                <GuidedCoordinatorActivity
-                  text={guidedActivity.text || coordinatorActivityMessage(guidedProjectJobs, guidedActiveWorkers.length)}
-                  compacting={guidedCompacting}
-                  waitingForInput={Boolean(guidedClarification || guidedApproval)}
-                  sendingAnswer={guidedClarificationSending}
-                  lastSignalAt={guidedLastSignalAt}
-                  runningTool={guidedRunningTool}
-                  onRetry={retryLastGuidedMessage}
-                />
-              </div>
-            )}
-            <ProjectAttention
-              state={guidedRunState}
-              stale={guidedRunStateStale}
-              disabledReason={
-                !guidedAgentReady || ptyState !== "open"
-                  ? "Reconnect the project chat below to ask Lyra for a review."
-                  : guidedModelReview
-                    ? "Choose the highlighted replacement models first."
-                    : guidedClarification || guidedApproval
-                      ? "Answer the open question above first. Your review request will not replace that answer."
-                      : guidedActivity.phase === "working" || guidedAttachBusy
-                        ? "Lyra is handling your current message. You can request this review once it finishes."
-                        : undefined
-              }
-              onReview={(task) => {
-                // The ref may see a question before React paints the disabled
-                // button. Never send a review request as that question's answer.
-                if (guidedClarificationRef.current) {
-                  setBanner("Answer the open question first, then request the review.");
-                  return;
-                }
-                submitGuidedText(
-                  projectAttentionPrompt(task),
-                  "Please check the paused project work and explain the next step.",
-                  { applyAgentRouting: false, preserveDraft: true },
-                );
-              }}
-            />
             {guidedAttachments.length > 0 && (
               <ul className="mx-auto mb-2 flex max-w-3xl flex-wrap gap-2">
                 {guidedAttachments.map((file, index) => (
@@ -5374,7 +5246,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 size="icon"
                 aria-label="Attach files or images"
                 title="Attach files or images"
-                disabled={guidedAttachBusy}
+                disabled={
+                  guidedAttachBusy ||
+                  Boolean(guidedClarification || guidedApproval)
+                }
                 onClick={() => guidedFileInputRef.current?.click()}
               >
                 <Paperclip className="h-4 w-4" />
@@ -5402,6 +5277,14 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                     ? "Preparing the project conversation…"
                     : guidedModelReview
                       ? "Choose replacement agent models before continuing…"
+                    : guidedClarificationSending
+                      ? "Sending your answer…"
+                    : guidedClarification
+                      ? "Type your answer to Lyra…"
+                    : guidedApproval
+                      ? `Type your choice: ${guidedApproval.choices
+                          .map(guidedApprovalLabel)
+                          .join(", ")}…`
                     : guidedPaused
                       ? "Workers are paused—keep talking to Lyra…"
                     : "Describe your idea or ask Lyra what to do next…"
@@ -5415,6 +5298,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 disabled={
                   !guidedAgentReady ||
                   Boolean(guidedModelReview) ||
+                  guidedClarificationSending ||
                   guidedAttachBusy ||
                   (!guidedInput.trim() && !guidedAttachments.length) ||
                   ptyState !== "open"
@@ -5427,6 +5311,16 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             <p className="mx-auto mt-1.5 max-w-3xl px-2 text-xs text-text-secondary">
               {guidedModelReview
                 ? "Open Agents and choose each highlighted replacement model."
+                : guidedClarificationError
+                ? guidedClarificationError
+                : guidedClarificationSending
+                ? "Waiting for Lyra to confirm your answer…"
+                : guidedClarification
+                ? "Reply in this message box. Lyra will continue after your answer."
+                : guidedApproval
+                ? `Reply here with ${guidedApproval.choices
+                    .map(guidedApprovalLabel)
+                    .join(", ")}.`
                 : guidedAttachBusy
                 ? "Uploading attachments…"
                 : (attachmentCapabilityNotice(guidedModelCaps) ??

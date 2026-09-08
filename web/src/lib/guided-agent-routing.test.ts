@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   guidedApprovalChoices,
+  guidedApprovalChoiceFromText,
   guidedApprovalKey,
+  guidedApprovalMessage,
   guidedModelRoutingTurnDirective,
   guidedPlainLanguageTurnDirective,
   guidedRequirementsTurnDirective,
@@ -113,5 +115,28 @@ describe("guided approvals", () => {
     expect(choices).toEqual(["once", "deny"]);
     expect(guidedApprovalKey(choices, "deny")).toBe("2");
     expect(guidedApprovalKey(choices, "always")).toBeNull();
+  });
+
+  it("falls back safely when a backend sends an empty choice list", () => {
+    expect(guidedApprovalChoices({ choices: [], allowPermanent: false })).toEqual([
+      "once",
+      "session",
+      "deny",
+    ]);
+  });
+
+  it("presents approval in the transcript and accepts an explicit typed reply", () => {
+    const choices = ["once", "deny"] as const;
+    const message = guidedApprovalMessage("May I run the checks?", choices, "npm test");
+    expect(message).toContain("May I run the checks?");
+    expect(message).toContain("Action: npm test");
+    expect(message).toContain("Type your choice below: Allow once, Deny.");
+    expect(guidedApprovalChoiceFromText(choices, "Allow once")).toBe("once");
+    expect(guidedApprovalChoiceFromText(choices, "2")).toBe("deny");
+    expect(guidedApprovalChoiceFromText(choices, "please continue")).toBeNull();
+  });
+
+  it("never resolves a choice that the backend did not offer", () => {
+    expect(guidedApprovalChoiceFromText(["once", "deny"], "always")).toBeNull();
   });
 });

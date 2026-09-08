@@ -120,9 +120,10 @@ export function guidedApprovalChoices(payload: {
   smartDenied?: boolean;
 }): GuidedApprovalChoice[] {
   if (payload.choices) {
-    return payload.choices.filter((choice): choice is GuidedApprovalChoice =>
+    const offered = payload.choices.filter((choice): choice is GuidedApprovalChoice =>
       ALL_APPROVAL_CHOICES.includes(choice as GuidedApprovalChoice),
     );
+    if (offered.length) return offered;
   }
   if (payload.smartDenied) return ["once", "deny"];
   return payload.allowPermanent === false
@@ -136,4 +137,50 @@ export function guidedApprovalKey(
 ): string | null {
   const index = choices.indexOf(choice);
   return index < 0 ? null : String(index + 1);
+}
+
+const APPROVAL_LABELS: Record<GuidedApprovalChoice, string> = {
+  once: "Allow once",
+  session: "Allow this session",
+  always: "Always allow",
+  deny: "Deny",
+};
+
+export function guidedApprovalLabel(choice: GuidedApprovalChoice): string {
+  return APPROVAL_LABELS[choice];
+}
+
+/** Put the complete approval request in the transcript, not in a second panel. */
+export function guidedApprovalMessage(
+  description: string,
+  choices: readonly GuidedApprovalChoice[],
+  command = "",
+): string {
+  const options = choices.map(guidedApprovalLabel).join(", ");
+  return [
+    description.trim() || "This action needs your approval.",
+    command.trim() ? `Action: ${command.trim()}` : "",
+    `Type your choice below: ${options}.`,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+/** Resolve only explicit typed approval answers; unrelated chat must not approve. */
+export function guidedApprovalChoiceFromText(
+  choices: readonly GuidedApprovalChoice[],
+  input: string,
+): GuidedApprovalChoice | null {
+  const normalized = input.trim().toLocaleLowerCase().replace(/[.!]+$/g, "").trim();
+  const aliases: Record<GuidedApprovalChoice, readonly string[]> = {
+    once: ["allow once", "once", "approve once", "yes", "approve", "allow"],
+    session: ["allow this session", "this session", "session"],
+    always: ["always allow", "allow always", "always"],
+    deny: ["deny", "do not allow", "don't allow", "reject", "no"],
+  };
+  const numeric = Number(normalized);
+  if (Number.isInteger(numeric) && numeric >= 1 && numeric <= choices.length) {
+    return choices[numeric - 1] ?? null;
+  }
+  return choices.find(choice => aliases[choice].includes(normalized)) ?? null;
 }

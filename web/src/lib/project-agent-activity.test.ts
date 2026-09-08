@@ -2,10 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { job, savedRun } from './project-agent-activity.fixtures'
 import {
   activeProjectAgentActivity,
-  coordinatorActivityMessage,
   projectAgentActivity,
-  projectAgentSummary,
-  visibleProjectAgentActivity
+  projectAgentSummary
 } from './project-agent-activity'
 
 describe('saved project agent activity', () => {
@@ -22,7 +20,6 @@ describe('saved project agent activity', () => {
       const items = projectAgentActivity(savedRun([job({ status })]))
       expect(items[0].running).toBe(false)
       expect(projectAgentSummary(items)).not.toContain('working')
-      expect(coordinatorActivityMessage(items)).not.toContain('while the project agents work')
     }
   )
 
@@ -66,10 +63,6 @@ describe('saved project agent activity', () => {
     )
     expect(projectAgentSummary(items, 1)).toBe('2 working · 1 need attention · 1 queued')
     expect(activeProjectAgentActivity(items).map(item => item.id)).toEqual(['default:research-1'])
-    expect(visibleProjectAgentActivity(items).map(item => item.id)).toEqual([
-      'default:research-1',
-      'default:a'
-    ])
   })
 
   it('retains stale history without claiming it is live, then recovers', () => {

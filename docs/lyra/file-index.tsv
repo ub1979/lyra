@@ -1,4 +1,5 @@
 path	area	summary
+.claude/settings.local.json	.claude	json: settings.local
 .dockerignore	root	configuration: .dockerignore
 .gitattributes	root	configuration: .gitattributes
 .githooks/pre-commit	.githooks	configuration: pre commit
@@ -1749,6 +1750,7 @@ docs/lyra/changes/2026-09-07-lean-context.md	docs	md: 2026 09 07 lean context
 docs/lyra/changes/2026-09-07-small-development-jobs.md	docs	md: 2026 09 07 small development jobs
 docs/lyra/changes/2026-09-07-studio-liveness-time.md	docs	md: 2026 09 07 studio liveness time
 docs/lyra/changes/2026-09-08-project-notification-and-watchdog-liveness.md	docs	md: 2026 09 08 project notification and watchdog liveness
+docs/lyra/changes/2026-09-08-single-project-conversation.md	docs	md: 2026 09 08 single project conversation
 docs/lyra/file-index.tsv	docs	tsv: file index
 docs/middleware/README.md	docs	md: README
 docs/observability/README.md	docs	md: README
@@ -2071,8 +2073,8 @@ hermes_cli/web_dist/assets/RulesCompressed-Medium-CA76_CrB.woff2	hermes_cli	Gene
 hermes_cli/web_dist/assets/RulesCompressed-Regular-BSXFyF4x.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Bold-DZA7s8Pa.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Regular-l8uVympt.woff2	hermes_cli	Generated asset; edit its source and rebuild
-hermes_cli/web_dist/assets/index-DmL8smRp.js	hermes_cli	Generated asset; edit its source and rebuild
-hermes_cli/web_dist/assets/index-xIyDNyYZ.css	hermes_cli	Generated asset; edit its source and rebuild
+hermes_cli/web_dist/assets/index-BGAdPJZk.css	hermes_cli	Generated asset; edit its source and rebuild
+hermes_cli/web_dist/assets/index-yXF1HPCp.js	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Bold.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Italic.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Regular.woff2	hermes_cli	Generated asset; edit its source and rebuild
@@ -6972,10 +6974,6 @@ web/src/components/CopyMessageButton.tsx	web	tsx: CopyMessageButton
 web/src/components/DeleteConfirmDialog.tsx	web	tsx: DeleteConfirmDialog
 web/src/components/GuidedAgentAvatar.tsx	web	tsx: GuidedAgentAvatar
 web/src/components/GuidedAppPreview.tsx	web	tsx: GuidedAppPreview
-web/src/components/GuidedApprovalActions.test.tsx	web	Behavioral tests: GuidedApprovalActions.test
-web/src/components/GuidedApprovalActions.tsx	web	tsx: GuidedApprovalActions
-web/src/components/GuidedClarification.test.tsx	web	Behavioral tests: GuidedClarification.test
-web/src/components/GuidedClarification.tsx	web	tsx: GuidedClarification
 web/src/components/GuidedCoordinatorActivity.test.tsx	web	Behavioral tests: GuidedCoordinatorActivity.test
 web/src/components/GuidedCoordinatorActivity.tsx	web	tsx: GuidedCoordinatorActivity
 web/src/components/GuidedProgressMap.test.tsx	web	Behavioral tests: GuidedProgressMap.test
@@ -6994,16 +6992,12 @@ web/src/components/ProfileScopeBanner.tsx	web	tsx: ProfileScopeBanner
 web/src/components/ProfileSwitcher.tsx	web	tsx: ProfileSwitcher
 web/src/components/ProjectAgentJobs.test.tsx	web	Behavioral tests: ProjectAgentJobs.test
 web/src/components/ProjectAgentJobs.tsx	web	tsx: ProjectAgentJobs
-web/src/components/ProjectAttention.test.tsx	web	Behavioral tests: ProjectAttention.test
-web/src/components/ProjectAttention.tsx	web	tsx: ProjectAttention
 web/src/components/ReasoningPicker.tsx	web	* ReasoningPicker — sets the main model's reasoning effort from the dashboard
 web/src/components/ScheduleBuilder.tsx	web	tsx: ScheduleBuilder
 web/src/components/SidebarFooter.tsx	web	tsx: SidebarFooter
 web/src/components/SidebarStatusStrip.tsx	web	tsx: SidebarStatusStrip
 web/src/components/SkillEditorDialog.tsx	web	tsx: SkillEditorDialog
 web/src/components/SlashPopover.tsx	web	tsx: SlashPopover
-web/src/components/StudioQuestionAlerts.test.tsx	web	Behavioral tests: StudioQuestionAlerts.test
-web/src/components/StudioQuestionAlerts.tsx	web	tsx: StudioQuestionAlerts
 web/src/components/ThemeSwitcher.tsx	web	tsx: ThemeSwitcher
 web/src/components/ToolsetConfigDrawer.tsx	web	tsx: ToolsetConfigDrawer
 web/src/contexts/PageHeaderProvider.tsx	web	tsx: PageHeaderProvider
@@ -7115,8 +7109,6 @@ web/src/lib/pty-mobile-input.test.ts	web	Behavioral tests: pty-mobile-input.test
 web/src/lib/pty-mobile-input.ts	web	ts: pty mobile input
 web/src/lib/pty-reconnect.test.ts	web	Behavioral tests: pty-reconnect.test
 web/src/lib/pty-reconnect.ts	web	ts: pty reconnect
-web/src/lib/question-notifications.test.ts	web	Behavioral tests: question-notifications.test
-web/src/lib/question-notifications.ts	web	Browser-only, opt-in alerts. No chat content is persisted or sent elsewhere.
 web/src/lib/reasoning-effort.test.ts	web	Behavioral tests: reasoning-effort.test
 web/src/lib/reasoning-effort.ts	web	* Pure reasoning-effort helpers shared by the dashboard ReasoningPicker.
 web/src/lib/remote-setup.test.ts	web	Behavioral tests: remote-setup.test

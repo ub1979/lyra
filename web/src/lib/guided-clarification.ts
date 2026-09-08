@@ -8,6 +8,32 @@ export interface GuidedClarificationRequest {
   answerProtocol?: string
 }
 
+/** Present one ordinary Lyra message; the shared composer supplies the answer. */
+export function guidedClarificationMessage(
+  question: string,
+  choices: readonly string[]
+): string {
+  const cleanQuestion = question.trim()
+  const cleanChoices = choices.map(choice => choice.trim()).filter(Boolean)
+  if (!cleanChoices.length) return `${cleanQuestion}\n\nType your answer below.`
+  return [
+    cleanQuestion,
+    'You can type your own answer, or reply with one of these:',
+    ...cleanChoices.map((choice, index) => `${index + 1}. ${choice}`)
+  ].join('\n\n')
+}
+
+/** Let a typed list number select its displayed choice; preserve all other text. */
+export function guidedClarificationAnswer(
+  request: GuidedClarificationRequest,
+  input: string
+): string {
+  const text = input.trim()
+  if (!/^\d+$/.test(text)) return text
+  const index = Number(text) - 1
+  return request.choices[index] ?? text
+}
+
 export function readGuidedClarification(
   payload: { request_id?: unknown; question?: unknown; choices?: unknown; answer_protocol?: unknown } | undefined
 ): GuidedClarificationRequest | null {
