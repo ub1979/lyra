@@ -34,8 +34,9 @@ Tests and observed results: The focused stop, sequential/segmented execution,
 and conversation-loop regression set passed 45 tests with one platform skip.
 The broader Kanban tools, goals, goal-mode, dispatcher, Studio workflow, and
 core agent set passed 903 tests with no failures. Ruff, bytecode compilation,
-and `git diff --check` passed. Live restart and the next naturally dispatched
-worker remain as the final runtime verification.
+and `git diff --check` passed. A safe dashboard restart loaded the repair; no
+worker was active or stalled afterward, and repeated dashboard, gateway, and
+database-integrity checks remained healthy.
 
 Compatibility / restart: Existing worker processes keep their loaded code;
 newly spawned workers load the repair automatically. Restart resident chat
@@ -46,4 +47,5 @@ Rollback / retained recovery data: Revert the focused local commit. Existing
 Kanban events remain valid and auditable.
 
 Local commit / authorized push: Reliability repair is authorized by the active
-monitor. No new push or release is authorized for this follow-up.
+monitor. The user explicitly authorized the version bump and Git push on
+2026-09-09; ship as Lyra 0.19.29.

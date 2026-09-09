@@ -9,11 +9,16 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.29] - 2026-09-09 — terminal worker finality
+
 ### Fixed
 
 - Kanban workers now stop immediately after successfully completing or blocking
   their own task instead of continuing to edit files after the board run is
   already terminal.
+
+Restart Lyra to load this repair. Existing projects, jobs, and conversations
+are preserved.
 
 ## [0.19.28] - 2026-09-09 — bounded compression recovery
 
