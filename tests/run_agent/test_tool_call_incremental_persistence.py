@@ -198,6 +198,153 @@ def test_execute_tool_calls_sequential_flushes_each_tool_result_before_next_disp
     ]
 
 
+def test_successful_worker_terminal_call_skips_later_tools(monkeypatch):
+    """No side effect may start after a worker's board run is terminal."""
+    monkeypatch.setenv("HERMES_KANBAN_TASK", "t_abc")
+    agent = _make_agent()
+    tool_calls = [
+        _mock_tool_call(name="kanban_block", call_id="terminal"),
+        _mock_tool_call(name="web_search", call_id="too-late"),
+    ]
+    messages: list = []
+    assistant_message = SimpleNamespace(content="", tool_calls=tool_calls)
+    dispatched: list[str] = []
+
+    def _fake_dispatch(function_name, function_args, effective_task_id, **kwargs):
+        dispatched.append(function_name)
+        if function_name == "kanban_block":
+            return (
+                '{"ok": true, "task_id": "t_abc", "run_id": 7, '
+                '"status": "blocked"}'
+            )
+        return "unexpected later side effect"
+
+    with (
+        patch("run_agent.handle_function_call", side_effect=_fake_dispatch),
+        patch(
+            "agent.tool_executor.maybe_persist_tool_result",
+            side_effect=lambda **kwargs: kwargs["content"],
+        ),
+    ):
+        agent._execute_tool_calls_sequential(
+            assistant_message,
+            messages,
+            "task-1",
+        )
+
+    assert dispatched == ["kanban_block"]
+    assert [m["tool_call_id"] for m in messages] == ["terminal", "too-late"]
+    assert "terminal board state" in messages[-1]["content"]
+    assert agent._kanban_terminal_landed["status"] == "blocked"
+
+
+def test_rejected_worker_terminal_call_keeps_recovery_tools_available(monkeypatch):
+    monkeypatch.setenv("HERMES_KANBAN_TASK", "t_abc")
+    agent = _make_agent()
+    tool_calls = [
+        _mock_tool_call(name="kanban_block", call_id="rejected"),
+        _mock_tool_call(name="web_search", call_id="recovery"),
+    ]
+    messages: list = []
+    assistant_message = SimpleNamespace(content="", tool_calls=tool_calls)
+    dispatched: list[str] = []
+
+    def _fake_dispatch(function_name, function_args, effective_task_id, **kwargs):
+        dispatched.append(function_name)
+        if function_name == "kanban_block":
+            return '{"error": "could not block t_abc"}'
+        return "recovered"
+
+    with (
+        patch("run_agent.handle_function_call", side_effect=_fake_dispatch),
+        patch(
+            "agent.tool_executor.maybe_persist_tool_result",
+            side_effect=lambda **kwargs: kwargs["content"],
+        ),
+    ):
+        agent._execute_tool_calls_sequential(
+            assistant_message,
+            messages,
+            "task-1",
+        )
+
+    assert dispatched == ["kanban_block", "web_search"]
+    assert not hasattr(agent, "_kanban_terminal_landed")
+
+
+def test_terminal_barrier_skips_later_parallel_segment(monkeypatch):
+    monkeypatch.setenv("HERMES_KANBAN_TASK", "t_abc")
+    agent = _make_agent()
+    tool_calls = [
+        _mock_tool_call(name="kanban_complete", call_id="terminal"),
+        _mock_tool_call(name="web_search", call_id="later-1"),
+        _mock_tool_call(name="web_search", call_id="later-2"),
+    ]
+    messages: list = []
+    assistant_message = SimpleNamespace(content="", tool_calls=tool_calls)
+
+    def _fake_dispatch(function_name, function_args, effective_task_id, **kwargs):
+        assert function_name == "kanban_complete"
+        return '{"ok": true, "task_id": "t_abc", "run_id": 8}'
+
+    with (
+        patch("run_agent.handle_function_call", side_effect=_fake_dispatch),
+        patch.object(agent, "_invoke_tool") as later_dispatch,
+        patch(
+            "agent.tool_executor.maybe_persist_tool_result",
+            side_effect=lambda **kwargs: kwargs["content"],
+        ),
+    ):
+        agent._execute_tool_calls(assistant_message, messages, "task-1")
+
+    later_dispatch.assert_not_called()
+    assert [m["tool_call_id"] for m in messages] == [
+        "terminal",
+        "later-1",
+        "later-2",
+    ]
+    assert agent._kanban_terminal_landed["status"] == "done"
+
+
+def test_conversation_stops_without_another_model_call_after_terminal_tool(
+    monkeypatch,
+):
+    monkeypatch.setenv("HERMES_KANBAN_TASK", "t_abc")
+    agent = _make_agent()
+    agent.valid_tool_names = {"kanban_block"}
+    terminal_call = _mock_tool_call(name="kanban_block", call_id="terminal")
+    agent.client.chat.completions.create.return_value = _mock_response(
+        content="",
+        finish_reason="tool_calls",
+        tool_calls=[terminal_call],
+    )
+
+    def _land_terminal(assistant_message, messages, effective_task_id, api_call_count=0):
+        messages.append(
+            make_tool_result_message(
+                "kanban_block",
+                '{"ok": true, "task_id": "t_abc", "status": "blocked"}',
+                "terminal",
+            )
+        )
+        agent._kanban_terminal_landed = {
+            "tool_name": "kanban_block",
+            "status": "blocked",
+        }
+
+    with (
+        patch.object(agent, "_persist_session"),
+        patch.object(agent, "_save_trajectory"),
+        patch.object(agent, "_cleanup_task_resources"),
+        patch.object(agent, "_execute_tool_calls", side_effect=_land_terminal),
+    ):
+        result = agent.run_conversation("work the task")
+
+    assert agent.client.chat.completions.create.call_count == 1
+    assert result["final_response"].startswith("Kanban task is blocked")
+    assert result["messages"][-1]["role"] == "assistant"
+
+
 # ---------------------------------------------------------------------------
 # Contract 3: the CONCURRENT path flushes each collected tool result in append
 # order.  Dispatch goes through agent._invoke_tool (the real concurrent

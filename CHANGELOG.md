@@ -9,6 +9,12 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+### Fixed
+
+- Kanban workers now stop immediately after successfully completing or blocking
+  their own task instead of continuing to edit files after the board run is
+  already terminal.
+
 ## [0.19.28] - 2026-09-09 — bounded compression recovery
 
 ### Fixed

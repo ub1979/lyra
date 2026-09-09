@@ -13,6 +13,7 @@ loop continues instead of exiting.
 
 from __future__ import annotations
 
+import json
 import os
 from typing import Any, Iterable, Optional
 
@@ -66,6 +67,39 @@ def session_called_kanban_terminal(messages: Iterable[dict] | None) -> bool:
     return False
 
 
+def successful_worker_terminal_landing(
+    tool_name: str,
+    result: Any,
+) -> Optional[dict[str, Any]]:
+    """Return the trusted landing payload for a worker terminal tool.
+
+    Merely *calling* ``kanban_complete`` / ``kanban_block`` is insufficient:
+    stale-run fencing and judge gates can reject either operation, and the
+    worker must remain alive to recover from those errors.  This recognizes
+    only the small ``{"ok": true, ...}`` result emitted after the database
+    transition commits, and only inside a dispatcher-spawned worker.
+    """
+    worker_task = (os.environ.get("HERMES_KANBAN_TASK") or "").strip()
+    if not worker_task or tool_name not in _TERMINAL_KANBAN_TOOLS:
+        return None
+    if not isinstance(result, str):
+        return None
+    try:
+        payload = json.loads(result)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(payload, dict) or payload.get("ok") is not True:
+        return None
+    return {
+        "tool_name": tool_name,
+        "status": payload.get("status") or (
+            "done" if tool_name == "kanban_complete" else "blocked"
+        ),
+        "task_id": payload.get("task_id"),
+        "run_id": payload.get("run_id"),
+    }
+
+
 def build_kanban_stop_nudge(
     *,
     messages: Iterable[dict] | None = None,
@@ -105,4 +139,5 @@ __all__ = [
     "build_kanban_stop_nudge",
     "kanban_stop_nudge_enabled",
     "session_called_kanban_terminal",
+    "successful_worker_terminal_landing",
 ]

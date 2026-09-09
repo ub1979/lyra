@@ -8,6 +8,7 @@ from agent.kanban_stop import (
     build_kanban_stop_nudge,
     kanban_stop_nudge_enabled,
     session_called_kanban_terminal,
+    successful_worker_terminal_landing,
 )
 
 
@@ -86,6 +87,50 @@ def test_no_nudge_after_kanban_block(clear_kanban_env):
         {"role": "tool", "name": "kanban_block", "tool_call_id": "1", "content": "blocked"},
     ]
     assert build_kanban_stop_nudge(messages=messages) is None
+
+
+def test_successful_worker_terminal_result_is_a_stop_boundary(clear_kanban_env):
+    clear_kanban_env.setenv("HERMES_KANBAN_TASK", "t_abc")
+
+    assert successful_worker_terminal_landing(
+        "kanban_block",
+        '{"ok": true, "task_id": "t_abc", "run_id": 7, "status": "blocked"}',
+    ) == {
+        "tool_name": "kanban_block",
+        "status": "blocked",
+        "task_id": "t_abc",
+        "run_id": 7,
+    }
+    assert successful_worker_terminal_landing(
+        "kanban_complete",
+        '{"ok": true, "task_id": "t_abc", "run_id": 7}',
+    )["status"] == "done"
+
+
+def test_rejected_or_orchestrator_terminal_result_does_not_stop(clear_kanban_env):
+    clear_kanban_env.setenv("HERMES_KANBAN_TASK", "t_abc")
+    assert successful_worker_terminal_landing(
+        "kanban_block",
+        '{"error": "could not block t_abc"}',
+    ) is None
+
+    clear_kanban_env.delenv("HERMES_KANBAN_TASK")
+    assert successful_worker_terminal_landing(
+        "kanban_block",
+        '{"ok": true, "task_id": "t_abc", "status": "blocked"}',
+    ) is None
+
+
+def test_disabling_missing_terminal_nudge_does_not_disable_terminal_stop(
+    clear_kanban_env,
+):
+    clear_kanban_env.setenv("HERMES_KANBAN_TASK", "t_abc")
+    clear_kanban_env.setenv("HERMES_KANBAN_STOP_NUDGE", "0")
+
+    assert successful_worker_terminal_landing(
+        "kanban_complete",
+        '{"ok": true, "task_id": "t_abc", "run_id": 7}',
+    )["status"] == "done"
 
 
 def test_nudge_budget_exhausted(clear_kanban_env):

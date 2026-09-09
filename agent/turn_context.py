@@ -459,6 +459,9 @@ def build_turn_context(
     agent._unicode_sanitization_passes = 0
     agent._tool_guardrails.reset_for_turn()
     agent._tool_guardrail_halt_decision = None
+    # A goal-mode AIAgent can be reused across worker turns. A terminal write
+    # ends the current turn only; never let its marker leak into a later one.
+    agent._kanban_terminal_landed = None
     _reset_consol = getattr(agent._memory_store, "reset_consolidation_failures", None)
     if callable(_reset_consol):
         _reset_consol()

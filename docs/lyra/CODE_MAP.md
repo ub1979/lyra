@@ -37,7 +37,7 @@ Durable project jobs → Hermes Kanban dispatcher → isolated worker sessions
 | Project move / trash / history | `plugins/ultimate-builder/dashboard/plugin_api.py` | API and relocation tests |
 | Recovery snapshots / relocation | `tools/checkpoint_manager.py`, `tools/checkpoint_relocation.py` | Real Git snapshot, move, restore and conflict tests |
 | Dashboard / PTY / event replay | `hermes_cli/web_server.py`, `hermes_cli/dashboard_prompt_state.py` | Server, auth and replay tests |
-| Chat engine / auxiliary compression deadline | `tui_gateway/`, `ui-tui/src/app/`, `run_agent.py`, `agent/auxiliary_client.py` | Gateway, Ink, auxiliary timeout and compression suites |
+| Chat engine / auxiliary compression / Kanban terminal stop | `tui_gateway/`, `ui-tui/src/app/`, `run_agent.py`, `agent/auxiliary_client.py`, `agent/kanban_stop.py`, `agent/tool_executor.py` | Gateway, Ink, auxiliary timeout, compression and Kanban stop suites |
 | Studio main AI choice / resumed model | `tui_gateway/studio_model_routing.py`, `tui_gateway/server.py`, `ui-tui/src/app/useSessionLifecycle.ts` | Saved GLM → selected Claude subprocess test, resume RPC and failure-retention tests |
 | Model configuration / routing | `hermes_cli/config.py`, `hermes_cli/external_cli.py`, `agent/`, `plugins/model-providers/` | Provider/config, trusted CLI discovery and routing tests |
 | Remote control | `gateway/`, Telegram routes in `hermes_cli/web_server.py` | Gateway/platform and onboarding tests |

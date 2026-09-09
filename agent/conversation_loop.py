@@ -5762,6 +5762,38 @@ def run_conversation(
                                 pass
                     break
 
+                _kanban_terminal = getattr(
+                    agent,
+                    "_kanban_terminal_landed",
+                    None,
+                )
+                if _kanban_terminal is not None:
+                    # kanban_complete / kanban_block already committed the
+                    # terminal run transition. A subsequent provider call can
+                    # only perform work after the task is visibly done/blocked
+                    # (the Hello canary did this for almost two minutes).
+                    # Close the transcript locally; finalize_turn appends this
+                    # assistant row after the paired tool results.
+                    _terminal_name = str(
+                        _kanban_terminal.get("tool_name")
+                        or "kanban terminal tool"
+                    )
+                    _terminal_status = str(
+                        _kanban_terminal.get("status") or "terminal"
+                    )
+                    _turn_exit_reason = f"kanban_terminal({_terminal_name})"
+                    final_response = (
+                        f"Kanban task is {_terminal_status}; "
+                        "the worker stopped after recording that board state."
+                    )
+                    logger.info(
+                        "Kanban worker stopping after successful terminal tool: "
+                        "tool=%s status=%s",
+                        _terminal_name,
+                        _terminal_status,
+                    )
+                    break
+
                 # Reset per-turn retry counters after successful tool
                 # execution so a single truncation doesn't poison the
                 # entire conversation.
