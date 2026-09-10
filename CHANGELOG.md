@@ -9,10 +9,15 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.30] - 2026-09-10 — visible agent selection
+
 ### Fixed
 
 - The project-agent picker now remains visible in Chrome when selecting or
   deselecting agents after scrolling the list.
+
+Restart Lyra to load this repair. Existing projects, jobs, conversations, and
+saved agent choices are preserved.
 
 ## [0.19.29] - 2026-09-09 — terminal worker finality
 
