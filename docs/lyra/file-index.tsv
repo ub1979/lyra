@@ -1759,6 +1759,7 @@ docs/lyra/changes/2026-09-08-project-notification-and-watchdog-liveness.md	docs	
 docs/lyra/changes/2026-09-08-single-project-conversation.md	docs	md: 2026 09 08 single project conversation
 docs/lyra/changes/2026-09-09-codex-auxiliary-timeout-fence.md	docs	md: 2026 09 09 codex auxiliary timeout fence
 docs/lyra/changes/2026-09-09-kanban-terminal-tool-stop.md	docs	md: 2026 09 09 kanban terminal tool stop
+docs/lyra/changes/2026-09-10-agent-picker-chrome-repaint.md	docs	md: 2026 09 10 agent picker chrome repaint
 docs/lyra/file-index.tsv	docs	tsv: file index
 docs/middleware/README.md	docs	md: README
 docs/observability/README.md	docs	md: README

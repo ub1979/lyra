@@ -9,6 +9,11 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+### Fixed
+
+- The project-agent picker now remains visible in Chrome when selecting or
+  deselecting agents after scrolling the list.
+
 ## [0.19.29] - 2026-09-09 — terminal worker finality
 
 ### Fixed

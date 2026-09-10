@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   GUIDED_SPECIALISTS_PANEL,
+  GUIDED_SPECIALISTS_SCROLL_LAYER_STYLE,
   guidedSpecialistModelRowClass,
 } from "./guided-specialists-dialog";
 
@@ -19,6 +20,12 @@ describe("guided specialists dialog geometry", () => {
   it("keeps the panel a flex column that clips its own overflow", () => {
     expect(GUIDED_SPECIALISTS_PANEL).toMatch(/\bflex-col\b/);
     expect(GUIDED_SPECIALISTS_PANEL).toMatch(/\boverflow-hidden\b/);
+  });
+
+  it("keeps scrolled checkbox updates on their own paint layer", () => {
+    expect(GUIDED_SPECIALISTS_SCROLL_LAYER_STYLE.transform).toBe(
+      "translateZ(0)",
+    );
   });
 
   it("gives the LLM row the same box in both states, differing only in opacity", () => {

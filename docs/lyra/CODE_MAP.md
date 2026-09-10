@@ -14,7 +14,7 @@ Durable project jobs → Hermes Kanban dispatcher → isolated worker sessions
 
 | Responsibility | Entry points | Verification |
 |---|---|---|
-| Studio composition | `web/src/pages/ChatPage.tsx` | Web suite and production build |
+| Studio composition | `web/src/pages/ChatPage.tsx` | Web suite, production build and real Chrome agent-picker repaint path |
 | Project map / agent artwork | `web/src/components/GuidedProgressMap.tsx`, `web/src/components/GuidedAgentAvatar.tsx` | Rendering tests and production build |
 | Compact project status / polling | `plugins/ultimate-builder/project_status.py`, `web/src/hooks/useProjectLedger.ts` | Atomic snapshot, malformed/stale fallback, hook and project API tests |
 | Question lifetime / typed reply | `web/src/hooks/useGuidedClarification.ts`, `web/src/lib/guided-clarification.ts`, `web/src/pages/ChatPage.tsx` | Message formatting, request fencing and hook integration tests |

@@ -31,6 +31,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { cn } from "@/lib/utils";
 import {
   GUIDED_SPECIALISTS_PANEL,
+  GUIDED_SPECIALISTS_SCROLL_LAYER_STYLE,
   guidedSpecialistModelRowClass,
 } from "@/lib/guided-specialists-dialog";
 import { writeGuidedPrompt } from "@/lib/guided-composer-paste";
@@ -4415,7 +4416,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           {/* overscroll-contain stops a flick at the list's end from chaining
               into the page behind, which on mobile re-triggers the browser
               chrome show/hide that changes dvh. */}
-          <div className="lyra-studio-agent-dialog-content min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6">
+          <div
+            className="lyra-studio-agent-dialog-content min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6"
+            style={GUIDED_SPECIALISTS_SCROLL_LAYER_STYLE}
+          >
             <div className="lyra-studio-agent-grid grid gap-3 md:grid-cols-2">
               {GUIDED_SELECTABLE_SPECIALIST_IDS.map((id) => {
                 const required = isRequiredGuidedSpecialist(id);

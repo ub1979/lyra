@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import type { CSSProperties } from "react";
 
 /**
  * Geometry for the guided-chat "Project specialists" dialog.
@@ -24,6 +25,17 @@ import { cn } from "@/lib/utils";
 export const GUIDED_SPECIALISTS_PANEL =
   "lyra-studio-agent-dialog relative z-[71] flex h-[88dvh] max-h-full w-full max-w-5xl flex-col overflow-hidden " +
   "rounded-2xl border border-current/20 bg-background-base text-text-primary shadow-2xl";
+
+/**
+ * Chrome on macOS can lose the painted contents of an already-scrolled
+ * overflow layer when a checkbox rerenders its cards. The DOM and accessibility
+ * tree remain correct, but the user sees a blank panel until another scroll.
+ * A compositor layer on the scroll area gives those updates their own paint
+ * invalidation without moving the list or changing dialog geometry.
+ */
+export const GUIDED_SPECIALISTS_SCROLL_LAYER_STYLE: CSSProperties = {
+  transform: "translateZ(0)",
+};
 
 /**
  * The per-card LLM row. Rendered for every card in both states — only its
