@@ -9,6 +9,19 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.33] - 2026-09-11 — truthful live activity
+
+### Fixed
+
+- Guided Studio now keeps one clear live-working message in the main
+  conversation while Lyra processes a request, without restoring duplicate
+  sidebar notifications or action buttons.
+- Delegated child activity can no longer consume the owning Kanban worker's
+  heartbeat throttle and make healthy background work appear quiet or stale.
+
+Restart Lyra to load this repair. Existing projects, jobs, conversations, and
+browser chat history are preserved.
+
 ## [0.19.32] - 2026-09-11 — reliable guided chat recovery
 
 ### Fixed

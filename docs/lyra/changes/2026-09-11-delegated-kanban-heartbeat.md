@@ -16,4 +16,4 @@ Compatibility / restart: Dispatcher workers launched before this change keep the
 
 Rollback / retained recovery data: Revert the focused local commit. Existing tasks, runs, events, conversations, and project files remain intact.
 
-Local commit / authorized push: Implemented and verified in this local change set. No push has been requested for this follow-up yet.
+Local commit / authorized push: Implementation commit `4a8c94125`. The user authorized the release push on 2026-09-11; release metadata is synchronized as Lyra 0.19.33 in the following release commit.

@@ -16,4 +16,4 @@ Compatibility / restart: The Studio production bundle must be rebuilt. A browser
 
 Rollback / retained recovery data: Revert the focused local commit. No project or conversation data is migrated or deleted.
 
-Local commit / authorized push: Implemented and verified in this local change set. No push has been requested for this follow-up yet.
+Local commit / authorized push: Implementation commit `4a8c94125`. The user authorized the release push on 2026-09-11; release metadata is synchronized as Lyra 0.19.33 in the following release commit.
