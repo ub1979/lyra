@@ -83,6 +83,16 @@ Anything that touches existing code gets `.sdlc/changes/CR-<n>-<slug>.md`
 **before** the edit, sized to the risk. A one-line fix gets a short one; a
 structural change gets the full impact analysis from `sw-architect`.
 
+The only exemption is a diff that
+`hermes project-run classify-change --workspace "<project-root>"` proves is
+trivial. The classifier accepts at most four changed lines, at most two
+character edits per paired line, and only non-executable prose under `docs/`
+or comment-only Python/JavaScript/TypeScript corrections. It rejects
+new/deleted/renamed/untracked files, directives, project
+control documents, configuration, schemas, APIs, security text and executable
+behavior. A rejection means the normal record is required. This exemption does
+not waive proportional verification, class-map maintenance or the local commit.
+
 ```markdown
 # CR-004: Split payment retry out of OrderService
 

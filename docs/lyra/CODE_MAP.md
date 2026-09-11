@@ -31,6 +31,7 @@ Durable project jobs → Hermes Kanban dispatcher → isolated worker sessions
 | Project worker eligibility | `hermes_cli/project_job_status.py` | Queue rejection, external-worker visibility and assignment-recovery tests |
 | Indexed job storage / worker run exclusion | `hermes_cli/kanban_db.py` | Database, migration, process-lifecycle, respawn-exclusion and query-plan tests |
 | Project Brain | `plugins/ultimate-builder/project_brain.py` | Real Git freshness and citation tests |
+| Workflow contract / learning reconciliation / trivial-change boundary | `plugins/ultimate-builder/workflow_contract.json`, `plugins/ultimate-builder/workflow_contract.py`, `plugins/ultimate-builder/project_learnings.py`, `plugins/ultimate-builder/trivial_change.py`, `plugins/ultimate-builder/project_run_cli.py` | Contract evidence and alias validation, concurrent legacy import, real Git diff classification and queue preflight tests |
 | Lean coordinator context / cached tool prefix | `tui_gateway/studio_context.py`, `toolsets.py` | Default and explicit configuration, memory/research retention, worker isolation and real schema-size tests |
 | Delegated worker liveness | `tools/delegate_tool.py` | Parent heartbeat relay, stale-child interruption, hard-timeout diagnostics and async delegation tests |
 | Short live job reports / context accounting | `hermes_cli/project_run_summary.py`, `plugins/ultimate-builder/project_run_cli.py`, `agent/context_breakdown.py` | Real project-local SQLite/CLI, pause freshness, truncation and startup-instruction accounting tests |

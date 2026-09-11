@@ -109,21 +109,10 @@ skill does not count as running a specialist.
 | Learning | `learn` | `.sdlc/learnings.jsonl` |
 | Coordination | `idk_it` | `.sdlc/progress.md` |
 
-The imported playbooks originated in another agent environment. Interpret these
-terms using Lyra-native equivalents:
-
-- “Agent tool” or “spawn agent” → a durable `hermes project-run queue` phase;
-  use `delegate_task` only when available for a short disposable lookup
-- “WebSearch” → `web_search` and `web_extract`
-- “ToolSearch” → inspect available tools/toolsets or use Lyra tool search
-- “AskUserQuestion” → `clarify`
-- Claude model aliases → choose the configured Lyra model; use isolated
-  delegates and role-specific prompts rather than provider-specific aliases
-- Claude plugin namespaces → the qualified Lyra skill name or the referenced
-  workflow path
-
-If a playbook conflicts with this file or the actual Lyra tool schema, this
-file and the live tool schema win.
+All active playbooks use Lyra-native tool and model names. The versioned
+`workflow_contract.json` declares foreign aliases that project-run preflight
+rejects if they drift back into a playbook. The live tool schema remains the
+authority when a playbook and runtime disagree.
 
 ## Step 0: establish state
 
@@ -135,6 +124,10 @@ Read the Project Brain before planning or editing, but verify its claims against
 cited source files, tests, and current Git state. If it is absent, create it
 before the first completed change. If `.sdlc/context.md` exists, use it once as
 migration input. Do not overwrite unrelated user changes.
+
+Treat `.sdlc/learnings.jsonl` as the canonical learning history. Project-run
+preflight imports unseen entries from the legacy `.sdlc/debug-learnings.jsonl`
+without deleting or rewriting that recovery file.
 
 Before any Git action, verify that `git rev-parse --show-toplevel` resolves to
 the exact selected workspace. Run Git from that project root only. Never stage,

@@ -9,6 +9,26 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+### Improved
+
+- Ultimate Builder now publishes a versioned contract that distinguishes
+  mechanically enforced workflow rules from model-guided rules and reports the
+  declared ratio without presenting it as total instruction coverage.
+- Durable specialists load one role playbook plus a compact universal contract
+  instead of duplicating the full orchestrator skill in every worker context.
+- Debugging lessons now use `.sdlc/learnings.jsonl`; existing
+  `.sdlc/debug-learnings.jsonl` entries are imported once, with deterministic
+  deduplication, and the legacy file remains untouched for rollback.
+- Tiny spelling corrections in non-executable documentation or comments may
+  skip a change record only when the new conservative classifier proves the
+  diff is within its mechanical boundary. Tests and local commits remain
+  required.
+
+### Fixed
+
+- Project-run preflight now rejects stale foreign-runtime aliases in active
+  playbooks instead of letting unsupported instructions fail silently.
+
 ## [0.19.30] - 2026-09-10 — visible agent selection
 
 ### Fixed

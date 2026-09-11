@@ -1,0 +1,189 @@
+{
+  "schema_version": 1,
+  "contract_version": "1.0.0",
+  "rules": [
+    {
+      "id": "workspace-boundary",
+      "summary": "Project work stays in the selected project repository.",
+      "mode": "enforced",
+      "evidence": ["plugins/ultimate-builder/project_repository.py", "scripts/lyra_git_guard.py"]
+    },
+    {
+      "id": "dependency-order",
+      "summary": "Development work respects a valid acyclic task graph.",
+      "mode": "enforced",
+      "evidence": ["plugins/ultimate-builder/project_work_units.py"]
+    },
+    {
+      "id": "bounded-work-units",
+      "summary": "Blanket development jobs and oversized task graphs are rejected.",
+      "mode": "enforced",
+      "evidence": ["plugins/ultimate-builder/project_work_units.py", "hermes_cli/kanban_decompose.py"]
+    },
+    {
+      "id": "model-provider-pair",
+      "summary": "A specialist model override must carry its matching provider.",
+      "mode": "enforced",
+      "evidence": ["plugins/ultimate-builder/project_runs.py"]
+    },
+    {
+      "id": "worker-run-fencing",
+      "summary": "A stale worker cannot complete or block its successor run.",
+      "mode": "enforced",
+      "evidence": ["hermes_cli/kanban_db.py", "agent/kanban_stop.py"]
+    },
+    {
+      "id": "worker-runtime-bound",
+      "summary": "Every Lyra project job has a finite runtime and retry budget.",
+      "mode": "enforced",
+      "evidence": ["plugins/ultimate-builder/project_runs.py", "hermes_cli/kanban_db.py"]
+    },
+    {
+      "id": "truthful-evidence-presentation",
+      "summary": "Missing or unsafe evidence cannot be presented as completed work.",
+      "mode": "enforced",
+      "evidence": ["plugins/ultimate-builder/project_progress.py", "hermes_cli/project_evidence.py"]
+    },
+    {
+      "id": "validated-status-projection",
+      "summary": "Compact status is schema-checked and atomically derived from the ledger.",
+      "mode": "enforced",
+      "evidence": ["plugins/ultimate-builder/project_status.py"]
+    },
+    {
+      "id": "native-playbook-tools",
+      "summary": "Active playbooks contain no declared foreign-runtime tool aliases.",
+      "mode": "enforced",
+      "evidence": ["plugins/ultimate-builder/workflow_contract.py"]
+    },
+    {
+      "id": "canonical-learning-view",
+      "summary": "Legacy debugging lessons are reconciled into the canonical learning log.",
+      "mode": "enforced",
+      "evidence": ["plugins/ultimate-builder/project_learnings.py", "plugins/ultimate-builder/project_runs.py"]
+    },
+    {
+      "id": "trivial-change-boundary",
+      "summary": "Only mechanically proven non-executable edits may skip a change record.",
+      "mode": "enforced",
+      "evidence": ["plugins/ultimate-builder/trivial_change.py", "plugins/ultimate-builder/project_run_cli.py"]
+    },
+    {
+      "id": "phase-artifact",
+      "summary": "Every phase leaves its named artifact.",
+      "mode": "exhorted",
+      "evidence": ["plugins/ultimate-builder/skills/ultimate-app-builder/SKILL.md"]
+    },
+    {
+      "id": "real-verification",
+      "summary": "Agents run real tests and tools before claiming completion.",
+      "mode": "exhorted",
+      "evidence": ["plugins/ultimate-builder/skills/ultimate-app-builder/SKILL.md"]
+    },
+    {
+      "id": "serious-findings-closed",
+      "summary": "Every serious finding is fixed and reverified or explicitly accepted.",
+      "mode": "exhorted",
+      "evidence": ["plugins/ultimate-builder/skills/ultimate-app-builder/SKILL.md"]
+    },
+    {
+      "id": "least-credential-access",
+      "summary": "Workers receive no credentials they do not need.",
+      "mode": "exhorted",
+      "evidence": ["plugins/ultimate-builder/skills/ultimate-app-builder/SKILL.md"]
+    },
+    {
+      "id": "learning-cannot-self-promote",
+      "summary": "Learned content never rewrites policy or promotes itself.",
+      "mode": "exhorted",
+      "evidence": ["plugins/ultimate-builder/skills/ultimate-app-builder/SKILL.md"]
+    },
+    {
+      "id": "plain-language-status",
+      "summary": "User updates distinguish a completed slice from a completed application.",
+      "mode": "exhorted",
+      "evidence": ["plugins/ultimate-builder/skills/app-it/SKILL.md"]
+    },
+    {
+      "id": "requirements-grill",
+      "summary": "Material requirements work includes the interview, Grill, exploration and approval.",
+      "mode": "exhorted",
+      "evidence": ["plugins/ultimate-builder/skills/app-it/SKILL.md"]
+    },
+    {
+      "id": "class-map-maintenance",
+      "summary": "Development reads and updates the project class map.",
+      "mode": "exhorted",
+      "evidence": ["plugins/ultimate-builder/skills/ultimate-app-builder/references/engineering-standards.md"]
+    },
+    {
+      "id": "change-record",
+      "summary": "Non-trivial edits to existing code receive a prospective change record.",
+      "mode": "exhorted",
+      "evidence": ["plugins/ultimate-builder/skills/ultimate-app-builder/references/engineering-standards.md"]
+    },
+    {
+      "id": "red-green-refactor",
+      "summary": "Production behavior is developed from a failing test.",
+      "mode": "exhorted",
+      "evidence": ["plugins/ultimate-builder/skills/ultimate-app-builder/references/workflows/sw-developer/SKILL.md"]
+    },
+    {
+      "id": "independent-review",
+      "summary": "Review covers every declared review dimension independently.",
+      "mode": "exhorted",
+      "evidence": ["plugins/ultimate-builder/skills/ultimate-app-builder/references/workflows/code-reviewer/SKILL.md"]
+    },
+    {
+      "id": "anti-slop-audit",
+      "summary": "UI and code output are checked against the relevant anti-slop rubric.",
+      "mode": "exhorted",
+      "evidence": ["plugins/ultimate-builder/skills/ultimate-app-builder/references/workflows/code-reviewer/SKILL.md", "plugins/ultimate-builder/skills/ultimate-app-builder/references/workflows/qa-engineer/SKILL.md"]
+    }
+  ],
+  "tool_contract": {
+    "forbidden_playbook_terms": [
+      "AskUserQuestion",
+      "WebSearch",
+      "ToolSearch",
+      "Agent tool",
+      "agentType",
+      "opus/sonnet/haiku"
+    ]
+  },
+  "state": {
+    "canonical": {
+      "current_status": ".sdlc/progress.md",
+      "project_memory": ".sdlc/project-brain.md",
+      "learnings": ".sdlc/learnings.jsonl",
+      "unit_map": ".sdlc/class-map.md",
+      "change_records": ".sdlc/changes/"
+    },
+    "derived": {
+      "current_status_projection": ".sdlc/status.json"
+    },
+    "legacy_read_only": {
+      "debug_learnings": ".sdlc/debug-learnings.jsonl"
+    },
+    "candidates": ".sdlc/learning-candidates/"
+  },
+  "trivial_change": {
+    "maximum_changed_lines": 4,
+    "maximum_edit_distance_per_line": 2,
+    "allowed_kinds": ["documentation-prose", "python-comment", "slash-comment"],
+    "excluded_names": [
+      "AGENTS.md",
+      "CHANGELOG.md",
+      "CONTRIBUTING.md",
+      "README.md",
+      "SECURITY.md",
+      "SKILL.md",
+      "design-brief.md",
+      "plan.md",
+      "project-plan.md",
+      "requirements.md",
+      "spec.md",
+      "task-graph.md"
+    ]
+  }
+}

@@ -17,6 +17,18 @@ def _project_runs_module():
     return module
 
 
+def _workflow_contract_module():
+    path = Path(__file__).resolve().with_name("workflow_contract.py")
+    spec = importlib.util.spec_from_file_location(
+        "lyra_project_run_cli_workflow_contract", path
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Could not load the Ultimate Builder workflow contract")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def setup_parser(parser: argparse.ArgumentParser) -> None:
     sub = parser.add_subparsers(dest="project_run_command", required=True)
     queue = sub.add_parser(
@@ -30,10 +42,19 @@ def setup_parser(parser: argparse.ArgumentParser) -> None:
     queue.add_argument("--force-new", action="store_true")
     status = sub.add_parser("status", help="Read durable project-job state")
     status.add_argument("--workspace", required=True)
-    status.add_argument("--summary", action="store_true", help="Short live status without full job history")
+    status.add_argument(
+        "--summary",
+        action="store_true",
+        help="Short live status without full job history",
+    )
     for action in ("pause", "resume", "stop"):
         control = sub.add_parser(action, help=f"{action.title()} project jobs")
         control.add_argument("--workspace", required=True)
+    sub.add_parser("contract", help="Report enforced and model-guided workflow rules")
+    classify = sub.add_parser(
+        "classify-change", help="Check whether a tiny diff may skip a change record"
+    )
+    classify.add_argument("--workspace", required=True)
 
 
 def _mapping(values: list[str]) -> dict[str, str]:
@@ -47,6 +68,15 @@ def _mapping(values: list[str]) -> dict[str, str]:
 
 
 def handle(args: argparse.Namespace) -> None:
+    if args.project_run_command in {"contract", "classify-change"}:
+        contract = _workflow_contract_module()
+        result = (
+            contract.contract_report()
+            if args.project_run_command == "contract"
+            else contract.classify_trivial_change(args.workspace)
+        )
+        _project_runs_module().print_json(result)
+        return
     project_runs = _project_runs_module()
     if args.project_run_command == "queue":
         result = project_runs.queue_project_run(

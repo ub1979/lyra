@@ -51,6 +51,18 @@ python plugins/ultimate-builder/scripts/evaluate_candidates.py /path/to/project
 
 Promotion requires evaluation, human approval, version control, and rollback.
 
+## Workflow contract and project memory
+
+Run `hermes project-run contract` to inspect the declared enforced versus
+model-guided workflow rules and validate their evidence paths and native tool
+names. Project runs use `.sdlc/learnings.jsonl` as the canonical learning view;
+legacy debugging lessons are imported once without deleting their source file.
+
+For a tiny spelling-only correction, run
+`hermes project-run classify-change --workspace /path/to/project`. Only a
+positive mechanical result permits skipping the change record. Verification,
+class-map maintenance and a local commit still apply.
+
 ## Security
 
 - Give delegates and MCP servers only the tools they need.

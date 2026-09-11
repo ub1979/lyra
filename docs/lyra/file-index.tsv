@@ -1760,6 +1760,7 @@ docs/lyra/changes/2026-09-08-single-project-conversation.md	docs	md: 2026 09 08 
 docs/lyra/changes/2026-09-09-codex-auxiliary-timeout-fence.md	docs	md: 2026 09 09 codex auxiliary timeout fence
 docs/lyra/changes/2026-09-09-kanban-terminal-tool-stop.md	docs	md: 2026 09 09 kanban terminal tool stop
 docs/lyra/changes/2026-09-10-agent-picker-chrome-repaint.md	docs	md: 2026 09 10 agent picker chrome repaint
+docs/lyra/changes/2026-09-11-workflow-contract-and-state-consolidation.md	docs	md: 2026 09 11 workflow contract and state consolidation
 docs/lyra/file-index.tsv	docs	tsv: file index
 docs/middleware/README.md	docs	md: README
 docs/observability/README.md	docs	md: README
@@ -3024,6 +3025,7 @@ plugins/ultimate-builder/dashboard/manifest.json	plugins	json: manifest
 plugins/ultimate-builder/dashboard/plugin_api.py	plugins	Dashboard API for Ultimate Builder project state and local app previews.
 plugins/ultimate-builder/plugin.yaml	plugins	yaml: plugin
 plugins/ultimate-builder/project_brain.py	plugins	Verified, bounded project memory for Lyra Studio builds.
+plugins/ultimate-builder/project_learnings.py	plugins	Non-destructive reconciliation for Ultimate Builder project learnings.
 plugins/ultimate-builder/project_progress.py	plugins	Parse project progress conservatively and separate reports from evidence.
 plugins/ultimate-builder/project_repository.py	plugins	Create and verify project-local Git repositories without touching Lyra Git.
 plugins/ultimate-builder/project_run_cli.py	plugins	CLI adapter for durable Lyra project jobs.
@@ -3069,6 +3071,10 @@ plugins/ultimate-builder/tests/test_project_repository.py	plugins	Behavioral tes
 plugins/ultimate-builder/tests/test_project_runs.py	plugins	Behavioral tests: project runs
 plugins/ultimate-builder/tests/test_project_status.py	plugins	Behavioral tests: project status
 plugins/ultimate-builder/tests/test_project_work_units.py	plugins	Behavioral tests: project work units
+plugins/ultimate-builder/tests/test_workflow_contract.py	plugins	Behavioral tests: workflow contract
+plugins/ultimate-builder/trivial_change.py	plugins	Conservative Git-diff classifier for change-record exemptions.
+plugins/ultimate-builder/workflow_contract.json	plugins	json: workflow contract
+plugins/ultimate-builder/workflow_contract.py	plugins	Versioned contract and validation for Lyra's Ultimate Builder workflow.
 plugins/video_gen/deepinfra/__init__.py	plugins	DeepInfra video generation backend.
 plugins/video_gen/deepinfra/plugin.yaml	plugins	yaml: plugin
 plugins/video_gen/fal/__init__.py	plugins	FAL.ai video generation backend.

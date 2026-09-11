@@ -78,7 +78,7 @@ Gives the EXACT commit that introduced the bug.
 
 ### 2.3 Check Learnings
 ```bash
-grep -i "<keyword>" .sdlc/debug-learnings.jsonl 2>/dev/null
+grep -i "<keyword>" .sdlc/learnings.jsonl 2>/dev/null
 ```
 
 **Output**: top 1-3 hypotheses ranked by evidence strength; each must explain ALL observed symptoms.
@@ -152,13 +152,17 @@ Write: what was happening, why (mechanism), what the fix does, why it won't recu
 
 ## Phase 6 — Record Learnings
 
-Append to `.sdlc/debug-learnings.jsonl`:
+Append the debugging lesson to the canonical `.sdlc/learnings.jsonl`:
 ```json
-{"date": "...", "bug": "one-line", "root_cause": "mechanism",
- "pattern": "race-condition|resource-leak|off-by-one|null-ref|state-corruption|encoding|dependency|config|memory|deadlock|other",
- "files": ["..."], "trigger": "how to reproduce", "fix": "one-line", "lesson": "what to check next time"}
+{"date": "...", "project": "project-name", "category": "pitfall",
+ "summary": "technology + symptom + fix in one line",
+ "detail": "root cause, trigger, verified fix, and what to check next time",
+ "files": ["..."], "tags": ["debugging", "race-condition"]}
 ```
-Future sessions check this first (Phase 2.3).
+Search before appending so the same lesson is not duplicated. Existing
+`.sdlc/debug-learnings.jsonl` files are legacy recovery data: project-run
+preflight imports unseen entries into the canonical log and retains the old
+file unchanged.
 
 ---
 

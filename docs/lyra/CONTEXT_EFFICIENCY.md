@@ -12,9 +12,19 @@ are explicitly flagged. Remove `--summary` for details. A completed job is not
 the same as a reviewed, finished application.
 
 Default Studio coordinators carry interviewing, file, terminal, research and
-memory tools. Durable specialists keep their normal working toolsets. Optional
-configured capabilities and explicit toolset overrides are preserved. Toolsets
-are selected when the agent is created, not changed as each phase starts.
+memory tools. Durable specialists keep their normal working toolsets and their
+full role-specific playbook. They no longer load the full orchestrator playbook
+as a second skill; the durable task carries the seven universal worker
+invariants directly. This removes about 16 KB of repeated instructions from
+each newly queued worker without removing its testing, evidence, workspace,
+credential, learning, or completion rules. Optional configured capabilities
+and explicit toolset overrides are preserved. Toolsets are selected when the
+agent is created, not changed as each phase starts.
+
+`hermes project-run contract` reports which declared critical workflow rules
+are mechanically enforced and which still rely on model guidance. The ratio is
+an honest inventory of those declared rules, not a claim that every sentence
+in every playbook has been classified or verified.
 
 Caching is provider-dependent. Lyra preserves stable instructions, tools and
 earlier conversation messages so existing provider caching can reuse them.

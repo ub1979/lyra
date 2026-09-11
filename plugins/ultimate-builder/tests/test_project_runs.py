@@ -41,6 +41,25 @@ def test_worker_reads_compact_status_before_detailed_progress():
     body = load_project_runs()._task_body(Path("/project"), "sw-developer")
     assert body.index(".sdlc/status.json") < body.index(".sdlc/progress.md")
     assert "do not hand-edit the snapshot" in body
+    assert "Universal worker contract:" in body
+
+
+def test_invalid_workflow_contract_stops_before_project_mutation(tmp_path, monkeypatch):
+    project = tmp_path / "project"
+    project.mkdir()
+    module = load_project_runs()
+
+    class InvalidContract:
+        @staticmethod
+        def assert_valid_contract():
+            raise RuntimeError("foreign alias")
+
+    monkeypatch.setattr(module, "_workflow_contract_module", lambda: InvalidContract)
+
+    with pytest.raises(RuntimeError, match="foreign alias"):
+        module.queue_project_run(project, ["sw-developer"])
+    assert not (project / ".git").exists()
+    assert not (project / ".sdlc").exists()
 
 
 def test_stalled_saved_job_changes_the_project_state_to_attention(tmp_path, monkeypatch):
@@ -88,6 +107,7 @@ def test_queue_creates_dependency_ordered_recoverable_jobs(tmp_path, monkeypatch
     assert [task["status"] for task in queued["tasks"]] == ["ready", "todo"]
     assert queued["repository"]["root"] == str(project.resolve())
     assert queued["repository"]["has_remote"] is False
+    assert queued["learning_reconciliation"]["ok"] is True
     assert queued["status_snapshot"]["path"] == ".sdlc/status.json"
     assert (project / ".sdlc" / "status.json").is_file()
     assert state["available"] is True
@@ -101,6 +121,30 @@ def test_queue_creates_dependency_ordered_recoverable_jobs(tmp_path, monkeypatch
     assert second is not None and second.status == "todo"
     assert subscriptions[0]["platform"] == "tui"
     assert subscriptions[0]["chat_id"] == "project-chat-1"
+
+
+def test_queue_reconciles_legacy_debug_lessons_and_loads_only_specialist_skill(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
+    project = tmp_path / "project"
+    sdlc = project / ".sdlc"
+    sdlc.mkdir(parents=True)
+    (sdlc / "debug-learnings.jsonl").write_text(
+        '{"date":"2026-09-11","bug":"stale answer","lesson":"fence the request"}\n',
+        encoding="utf-8",
+    )
+    module = load_project_runs()
+
+    queued = module.queue_project_run(project, ["sw-developer"])
+
+    assert queued["learning_reconciliation"]["imported"] == 1
+    assert (sdlc / "debug-learnings.jsonl").is_file()
+    assert (sdlc / "learnings.jsonl").is_file()
+    with module.kb.connect_closing() as conn:
+        task = module.kb.get_task(conn, queued["tasks"][0]["task_id"])
+    assert task is not None
+    assert task.skills == ["ultimate-builder:sw-developer"]
 
 
 def test_reopening_chat_reuses_existing_phase_job(tmp_path, monkeypatch):

@@ -65,7 +65,9 @@ Two artifacts are yours to maintain, both under `.sdlc/`:
   changes, why (linked to a requirement or finding), blast radius with risk
   levels, which units it puts back in doubt, what QA must test, how to roll back.
   Size it to the risk: a one-line fix gets a short record, a structural change
-  gets the full impact analysis from `sw-architect`.
+  gets the full impact analysis from `sw-architect`. Skip it only when the
+  house-standard `classify-change` command mechanically returns `trivial: true`;
+  classification never skips verification or class-map maintenance.
 
 Mark every unit the change touches as `stale — touched by CR-xxx` in the class
 map, and clear it only when its tests actually run again.

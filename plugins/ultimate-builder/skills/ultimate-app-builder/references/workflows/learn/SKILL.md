@@ -7,6 +7,11 @@ description: Records and retrieves cross-session learnings in .sdlc/learnings.js
 
 Maintains a searchable JSONL file of learnings that compound across sessions. Each entry captures a pattern, pitfall, decision, or convention with enough context to be useful months later.
 
+`.sdlc/learnings.jsonl` is the single canonical learning view, including
+debugging lessons (`category: pitfall`, with a `debugging` tag). A legacy
+`.sdlc/debug-learnings.jsonl` file is imported non-destructively by project-run
+preflight and retained only as recovery history.
+
 ---
 
 ## Recording a Learning

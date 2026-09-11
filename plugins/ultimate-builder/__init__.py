@@ -185,5 +185,7 @@ def register(ctx) -> None:
             help="Manage Lyra's recoverable project agents.",
             setup_fn=cli_module.setup_parser,
             handler_fn=cli_module.handle,
-            description="Queue, inspect, pause, resume, or stop durable project work.",
+            description=(
+                "Queue, inspect, control, or validate durable project work."
+            ),
         )

@@ -64,6 +64,40 @@ def _project_brain_contract() -> str:
     return str(module.PROJECT_BRAIN_CONTRACT)
 
 
+def _workflow_contract_module():
+    path = Path(__file__).resolve().with_name("workflow_contract.py")
+    spec = importlib.util.spec_from_file_location(
+        "lyra_ultimate_builder_workflow_contract_for_jobs", path
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Could not load the Ultimate Builder workflow contract")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _worker_invariants() -> str:
+    """Render the small universal worker contract instead of a second skill."""
+    contract = _workflow_contract_module().load_contract()
+    worker_rule_ids = {
+        "workspace-boundary",
+        "phase-artifact",
+        "real-verification",
+        "serious-findings-closed",
+        "least-credential-access",
+        "learning-cannot-self-promote",
+        "plain-language-status",
+    }
+    summaries = [
+        str(rule["summary"])
+        for rule in contract["rules"]
+        if rule.get("id") in worker_rule_ids
+    ]
+    if len(summaries) != len(worker_rule_ids):
+        raise RuntimeError("Ultimate Builder worker contract is incomplete")
+    return "\n".join(f"- {summary}" for summary in summaries)
+
+
 def _ensure_project_repository(project: Path) -> dict[str, object]:
     path = Path(__file__).resolve().with_name("project_repository.py")
     spec = importlib.util.spec_from_file_location(
@@ -207,6 +241,9 @@ def _task_body(project: Path, phase: str) -> str:
 Workspace: {project}
 Required outcome: complete the {info["label"]} phase and leave {info["artifact"]} as evidence.
 
+Universal worker contract:
+{_worker_invariants()}
+
 {_project_brain_contract()}
 
 Read the repository instructions and `.sdlc/status.json` first when present. It is the compact current-state snapshot. Read `.sdlc/progress.md` only when the snapshot is missing, older than the ledger, or you need historical evidence; then read the Project Brain and only the requirements/plan sections needed for this phase. Adopt existing partial work; never restart completed work merely because this is a recovered job. Preserve unrelated user changes. Before editing, verify `git rev-parse --show-toplevel` resolves to this exact workspace, then inspect Git status. Run every Git command from this project root; never stage or commit files in Lyra's application repository. Work only in this project.
@@ -226,6 +263,9 @@ def _work_unit_body(
 Workspace: {project}
 Current work item: {unit["id"]} — {unit["title"]}
 Planning source: {source}
+
+Universal worker contract:
+{_worker_invariants()}
 
 {_project_brain_contract()}
 
@@ -285,6 +325,8 @@ def queue_project_run(
     force_new: bool = False,
 ) -> dict[str, Any]:
     project = _workspace(workspace)
+    workflow_contract = _workflow_contract_module()
+    workflow_contract.assert_valid_contract()
     requested = [str(phase).strip() for phase in phases if str(phase).strip()]
     if not requested:
         raise ValueError("At least one project phase is required")
@@ -299,6 +341,12 @@ def queue_project_run(
     worker_profile = assignee or str(origin["profile"] or "default")
     validate_project_worker(worker_profile)
     repository = _ensure_project_repository(project)
+    learning_reconciliation = workflow_contract.reconcile_legacy_debug_learnings(project)
+    if not learning_reconciliation.get("ok"):
+        raise RuntimeError(
+            "Could not reconcile project learning history: "
+            + str(learning_reconciliation.get("error") or "unknown error")
+        )
     status_snapshot = _ensure_project_status(project)
     development_plan = (
         _development_plan(project) if "sw-developer" in requested else {"source": None, "units": []}
@@ -388,10 +436,7 @@ def queue_project_run(
             idempotency_key=idempotency_key,
             max_runtime_seconds=max_runtime_seconds,
             max_retries=3,
-            skills=(
-                "ultimate-builder:ultimate-app-builder",
-                f"ultimate-builder:{phase}",
-            ),
+            skills=(f"ultimate-builder:{phase}",),
             model_override=model,
             provider_override=provider,
             goal_mode=True,
@@ -518,6 +563,7 @@ def queue_project_run(
         },
         "superseded_tasks": superseded_tasks,
         "repository": repository,
+        "learning_reconciliation": learning_reconciliation,
         "status_snapshot": {
             "path": ".sdlc/status.json",
             "updated_at": status_snapshot["updated_at"],
