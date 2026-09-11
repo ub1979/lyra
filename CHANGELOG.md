@@ -9,6 +9,23 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.35] - 2026-09-11 — right-sized project planning
+
+### Fixed
+
+- New Studio projects now require an explicit Personal / one-off, Reusable,
+  or Production / public choice before requirements, planning, or code work.
+- Personal projects use a bounded MVP workflow and cannot silently expand into
+  production security, deployment, release, or exhaustive task programmes.
+- Requests such as “complete,” “whole project,” or “find all issues” no longer
+  upgrade a Personal project into a production build without an explicit scope
+  choice.
+- Larger task graphs require explicit Product scope and remain capped, while
+  existing review and repair flows continue without an unnecessary new gate.
+
+Restart Lyra to load this update. Existing projects, conversations, Kanban
+history, and partial work are preserved.
+
 ## [0.19.34] - 2026-09-11 — bounded direct specialists
 
 ### Fixed

@@ -49,5 +49,6 @@ dashboard bundle.
 Rollback / retained recovery data: Revert the focused local commit. Existing
 project files, Kanban jobs, and histories remain intact.
 
-Local commit / authorized push: Local commit required after verification. No
-remote push is authorized.
+Local commit / authorized push: Implemented in `66ace45ba`; the user authorized
+the remote push on 2026-09-11. Release metadata is synchronized in the separate
+`0.19.35` release commit required by Lyra's version discipline.
