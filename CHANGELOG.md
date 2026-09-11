@@ -9,6 +9,32 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.34] - 2026-09-11 — bounded direct specialists
+
+### Fixed
+
+- Durable project specialists now perform their own assigned phase directly;
+  they cannot recursively delegate the whole phase to another copy of
+  themselves and hide repeated child stalls behind a healthy parent heartbeat.
+- Broad project phases are capped at 45 minutes and eight AI turns per attempt,
+  with one automatic retry instead of a six-hour, 30-turn, two-retry loop.
+- Reused unfinished project jobs adopt the current execution bounds, and the
+  specialist playbooks now distinguish the coordinating conversation from the
+  already-dedicated worker executing the work.
+- Headless project workers no longer inherit an interactive approval mode they
+  cannot answer, and direct specialists keep macOS awake while active.
+- Host sleep no longer consumes a worker's active runtime or makes its
+  heartbeat look stale; legacy in-flight runs retain a safe wall-clock fallback.
+- Completion remains possible when the auxiliary judge transport is down,
+  repeated judge failures stop within a bounded loop, and rejected terminal
+  calls continue through the existing recovery nudge.
+- Code review retains independent testing, security, maintainability, and
+  red-team passes without recursively spawning unavailable child reviewers.
+
+Restart Lyra to load this repair. Existing projects, conversations, and partial
+phase artifacts are preserved; currently running project jobs should be paused
+before restart and resumed afterward.
+
 ## [0.19.33] - 2026-09-11 — truthful live activity
 
 ### Fixed

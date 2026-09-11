@@ -8,7 +8,7 @@ description: Makes software production-ready — CI/CD, containerization, deploy
 ## ⛔ ENFORCEMENT
 
 The orchestrator (idk_it) MUST spawn this skill as a dedicated Agent — an untested Dockerfile written by the orchestrator does not count as DevOps.
-The spawned agent must build Docker images, test CI/CD pipelines, verify health checks, and produce `DEPLOYMENT.md`. Follow every step below; no shortcuts.
+The dedicated specialist worker must directly build Docker images, test CI/CD pipelines, verify health checks, and produce `DEPLOYMENT.md` without delegating another copy of the phase. Follow every step below; no shortcuts.
 
 ---
 

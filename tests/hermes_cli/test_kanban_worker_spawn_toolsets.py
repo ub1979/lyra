@@ -5,7 +5,13 @@ import subprocess
 import sys
 
 
-def _make_task(kb, *, assignee: str):
+def _make_task(
+    kb,
+    *,
+    assignee: str,
+    created_by: str = "test",
+    skills: list[str] | None = None,
+):
     return kb.Task(
         id="t_spawn_tools",
         title="spawn tools",
@@ -13,7 +19,7 @@ def _make_task(kb, *, assignee: str):
         assignee=assignee,
         status="running",
         priority=0,
-        created_by="test",
+        created_by=created_by,
         created_at=1,
         started_at=None,
         completed_at=None,
@@ -23,6 +29,7 @@ def _make_task(kb, *, assignee: str):
         claim_expires=None,
         tenant=None,
         current_run_id=7,
+        skills=skills,
     )
 
 
@@ -91,6 +98,97 @@ agent:
         assert required in pinned
 
 
+def test_ultimate_builder_specialist_executes_directly_without_delegation(
+    monkeypatch, tmp_path
+):
+    """A durable specialist is already the spawned agent for its phase.
+
+    Giving it delegate_task lets playbook wording trigger recursive ownership
+    transfer: the worker delegates its entire phase, waits through child
+    stalls, and retries for hours while its supervisor heartbeat remains fresh.
+    The launch boundary must remove delegation mechanically; prose alone is not
+    a reliability control.
+    """
+    root = tmp_path / ".hermes"
+    profile = root / "profiles" / "elias"
+    profile.mkdir(parents=True)
+    profile.joinpath("config.yaml").write_text(
+        "platform_toolsets:\n  cli:\n    - delegation\n    - file\n    - terminal\n",
+        encoding="utf-8",
+    )
+    root.joinpath("config.yaml").write_text("{}\n", encoding="utf-8")
+    monkeypatch.setenv("HERMES_HOME", str(root))
+
+    from hermes_cli import kanban_db as kb
+
+    monkeypatch.setattr(kb, "_resolve_hermes_argv", lambda: ["hermes"])
+    captured = {}
+
+    class FakeProc:
+        pid = 4246
+
+    def fake_popen(cmd, *args, **kwargs):
+        captured["cmd"] = list(cmd)
+        captured["env"] = dict(kwargs.get("env") or {})
+        return FakeProc()
+
+    monkeypatch.setattr(subprocess, "Popen", fake_popen)
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    task = _make_task(
+        kb,
+        assignee="elias",
+        created_by="lyra-project-guide",
+        skills=["ultimate-builder:sw-architect"],
+    )
+
+    kb._default_spawn(task, str(workspace))
+
+    pinned = captured["cmd"][captured["cmd"].index("--toolsets") + 1].split(",")
+    assert "file" in pinned
+    assert "terminal" in pinned
+    assert "delegation" not in pinned
+    assert captured["env"]["HERMES_WORKER_DISABLE_DELEGATION"] == "1"
+
+
+def test_non_lyra_kanban_specialist_keeps_delegation(monkeypatch, tmp_path):
+    root = tmp_path / ".hermes"
+    profile = root / "profiles" / "elias"
+    profile.mkdir(parents=True)
+    profile.joinpath("config.yaml").write_text(
+        "platform_toolsets:\n  cli:\n    - delegation\n    - terminal\n",
+        encoding="utf-8",
+    )
+    root.joinpath("config.yaml").write_text("{}\n", encoding="utf-8")
+    monkeypatch.setenv("HERMES_HOME", str(root))
+
+    from hermes_cli import kanban_db as kb
+
+    monkeypatch.setattr(kb, "_resolve_hermes_argv", lambda: ["hermes"])
+    captured = {}
+
+    class FakeProc:
+        pid = 4247
+
+    def fake_popen(cmd, *args, **kwargs):
+        captured["cmd"] = list(cmd)
+        captured["env"] = dict(kwargs.get("env") or {})
+        return FakeProc()
+
+    monkeypatch.setattr(subprocess, "Popen", fake_popen)
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    kb._default_spawn(
+        _make_task(kb, assignee="elias", skills=["some-other-specialist"]),
+        str(workspace),
+    )
+
+    pinned = captured["cmd"][captured["cmd"].index("--toolsets") + 1].split(",")
+    assert "delegation" in pinned
+    assert "HERMES_WORKER_DISABLE_DELEGATION" not in captured["env"]
+
+
 def test_default_spawn_never_boots_the_tui(monkeypatch, tmp_path):
     """Workers are headless: an inherited HERMES_TUI=1 (or a TUI-default
     config) must not send the quiet chat run into the Ink TUI, whose no-TTY
@@ -125,6 +223,85 @@ def test_default_spawn_never_boots_the_tui(monkeypatch, tmp_path):
 
     assert "--cli" in captured["cmd"]
     assert "HERMES_TUI" not in captured["env"]
+
+
+def test_default_spawn_strips_parent_only_interaction_flags(monkeypatch, tmp_path):
+    """A headless worker must not inherit an approval surface it cannot answer."""
+    root = tmp_path / ".hermes"
+    (root / "profiles" / "elias").mkdir(parents=True)
+    root.joinpath("config.yaml").write_text("{}\n", encoding="utf-8")
+    monkeypatch.setenv("HERMES_HOME", str(root))
+    for name in (
+        "HERMES_EXEC_ASK",
+        "HERMES_GATEWAY_SESSION",
+        "HERMES_INTERACTIVE",
+        "HERMES_SESSION_PLATFORM",
+    ):
+        monkeypatch.setenv(name, "1")
+
+    from hermes_cli import kanban_db as kb
+
+    monkeypatch.setattr(kb, "_resolve_hermes_argv", lambda: ["hermes"])
+    captured = {}
+
+    class FakeProc:
+        pid = 4248
+
+    def fake_popen(cmd, *args, **kwargs):
+        captured["env"] = dict(kwargs.get("env") or {})
+        return FakeProc()
+
+    monkeypatch.setattr(subprocess, "Popen", fake_popen)
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    kb._default_spawn(_make_task(kb, assignee="elias"), str(workspace))
+
+    for name in (
+        "HERMES_EXEC_ASK",
+        "HERMES_GATEWAY_SESSION",
+        "HERMES_INTERACTIVE",
+        "HERMES_SESSION_PLATFORM",
+    ):
+        assert name not in captured["env"]
+
+
+def test_direct_ultimate_builder_worker_inhibits_macos_idle_sleep(
+    monkeypatch, tmp_path
+):
+    """Durable Lyra work should keep running when the display becomes idle."""
+    root = tmp_path / ".hermes"
+    (root / "profiles" / "elias").mkdir(parents=True)
+    root.joinpath("config.yaml").write_text("{}\n", encoding="utf-8")
+    monkeypatch.setenv("HERMES_HOME", str(root))
+
+    from hermes_cli import kanban_db as kb
+
+    monkeypatch.setattr(kb, "_resolve_hermes_argv", lambda: ["hermes"])
+    monkeypatch.setattr(kb.sys, "platform", "darwin")
+    monkeypatch.setattr(kb.os.path, "isfile", lambda path: path == "/usr/bin/caffeinate")
+    captured = {}
+
+    class FakeProc:
+        pid = 4249
+
+    def fake_popen(cmd, *args, **kwargs):
+        captured["cmd"] = list(cmd)
+        return FakeProc()
+
+    monkeypatch.setattr(subprocess, "Popen", fake_popen)
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    task = _make_task(
+        kb,
+        assignee="elias",
+        created_by="lyra-project-guide",
+        skills=["ultimate-builder:sw-architect"],
+    )
+    kb._default_spawn(task, str(workspace))
+
+    assert captured["cmd"][:3] == ["/usr/bin/caffeinate", "-i", "hermes"]
 
 
 def test_default_spawn_prepends_dispatcher_runtime_to_worker_path(

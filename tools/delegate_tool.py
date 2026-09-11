@@ -684,8 +684,14 @@ _LEGACY_EVENT_MAP: Dict[str, DelegateEvent] = {
 
 
 def check_delegate_requirements() -> bool:
-    """Delegation has no external requirements -- always available."""
-    return True
+    """Expose delegation unless this process is already a direct specialist.
+
+    The internal marker is set only on a dispatcher-spawned worker whose task
+    is itself the durable specialist boundary. It is not user configuration;
+    removing the tool here is a fallback when profile toolset resolution could
+    not produce the explicit delegation-free pin.
+    """
+    return os.environ.get("HERMES_WORKER_DISABLE_DELEGATION") != "1"
 
 
 def _build_child_system_prompt(

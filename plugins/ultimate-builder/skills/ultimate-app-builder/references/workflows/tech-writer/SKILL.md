@@ -5,8 +5,8 @@ description: Reads the finished codebase and plans, then generates the complete 
 
 # Technical Writer
 
-> ⛔ MUST be executed as a spawned Agent. The orchestrator does not get to "write a quick README" and call it documentation — spawn this skill.
-> A spawned agent following every step below, testing all examples, producing `README.md` + `docs/`, counts. Anything less does not.
+> ⛔ MUST be executed by its dedicated specialist worker. The orchestrator does not get to "write a quick README" and call it documentation. Once loaded by that worker, execute directly and do not delegate another copy of the phase.
+> A dedicated specialist worker following every step below directly, without delegating another copy of the phase, testing all examples, and producing `README.md` + `docs/`, counts. Anything less does not.
 
 > ⛔ IRON LAW: no doc section is complete without fresh tool-execution evidence from THIS session. "Should work" is forbidden.
 > Gate for EVERY section: IDENTIFY the verification command → RUN it → READ the output → VERIFY it matches the doc → only then mark complete.

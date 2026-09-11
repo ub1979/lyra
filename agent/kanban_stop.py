@@ -49,20 +49,22 @@ def _tool_call_name(tc: Any) -> str:
 
 
 def session_called_kanban_terminal(messages: Iterable[dict] | None) -> bool:
-    """True if this conversation already invoked a terminal kanban tool."""
+    """True only after a terminal kanban tool committed successfully.
+
+    A call is not a landing: the goal judge, approval policy, or stale-run
+    fence may reject it.  Suppressing the stop nudge after a rejected call
+    strands the worker in a non-terminal board state.
+    """
     if not messages:
         return False
     for msg in messages:
         if not isinstance(msg, dict):
             continue
         role = msg.get("role")
-        if role == "assistant":
-            for tc in msg.get("tool_calls") or []:
-                if _tool_call_name(tc) in _TERMINAL_KANBAN_TOOLS:
-                    return True
-        elif role == "tool":
+        if role == "tool":
             name = str(msg.get("name") or "")
-            if name in _TERMINAL_KANBAN_TOOLS:
+            content = msg.get("content")
+            if successful_worker_terminal_landing(name, content) is not None:
                 return True
     return False
 

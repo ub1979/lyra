@@ -723,6 +723,34 @@ def test_complete_goal_mode_allows_when_judge_unavailable(monkeypatch, tmp_path)
         conn2.close()
 
 
+def test_complete_goal_mode_allows_when_judge_transport_fails(monkeypatch, tmp_path):
+    """A configured judge whose request fails must not wedge completion."""
+    from tools import kanban_tools as kt
+
+    goal_task_id = _make_goal_mode_worker_env(monkeypatch, tmp_path)
+    monkeypatch.setattr("tools.kanban_tools._goal_judge_available", lambda: True)
+    monkeypatch.setattr(
+        "tools.kanban_tools.judge_goal",
+        lambda *args, **kwargs: (
+            "continue",
+            "judge error: TimeoutError",
+            False,
+            None,
+            True,
+        ),
+    )
+
+    result = json.loads(kt._handle_complete({"summary": "verified evidence"}))
+    assert result.get("ok") is True
+
+    from hermes_cli import kanban_db as kb
+    conn = kb.connect()
+    try:
+        assert kb.get_task(conn, goal_task_id).status == "done"
+    finally:
+        conn.close()
+
+
 def test_block_happy_path(worker_env):
     from tools import kanban_tools as kt
     out = kt._handle_block({"reason": "need clarification"})

@@ -37,7 +37,7 @@ Every MAJOR/HIGH+ finding from ANY phase (`review-report.md`, `bug-report.md`, `
 Disk is the pipeline's memory; keep the conversation window lean:
 - **Pass paths, not contents.** Agents get file paths to requirements.md / plan.md / task-graph.md — never paste document bodies into agent prompts (exception: fix-loop findings, which are quoted verbatim).
 - **Read selectively.** From agent reports, read only the verdict/summary section and MAJOR+ findings — not the whole file. Details stay on disk for the next agent that needs them.
-- **Agents reply short.** Every spawned agent writes full detail to its output file and returns ≤15 lines: verdict, counts, artifact paths, flagged items.
+- **Agents reply short.** Every dedicated specialist worker writes full detail to its output file and returns ≤15 lines: verdict, counts, artifact paths, flagged items.
 - **State lives in `.sdlc/`.** Between phases rely on the compact `status.json`
   snapshot first, then consult the detailed ledger only when needed, plus the verified
   `project-brain.md` + `learnings.jsonl`, not on remembering the conversation.

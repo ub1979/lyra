@@ -1,6 +1,6 @@
 ---
 name: code-reviewer
-description: Reviews an implementation against the plan using parallel specialist agents, real tooling, and adversarial red-team passes, then writes review-report.md. Use when the user mentions code review, review this code, review changes, PR review, review before QA, check code quality, audit the code, or verify implementation.
+description: Reviews an implementation against the plan using independent specialist lenses, real tooling, and an adversarial red-team pass, then writes review-report.md. Use when the user mentions code review, review this code, review changes, PR review, review before QA, check code quality, audit the code, or verify implementation.
 ---
 
 # Code Reviewer
@@ -22,7 +22,7 @@ Then check `references/engineering-standards.md`:
 
 ## ⛔ ENFORCEMENT
 
-Run as a spawned Agent, not inline by the orchestrator. Execute every step, run real tools (tests, linters, type checkers, SAST), dispatch specialist subagents, and write `review-report.md` with confidence-scored findings.
+Run as a dedicated specialist worker, not inline by the orchestrator. Execute every step directly, run real tools (tests, linters, type checkers, SAST), and write `review-report.md` with confidence-scored findings. Do not delegate another copy of the review phase.
 Reading files and saying "looks good", or "I fixed it so review isn't needed", does not count.
 
 Catches what tests miss: security gaps, architectural drift, performance problems, consistency violations. Output feeds the `sw-developer` skill directly.
@@ -120,9 +120,12 @@ Cover every dimension; skip none.
 - Responsive behavior correct; accessibility met (ARIA labels, keyboard nav, contrast).
 - Interactive behavior needing browser confirmation requires QA/browser-automation evidence.
 
-## Step 4 — Specialist Dispatch (Parallel)
+## Step 4 — Independent Specialist Lenses (Direct)
 
-Each specialist runs with fresh context — no prior review bias.
+This dedicated worker performs each selected lens itself. Start every lens
+from the diff and project evidence, not from findings produced by an earlier
+lens, so the passes remain independently reasoned. Do not spawn or delegate to
+another agent: this worker is already the isolated review boundary.
 
 **4a. Select.** Measure the diff first:
 
@@ -132,10 +135,13 @@ DIFF_LINES=$(git diff "$DIFF_BASE" --stat | tail -1 | grep -oE '[0-9]+ insertion
 ```
 
 - **Always-on** at 50+ changed lines: **Testing Specialist** (deep test quality), **Maintainability Specialist** (clarity, modularity, tech debt).
-- **Diff < 50 lines**: skip specialists, print "Small diff — specialists skipped."
+- **Diff < 50 lines**: skip extra lenses, print "Small diff — extra lenses skipped."
 - **Conditional**: **Security Specialist** (auth/crypto/API changed, or diff >100 lines); **Performance Specialist** (backend or frontend changed); **Data Migration Specialist** (migration files or schema changes); **API Contract Specialist** (routes or request/response shapes changed); **Design Specialist** (UI components changed).
 
-**4b. Dispatch.** Launch all selected specialists in a **single message** (multiple Agent calls) so they run concurrently. Each receives the git diff, stack context, and instructions to return structured findings: severity, confidence (1-10), file:line, category, summary, recommended fix.
+**4b. Execute.** Run each selected lens as a separate, fresh review pass over
+the same git diff and stack context. Record structured findings for each pass:
+severity, confidence (1-10), file:line, category, summary, and recommended fix.
+Do not feed one pass's findings into the next pass.
 
 **4c. Merge.** Deduplicate by `file:line:category` fingerprint; confirmation by a second specialist adds +1 confidence. Then apply the gates:
 
@@ -149,7 +155,13 @@ DIFF_LINES=$(git diff "$DIFF_BASE" --stat | tail -1 | grep -oE '[0-9]+ insertion
 
 **Pre-emit verification gate**: quote the motivating code line verbatim (file:line) before a finding enters the report. Cannot quote it → force confidence to 4 (appendix only). Never claim 7+ without the quote.
 
-**4d. Red team** — activate if diff >200 lines OR any specialist produced a BLOCKER/CRITICAL. Dispatch one adversarial subagent with the merged findings and the diff, tasked with what the specialists MISSED: edge cases, race conditions, security holes, resource leaks, silent data corruption, logic errors producing silently wrong results, trust-boundary violations, error handling that swallows failures. Thinks like an attacker and a chaos engineer. Findings tagged `[RED-TEAM]` and merged in.
+**4d. Red team** — activate if diff >200 lines OR any lens produced a
+BLOCKER/CRITICAL. Reset to the original diff and evidence, then perform one
+direct adversarial pass focused on what the earlier lenses may have missed:
+edge cases, race conditions, security holes, resource leaks, silent data
+corruption, silently wrong results, trust-boundary violations, and swallowed
+errors. Think like an attacker and a chaos engineer. Tag findings
+`[RED-TEAM]` and merge them only after the pass is complete.
 
 ## Step 5 — Fix-First Review
 

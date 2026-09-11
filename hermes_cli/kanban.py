@@ -2176,10 +2176,17 @@ def _cmd_complete(args: argparse.Namespace) -> int:
                         # hermes_cli/goals.py. Unpacking fewer raises
                         # ValueError into the fail-open handler below,
                         # silently disabling the gate.
-                        verdict, reason, _, _, _ = judge_goal(
+                        verdict, reason, _, _, transport_failed = judge_goal(
                             goal=f"{task.title}\n\n{task.body or ''}".strip(),
                             last_response=(summary or args.result or "").strip(),
                         )
+                        if transport_failed:
+                            import logging as _logging
+                            _logging.getLogger(__name__).warning(
+                                "goal judge transport failed, allowing completion: %s",
+                                reason,
+                            )
+                            verdict = "done"
                     except Exception as judge_exc:
                         import logging as _logging
                         _logging.getLogger(__name__).warning(

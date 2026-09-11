@@ -75,7 +75,12 @@ def test_no_nudge_after_kanban_complete(clear_kanban_env):
                 }
             ],
         },
-        {"role": "tool", "name": "kanban_complete", "tool_call_id": "1", "content": "done"},
+        {
+            "role": "tool",
+            "name": "kanban_complete",
+            "tool_call_id": "1",
+            "content": '{"ok": true, "task_id": "t_abc", "status": "done"}',
+        },
     ]
     assert session_called_kanban_terminal(messages) is True
     assert build_kanban_stop_nudge(messages=messages) is None
@@ -84,9 +89,45 @@ def test_no_nudge_after_kanban_complete(clear_kanban_env):
 def test_no_nudge_after_kanban_block(clear_kanban_env):
     clear_kanban_env.setenv("HERMES_KANBAN_TASK", "t_abc")
     messages = [
-        {"role": "tool", "name": "kanban_block", "tool_call_id": "1", "content": "blocked"},
+        {
+            "role": "tool",
+            "name": "kanban_block",
+            "tool_call_id": "1",
+            "content": '{"ok": true, "task_id": "t_abc", "status": "blocked"}',
+        },
     ]
     assert build_kanban_stop_nudge(messages=messages) is None
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        '{"error": "Goal completion rejected by judge"}',
+        '{"error": "Task belongs to a newer run"}',
+    ],
+)
+def test_rejected_terminal_result_still_nudges(clear_kanban_env, content):
+    clear_kanban_env.setenv("HERMES_KANBAN_TASK", "t_abc")
+    messages = [
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "id": "1",
+                    "type": "function",
+                    "function": {"name": "kanban_complete", "arguments": "{}"},
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "name": "kanban_complete",
+            "tool_call_id": "1",
+            "content": content,
+        },
+    ]
+    assert session_called_kanban_terminal(messages) is False
+    assert build_kanban_stop_nudge(messages=messages) is not None
 
 
 def test_successful_worker_terminal_result_is_a_stop_boundary(clear_kanban_env):

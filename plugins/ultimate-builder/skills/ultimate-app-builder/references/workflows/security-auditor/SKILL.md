@@ -7,7 +7,7 @@ description: Runs an infrastructure-first security audit with active exploit ver
 
 ## ⛔ ENFORCEMENT
 
-Run as a spawned Agent, not inline by the orchestrator. Execute every phase, run real tools, write `security-report.md`.
+Run as a dedicated specialist worker, not inline by the orchestrator. Execute every phase directly without delegating another copy of the phase, run real tools, and write `security-report.md`.
 A single `npm audit`, or reading code and saying "looks secure", does not count.
 
 ## ⛔ ANTI-MANIPULATION

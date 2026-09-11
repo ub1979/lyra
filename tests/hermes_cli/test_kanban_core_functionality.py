@@ -971,9 +971,9 @@ def test_max_runtime_terminates_overrun_worker(kanban_home):
                     (old_started, tid),
                 )
                 conn.execute(
-                    "UPDATE task_runs SET started_at = ? "
+                    "UPDATE task_runs SET started_at = ?, started_monotonic = ? "
                     "WHERE id = (SELECT current_run_id FROM tasks WHERE id = ?)",
-                    (old_started, tid),
+                    (old_started, time.monotonic() - 30, tid),
                 )
 
             timed_out = kb.enforce_max_runtime(conn, signal_fn=_signal_fn)
@@ -1006,9 +1006,9 @@ def test_repeated_timeouts_auto_block_at_default_limit(kanban_home):
         old_started = int(time.time()) - 30
         with kb.write_txn(conn):
             conn.execute(
-                "UPDATE task_runs SET started_at = ? "
+                "UPDATE task_runs SET started_at = ?, started_monotonic = ? "
                 "WHERE id = (SELECT current_run_id FROM tasks WHERE id = ?)",
-                (old_started, tid),
+                (old_started, time.monotonic() - 30, tid),
             )
 
     try:
@@ -1102,9 +1102,9 @@ def test_enforce_max_runtime_integrates_with_dispatch(kanban_home, monkeypatch):
                 (old_started, tid),
             )
             conn.execute(
-                "UPDATE task_runs SET started_at = ? "
+                "UPDATE task_runs SET started_at = ?, started_monotonic = ? "
                 "WHERE id = (SELECT current_run_id FROM tasks WHERE id = ?)",
-                (old_started, tid),
+                (old_started, time.monotonic() - 30, tid),
             )
         # Use enforce_max_runtime directly with our signal stub — dispatch_once
         # uses the default os.kill, but integration-wise calling
@@ -4288,9 +4288,9 @@ def test_enforce_max_runtime_increments_consecutive_failures(kanban_home, monkey
                 (long_ago, tid),
             )
             conn.execute(
-                "UPDATE task_runs SET started_at = ? "
+                "UPDATE task_runs SET started_at = ?, started_monotonic = ? "
                 "WHERE id = (SELECT current_run_id FROM tasks WHERE id = ?)",
-                (long_ago, tid),
+                (long_ago, time.monotonic() - 30, tid),
             )
         before = kb.get_task(conn, tid)
         assert before.consecutive_failures == 0
@@ -4742,9 +4742,9 @@ def test_dispatch_once_integrates_stale_detection(kanban_home, monkeypatch):
                 "UPDATE tasks SET started_at = ? WHERE id = ?", (five_hours_ago, t)
             )
             conn.execute(
-                "UPDATE task_runs SET started_at = ? "
+                "UPDATE task_runs SET started_at = ?, started_monotonic = ? "
                 "WHERE id = (SELECT current_run_id FROM tasks WHERE id = ?)",
-                (five_hours_ago, t),
+                (five_hours_ago, time.monotonic() - (5 * 3600), t),
             )
 
         res = kb.dispatch_once(

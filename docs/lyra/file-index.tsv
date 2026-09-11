@@ -1,5 +1,4 @@
 path	area	summary
-.claude/settings.local.json	.claude	json: settings.local
 .dockerignore	root	configuration: .dockerignore
 .gitattributes	root	configuration: .gitattributes
 .githooks/pre-commit	.githooks	configuration: pre commit
@@ -1762,6 +1761,7 @@ docs/lyra/changes/2026-09-09-codex-auxiliary-timeout-fence.md	docs	md: 2026 09 0
 docs/lyra/changes/2026-09-09-kanban-terminal-tool-stop.md	docs	md: 2026 09 09 kanban terminal tool stop
 docs/lyra/changes/2026-09-10-agent-picker-chrome-repaint.md	docs	md: 2026 09 10 agent picker chrome repaint
 docs/lyra/changes/2026-09-11-delegated-kanban-heartbeat.md	docs	md: 2026 09 11 delegated kanban heartbeat
+docs/lyra/changes/2026-09-11-direct-specialist-worker-bounds.md	docs	md: 2026 09 11 direct specialist worker bounds
 docs/lyra/changes/2026-09-11-guided-diff-leak.md	docs	md: 2026 09 11 guided diff leak
 docs/lyra/changes/2026-09-11-guided-main-chat-progress.md	docs	md: 2026 09 11 guided main chat progress
 docs/lyra/changes/2026-09-11-workflow-contract-and-state-consolidation.md	docs	md: 2026 09 11 workflow contract and state consolidation

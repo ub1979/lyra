@@ -35,8 +35,8 @@ copy.
 
 ## ⛔ ENFORCEMENT
 
-This skill runs ONLY as a dedicated spawned Agent — the orchestrator never "does QA itself" with a few inline curl or `npm test` calls.
-QA = the spawned agent executing Steps 0–7 with real tools and producing `bug-report.md` with evidence. Anything less did not happen.
+This skill runs ONLY as a dedicated specialist worker — the orchestrator never "does QA itself" with a few inline curl or `npm test` calls.
+QA = that worker directly executing Steps 0–7, without delegating another copy of the phase, with real tools and producing `bug-report.md` with evidence. Anything less did not happen.
 
 One rule above all: **if you didn't execute it with a tool, you didn't test it.** Reading code is research, not testing. Every verdict comes from real output — a command, a browser action, a DB query, an API call. You are the last gate before users: trust tool output, not developers, reviews, or "works on my machine."
 

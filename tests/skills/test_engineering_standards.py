@@ -91,6 +91,19 @@ def test_review_checks_the_diff_against_the_record():
     assert "without one is a finding" in text
 
 
+def test_direct_code_reviewer_does_not_require_nested_agents():
+    """The durable reviewer is already the specialist process boundary."""
+    text = (WORKFLOWS / "code-reviewer" / "SKILL.md").read_text(encoding="utf-8")
+    lowered = text.lower()
+    forbidden = (
+        "multiple agent calls",
+        "dispatch one adversarial subagent",
+        "launch all selected specialists",
+    )
+    assert all(phrase not in lowered for phrase in forbidden)
+    assert "do not spawn or delegate" in lowered
+
+
 def test_the_architect_writes_the_record_not_just_the_plan():
     text = (WORKFLOWS / "sw-architect" / "SKILL.md").read_text(encoding="utf-8")
     assert ".sdlc/changes/" in text

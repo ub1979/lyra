@@ -5,8 +5,8 @@ description: Plans automated AI pipeline execution — breaks plan.md into a dep
 
 # Task Planner (AI Execution)
 
-> ⛔ ENFORCEMENT: This skill must run as a spawned Agent — the orchestrator (idk_it) never breaks down tasks inline.
-> The spawned agent follows every step below and produces `task-graph.md` with epics, tasks, dependency waves, and (if UI project) a researched design system.
+> ⛔ ENFORCEMENT: This skill must run as a dedicated specialist worker — the orchestrator (idk_it) never breaks down tasks inline.
+> The dedicated worker follows every step below directly, without delegating another copy of the phase, and produces `task-graph.md` with epics, tasks, dependency waves, and (if UI project) a researched design system.
 
 Takes `plan.md` (and optionally `requirements.md`) and produces `task-graph.md`: epics, tasks, acceptance criteria, complexity tiers, dependency waves, agent assignments, and — if the project has a UI — an anti-generic design system spec.
 

@@ -6,7 +6,7 @@ description: Implements tasks from a project plan one at a time with strict TDD,
 # Software Developer
 
 **⛔ ENFORCEMENT**: The orchestrator MUST spawn this as a dedicated Agent — it does not get to "write code itself" and call it development.
-The spawned agent follows every step below: tests first, run dev server/tests/lint/build, and prove completion with tool output — not unverified claims.
+The dedicated specialist worker follows every step below directly without delegating another copy of its work item: tests first, run dev server/tests/lint/build, and prove completion with tool output — not unverified claims.
 
 Reads the full project plan, then implements one task/user story at a time with strict TDD (Red-Green-Refactor), production-grade modular code, and verified evidence for every completion claim.
 

@@ -1695,7 +1695,7 @@ def run_kanban_goal_loop(
 
     Returns a decision dict: ``{"outcome", "turns_used", "reason"}`` where
     outcome is one of ``"completed_by_worker"``, ``"blocked_budget"``,
-    ``"blocked_by_worker"``, or ``"stopped"``.
+    ``"blocked_judge"``, ``"blocked_by_worker"``, or ``"stopped"``.
     """
 
     def _log(msg: str) -> None:
@@ -1713,6 +1713,8 @@ def run_kanban_goal_loop(
     # The first turn already consumed one unit of budget.
     turns_used = 1
     nudged_to_finalize = False
+    consecutive_parse_failures = 0
+    consecutive_transport_failures = 0
 
     while True:
         # Did the worker terminate the task itself this turn?
@@ -1737,7 +1739,52 @@ def run_kanban_goal_loop(
         # The kanban worker loop has no wait-barrier concept (workers finish
         # via kanban_complete / kanban_block, not by parking), so a WAIT
         # verdict is treated as CONTINUE here.
-        verdict, reason, _parse_failed, _wait, _transport_failed = judge_goal(goal_text, last_response)
+        verdict, reason, parse_failed, _wait, transport_failed = judge_goal(
+            goal_text, last_response
+        )
+        consecutive_parse_failures = (
+            consecutive_parse_failures + 1 if parse_failed else 0
+        )
+        consecutive_transport_failures = (
+            consecutive_transport_failures + 1 if transport_failed else 0
+        )
+        if (
+            consecutive_transport_failures
+            >= DEFAULT_MAX_CONSECUTIVE_TRANSPORT_FAILURES
+        ):
+            block_reason = (
+                "Goal judge API was unreachable "
+                f"{consecutive_transport_failures} turns in a row; stopping "
+                "this worker instead of spending the remaining turn budget. "
+                f"Last error: {_truncate(reason, 300)}"
+            )
+            _log(f"kanban goal loop: {block_reason}")
+            try:
+                block_fn(block_reason)
+            except Exception as exc:
+                _log(f"kanban goal loop: block_fn failed ({exc})")
+            return {
+                "outcome": "blocked_judge",
+                "turns_used": turns_used,
+                "reason": "judge transport failures",
+            }
+        if consecutive_parse_failures >= DEFAULT_MAX_CONSECUTIVE_PARSE_FAILURES:
+            block_reason = (
+                "Goal judge returned unparseable output "
+                f"{consecutive_parse_failures} turns in a row; stopping this "
+                "worker instead of spending the remaining turn budget. "
+                f"Last error: {_truncate(reason, 300)}"
+            )
+            _log(f"kanban goal loop: {block_reason}")
+            try:
+                block_fn(block_reason)
+            except Exception as exc:
+                _log(f"kanban goal loop: block_fn failed ({exc})")
+            return {
+                "outcome": "blocked_judge",
+                "turns_used": turns_used,
+                "reason": "judge parse failures",
+            }
         if verdict == "wait":
             verdict = "continue"
         _log(f"kanban goal loop: turn {turns_used}/{max_turns} verdict={verdict} reason={_truncate(reason, 120)}")

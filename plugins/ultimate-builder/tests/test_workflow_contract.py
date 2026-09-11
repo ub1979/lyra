@@ -57,7 +57,7 @@ def test_contract_reports_its_boundary_and_validates_real_evidence():
     report = load_contract_module().contract_report()
 
     assert report["ok"] is True
-    assert report["contract_version"] == "1.0.0"
+    assert report["contract_version"] == "1.0.1"
     assert report["enforced"] > 0
     assert report["exhorted"] > 0
     assert report["declared_rules"] == report["enforced"] + report["exhorted"]

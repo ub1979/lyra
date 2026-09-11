@@ -651,10 +651,16 @@ def _handle_complete(args: dict, **kw) -> str:
                     # hermes_cli/goals.py. Unpacking fewer raises ValueError,
                     # which the defensive handler below swallows, leaving
                     # verdict="done" and silently disabling the gate.
-                    verdict, reason, _, _, _ = judge_goal(
+                    verdict, reason, _, _, transport_failed = judge_goal(
                         goal=f"{task.title}\n\n{task.body or ''}".strip(),
                         last_response=(summary or result or "").strip(),
                     )
+                    if transport_failed:
+                        logger.warning(
+                            "goal judge transport failed, allowing completion: %s",
+                            reason,
+                        )
+                        verdict = "done"
                 except Exception as judge_exc:
                     # Defensive: judge_goal swallows its own errors, but if
                     # it ever raises, fail open rather than wedge the worker.

@@ -661,9 +661,9 @@ def test_detect_stale_defers_when_live_worker_survives(kanban_home, monkeypatch)
                 (five_hours_ago, t),
             )
             conn.execute(
-                "UPDATE task_runs SET started_at = ? "
+                "UPDATE task_runs SET started_at = ?, started_monotonic = ? "
                 "WHERE id = (SELECT current_run_id FROM tasks WHERE id = ?)",
-                (five_hours_ago, t),
+                (five_hours_ago, time.monotonic() - (5 * 3600), t),
             )
 
         monkeypatch.setattr(_kb, "_pid_alive", lambda _pid: True)
@@ -1087,8 +1087,9 @@ def test_max_runtime_uses_current_run_start_after_retry(kanban_home, monkeypatch
             (old_started, 999999, t),
         )
         conn.execute(
-            "UPDATE task_runs SET started_at = ?, worker_pid = ? WHERE id = ?",
-            (old_started, 999999, first_run_id),
+            "UPDATE task_runs SET started_at = ?, started_monotonic = ?, "
+            "worker_pid = ? WHERE id = ?",
+            (old_started, time.monotonic() - 20, 999999, first_run_id),
         )
 
         timed_out = kb.enforce_max_runtime(conn, signal_fn=lambda _pid, _sig: None)
@@ -1109,6 +1110,105 @@ def test_max_runtime_uses_current_run_start_after_retry(kanban_home, monkeypatch
         timed_out = kb.enforce_max_runtime(conn, signal_fn=lambda _pid, _sig: None)
         assert timed_out == []
         assert kb.get_task(conn, t).status == "running"
+
+
+def test_max_runtime_excludes_host_sleep_from_elapsed(kanban_home, monkeypatch):
+    """A wall-clock jump with little active monotonic time must not kill work."""
+    with kb.connect() as conn:
+        host = kb._claimer_id().split(":", 1)[0]
+        tid = kb.create_task(
+            conn, title="sleep-safe", assignee="a", max_runtime_seconds=60,
+        )
+        kb.claim_task(conn, tid, claimer=f"{host}:worker")
+        kb._set_worker_pid(conn, tid, 999999)
+        run_id = kb.latest_run(conn, tid).id
+        conn.execute(
+            "UPDATE task_runs SET started_at = ?, started_monotonic = ? "
+            "WHERE id = ?",
+            (int(time.time()) - 7200, 995.0, run_id),
+        )
+        monkeypatch.setattr(kb.time, "monotonic", lambda: 1000.0)
+
+        assert kb.enforce_max_runtime(conn) == []
+        assert kb.get_task(conn, tid).status == "running"
+
+
+def test_max_runtime_uses_active_monotonic_elapsed(kanban_home, monkeypatch):
+    """The active-time ceiling still trips when monotonic runtime is over budget."""
+    monkeypatch.setattr(kb, "_pid_alive", lambda _pid: False)
+    with kb.connect() as conn:
+        host = kb._claimer_id().split(":", 1)[0]
+        tid = kb.create_task(
+            conn, title="active-overrun", assignee="a", max_runtime_seconds=60,
+        )
+        kb.claim_task(conn, tid, claimer=f"{host}:worker")
+        kb._set_worker_pid(conn, tid, 999999)
+        run_id = kb.latest_run(conn, tid).id
+        conn.execute(
+            "UPDATE task_runs SET started_at = ?, started_monotonic = ? "
+            "WHERE id = ?",
+            (int(time.time()) - 5, 900.0, run_id),
+        )
+        monkeypatch.setattr(kb.time, "monotonic", lambda: 1000.0)
+
+        assert kb.enforce_max_runtime(
+            conn, signal_fn=lambda _pid, _sig: None,
+        ) == [tid]
+
+
+def test_max_runtime_legacy_run_keeps_wall_clock_fallback(kanban_home, monkeypatch):
+    """An in-flight row created before the migration must still be bounded."""
+    monkeypatch.setattr(kb, "_pid_alive", lambda _pid: False)
+    with kb.connect() as conn:
+        host = kb._claimer_id().split(":", 1)[0]
+        tid = kb.create_task(
+            conn, title="legacy", assignee="a", max_runtime_seconds=60,
+        )
+        kb.claim_task(conn, tid, claimer=f"{host}:worker")
+        kb._set_worker_pid(conn, tid, 999999)
+        conn.execute(
+            "UPDATE task_runs SET started_at = ?, started_monotonic = NULL "
+            "WHERE id = (SELECT current_run_id FROM tasks WHERE id = ?)",
+            (int(time.time()) - 120, tid),
+        )
+
+        assert kb.enforce_max_runtime(
+            conn, signal_fn=lambda _pid, _sig: None,
+        ) == [tid]
+        event = next(
+            event for event in kb.list_events(conn, tid)
+            if event.kind == "timed_out"
+        )
+        assert event.payload["clock_source"] == "wall_legacy"
+
+
+def test_stale_claim_ignores_sleep_only_heartbeat_gap(kanban_home, monkeypatch):
+    """A suspended host must not turn a fresh active heartbeat into staleness."""
+    active = {"now": 1000.0}
+    monkeypatch.setattr(kb.time, "monotonic", lambda: active["now"])
+    monkeypatch.setattr(kb, "_pid_alive", lambda _pid: True)
+
+    with kb.connect() as conn:
+        host = kb._claimer_id().split(":", 1)[0]
+        tid = kb.create_task(conn, title="sleep-heartbeat", assignee="a")
+        kb.claim_task(conn, tid, claimer=f"{host}:worker")
+        kb._set_worker_pid(conn, tid, 999999)
+        active["now"] = 1010.0
+        assert kb.heartbeat_worker(conn, tid)
+        conn.execute(
+            "UPDATE tasks SET claim_expires = ?, last_heartbeat_at = ? "
+            "WHERE id = ?",
+            (int(time.time()) - 1, int(time.time()) - 7200, tid),
+        )
+        conn.execute(
+            "UPDATE task_runs SET last_heartbeat_at = ? "
+            "WHERE id = (SELECT current_run_id FROM tasks WHERE id = ?)",
+            (int(time.time()) - 7200, tid),
+        )
+        active["now"] = 1020.0
+
+        assert kb.release_stale_claims(conn) == 0
+        assert kb.get_task(conn, tid).status == "running"
 
 
 def test_heartbeat_extends_claim(kanban_home):
@@ -4269,9 +4369,9 @@ def test_detect_stale_returns_running_task_with_no_heartbeat(kanban_home, monkey
                 "UPDATE tasks SET started_at = ? WHERE id = ?", (five_hours_ago, t)
             )
             conn.execute(
-                "UPDATE task_runs SET started_at = ? "
+                "UPDATE task_runs SET started_at = ?, started_monotonic = ? "
                 "WHERE id = (SELECT current_run_id FROM tasks WHERE id = ?)",
-                (five_hours_ago, t),
+                (five_hours_ago, time.monotonic() - (5 * 3600), t),
             )
         # No heartbeat set — last_heartbeat_at stays NULL.
 
@@ -4303,9 +4403,15 @@ def test_detect_stale_returns_task_with_stale_heartbeat(kanban_home, monkeypatch
                 (five_hours_ago, heartbeat_2h_ago, t),
             )
             conn.execute(
-                "UPDATE task_runs SET started_at = ? "
+                "UPDATE task_runs SET started_at = ?, started_monotonic = ?, "
+                "last_heartbeat_monotonic = ? "
                 "WHERE id = (SELECT current_run_id FROM tasks WHERE id = ?)",
-                (five_hours_ago, t),
+                (
+                    five_hours_ago,
+                    time.monotonic() - (5 * 3600),
+                    time.monotonic() - (2 * 3600),
+                    t,
+                ),
             )
 
         monkeypatch.setattr(_kb, "_pid_alive", lambda _pid: False)
@@ -4336,9 +4442,10 @@ def test_detect_stale_skips_task_with_recent_heartbeat(kanban_home, monkeypatch)
                 (five_hours_ago, heartbeat_now, t),
             )
             conn.execute(
-                "UPDATE task_runs SET started_at = ? "
+                "UPDATE task_runs SET started_at = ?, started_monotonic = ?, "
+                "last_heartbeat_monotonic = ? "
                 "WHERE id = (SELECT current_run_id FROM tasks WHERE id = ?)",
-                (five_hours_ago, t),
+                (five_hours_ago, time.monotonic() - (5 * 3600), time.monotonic(), t),
             )
 
         monkeypatch.setattr(_kb, "_pid_alive", lambda _pid: True)
@@ -4365,9 +4472,9 @@ def test_detect_stale_skips_recently_started_task(kanban_home, monkeypatch):
                 "UPDATE tasks SET started_at = ? WHERE id = ?", (one_hour_ago, t)
             )
             conn.execute(
-                "UPDATE task_runs SET started_at = ? "
+                "UPDATE task_runs SET started_at = ?, started_monotonic = ? "
                 "WHERE id = (SELECT current_run_id FROM tasks WHERE id = ?)",
-                (one_hour_ago, t),
+                (one_hour_ago, time.monotonic() - 3600, t),
             )
 
         monkeypatch.setattr(_kb, "_pid_alive", lambda _pid: True)
@@ -4392,9 +4499,9 @@ def test_detect_stale_skips_when_timeout_zero(kanban_home, monkeypatch):
                 "UPDATE tasks SET started_at = ? WHERE id = ?", (five_hours_ago, t)
             )
             conn.execute(
-                "UPDATE task_runs SET started_at = ? "
+                "UPDATE task_runs SET started_at = ?, started_monotonic = ? "
                 "WHERE id = (SELECT current_run_id FROM tasks WHERE id = ?)",
-                (five_hours_ago, t),
+                (five_hours_ago, time.monotonic() - (5 * 3600), t),
             )
 
         stale = kb.detect_stale_running(
@@ -4419,9 +4526,9 @@ def test_detect_stale_skips_blocked_tasks(kanban_home, monkeypatch):
                 "UPDATE tasks SET started_at = ? WHERE id = ?", (five_hours_ago, t)
             )
             conn.execute(
-                "UPDATE task_runs SET started_at = ? "
+                "UPDATE task_runs SET started_at = ?, started_monotonic = ? "
                 "WHERE id = (SELECT current_run_id FROM tasks WHERE id = ?)",
-                (five_hours_ago, t),
+                (five_hours_ago, time.monotonic() - (5 * 3600), t),
             )
         # Block the task explicitly.
         kb.block_task(conn, t, reason="human requested block")
@@ -4458,9 +4565,9 @@ def test_detect_stale_does_not_tick_failure_counter(kanban_home, monkeypatch):
                 "UPDATE tasks SET started_at = ? WHERE id = ?", (five_hours_ago, t)
             )
             conn.execute(
-                "UPDATE task_runs SET started_at = ? "
+                "UPDATE task_runs SET started_at = ?, started_monotonic = ? "
                 "WHERE id = (SELECT current_run_id FROM tasks WHERE id = ?)",
-                (five_hours_ago, t),
+                (five_hours_ago, time.monotonic() - (5 * 3600), t),
             )
             # Counter starts at 0; assert that's our baseline.
             row = conn.execute(

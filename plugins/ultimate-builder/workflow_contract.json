@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "contract_version": "1.0.0",
+  "contract_version": "1.0.1",
   "rules": [
     {
       "id": "workspace-boundary",
@@ -31,6 +31,12 @@
       "summary": "A stale worker cannot complete or block its successor run.",
       "mode": "enforced",
       "evidence": ["hermes_cli/kanban_db.py", "agent/kanban_stop.py"]
+    },
+    {
+      "id": "direct-specialist-execution",
+      "summary": "A durable Lyra specialist executes its assigned phase directly and cannot recursively delegate the same phase.",
+      "mode": "enforced",
+      "evidence": ["hermes_cli/kanban_db.py", "plugins/ultimate-builder/project_runs.py"]
     },
     {
       "id": "worker-runtime-bound",

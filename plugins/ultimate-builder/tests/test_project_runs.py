@@ -42,6 +42,52 @@ def test_worker_reads_compact_status_before_detailed_progress():
     assert body.index(".sdlc/status.json") < body.index(".sdlc/progress.md")
     assert "do not hand-edit the snapshot" in body
     assert "Universal worker contract:" in body
+    assert "You are already the dedicated specialist worker" in body
+    assert "Do not delegate this phase" in body
+
+
+def test_project_phase_jobs_have_bounded_attempts_and_one_retry(tmp_path, monkeypatch):
+    monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
+    project = tmp_path / "project"
+    project.mkdir()
+    module = load_project_runs()
+
+    task_id = module.queue_project_run(project, ["sw-architect"])["tasks"][0][
+        "task_id"
+    ]
+
+    with module.kb.connect_closing() as conn:
+        task = module.kb.get_task(conn, task_id)
+    assert task is not None
+    assert task.max_runtime_seconds == 45 * 60
+    assert task.goal_max_turns == 8
+    assert task.max_retries == 2
+
+
+def test_reused_unfinished_phase_adopts_current_execution_bounds(tmp_path, monkeypatch):
+    monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
+    project = tmp_path / "project"
+    project.mkdir()
+    module = load_project_runs()
+    first = module.queue_project_run(project, ["sw-architect"])
+    task_id = first["tasks"][0]["task_id"]
+    with module.kb.connect_closing() as conn:
+        with module.kb.write_txn(conn):
+            conn.execute(
+                "UPDATE tasks SET max_runtime_seconds=21600, goal_max_turns=30, "
+                "max_retries=3 WHERE id=?",
+                (task_id,),
+            )
+
+    reused = module.queue_project_run(project, ["sw-architect"])
+
+    assert reused["tasks"][0]["reused"] is True
+    with module.kb.connect_closing() as conn:
+        task = module.kb.get_task(conn, task_id)
+    assert task is not None
+    assert task.max_runtime_seconds == 45 * 60
+    assert task.goal_max_turns == 8
+    assert task.max_retries == 2
 
 
 def test_invalid_workflow_contract_stops_before_project_mutation(tmp_path, monkeypatch):

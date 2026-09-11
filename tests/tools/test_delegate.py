@@ -63,7 +63,15 @@ def _make_mock_parent(depth=0):
 
 class TestDelegateRequirements(unittest.TestCase):
     def test_always_available(self):
-        self.assertTrue(check_delegate_requirements())
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("HERMES_WORKER_DISABLE_DELEGATION", None)
+            self.assertTrue(check_delegate_requirements())
+
+    def test_hidden_inside_direct_specialist_worker(self):
+        with patch.dict(
+            os.environ, {"HERMES_WORKER_DISABLE_DELEGATION": "1"}, clear=False
+        ):
+            self.assertFalse(check_delegate_requirements())
 
     def test_schema_valid(self):
         self.assertEqual(DELEGATE_TASK_SCHEMA["name"], "delegate_task")

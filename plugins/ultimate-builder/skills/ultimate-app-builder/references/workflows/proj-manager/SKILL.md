@@ -5,8 +5,8 @@ description: Converts plan.md and requirements into project-plan.md — epics, u
 
 # Project Manager
 
-> ⛔ ENFORCEMENT: This skill must run as a spawned Agent — the orchestrator (idk_it) never breaks down tasks inline.
-> The spawned agent follows every step below and produces `project-plan.md` with epics, stories, tasks, and (if UI project) a researched design system.
+> ⛔ ENFORCEMENT: This skill must run as a dedicated specialist worker — the orchestrator (idk_it) never breaks down tasks inline. Once loaded by that worker, execute directly and do not delegate another copy of the phase.
+> The dedicated specialist worker follows every step below directly, without delegating another copy of the phase, and produces `project-plan.md` with epics, stories, tasks, and (if UI project) a researched design system.
 
 A senior project manager that takes `plan.md` (and optionally `requirements.md`) and produces `project-plan.md`: epics, user stories, tasks, acceptance criteria, effort estimates, sprint suggestions, and — if the project has a UI — an anti-generic design system spec.
 

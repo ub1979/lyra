@@ -1075,7 +1075,9 @@ class Run:
     worker_pid: Optional[int]
     max_runtime_seconds: Optional[int]
     last_heartbeat_at: Optional[int]
+    last_heartbeat_monotonic: Optional[float]
     started_at: int
+    started_monotonic: Optional[float]
     ended_at: Optional[int]
     outcome: Optional[str]
     summary: Optional[str]
@@ -1099,7 +1101,19 @@ class Run:
             worker_pid=row["worker_pid"],
             max_runtime_seconds=row["max_runtime_seconds"],
             last_heartbeat_at=row["last_heartbeat_at"],
+            last_heartbeat_monotonic=(
+                float(row["last_heartbeat_monotonic"])
+                if "last_heartbeat_monotonic" in row.keys()
+                and row["last_heartbeat_monotonic"] is not None
+                else None
+            ),
             started_at=int(row["started_at"]),
+            started_monotonic=(
+                float(row["started_monotonic"])
+                if "started_monotonic" in row.keys()
+                and row["started_monotonic"] is not None
+                else None
+            ),
             ended_at=(int(row["ended_at"]) if row["ended_at"] is not None else None),
             outcome=row["outcome"],
             summary=row["summary"],
@@ -1278,7 +1292,9 @@ CREATE TABLE IF NOT EXISTS task_runs (
     worker_pid          INTEGER,
     max_runtime_seconds INTEGER,
     last_heartbeat_at   INTEGER,
+    last_heartbeat_monotonic REAL,
     started_at          INTEGER NOT NULL,
+    started_monotonic   REAL,
     ended_at            INTEGER,
     outcome             TEXT,
     -- outcome: completed | blocked | crashed | timed_out | spawn_failed |
@@ -2421,6 +2437,28 @@ def _migrate_add_optional_columns(conn: sqlite3.Connection) -> None:
         "ON task_events(run_id, id)"
     )
 
+    # Active clocks are host-local safety data. Unlike Unix wall timestamps,
+    # Python's monotonic clock does not advance while macOS is suspended, so a
+    # sleeping laptop cannot consume a worker's runtime or heartbeat budget.
+    runs_exist = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='task_runs'"
+    ).fetchone() is not None
+    if runs_exist:
+        run_cols = {
+            row["name"] for row in conn.execute("PRAGMA table_info(task_runs)")
+        }
+        if "started_monotonic" not in run_cols:
+            _add_column_if_missing(
+                conn, "task_runs", "started_monotonic", "started_monotonic REAL"
+            )
+        if "last_heartbeat_monotonic" not in run_cols:
+            _add_column_if_missing(
+                conn,
+                "task_runs",
+                "last_heartbeat_monotonic",
+                "last_heartbeat_monotonic REAL",
+            )
+
     notify_table_exists = conn.execute(
         "SELECT name FROM sqlite_master WHERE type='table' AND name='kanban_notify_subs'"
     ).fetchone() is not None
@@ -2440,9 +2478,6 @@ def _migrate_add_optional_columns(conn: sqlite3.Connection) -> None:
     # against any concurrent dispatcher, and the per-row UPDATE uses
     # ``current_run_id IS NULL`` as a CAS guard so a racing claim can't
     # produce an orphaned row if it interleaves with the backfill pass.
-    runs_exist = conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='task_runs'"
-    ).fetchone() is not None
     if runs_exist:
         with write_txn(conn):
             inflight = conn.execute(
@@ -2543,7 +2578,8 @@ _REBUILD_SPECS = {
         " task_id TEXT NOT NULL, profile TEXT, step_key TEXT,"
         " status TEXT NOT NULL, claim_lock TEXT, claim_expires INTEGER,"
         " worker_pid INTEGER, max_runtime_seconds INTEGER,"
-        " last_heartbeat_at INTEGER, started_at INTEGER NOT NULL,"
+        " last_heartbeat_at INTEGER, last_heartbeat_monotonic REAL,"
+        " started_at INTEGER NOT NULL, started_monotonic REAL,"
         " ended_at INTEGER, outcome TEXT, summary TEXT, metadata TEXT,"
         " error TEXT)",
         (
@@ -4026,6 +4062,7 @@ def claim_task(
     already claimed (or is not in ``ready`` status).
     """
     now = int(time.time())
+    active_now = time.monotonic()
     lock = claimer or _claimer_id()
     expires = now + _resolve_claim_ttl_seconds(ttl_seconds)
     with write_txn(conn):
@@ -4101,8 +4138,8 @@ def claim_task(
             INSERT INTO task_runs (
                 task_id, profile, step_key, status,
                 claim_lock, claim_expires, max_runtime_seconds,
-                started_at
-            ) VALUES (?, ?, ?, 'running', ?, ?, ?, ?)
+                started_at, started_monotonic
+            ) VALUES (?, ?, ?, 'running', ?, ?, ?, ?, ?)
             """,
             (
                 task_id,
@@ -4112,6 +4149,7 @@ def claim_task(
                 expires,
                 trow["max_runtime_seconds"] if trow else None,
                 now,
+                active_now,
             ),
         )
         run_id = run_cur.lastrowid
@@ -4155,6 +4193,7 @@ def claim_review_task(
     independently from the original worker run.
     """
     now = int(time.time())
+    active_now = time.monotonic()
     lock = claimer or _claimer_id()
     expires = now + _resolve_claim_ttl_seconds(ttl_seconds)
     with write_txn(conn):
@@ -4183,8 +4222,8 @@ def claim_review_task(
             INSERT INTO task_runs (
                 task_id, profile, step_key, status,
                 claim_lock, claim_expires, max_runtime_seconds,
-                started_at
-            ) VALUES (?, ?, ?, 'running', ?, ?, ?, ?)
+                started_at, started_monotonic
+            ) VALUES (?, ?, ?, 'running', ?, ?, ?, ?, ?)
             """,
             (
                 task_id,
@@ -4194,6 +4233,7 @@ def claim_review_task(
                 expires,
                 trow["max_runtime_seconds"] if trow else None,
                 now,
+                active_now,
             ),
         )
         run_id = run_cur.lastrowid
@@ -4272,13 +4312,16 @@ def release_stale_claims(
     extensions don't count). Safe to call often.
     """
     now = int(time.time())
+    active_now = time.monotonic()
     reclaimed = 0
     host_prefix = f"{_claimer_id().split(':', 1)[0]}:"
     stale = conn.execute(
-        "SELECT id, claim_lock, worker_pid, claim_expires, last_heartbeat_at "
-        "FROM tasks "
-        "WHERE status = 'running' AND claim_expires IS NOT NULL "
-        "  AND claim_expires < ?",
+        "SELECT t.id, t.claim_lock, t.worker_pid, t.claim_expires, "
+        "       t.last_heartbeat_at, r.last_heartbeat_monotonic "
+        "FROM tasks t "
+        "LEFT JOIN task_runs r ON r.id = t.current_run_id "
+        "WHERE t.status = 'running' AND t.claim_expires IS NOT NULL "
+        "  AND t.claim_expires < ?",
         (now,),
     ).fetchall()
     for row in stale:
@@ -4289,10 +4332,16 @@ def release_stale_claims(
         # and it's older than the max-stale threshold, the worker is
         # not making observable progress.  Reclaim instead of extending,
         # even if the PID is still alive (it's likely in a logic loop).
-        heartbeat_stale = (
-            hb is not None
-            and (now - int(hb)) > DEFAULT_CLAIM_HEARTBEAT_MAX_STALE_SECONDS
-        )
+        hb_active = row["last_heartbeat_monotonic"]
+        if hb_active is not None and active_now >= float(hb_active):
+            heartbeat_stale = (
+                active_now - float(hb_active)
+            ) > DEFAULT_CLAIM_HEARTBEAT_MAX_STALE_SECONDS
+        else:
+            heartbeat_stale = (
+                hb is not None
+                and (now - int(hb)) > DEFAULT_CLAIM_HEARTBEAT_MAX_STALE_SECONDS
+            )
         if (
             host_local
             and row["worker_pid"]
@@ -7052,6 +7101,7 @@ def heartbeat_worker(
     should be heartbeating (not running, or claim expired).
     """
     now = int(time.time())
+    active_now = time.monotonic()
     with write_txn(conn):
         if expected_run_id is None:
             cur = conn.execute(
@@ -7074,8 +7124,9 @@ def heartbeat_worker(
         )
         if run_id is not None:
             conn.execute(
-                "UPDATE task_runs SET last_heartbeat_at = ? WHERE id = ?",
-                (now, run_id),
+                "UPDATE task_runs SET last_heartbeat_at = ?, "
+                "last_heartbeat_monotonic = ? WHERE id = ?",
+                (now, active_now, run_id),
             )
         _append_event(
             conn, task_id, "heartbeat",
@@ -7105,11 +7156,13 @@ def enforce_max_runtime(
     import signal
     timed_out: list[str] = []
     now = int(time.time())
+    active_now = time.monotonic()
     host_prefix = f"{_claimer_id().split(':', 1)[0]}:"
 
     rows = conn.execute(
         "SELECT t.id, t.worker_pid, "
         "       COALESCE(r.started_at, t.started_at) AS active_started_at, "
+        "       r.started_monotonic, "
         "       t.max_runtime_seconds, t.claim_lock "
         "FROM tasks t "
         "LEFT JOIN task_runs r ON r.id = t.current_run_id "
@@ -7124,7 +7177,18 @@ def enforce_max_runtime(
         # Runtime is per attempt, not lifetime-of-task. ``tasks.started_at``
         # intentionally records the first time a task ever started, so retries
         # must be measured from the active task_runs row when present.
-        elapsed = now - int(row["active_started_at"])
+        wall_elapsed = now - int(row["active_started_at"])
+        if (
+            row["started_monotonic"] is not None
+            and active_now >= float(row["started_monotonic"])
+        ):
+            elapsed = max(0.0, active_now - float(row["started_monotonic"]))
+            clock_source = "host_active"
+        else:
+            # Legacy in-flight runs have no host-active stamp. Preserve the
+            # old wall-clock behavior for them; every new claim records one.
+            elapsed = float(wall_elapsed)
+            clock_source = "wall_legacy"
         if elapsed < int(row["max_runtime_seconds"]):
             continue
 
@@ -7169,6 +7233,8 @@ def enforce_max_runtime(
                 payload = {
                     "pid": pid,
                     "elapsed_seconds": int(elapsed),
+                    "wall_elapsed_seconds": int(wall_elapsed),
+                    "clock_source": clock_source,
                     "limit_seconds": int(row["max_runtime_seconds"]),
                     "sigkill": killed,
                 }
@@ -7239,12 +7305,14 @@ def detect_stale_running(
 
 
     now = int(time.time())
+    active_now = time.monotonic()
     host_prefix = f"{_claimer_id().split(':', 1)[0]}:"
     reclaimed: list[str] = []
 
     rows = conn.execute(
         "SELECT t.id, t.worker_pid, t.last_heartbeat_at, t.claim_lock, "
-        "       COALESCE(r.started_at, t.started_at) AS active_started_at "
+        "       COALESCE(r.started_at, t.started_at) AS active_started_at, "
+        "       r.started_monotonic, r.last_heartbeat_monotonic "
         "FROM tasks t "
         "LEFT JOIN task_runs r ON r.id = t.current_run_id "
         "WHERE t.status = 'running'"
@@ -7255,12 +7323,22 @@ def detect_stale_running(
         if row["active_started_at"] is None:
             continue
 
-        elapsed = now - int(row["active_started_at"])
+        if (
+            row["started_monotonic"] is not None
+            and active_now >= float(row["started_monotonic"])
+        ):
+            elapsed = max(0.0, active_now - float(row["started_monotonic"]))
+        else:
+            elapsed = float(now - int(row["active_started_at"]))
         if elapsed < stale_timeout_seconds:
             continue  # not old enough to check
 
         last_hb = row["last_heartbeat_at"]
-        hb_age = (now - int(last_hb)) if last_hb is not None else None
+        last_hb_active = row["last_heartbeat_monotonic"]
+        if last_hb_active is not None and active_now >= float(last_hb_active):
+            hb_age = max(0.0, active_now - float(last_hb_active))
+        else:
+            hb_age = (now - int(last_hb)) if last_hb is not None else None
         if hb_age is not None and hb_age < _STALE_HEARTBEAT_GAP_SECONDS:
             continue  # recent heartbeat → still alive
 
@@ -8877,6 +8955,41 @@ def _resolve_worker_cli_toolsets(hermes_home: Optional[str]) -> Optional[list[st
         return None
 
 
+def _is_direct_ultimate_builder_worker(task: Task) -> bool:
+    """Return whether this Kanban worker already owns a Lyra specialist phase.
+
+    Ultimate Builder creates one durable worker per specialist phase/work unit.
+    Such a worker is the delegation boundary; letting it retain ``delegate_task``
+    permits the loaded playbook to hand its entire assignment to another agent,
+    multiplying timeouts and hiding non-progress behind the parent's heartbeat.
+    Match both the trusted creator and skill namespace so ordinary Kanban tasks
+    and manually loaded skills keep their configured delegation capability.
+    """
+    return task.created_by == "lyra-project-guide" and any(
+        str(skill).startswith("ultimate-builder:") for skill in (task.skills or [])
+    )
+
+
+def _worker_command_with_idle_sleep_guard(
+    cmd: list[str], *, direct_specialist: bool
+) -> list[str]:
+    """Keep a durable Lyra phase running through macOS display idleness.
+
+    ``caffeinate -i <command>`` preserves the command's PID while a helper
+    holds the idle-sleep assertion. It cannot override lid-close sleep; the
+    run's monotonic clocks pause that interval instead of charging it to the
+    worker's active runtime budget.
+    """
+    caffeinate = "/usr/bin/caffeinate"
+    if (
+        direct_specialist
+        and sys.platform == "darwin"
+        and os.path.isfile(caffeinate)
+    ):
+        return [caffeinate, "-i", *cmd]
+    return cmd
+
+
 def _default_spawn(
     task: Task,
     workspace: str,
@@ -8964,6 +9077,12 @@ def _default_spawn(
         env["HERMES_KANBAN_RUN_ID"] = str(task.current_run_id)
     if task.claim_lock:
         env["HERMES_KANBAN_CLAIM_LOCK"] = task.claim_lock
+    direct_specialist = _is_direct_ultimate_builder_worker(task)
+    if direct_specialist:
+        # Defense in depth for a profile-resolution failure or stale explicit
+        # tool pin: delegate_tool's check_fn also consumes this internal
+        # worker-scoped marker and withholds delegate_task from the schema.
+        env["HERMES_WORKER_DISABLE_DELEGATION"] = "1"
     # Goal-loop mode: the worker reads these and wraps its run in the
     # Ralph-style /goal judge loop (see cli.py quiet-mode path). Only set
     # when enabled so non-goal tasks keep a clean env.
@@ -9009,6 +9128,17 @@ def _default_spawn(
     # highest-precedence interface override; dropping the env var covers
     # older hermes builds on PATH that predate the flag's precedence.
     env.pop("HERMES_TUI", None)
+    # These describe the parent chat surface, not a child process. A quiet
+    # worker has no composer or gateway callback capable of answering an
+    # approval prompt; inheriting them launches an auxiliary approval and can
+    # leave the command waiting for a user who has no reply surface.
+    for parent_only_flag in (
+        "HERMES_EXEC_ASK",
+        "HERMES_GATEWAY_SESSION",
+        "HERMES_INTERACTIVE",
+        "HERMES_SESSION_PLATFORM",
+    ):
+        env.pop(parent_only_flag, None)
 
     cmd = [
         *_resolve_hermes_argv(),
@@ -9038,6 +9168,10 @@ def _default_spawn(
         if task.provider_override:
             cmd.extend(["--provider", task.provider_override])
     worker_toolsets = _resolve_worker_cli_toolsets(env.get("HERMES_HOME"))
+    if worker_toolsets and direct_specialist:
+        worker_toolsets = [
+            toolset for toolset in worker_toolsets if toolset != "delegation"
+        ]
     if worker_toolsets:
         cmd.extend(["--toolsets", ",".join(worker_toolsets)])
     cmd.extend([
@@ -9051,6 +9185,9 @@ def _default_spawn(
         # turn, prints text, exits rc=0, and the dispatcher records a
         # protocol violation (incident 2026-06-09 t_d9cbe312).
         cmd.append("-Q")
+    cmd = _worker_command_with_idle_sleep_guard(
+        cmd, direct_specialist=direct_specialist
+    )
     # Redirect output to a per-task log under <board-root>/logs/.
     # Anchored at the board root (not the shared kanban root), so
     # `hermes kanban log` on a specific board reads its own file and

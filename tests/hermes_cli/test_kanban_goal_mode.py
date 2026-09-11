@@ -245,6 +245,51 @@ def test_loop_blocks_on_budget_exhaustion(monkeypatch):
     assert "turn budget" in blocked["reason"].lower()
 
 
+@pytest.mark.parametrize(
+    ("parse_failed", "transport_failed", "limit", "reason_fragment"),
+    [
+        (True, False, goals.DEFAULT_MAX_CONSECUTIVE_PARSE_FAILURES, "unparseable"),
+        (
+            False,
+            True,
+            goals.DEFAULT_MAX_CONSECUTIVE_TRANSPORT_FAILURES,
+            "unreachable",
+        ),
+    ],
+)
+def test_loop_blocks_after_repeated_judge_failures(
+    monkeypatch, parse_failed, transport_failed, limit, reason_fragment
+):
+    monkeypatch.setattr(
+        goals,
+        "judge_goal",
+        lambda *args, **kwargs: (
+            "continue",
+            "judge failed",
+            parse_failed,
+            None,
+            transport_failed,
+        ),
+    )
+    blocked = {}
+    turns = []
+
+    result = goals.run_kanban_goal_loop(
+        task_id="t_judge_failure",
+        goal_text="ship feature",
+        run_turn=lambda prompt: turns.append(prompt) or "still working",
+        task_status_fn=lambda: "running",
+        block_fn=lambda reason: blocked.update(reason=reason),
+        max_turns=20,
+        first_response="started",
+    )
+
+    assert result["outcome"] == "blocked_judge"
+    assert result["turns_used"] == limit
+    assert len(turns) == limit - 1
+    assert reason_fragment in blocked["reason"].lower()
+
+
 def test_loop_finalize_nudge_when_judge_done_but_open(monkeypatch):
     # Judge says done, but worker never terminated → one finalize nudge,
     # then worker completes.
@@ -383,7 +428,8 @@ class TestCLIJudgeGate:
     """
 
     def _run(self, monkeypatch, *, goal_mode=True, judge_available=True,
-             verdict="done", reason="", complete_ok=True, summary="done"):
+             verdict="done", reason="", transport_failed=False,
+             complete_ok=True, summary="done"):
         import argparse
         import types
         from unittest.mock import MagicMock
@@ -422,7 +468,7 @@ class TestCLIJudgeGate:
         # (verdict, reason, parse_failed, wait_directive, transport_failed)
         monkeypatch.setattr(
             "hermes_cli.goals.judge_goal",
-            lambda **kw: (verdict, reason, False, None, False),
+            lambda **kw: (verdict, reason, False, None, transport_failed),
         )
 
         args = argparse.Namespace(task_ids=["t1"], summary=summary, result=None, metadata=None)
@@ -445,6 +491,17 @@ class TestCLIJudgeGate:
     def test_judge_unavailable_fails_open(self, monkeypatch):
         """No auxiliary client configured → gate skipped, task completes."""
         rc, complete_calls = self._run(monkeypatch, judge_available=False)
+        assert rc == 0
+        assert complete_calls == ["t1"]
+
+    def test_judge_transport_failure_fails_open(self, monkeypatch):
+        """A configured but unreachable judge must not wedge completion."""
+        rc, complete_calls = self._run(
+            monkeypatch,
+            verdict="continue",
+            reason="judge error: TimeoutError",
+            transport_failed=True,
+        )
         assert rc == 0
         assert complete_calls == ["t1"]
 

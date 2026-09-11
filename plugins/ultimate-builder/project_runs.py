@@ -30,6 +30,11 @@ ACTIVE_STATUSES = frozenset({
 RUNNING_STATUSES = frozenset({"todo", "ready", "running", "scheduled"})
 QUIET_ACTIVITY_SECONDS = 2 * 60
 STALLED_ACTIVITY_SECONDS = 10 * 60
+PHASE_MAX_RUNTIME_SECONDS = 45 * 60
+PHASE_GOAL_MAX_TURNS = 8
+DEVELOPMENT_MAX_RUNTIME_SECONDS = 2 * 60 * 60
+DEVELOPMENT_GOAL_MAX_TURNS = 12
+PROJECT_JOB_MAX_RETRIES = 2
 
 PHASES: dict[str, dict[str, str]] = {
     "researcher": {"label": "Research", "artifact": "research-report.md"},
@@ -241,6 +246,12 @@ def _task_body(project: Path, phase: str) -> str:
 Workspace: {project}
 Required outcome: complete the {info["label"]} phase and leave {info["artifact"]} as evidence.
 
+You are already the dedicated specialist worker for this phase. Execute the
+loaded playbook directly with your own tools. Do not delegate this phase or
+spawn another agent to perform the same assignment. If a required capability
+is unavailable, block the task with the exact missing capability instead of
+creating a substitute worker.
+
 Universal worker contract:
 {_worker_invariants()}
 
@@ -383,6 +394,27 @@ def queue_project_run(
                     models.get(phase) or None,
                     provider=providers.get(phase) or None,
                 )
+                max_runtime_seconds = (
+                    DEVELOPMENT_MAX_RUNTIME_SECONDS
+                    if work_unit
+                    else PHASE_MAX_RUNTIME_SECONDS
+                )
+                goal_max_turns = (
+                    DEVELOPMENT_GOAL_MAX_TURNS
+                    if work_unit
+                    else PHASE_GOAL_MAX_TURNS
+                )
+                with kb.write_txn(origin_conn):
+                    origin_conn.execute(
+                        "UPDATE tasks SET max_runtime_seconds=?, max_retries=?, "
+                        "goal_max_turns=? WHERE id=? AND status != 'done'",
+                        (
+                            max_runtime_seconds,
+                            PROJECT_JOB_MAX_RETRIES,
+                            goal_max_turns,
+                            task.id,
+                        ),
+                    )
         created.append(
             {
                 "task_id": task.id,
@@ -414,16 +446,16 @@ def queue_project_run(
                 f"{WORK_UNIT_KEY_PREFIX}{_workspace_digest(project)}:{phase}:"
                 f"{work_unit['id']}:{run_token}"
             )
-            max_runtime_seconds = 2 * 60 * 60
-            goal_max_turns = 12
+            max_runtime_seconds = DEVELOPMENT_MAX_RUNTIME_SECONDS
+            goal_max_turns = DEVELOPMENT_GOAL_MAX_TURNS
         else:
             title = f"Lyra project: {PHASES[phase]['label']}"
             body = _task_body(project, phase)
             idempotency_key = (
                 f"{TASK_KEY_PREFIX}{_workspace_digest(project)}:{phase}:{run_token}"
             )
-            max_runtime_seconds = 6 * 60 * 60
-            goal_max_turns = 30
+            max_runtime_seconds = PHASE_MAX_RUNTIME_SECONDS
+            goal_max_turns = PHASE_GOAL_MAX_TURNS
         task_id = kb.create_task(
             conn,
             title=title[:200],
@@ -435,7 +467,7 @@ def queue_project_run(
             parents=tuple(dict.fromkeys(parents)),
             idempotency_key=idempotency_key,
             max_runtime_seconds=max_runtime_seconds,
-            max_retries=3,
+            max_retries=PROJECT_JOB_MAX_RETRIES,
             skills=(f"ultimate-builder:{phase}",),
             model_override=model,
             provider_override=provider,

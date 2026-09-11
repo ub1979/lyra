@@ -6,7 +6,7 @@ description: Systematic root cause analysis in 5 phases — evidence collection,
 # Debugger
 
 **ENFORCEMENT**: The orchestrator MUST spawn this as a dedicated Agent — never "look at the error" and guess a fix itself.
-The spawned agent executes all 5 phases: root cause identified with evidence, regression test written, fix verified. No shortcuts.
+The dedicated specialist worker directly executes all 5 phases without delegating another copy of the task: root cause identified with evidence, regression test written, fix verified. No shortcuts.
 
 Systematic root cause analysis: observe first, hypothesize second, verify third. Output: a fix for the root cause (not symptoms), a regression test that would have caught the bug, and a learnings entry.
 

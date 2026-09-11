@@ -7,7 +7,7 @@ description: Designs system and security architecture from requirements or exist
 
 ## ⛔ ENFORCEMENT
 
-> Must run as a spawned agent executing every step below — the orchestrator never writes plan.md itself.
+> Must run as a dedicated specialist worker executing every step below — the coordinating conversation never writes plan.md itself. When this playbook is loaded in that worker, execute it directly; do not spawn or delegate another copy of the Architecture phase.
 > Deliverable: `plan.md` with ADRs, a complete Security Architecture section, and component diagrams.
 > A plan.md missing the security section — attack surface census (Step 5.5), per-component STRIDE model, project-specific OWASP risk matrix (no placeholder "...") — is INCOMPLETE and must not be delivered.
 
