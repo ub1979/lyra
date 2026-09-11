@@ -740,6 +740,7 @@
 .ub-form-card h2,
 .ub-config-side h2 { color: #283044; font-size: 17px; font-weight: 720; }
 .ub-form-card label > span { color: #71798b; }
+.ub-profile-help { margin: 8px 0 0; color: #71798b; font-size: 12px; line-height: 1.5; }
 .ub-new-project-fields { margin-top: 22px; }
 .ub-brief { border-color: #dfe1e9; border-radius: 14px; color: #283044; background: #fafafd; }
 .ub-brief:focus { border-color: #8d81f5; box-shadow: 0 0 0 3px rgba(109, 93, 252, .1); }
@@ -916,6 +917,7 @@
 .ub-theme-dark .ub-team-collapsed-copy small,
 .ub-theme-dark .ub-skill-copy small,
 .ub-theme-dark .ub-template-option small,
+.ub-theme-dark .ub-profile-help,
 .ub-theme-dark .ub-summary span,
 .ub-theme-dark .ub-chat-note { color: #9da6b7; }
 

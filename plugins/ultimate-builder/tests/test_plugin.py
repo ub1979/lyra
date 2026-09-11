@@ -86,6 +86,13 @@ def test_build_command_protects_lyra_checkout():
 def test_dashboard_enforces_requirements_gate_with_real_skill_loading():
     dashboard = DASHBOARD_ENTRY.read_text()
     assert "first_turn_gate" in dashboard
+    assert "build_profile_gate" in dashboard
+    assert 'build_profile: mode === "new" ? buildProfile : "existing"' in dashboard
+    assert "How much should Lyra build?" in dashboard
+    assert 'mode === "new" && !buildProfile' in dashboard
+    assert "Personal / one-off" in dashboard
+    assert "Reusable project" in dashboard
+    assert "Production / public" in dashboard
     assert "warm one-sentence greeting" in dashboard
     assert "ask exactly ONE short product question" in dashboard
     assert "ask permission before adding it" in dashboard
@@ -143,6 +150,13 @@ def test_built_dashboard_uses_the_same_product_version():
     assert expected_version in DASHBOARD_DIST_ENTRY.read_text()
 
 
+def test_built_dashboard_contains_the_mandatory_build_scale_gate():
+    dashboard = DASHBOARD_DIST_ENTRY.read_text()
+    assert "How much should Lyra build?" in dashboard
+    assert "Choose how much Lyra should build before starting." in dashboard
+    assert 'build_profile: mode === "new" ? buildProfile : "existing"' in dashboard
+
+
 def test_start_script_launches_dashboard_from_ignored_project_root():
     start_script = (ROOT.parents[1] / "start.sh").read_text()
     assert 'WORKSPACE_DIR="$PROJECT_DIR/my_projects"' in start_script
@@ -195,6 +209,38 @@ def test_project_guide_translates_engineering_progress_for_nontechnical_users():
     assert "The application is not finished yet" in umbrella
     assert "Never show roadmap codes such as R16" in chat
     assert "what now works, what remains" in chat
+
+
+def test_project_guide_requires_scale_and_caps_personal_projects():
+    skill_root = ROOT / "skills"
+    umbrella = (skill_root / "ultimate-app-builder" / "SKILL.md").read_text()
+    guide = (skill_root / "app-it" / "SKILL.md").read_text()
+    requirements = (
+        skill_root
+        / "ultimate-app-builder"
+        / "references"
+        / "workflows"
+        / "req-engineer"
+        / "SKILL.md"
+    ).read_text()
+    planner = (
+        skill_root
+        / "ultimate-app-builder"
+        / "references"
+        / "workflows"
+        / "task-planner"
+        / "SKILL.md"
+    ).read_text()
+    normalized_planner = " ".join(planner.split())
+
+    assert "A missing profile is not a" in guide
+    assert "license to default to Product" in guide
+    assert "Never default an unanswered profile" in umbrella
+    assert "maximum of five total focused questions" in requirements
+    assert "Skip this step for an approved `personal` profile" in requirements
+    assert "skip the Grill" in guide
+    assert "generating a full task graph is a scope violation" in normalized_planner
+    assert "before exceeding 25 tasks" in normalized_planner
 
 
 def test_project_brain_is_automatic_bounded_and_verified():

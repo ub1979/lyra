@@ -148,14 +148,14 @@ Before any interview, scan, or agent spawn, ask what the user actually wants out
 >
 > | Profile | Best for | What happens |
 > |---------|----------|--------------|
-> | **MVP** (fastest) | prove the idea NOW, make it proper later | **MVP Fast Path**: quick scope (one round, ≤5 questions) → quick visual preview (UI projects) → build → smoke QA. No Grill, no plan.md, no task-graph.md. Built to the Evolvability Contract so `promote` can upgrade it to proper software later |
+> | **Personal / one-off** (fastest) | private tools used occasionally | **MVP Fast Path**: quick scope (one round, ≤5 questions) → quick visual preview (UI projects) → build → smoke QA. No Grill, no plan.md, no task-graph.md. Built to the Evolvability Contract so `promote` can upgrade it later |
 > | **Small project** | internal tools, side projects | full core pipeline + full e2e tests, docs; skips load test, DAST, accessibility, devops, security audit |
 > | **Standard** (default) | real products | + accessibility, devops, docs; skips load test, DAST, security audit |
 > | **Production** (most thorough) | launches, paid/regulated | everything incl. load test + DAST + **full security audit** |
 >
 > Want one as-is, or toggle anything (e.g. 'Standard but add load testing', 'MVP but keep docs')?"
 
-Record which of these run: `code_review`, `qa`, `e2e_tests`, `load_test`, `dast`, `security_scan`, `accessibility`, `devops`, `docs`, `security_audit`. Default: **Standard**.
+Record which of these run: `code_review`, `qa`, `e2e_tests`, `load_test`, `dast`, `security_scan`, `accessibility`, `devops`, `docs`, `security_audit`. There is no silent default: wait for the user's choice. “Complete”, “whole”, “everything working”, and “find all issues” describe the outcome and do not select Standard or Production.
 
 **⛔ For Small / Standard / Production, these are mandatory regardless of toggles:** requirements interview + The Grill + requirements checkpoint; architecture; planning; development; the integration pass after parallel dev. The profile only governs the optional phases and QA sub-tests. When a phase is disabled, skip spawning that agent and say so in the status line; when a QA sub-test is disabled, tell qa-engineer to skip it in its prompt.
 

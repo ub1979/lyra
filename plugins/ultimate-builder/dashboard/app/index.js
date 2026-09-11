@@ -83,6 +83,18 @@
     },
   ];
 
+  const BUILD_PROFILES = [
+    ["personal", "Personal / one-off", "For one person and occasional use: the core path, basic safety, and a real smoke check."],
+    ["reusable", "Reusable project", "For repeated use: focused architecture, maintainability, review, and complete user-flow testing."],
+    ["production", "Production / public", "For public, paid, regulated, or ongoing use: full security, deployment, operations, and release assurance."],
+  ];
+
+  function buildProfileForTemplate(templateId) {
+    if (templateId === "mvp") return "personal";
+    if (templateId === "sdlc") return "production";
+    return "";
+  }
+
   const CUSTOM_TEMPLATES_KEY = "idrak-it.builder.templates.v1";
   const RECENT_PROJECTS_KEY = "idrak-it.builder.projects.v1";
   const LEGACY_SKILL_MODELS_KEY = "idrak-it.builder.skill-models.v1";
@@ -338,6 +350,7 @@
     const [screen, setScreen] = useState("home");
     const [mode, setMode] = useState("new");
     const [templateId, setTemplateId] = useState("app-it");
+    const [buildProfile, setBuildProfile] = useState("");
     const [selected, setSelected] = useState(withRequired([]));
     const [projectPath, setProjectPath] = useState("");
     const [parentPath, setParentPath] = useState("");
@@ -521,6 +534,7 @@
     const applyTemplate = function (template) {
       setTemplateId(template.id);
       setSelected(withRequired(template.skills));
+      setBuildProfile(buildProfileForTemplate(template.id));
       if (template.models && typeof template.models === "object") {
         setSkillModels(template.models);
         writeSkillModels(modelInfo.provider, "launcher", template.models);
@@ -662,6 +676,9 @@
       setStarting(true);
       setError("");
       try {
+        if (mode === "new" && !buildProfile) {
+          throw new Error("Choose how much Lyra should build before starting.");
+        }
         if (unavailableSelectedModels.length) {
           throw new Error(
             "Choose replacement models for "
@@ -704,15 +721,21 @@
         const prompt = "IDRAK_INTERNAL_SETUP_BEGIN " + JSON.stringify({
           instruction: "Lyra is the permanent user-facing coordinator. Start with the internal ultimate-builder:app-it skill, work only in the selected workspace, and keep internal skill names, tools, and orchestration out of user-facing messages. Vocabulary: to the user these are AGENTS — the requirements agent, the design agent, the development agent. Never say skill, specialist, playbook, or subagent in a user-facing message. The enabled_specialists list is the approved initial team, not an immutable restriction. Recommend only the smallest useful team. Emit APP_IT_SKILLS_SET to open the dashboard's editable recommendation; the marker itself never applies a team. Wait for the user's dashboard confirmation and the resulting IDRAK_INTERNAL_SKILLS_UPDATE before using added agents. Manual dashboard changes are authoritative. Load every agent with skill_view(name='ultimate-builder:<specialist-id>') immediately before running it, and never claim an agent ran unless its playbook was actually loaded. Requirements is mandatory but not always active: use skill_view(name='ultimate-builder:req-engineer') for the first meaningful brief without approved requirements, an active requirements interview, an explicit requirements revision, or a material change to scope, user-visible behavior, data, permissions, integrations, or acceptance criteria. Do not invoke it for greetings, status, explanations, approvals, pause/stop commands, ordinary in-scope feedback, or minor fixes. When needed, run its Grill, design-space exploration and approval gate in this conversation and produce an approved requirements.md before affected downstream work.",
           first_turn_gate: mode === "new"
-            ? "Speak as Lyra. Begin with a warm one-sentence greeting, explain that you will help shape the project and choose the right agents, then ask exactly ONE short product question. Hand the detailed interview to the requirements agent rather than running it yourself. Then recommend the smallest useful agent team and ask permission before adding it. Do not write code before the team and requirements are approved."
+            ? "Speak as Lyra. Begin with a warm one-sentence greeting and ask exactly ONE short product question. The launcher already captured the build profile below; acknowledge and obey it, do not ask for scale again. Hand any remaining interview to the requirements agent. Then recommend the smallest useful agent team within the chosen profile and ask permission before adding it. Do not write code before the team and requirements are approved."
             : "Speak as Lyra. Inspect the existing workspace read-only, then begin with a warm one-sentence greeting, briefly say what the project appears to be, and ask exactly ONE question about the outcome the user wants. Recommend the smallest useful specialist team and ask permission before adding it.",
+          build_profile: mode === "new" ? buildProfile : "existing",
+          build_profile_gate: mode === "new"
+            ? "The user explicitly selected this build profile in Studio. It is authoritative. Personal means the bounded MVP fast path and forbids full task graphs or dedicated release/hardening programmes unless the user later opts in. Reusable means proportional planning and focused checks. Production permits the full release workflow. Words such as complete, whole, everything working, or find all issues never promote the profile. Ask before increasing it."
+            : "Keep the existing project's established scale unless the requested change materially expands it; then ask one plain-language scale question before broad planning.",
           coordination_rule: "Remain the user's single point of contact. Coordinate only the currently enabled specialist phases and verify each phase's evidence. Specialist delegates return before you continue. Stop for user approval at requirements, visual preview for UI projects, team changes, and final delivery. Present checkpoints with Approve / Change / Skip options. Never ask the user to wake or resume an internal workflow.",
           project_git_rule: "The selected workspace owns a separate local Git repository prepared by Lyra. Before every Git action, verify that git rev-parse --show-toplevel is exactly the workspace. Run Git from that root only. Never stage, commit, reset, merge, rebase, or push Lyra's application repository during project work. Never push the project unless the user explicitly requests it in this conversation.",
           skill_change_rule: "When proposing the smallest useful team, emit exactly one [APP_IT_SKILLS_SET:comma-separated-ids] marker. The dashboard will hide it and show editable checkboxes; the marker is a proposal, not approval. Do not use newly proposed agents until an IDRAK_INTERNAL_SKILLS_UPDATE arrives after the user confirms the selection. Treat that selection plus the specialist_models and specialist_providers maps as authoritative and acknowledge it briefly without emitting another marker.",
           model_routing_rule: "For every specialist phase, look up its id in specialist_models and specialist_providers. When a model is assigned, pass both the exact model and its matching provider to the durable project job. Never send a model to a different provider or substitute another model. When no model is assigned, omit both fields so the configured project model is inherited. These assignments apply to specialist agents only; the coordinating conversation keeps its session model.",
-          delivery_rule: templateId === "mvp"
+          delivery_rule: buildProfile === "personal"
             ? "This is the MVP fast path. Keep artifacts and research proportional to the requested app. After requirements approval: if the project has a UI, you MUST generate a quick visual preview (1-3 static HTML/CSS mockups in .sdlc/preview/) and STOP to show the user and get their explicit approval before writing any application code. Present: 'Preview ready — open .sdlc/preview/index.html. Does this look like what you want? Approve / Change / Skip.' Then move to development, smoke QA, and concise run documentation; do not invent architecture or task-planning phases when they are disabled."
-            : "Use the selected specialist phases at appropriate depth for the project.",
+            : buildProfile === "reusable"
+              ? "Use proportional product work: focused requirements and architecture, no more planning tasks than the approved user journeys require, review, user-flow QA, and concise documentation. Do not add production operations or exhaustive threat-by-threat tasks."
+              : "Use the full production workflow only where each phase traces to the approved public, paid, regulated, scale, or operational requirements.",
           workspace,
           template: activeTemplate.name,
           enabled_specialists: enabled,
@@ -939,6 +962,28 @@
                   ),
             ),
           ),
+          mode === "new" && h(Card, { className: "ub-form-card" },
+            h(CardContent, null,
+              h("h2", null, "How much should Lyra build?"),
+              h("p", { className: "ub-profile-help" }, "Choose the smallest level that matches how you will actually use it. You can promote it later."),
+              h("div", { className: "ub-template-stack", role: "radiogroup", "aria-label": "Build size" },
+                BUILD_PROFILES.map((profile) => h("div", {
+                  className: "ub-template-option " + (profile[0] === buildProfile ? "is-selected" : ""),
+                  key: profile[0],
+                },
+                  h("button", {
+                    type: "button",
+                    role: "radio",
+                    "aria-checked": profile[0] === buildProfile,
+                    onClick: () => setBuildProfile(profile[0]),
+                  },
+                    h("span", { className: "ub-radio", "aria-hidden": "true" }, profile[0] === buildProfile ? "●" : "○"),
+                    h("span", null, h("strong", null, profile[1]), h("small", null, profile[2])),
+                  ),
+                )),
+              ),
+            ),
+          ),
           h(Card, { className: "ub-form-card" },
             h(CardContent, null,
               h("div", { className: "ub-section-heading" },
@@ -1054,6 +1099,7 @@
             )),
           ),
           h("div", { className: "ub-summary" },
+            mode === "new" && h("p", null, "Build size: " + (BUILD_PROFILES.find((profile) => profile[0] === buildProfile)?.[1] || "Choose one")),
             h("span", null, "Starting team"), h("strong", null, selected.size === 1 ? "1 agent" : selected.size ? selected.size + " agents" : "Lyra only"),
             h("p", null,
               selected.size
@@ -1062,7 +1108,7 @@
             ),
           ),
           error && h("div", { className: "ub-error", role: "alert" }, error),
-          h(Button, { className: "ub-start-chat", onClick: startChat, disabled: starting || unavailableSelectedModels.length > 0 },
+          h(Button, { className: "ub-start-chat", onClick: startChat, disabled: starting || unavailableSelectedModels.length > 0 || (mode === "new" && !buildProfile) },
             starting ? "Preparing your studio…" : "Enter project studio →",
           ),
           h("p", { className: "ub-chat-note" }, "The project opens in a simple chat. Lyra handles tools and terminal work quietly in the background."),

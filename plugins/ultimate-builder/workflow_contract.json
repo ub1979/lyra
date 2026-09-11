@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "contract_version": "1.0.1",
+  "contract_version": "1.0.2",
   "rules": [
     {
       "id": "workspace-boundary",
@@ -115,6 +115,12 @@
       "summary": "Material requirements work includes the interview, Grill, exploration and approval.",
       "mode": "exhorted",
       "evidence": ["plugins/ultimate-builder/skills/app-it/SKILL.md"]
+    },
+    {
+      "id": "build-profile-gate",
+      "summary": "New projects choose an explicit personal, reusable, or production scale before planning or implementation.",
+      "mode": "exhorted",
+      "evidence": ["plugins/ultimate-builder/skills/app-it/SKILL.md", "plugins/ultimate-builder/skills/ultimate-app-builder/SKILL.md", "plugins/ultimate-builder/skills/ultimate-app-builder/references/workflows/req-engineer/SKILL.md", "plugins/ultimate-builder/skills/ultimate-app-builder/references/workflows/task-planner/SKILL.md", "web/src/pages/ChatPage.tsx", "plugins/ultimate-builder/dashboard/app/index.js"]
     },
     {
       "id": "class-map-maintenance",

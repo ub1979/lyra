@@ -50,11 +50,19 @@ path	area	summary
 AGENTS.md	root	md: AGENTS
 CHANGELOG.md	root	md: CHANGELOG
 CONTRIBUTING.md	root	md: CONTRIBUTING
+Claude outputs/lyra-regression-report.html	Claude outputs	html: lyra regression report
+Claude outputs/watchdog-reproduction.html	Claude outputs	html: watchdog reproduction
 Dockerfile	root	configuration: Dockerfile
 LICENSE	root	configuration: LICENSE
 LYRA.md	root	md: LYRA
 README.md	root	md: README
 SECURITY.md	root	md: SECURITY
+_to_delete/fix2.tgz	_to_delete	tgz: fix2
+_to_delete/fix3.tgz	_to_delete	tgz: fix3
+_to_delete/fix4.tgz	_to_delete	tgz: fix4
+_to_delete/repro-src.tgz	_to_delete	tgz: repro src
+_to_delete/wd-new.test.ts	_to_delete	Behavioral tests: wd-new.test
+_to_delete/wd-new.ts	_to_delete	* Silence watchdog for a guided-chat turn.
 acp_adapter/__init__.py	acp_adapter	ACP (Agent Communication Protocol) adapter for hermes-agent.
 acp_adapter/__main__.py	acp_adapter	Allow running the ACP adapter as ``python -m acp_adapter``.
 acp_adapter/auth.py	acp_adapter	ACP auth helpers — detect and advertise Hermes authentication methods.
@@ -1760,6 +1768,7 @@ docs/lyra/changes/2026-09-08-single-project-conversation.md	docs	md: 2026 09 08 
 docs/lyra/changes/2026-09-09-codex-auxiliary-timeout-fence.md	docs	md: 2026 09 09 codex auxiliary timeout fence
 docs/lyra/changes/2026-09-09-kanban-terminal-tool-stop.md	docs	md: 2026 09 09 kanban terminal tool stop
 docs/lyra/changes/2026-09-10-agent-picker-chrome-repaint.md	docs	md: 2026 09 10 agent picker chrome repaint
+docs/lyra/changes/2026-09-11-build-scale-gate.md	docs	md: 2026 09 11 build scale gate
 docs/lyra/changes/2026-09-11-delegated-kanban-heartbeat.md	docs	md: 2026 09 11 delegated kanban heartbeat
 docs/lyra/changes/2026-09-11-direct-specialist-worker-bounds.md	docs	md: 2026 09 11 direct specialist worker bounds
 docs/lyra/changes/2026-09-11-guided-diff-leak.md	docs	md: 2026 09 11 guided diff leak
@@ -2088,7 +2097,6 @@ hermes_cli/web_dist/assets/RulesCompressed-Regular-BSXFyF4x.woff2	hermes_cli	Gen
 hermes_cli/web_dist/assets/RulesExpanded-Bold-DZA7s8Pa.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Regular-l8uVympt.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/index-BGAdPJZk.css	hermes_cli	Generated asset; edit its source and rebuild
-hermes_cli/web_dist/assets/index-Cy_0gWTg.js	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Bold.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Italic.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Regular.woff2	hermes_cli	Generated asset; edit its source and rebuild
@@ -3111,6 +3119,8 @@ plugins/web/tavily/provider.py	plugins	Tavily web search + content extraction �
 plugins/web/xai/__init__.py	plugins	xAI web search plugin — bundled, auto-loaded.
 plugins/web/xai/plugin.yaml	plugins	yaml: plugin
 plugins/web/xai/provider.py	plugins	xAI Web Search — plugin form.
+pnpm-lock.yaml	root	yaml: pnpm lock
+pnpm-workspace.yaml	root	yaml: pnpm workspace
 providers/README.md	providers	md: README
 providers/__init__.py	providers	Provider module registry.
 providers/base.py	providers	Provider profile base class.

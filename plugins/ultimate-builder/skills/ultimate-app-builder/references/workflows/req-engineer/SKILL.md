@@ -5,9 +5,10 @@ description: "Interviews the user conversationally, researches supplied website 
 
 # Requirements Engineer
 
-> ⛔ EXCEPTION: this skill runs DIRECTLY in the main conversation (not as a spawned agent) — it requires multi-round user interviews.
-> The orchestrator must still execute EVERY step: full 2-3 round interview + The Grill (3.5) + Design Space Exploration (3.7) + prototype walkthrough choice (6.5).
-> Writing requirements.md from one user message without interviewing does NOT count.
+> ⛔ EXCEPTION: this skill runs DIRECTLY in the main conversation (not as a spawned agent).
+> Reusable and Production profiles require the full 2-3 round interview + The Grill (3.5) + Design Space Exploration (3.7) + prototype walkthrough choice (6.5).
+> Personal / one-off uses the explicit bounded path below: at most five focused questions, no Grill, and a one-page brief that the user approves.
+> Outside that bounded path, writing requirements.md from one user message without interviewing does NOT count.
 
 Interview the user conversationally, stress-test important assumptions, explore competing approaches, then generate `requirements.md` with prototypes the user can evaluate before any code exists. Output feeds `sw-architect`.
 
@@ -41,16 +42,27 @@ Interview the user conversationally, stress-test important assumptions, explore 
 Ask the relevant questions below **one at a time** (skip anything pre-answered):
 
 1. What are you building? (1-2 sentence pitch)
-2. Who are the end users? (personas, roles, technical level)
-3. What problem does this solve? What's the current workaround?
-4. What does success look like? (measurable outcomes)
-5. Existing systems this replaces or integrates with?
-6. Interface type — web / mobile / desktop / CLI / API / background worker / combination?
-7. Who is affected? Specific people or roles — "everyone" is not an answer.
-8. What's the current behavior — how do people solve this today?
-9. Why now? What changed that makes this urgent?
-10. What's the narrowest wedge — ONE sub-problem for ONE user type?
-11. How will you measure completion? A number, not "users are happy".
+2. If no authoritative build profile was supplied, how much should be built:
+   Personal / one-off, Reusable project, or Production / public? Explain that
+   this choice controls planning depth, security/release work, time, and cost.
+3. Who are the end users? (personas, roles, technical level)
+4. What problem does this solve? What's the current workaround?
+5. What does success look like? (measurable outcomes)
+6. Existing systems this replaces or integrates with?
+7. Interface type — web / mobile / desktop / CLI / API / background worker / combination?
+8. Who is affected? Specific people or roles — "everyone" is not an answer.
+9. What's the current behavior — how do people solve this today?
+10. Why now? What changed that makes this urgent?
+11. What's the narrowest wedge — ONE sub-problem for ONE user type?
+12. How will you measure completion? A number, not "users are happy".
+
+For `personal`, replace the remaining multi-round interview and Grill with a
+maximum of five total focused questions and a one-page brief. Capture the core
+journey, local data needs, how it runs, and what is explicitly out of scope.
+Basic input validation, secret redaction, and safe local file handling remain;
+enterprise controls and release engineering do not appear unless a concrete
+risk requires them. This profile-specific shortcut is intentional, not an
+incomplete Requirements phase.
 
 Interview behavior (all rounds):
 - Take a position — propose concrete interpretations of vague statements. Never "great idea" — be a skeptical ally.
@@ -80,6 +92,9 @@ Adapt to Round 1 answers; ask each remaining question individually and skip what
 Ask at most 5 targeted follow-ups, one per message, to resolve ambiguities or contradictions. If everything is clear, skip to Step 3.5.
 
 ## Step 3.5 — The Grill (Stress Test)
+
+Skip this step for an approved `personal` profile. Its maximum-five-question
+scope pass is the complete Requirements interview, not a partial Grill.
 
 Run a short stress test for important risks. Keep the Conversation Contract: one question at a time, and honor Skip, Decide for me, or Use smart defaults. Log skipped or defaulted answers as assumptions or risks.
 

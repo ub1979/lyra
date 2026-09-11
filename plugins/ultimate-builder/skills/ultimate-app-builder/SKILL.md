@@ -205,17 +205,27 @@ later phases until `requirements.md` exists and the user has approved it. Use a
 focused delta for an established project rather than restarting discovery from
 zero.
 
-Use the smallest profile that matches the request:
+For a new application, require one explicit profile before any affected
+requirements work, planning, or implementation. A launcher-supplied
+`build_profile` is already an explicit answer; otherwise ask once in plain
+language and wait:
 
-- **Prototype:** requirements brief → architecture sketch → implementation →
-  smoke QA.
-- **Product:** requirements → architecture → task graph → iterative
-  implementation → review → QA → docs.
-- **Production:** Product plus security, deployment, operations, benchmarks,
-  backups, and health baselines.
+- **Personal / one-off (`personal`):** one local user or very occasional use.
+  Use the MVP fast path: a short confirmed brief, a quick preview for UI work,
+  one bounded implementation path, real smoke QA, and a concise debt note.
+  Skip the full Grill, `plan.md`, `task-graph.md`, dedicated hardening epics,
+  deployment, benchmarks, notarization, and release operations unless the user
+  explicitly adds one.
+- **Reusable project (`reusable`):** repeated personal/team use. Run focused
+  requirements, proportional architecture and planning, iterative
+  implementation, review, user-flow QA, and concise documentation.
+- **Production / public (`production`):** public, paid, regulated, or ongoing
+  operation. Run the reusable path plus explicit security, deployment,
+  operations, benchmarks, backups, and release assurance.
 
-Default to Product for a new application. Ask once when the difference would
-materially change cost, permissions, infrastructure, or scope.
+Never default an unanswered profile to Product or Production. Words such as
+“complete”, “whole project”, “everything working”, and “find all issues” do not
+select a larger profile. Ask before increasing the approved profile later.
 
 ## Step 2: plan with checkpoints
 

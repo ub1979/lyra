@@ -22,6 +22,22 @@ Plans for autonomous AI agents. No sprints, story points, velocity, or human-tea
 
 Accept inline args: `--plan`, `--requirements`.
 
+Before continuing, read the approved build profile from the inputs:
+
+- `personal`: stop and return the work to the coordinator. Personal / one-off
+  projects use `mvp-brief.md` and one bounded implementation path; generating
+  a full task graph is a scope violation.
+- `reusable`: keep the graph proportional. Target 6–20 implementation tasks,
+  fold relevant safety checks into the owning feature tasks, and require a new
+  user scope decision before exceeding 25 tasks.
+- `production`: a larger graph and dedicated assurance tasks are allowed only
+  where they trace to explicitly approved public, paid, regulated, scale, or
+  operational requirements.
+
+If no profile is present, block with one required user decision. Never infer
+Production from “complete”, “whole”, “everything working”, or “find all
+issues”.
+
 ---
 
 ## Step 1 — Extract & Organize Work
@@ -170,14 +186,20 @@ Test and document every foreground/background combination; all must pass WCAG AA
 
 ---
 
-## Step 2.5 — Security Work Breakdown (mandatory — all projects)
+## Step 2.5 — Security Work Breakdown (profile-proportional)
 
 `plan.md` Section 8 (Security Architecture) is work that must appear in the plan, not background reading. If no `plan.md`, derive baseline security from the requirements' NFRs (auth, data sensitivity, compliance).
 
 1. **Read Section 8 in full** — Authentication, API Security, Database Security, Secrets Management, Input Validation, Security Testing Plan (8.6), Vulnerability Matrix (8.7).
-2. **Create a dedicated "Security & Hardening" epic.** Every security-table row becomes a task with concrete AC — e.g. "bcrypt cost 12" → AC "test verifies hash format + cost factor"; "rate limiting auth 5/min" → AC "429 returned when exceeded"; parameterized queries only; secrets via env/secrets manager + gitleaks pre-commit.
-3. **Turn the Security Testing Plan (8.6) into QA-executable tasks**: SAST in CI, dependency scanning, secret scanning, DAST, pre-launch pen-test checkpoint.
-4. **Map every HIGH/MEDIUM OWASP row (8.7)** to at least one task with verifiable mitigation.
+2. **Reusable profile:** put only applicable safety criteria on the feature or
+   boundary that owns them. Do not create a standalone task per threat row,
+   DAST, pen-test, operations, or release-security task without an approved
+   requirement for it.
+3. **Production profile:** create a dedicated "Security & Hardening" epic.
+   Every applicable security-table and HIGH/MEDIUM vulnerability row becomes a
+   task with concrete, tool-verifiable acceptance criteria. Turn the Security
+   Testing Plan into QA-executable SAST, dependency, secret, DAST, and
+   pre-launch checks as approved.
 5. **Sequence it**: foundational security (auth, secrets, input validation) goes in early waves alongside the features it protects — never deferred to the end.
 
 Security AC must be tool-verifiable ("`bandit -r src/` reports 0 high-severity findings"), never "the app is secure".

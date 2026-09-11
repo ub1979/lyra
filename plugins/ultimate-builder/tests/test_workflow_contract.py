@@ -57,7 +57,7 @@ def test_contract_reports_its_boundary_and_validates_real_evidence():
     report = load_contract_module().contract_report()
 
     assert report["ok"] is True
-    assert report["contract_version"] == "1.0.1"
+    assert report["contract_version"] == "1.0.2"
     assert report["enforced"] > 0
     assert report["exhorted"] > 0
     assert report["declared_rules"] == report["enforced"] + report["exhorted"]
@@ -65,6 +65,22 @@ def test_contract_reports_its_boundary_and_validates_real_evidence():
         report["enforced"] / report["declared_rules"], 4
     )
     assert "declared critical workflow rules" in report["note"]
+
+
+def test_contract_declares_build_scale_before_planning():
+    module = load_contract_module()
+    contract = module.load_contract()
+    rules = {rule["id"]: rule for rule in contract["rules"]}
+
+    gate = rules["build-profile-gate"]
+    assert gate["mode"] == "exhorted"
+    assert "before planning or implementation" in gate["summary"]
+    assert {
+        "plugins/ultimate-builder/skills/app-it/SKILL.md",
+        "plugins/ultimate-builder/skills/ultimate-app-builder/SKILL.md",
+        "web/src/pages/ChatPage.tsx",
+        "plugins/ultimate-builder/dashboard/app/index.js",
+    }.issubset(set(gate["evidence"]))
 
 
 def test_contract_report_is_exposed_through_project_run_cli(capsys):
