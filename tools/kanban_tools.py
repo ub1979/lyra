@@ -286,6 +286,12 @@ def heartbeat_current_worker_from_env() -> bool:
     tid = os.environ.get("HERMES_KANBAN_TASK")
     if not tid:
         return False
+    # A delegate_task child shares the parent worker's process environment.
+    # Its frequent activity touches must not take the process-wide rate-limit
+    # slot: durable Kanban writes are forbidden in child context, so doing so
+    # suppresses the next legitimate heartbeat from the parent relay thread.
+    if _is_delegated_child_context():
+        return False
     import time as _time
     now = _time.monotonic()
     if (now - _auto_heartbeat_last_attempt) < _AUTO_HEARTBEAT_MIN_INTERVAL_SECONDS:

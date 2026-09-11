@@ -87,6 +87,32 @@ def test_delegated_child_context_suppresses_env_gated_kanban_tools(monkeypatch, 
     assert {n for n in names if n and n.startswith("kanban_")} == set()
 
 
+def test_delegated_child_activity_preserves_parent_auto_heartbeat_slot(
+    monkeypatch, tmp_path
+):
+    """Child activity must not starve the owning worker's durable heartbeat."""
+    kb, tid, _workspace, _attachments = _make_running_kanban_task(
+        monkeypatch, tmp_path
+    )
+    from agent.delegation_context import delegated_child_context
+    from tools import kanban_tools
+
+    monkeypatch.setattr(kanban_tools, "_auto_heartbeat_last_attempt", 0.0)
+
+    with delegated_child_context():
+        assert kanban_tools.heartbeat_current_worker_from_env() is False
+    assert kanban_tools._auto_heartbeat_last_attempt == 0.0
+
+    assert kanban_tools.heartbeat_current_worker_from_env() is True
+    conn = kb.connect()
+    try:
+        task = kb.get_task(conn, tid)
+        assert task is not None
+        assert task.last_heartbeat_at is not None
+    finally:
+        conn.close()
+
+
 def test_build_child_agent_strips_kanban_toolset_even_when_parent_is_worker(monkeypatch):
     """Child construction must fail closed even if the parent exposes kanban."""
     captured = {}

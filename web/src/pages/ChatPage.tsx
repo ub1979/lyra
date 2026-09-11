@@ -774,6 +774,32 @@ export function GuidedRuntimePanel({
 }
 
 
+/** Keep coordinator progress in the canonical conversation, not the side panel. */
+export function GuidedMainActivity({
+  activity,
+}: {
+  activity: GuidedChatPresentation;
+}) {
+  if (activity.phase !== "working") return null;
+
+  return (
+    <div className="flex justify-start" role="status" aria-live="polite">
+      <div className="lyra-studio-message max-w-[88%] rounded-2xl rounded-bl-md border border-current/10 bg-midground/5 px-4 py-3 text-text-primary shadow-sm sm:max-w-[78%]">
+        <div className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider opacity-65">
+          <Bot className="h-3.5 w-3.5" aria-hidden="true" />
+          <span>Lyra is working</span>
+          <span
+            className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400"
+            aria-hidden="true"
+          />
+        </div>
+        <p className="text-sm text-text-secondary">{activity.text}</p>
+      </div>
+    </div>
+  );
+}
+
+
 function guidedAgentName(id: string, label?: string): string {
   const base = label ?? GUIDED_SPECIALIST_LABELS[id] ?? id;
   return /\bagent\b/i.test(base) ? base : `${base} agent`;
@@ -5137,6 +5163,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                   </div>
                   );
                 })}
+
+                {!guidedClarification && !guidedApproval && (
+                  <GuidedMainActivity activity={guidedActivity} />
+                )}
 
                 {!hasModelConnectionError &&
                   guidedMessages.length === 0 &&
