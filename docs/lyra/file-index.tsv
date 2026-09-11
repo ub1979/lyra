@@ -1760,6 +1760,7 @@ docs/lyra/changes/2026-09-08-single-project-conversation.md	docs	md: 2026 09 08 
 docs/lyra/changes/2026-09-09-codex-auxiliary-timeout-fence.md	docs	md: 2026 09 09 codex auxiliary timeout fence
 docs/lyra/changes/2026-09-09-kanban-terminal-tool-stop.md	docs	md: 2026 09 09 kanban terminal tool stop
 docs/lyra/changes/2026-09-10-agent-picker-chrome-repaint.md	docs	md: 2026 09 10 agent picker chrome repaint
+docs/lyra/changes/2026-09-11-guided-diff-leak.md	docs	md: 2026 09 11 guided diff leak
 docs/lyra/changes/2026-09-11-workflow-contract-and-state-consolidation.md	docs	md: 2026 09 11 workflow contract and state consolidation
 docs/lyra/file-index.tsv	docs	tsv: file index
 docs/middleware/README.md	docs	md: README
@@ -2084,7 +2085,7 @@ hermes_cli/web_dist/assets/RulesCompressed-Regular-BSXFyF4x.woff2	hermes_cli	Gen
 hermes_cli/web_dist/assets/RulesExpanded-Bold-DZA7s8Pa.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Regular-l8uVympt.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/index-BGAdPJZk.css	hermes_cli	Generated asset; edit its source and rebuild
-hermes_cli/web_dist/assets/index-DRx6nkdz.js	hermes_cli	Generated asset; edit its source and rebuild
+hermes_cli/web_dist/assets/index-QKHLWX2A.js	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Bold.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Italic.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Regular.woff2	hermes_cli	Generated asset; edit its source and rebuild
@@ -7098,6 +7099,8 @@ web/src/lib/guided-project-session.test.ts	web	Behavioral tests: guided-project-
 web/src/lib/guided-project-session.ts	web	ts: guided project session
 web/src/lib/guided-required-specialists.test.ts	web	Behavioral tests: guided-required-specialists.test
 web/src/lib/guided-required-specialists.ts	web	* Specialists the project cannot switch off.
+web/src/lib/guided-session-recovery.test.ts	web	Behavioral tests: guided-session-recovery.test
+web/src/lib/guided-session-recovery.ts	web	ts: guided session recovery
 web/src/lib/guided-specialists-dialog.test.ts	web	Behavioral tests: guided-specialists-dialog.test
 web/src/lib/guided-specialists-dialog.ts	web	ts: guided specialists dialog
 web/src/lib/guided-turn-watchdog.test.ts	web	Behavioral tests: guided-turn-watchdog.test

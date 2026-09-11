@@ -57,6 +57,10 @@ import {
   withRequiredGuidedSpecialists,
 } from "@/lib/guided-required-specialists";
 import {
+  mergeRecoveredGuidedSessionTail,
+  recoverGuidedSessionTail,
+} from "@/lib/guided-session-recovery";
+import {
   EMPTY_GUIDED_USAGE,
   formatGuidedTokens,
   guidedUsageTotal,
@@ -172,8 +176,10 @@ import { chatMessageCopyText } from "@/lib/chat-copy";
 import { useModalBehavior } from "@/hooks/useModalBehavior";
 import {
   analyzeGuidedChatOutput,
+  canUseGuidedTerminalFallback,
   extractAppItSkillSelection,
   friendlyActivityLabel,
+  guidedStructuredFeedEstablished,
   isGuidedCancellationNotice,
   sanitizeGuidedResponse,
   shouldAutoContinueGuidedWorkflow,
@@ -1000,7 +1006,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const guidedTurnStartLineRef = useRef(0);
   const lastGuidedResponseRef = useRef("");
   const guidedTurnSettledRef = useRef(true);
-  const guidedStructuredFeedConnectedRef = useRef(false);
+  // Once the authoritative event stream has connected for this page, a
+  // transient disconnect must not promote terminal paint into chat history.
+  // The terminal fallback exists only for legacy backends that never establish
+  // the structured feed at all.
+  const guidedStructuredFeedEstablishedRef = useRef(false);
   // Epoch ms until which a specialist phase may stay silent, or 0 when no
   // phase is running. A boolean flag here used to disable the silence watchdog
   // outright, and it was set by `subagent.spawn_requested` — a spawn *request*.
@@ -1742,11 +1752,19 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         ws = socket;
         socket.addEventListener("open", () => {
           reconnectAttempt = 0;
-        guidedStructuredFeedConnectedRef.current = true;
+        guidedStructuredFeedEstablishedRef.current =
+          guidedStructuredFeedEstablished(
+            guidedStructuredFeedEstablishedRef.current,
+            "connected",
+          );
       });
         socket.addEventListener("close", () => {
           if (ws !== socket) return;
-        guidedStructuredFeedConnectedRef.current = false;
+          guidedStructuredFeedEstablishedRef.current =
+            guidedStructuredFeedEstablished(
+              guidedStructuredFeedEstablishedRef.current,
+              "disconnected",
+            );
           scheduleReconnect();
       });
 
@@ -2214,7 +2232,6 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         }
       });
       } catch {
-        guidedStructuredFeedConnectedRef.current = false;
         scheduleReconnect();
       }
     };
@@ -2223,7 +2240,6 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
 
     return () => {
       unmounting = true;
-      guidedStructuredFeedConnectedRef.current = false;
       if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
       ws?.close();
     };
@@ -2268,6 +2284,50 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       cancelled = true;
     };
   }, [resumeParam, scopedProfile, handleSessionTitleChange]);
+
+  // The browser transcript is intentionally local while the page is alive,
+  // but a fresh browser or cleared storage must still recover the question
+  // Lyra saved in the canonical session. Do not replace live/local messages:
+  // the session tail is a fallback only, and its pure adapter filters tool and
+  // internal orchestration rows before anything reaches the main chat.
+  useEffect(() => {
+    if (
+      !guided ||
+      !resumeParam ||
+      guidedMessageWorkspace !== workspaceParam
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    const baseline = guidedMessagesRef.current;
+    api
+      .getSessionMessages(resumeParam, scopedProfile)
+      .then((response) => {
+        if (cancelled) return;
+        const recovered = recoverGuidedSessionTail(response.messages);
+        if (!recovered.length) return;
+        setGuidedMessages((current) =>
+          current === baseline
+            ? mergeRecoveredGuidedSessionTail(current, recovered)
+            : current,
+        );
+      })
+      .catch(() => {
+        // The PTY and structured feed remain usable when history recovery is
+        // unavailable (older backend, deleted session, or transient network).
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    guided,
+    guidedMessageWorkspace,
+    resumeParam,
+    scopedProfile,
+    workspaceParam,
+  ]);
 
   useEffect(() => {
     if (!resumeParam) return;
@@ -3869,7 +3929,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 : null;
             setGuidedActivity((current) => ({
               phase:
-                guidedStructuredFeedConnectedRef.current &&
+                guidedStructuredFeedEstablishedRef.current &&
                 snapshot.presentation.phase === "response"
                   ? "working"
                   : snapshot.presentation.phase,
@@ -3878,7 +3938,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               // message.complete event arrives. Structured events are the
               // authoritative guided feed, so never copy that raw terminal
               // text into the friendly live-status card.
-              text: guidedStructuredFeedConnectedRef.current
+              text: guidedStructuredFeedEstablishedRef.current
                 ? current.text || "Continuing with the next step…"
                 : snapshot.presentation.text,
               specialist:
@@ -3888,7 +3948,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             }));
           }
           if (
-            !guidedStructuredFeedConnectedRef.current &&
+            canUseGuidedTerminalFallback(
+              guidedStructuredFeedEstablishedRef.current,
+            ) &&
             snapshot.presentation.phase === "response" &&
             snapshot.presentation.text &&
             snapshot.presentation.text !== lastGuidedResponseRef.current

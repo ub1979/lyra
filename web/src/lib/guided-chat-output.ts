@@ -2,7 +2,10 @@ const RESPONSE_MARKER =
   /^[\s┊┋│┃└┘├┤─━╰╯>*-]*Response[\s┊┋│┃└┘├┤─━╰╯]*$/i;
 
 const TRANSCRIPT_CHROME =
-  /^(?:[┊┋│┃└┘├┤─━╰╯\s]*)(?:Tool calls?(?:\s*\(\d+\))?|Thinking\b|Terminal\(|Skills List\(|Write File\(|Read File\(|Edit File\(|Apply Patch\(|Response\b)/i;
+  /^(?:[┊┋│┃└┘├┤─━╰╯\s]*)(?:Tool calls?(?:\s*\(\d+\))?|Thinking\b|Terminal\(|Skills List\(|Write File\(|Read File\(|Edit File\(|Apply Patch\(|review diff\b|Response\b)/i;
+
+const WORK_BOUNDARY =
+  /^(?:[┊┋│┃└┘├┤─━╰╯\s]*)(?:Tool calls?(?:\s*\(\d+\))?|Thinking\b|Terminal\(|Skills List\(|Write File\(|Read File\(|Edit File\(|Apply Patch\(|review diff\b)/i;
 
 const DIFF_LINE =
   /^(?:a\/{1,2}|b\/{1,2}|@@|[+-](?:<!DOCTYPE|<|>|[.#:]|[A-Za-z_-]+\s*[:={([])|… omitted \d+ diff)/;
@@ -15,6 +18,15 @@ const INLINE_TOOL_BLOCK =
 
 const APP_IT_SKILLS_SET = /\[APP_IT_SKILLS_SET:([^\]]*)\]/i;
 
+function isInternalGuidedDiff(raw: string): boolean {
+  const text = raw.trimStart();
+  return (
+    (/^a\/{1,2}/.test(text) || /^\s*[┊┋]\u00a0?review diff\b/i.test(text)) &&
+    /(?:^|\n)\s*b\/{1,2}/m.test(text) &&
+    /(?:^|\n)\s*@@(?:\s|$)/m.test(text)
+  );
+}
+
 export type GuidedOutputPhase = "idle" | "working" | "response";
 
 export interface GuidedSpecialist {
@@ -26,6 +38,26 @@ export interface GuidedChatPresentation {
   phase: GuidedOutputPhase;
   text: string;
   specialist: GuidedSpecialist | null;
+}
+
+export type GuidedStructuredFeedEvent = "connected" | "disconnected";
+
+/**
+ * The structured feed stays authoritative after its first successful
+ * connection. A disconnect is temporary transport state, not permission to
+ * reinterpret hidden terminal paint as user-facing chat.
+ */
+export function guidedStructuredFeedEstablished(
+  established: boolean,
+  event: GuidedStructuredFeedEvent,
+): boolean {
+  return established || event === "connected";
+}
+
+export function canUseGuidedTerminalFallback(
+  structuredFeedEstablished: boolean,
+): boolean {
+  return !structuredFeedEstablished;
 }
 
 const SPECIALISTS: Array<GuidedSpecialist & { patterns: RegExp }> = [
@@ -203,6 +235,11 @@ export function stripGuidedCancellationNotice(text: string): string {
  * implementation details, even when the structured event feed carries them.
  */
 export function sanitizeGuidedResponse(raw: string): string {
+  // An interrupted structured-event stream once let the terminal fallback
+  // persist a patch result as an assistant message. Drop that exact internal
+  // shape both live and while hydrating older localStorage history.
+  if (isInternalGuidedDiff(raw)) return "";
+
   const withoutInlineBlocks = raw
     .replace(/\r/g, "")
     .replace(INTERRUPT_WAITING_FOR_MODEL, " ")
@@ -283,12 +320,19 @@ export function shouldAutoContinueGuidedWorkflow(options: {
 export function analyzeGuidedChatOutput(raw: string): GuidedChatPresentation {
   const lines = raw.replace(/\r/g, "").split("\n");
   let responseAt = -1;
+  let workAt = -1;
 
   for (let index = 0; index < lines.length; index += 1) {
-    if (RESPONSE_MARKER.test(lines[index].trim())) responseAt = index;
+    const line = lines[index].trim();
+    if (RESPONSE_MARKER.test(line)) responseAt = index;
+    if (WORK_BOUNDARY.test(line)) workAt = index;
   }
 
-  if (responseAt >= 0) {
+  // A terminal buffer can retain the preceding turn's Response marker while
+  // the next turn has already entered a tool or patch block. That older marker
+  // is no longer a valid boundary for the current answer. Treat the newer work
+  // as activity until a fresh Response marker arrives after it.
+  if (responseAt >= 0 && responseAt > workAt) {
     const response = cleanResponse(lines.slice(responseAt + 1));
     if (response) {
       return { phase: "response", text: response, specialist: null };

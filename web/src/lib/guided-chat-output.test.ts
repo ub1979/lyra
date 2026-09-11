@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   analyzeGuidedChatOutput,
+  canUseGuidedTerminalFallback,
   extractAppItSkillSelection,
   friendlyActivityLabel,
+  guidedStructuredFeedEstablished,
   guidedResponseNeedsContinuation,
   isGuidedCancellationNotice,
   presentGuidedChatOutput,
@@ -11,6 +13,19 @@ import {
   shouldAutoContinueGuidedWorkflow,
   stripGuidedCancellationNotice,
 } from "./guided-chat-output";
+
+describe("guided structured-feed authority", () => {
+  it("does not reactivate terminal fallback after a transient disconnect", () => {
+    let established = false;
+    expect(canUseGuidedTerminalFallback(established)).toBe(true);
+
+    established = guidedStructuredFeedEstablished(established, "connected");
+    expect(canUseGuidedTerminalFallback(established)).toBe(false);
+
+    established = guidedStructuredFeedEstablished(established, "disconnected");
+    expect(canUseGuidedTerminalFallback(established)).toBe(false);
+  });
+});
 
 describe("presentGuidedChatOutput", () => {
   it("hides tool calls, paths, and file diffs while work is running", () => {
@@ -44,6 +59,61 @@ a//Users/u/funcoding/todo/index.html → b//Users/u/funcoding/todo/index.html
     expect(presentGuidedChatOutput(transcript)).toBe(
       "Your todo app is ready.\n\nOpen it in your browser and add your first task.",
     );
+  });
+
+  it("does not reuse an old response boundary after a newer patch starts", () => {
+    const transcript = `
+└─ Response
+┊ Requirements are approved and saved.
+┊ review diff
+a//Users/u/funcoding/lyra/my_projects/song/requirements.md →
+b//Users/u/funcoding/lyra/my_projects/song/requirements.md
+@@ -1,3 +1,4 @@
+ # Requirements Document
++Status: Approved by the user.
+a//Users/u/funcoding/lyra/my_projects/song/.sdlc/progress.md →
+b//Users/u/funcoding/lyra/my_projects/song/.sdlc/progress.md
+-Current phase: Requirements
++Current phase: Research`;
+
+    const presentation = analyzeGuidedChatOutput(transcript);
+
+    expect(presentation.phase).toBe("working");
+    expect(presentation.text).not.toContain("/Users/");
+    expect(presentation.text).not.toContain("Current phase");
+  });
+
+  it("accepts a fresh response boundary after a patch completes", () => {
+    const transcript = `
+└─ Response
+┊ Requirements are approved.
+┊ review diff
+a//project/requirements.md → b//project/requirements.md
+@@ -1 +1 @@
+-Draft
++Approved
+└─ Response
+┊ Research is now running. I will tell you when it needs your input.`;
+
+    expect(presentGuidedChatOutput(transcript)).toBe(
+      "Research is now running. I will tell you when it needs your input.",
+    );
+  });
+
+  it("removes a persisted raw patch result from guided chat history", () => {
+    const leaked = `a//Users/u/project/requirements.md →
+b//Users/u/project/requirements.md
+
+@@ -1,3 +1,4 @@
+ # Requirements Document
++Status: Approved
+
+a//Users/u/project/.sdlc/progress.md → b//Users/u/project/.sdlc/progress.md
+@@ -4 +4 @@
+-Current phase: Requirements
++Current phase: Research`;
+
+    expect(sanitizeGuidedResponse(leaked)).toBe("");
   });
 
   it("keeps concise requirements questions as chat", () => {
