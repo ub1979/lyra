@@ -9,6 +9,8 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.31] - 2026-09-11 — explicit builder workflow
+
 ### Improved
 
 - Ultimate Builder now publishes a versioned contract that distinguishes
@@ -28,6 +30,9 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 - Project-run preflight now rejects stale foreign-runtime aliases in active
   playbooks instead of letting unsupported instructions fail silently.
+
+Restart Lyra to load this update. Existing projects, jobs, conversations and
+both learning-history files are preserved.
 
 ## [0.19.30] - 2026-09-10 — visible agent selection
 

@@ -49,6 +49,6 @@ Rollback / retained recovery data: Revert the focused local commit. The legacy
 learning file is never deleted, and imported entries retain their source so a
 rollback loses no original data.
 
-Local commit / authorized push: The user authorized implementation on
-2026-09-11. A focused local commit will be created after final diff review. No
-push or release was requested.
+Local commit / authorized push: The implementation is committed as
+`165c605d5`. The user authorized a Git push on 2026-09-11; release metadata is
+synchronized as Lyra 0.19.31 in the following release commit.
