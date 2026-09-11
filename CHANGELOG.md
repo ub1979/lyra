@@ -9,6 +9,20 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.32] - 2026-09-11 — reliable guided chat recovery
+
+### Fixed
+
+- Guided Studio no longer mistakes internal patch output for Lyra's reply
+  when its structured event connection briefly drops.
+- Reopening a saved guided project now restores Lyra's latest real reply from
+  the canonical session, even when browser history is empty or missed it.
+- Tool results, saved-job notifications, and internal routing messages remain
+  hidden during session recovery.
+
+Restart Lyra to load this repair. Existing projects, jobs, conversations, and
+browser chat history are preserved.
+
 ## [0.19.31] - 2026-09-11 — explicit builder workflow
 
 ### Improved
