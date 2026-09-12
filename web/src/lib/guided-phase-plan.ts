@@ -192,18 +192,22 @@ export function guidedPhaseAwaitsUser(raw: string): boolean {
  * Should the dashboard nudge the next phase after this reply?
  *
  * Deliberately conservative: an explicit completion marker, a next phase to run,
- * and nothing in the reply that asks the user something.
+ * and nothing in the reply that asks the user something. A phase already
+ * started in the same reply has been handed off and must not be nudged twice.
  */
 export function shouldAdvanceGuidedPhase({
   completedInReply,
   next,
   reply,
+  startedInReply = [],
 }: {
   completedInReply: readonly string[];
   next: string | null;
   reply: string;
+  startedInReply?: readonly string[];
 }): boolean {
   if (!completedInReply.length || !next) return false;
   if (completedInReply.includes(next)) return false;
+  if (startedInReply.includes(next)) return false;
   return !guidedPhaseAwaitsUser(reply);
 }

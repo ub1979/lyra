@@ -1777,6 +1777,7 @@ docs/lyra/changes/2026-09-11-stale-gateway-takeover.md	docs	md: 2026 09 11 stale
 docs/lyra/changes/2026-09-11-workflow-contract-and-state-consolidation.md	docs	md: 2026 09 11 workflow contract and state consolidation
 docs/lyra/changes/2026-09-12-completed-project-resume.md	docs	md: 2026 09 12 completed project resume
 docs/lyra/changes/2026-09-12-model-catalog-test-isolation.md	docs	md: 2026 09 12 model catalog test isolation
+docs/lyra/changes/2026-09-12-responsive-project-coordinator.md	docs	md: 2026 09 12 responsive project coordinator
 docs/lyra/changes/2026-09-12-static-model-alias-priority.md	docs	md: 2026 09 12 static model alias priority
 docs/lyra/file-index.tsv	docs	tsv: file index
 docs/middleware/README.md	docs	md: README
@@ -2101,7 +2102,7 @@ hermes_cli/web_dist/assets/RulesCompressed-Regular-BSXFyF4x.woff2	hermes_cli	Gen
 hermes_cli/web_dist/assets/RulesExpanded-Bold-DZA7s8Pa.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Regular-l8uVympt.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/index-BGAdPJZk.css	hermes_cli	Generated asset; edit its source and rebuild
-hermes_cli/web_dist/assets/index-IBlvJGDZ.js	hermes_cli	Generated asset; edit its source and rebuild
+hermes_cli/web_dist/assets/index-CXEv9Ao6.js	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Bold.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Italic.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Regular.woff2	hermes_cli	Generated asset; edit its source and rebuild

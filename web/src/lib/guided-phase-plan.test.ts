@@ -221,4 +221,15 @@ describe("shouldAdvanceGuidedPhase", () => {
       }),
     ).toBe(false);
   });
+
+  it("does not duplicate a phase whose background handoff already started", () => {
+    expect(
+      shouldAdvanceGuidedPhase({
+        completedInReply: ["sw-developer"],
+        next: "qa-engineer",
+        reply: "Development is fixed and QA is now checking your report.",
+        startedInReply: ["qa-engineer"],
+      }),
+    ).toBe(false);
+  });
 });

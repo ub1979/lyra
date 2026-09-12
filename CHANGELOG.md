@@ -9,6 +9,27 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.37] - 2026-09-12 — responsive project coordination
+
+### Fixed
+
+- Lyra now classifies concrete reports of wrong project behavior before work:
+  Debugging reproduces and finds the cause, Development applies the bounded
+  fix, and QA independently reruns the user's exact journey.
+- The Studio conversation remains available while non-interactive agents work.
+  Lyra queues their work as recoverable background jobs and replies as soon as
+  the handoff is confirmed instead of editing and testing inside the main chat.
+- Normal messages, retries, and automatic handoffs carry the current routing
+  rule, so previously saved project conversations receive the correction too.
+- Reports that are already covered by the approved brief stay out of another
+  Requirements interview. Genuinely new or unclear behavior returns for one
+  focused requirements update.
+- Lyra uses only the agents the user confirmed and asks before adding a missing
+  role rather than silently activating or impersonating it.
+
+Reload Studio after restarting Lyra once. Existing projects, conversations,
+credentials, cron jobs, and background project history are preserved.
+
 ## [0.19.36] - 2026-09-12 — reliable restart and resume
 
 ### Fixed

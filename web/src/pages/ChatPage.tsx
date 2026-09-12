@@ -85,9 +85,9 @@ import {
   guidedApprovalKey,
   guidedApprovalLabel,
   guidedApprovalMessage,
-  guidedModelRoutingTurnDirective,
-  guidedPlainLanguageTurnDirective,
-  guidedRequirementsTurnDirective,
+  guidedPhaseContinuationDirective,
+  guidedProjectExecutionTurnDirective,
+  guidedProjectTurnDirectives,
   unavailableGuidedModelAssignments,
   type GuidedApprovalChoice,
   type GuidedUnavailableModelAssignment,
@@ -551,6 +551,7 @@ function guidedWelcomeSeed(
       'Requirements is a permanent project capability, not the speaker for every turn. Activate it for the first meaningful product brief when no approved requirements exist, while its interview is active, when the user explicitly asks to revise requirements, or when a request materially changes product scope, user-visible behavior, data, permissions, integrations, or acceptance criteria. Do not activate or reload it for greetings, status questions, explanations, approvals, pause/stop commands, ordinary in-scope feedback, implementation details already covered by approved requirements, or minor fixes. If requirements.md already covers the request, Lyra handles the turn directly. When Requirements is genuinely needed, load skill_view(name="ultimate-builder:req-engineer") and run its interactive playbook in this conversation; do not delegate it. Complete its relevant interview, Grill, design-space exploration, prototype choice, requirements.md update, and approval gate before downstream work affected by that change. Once approved, emit the done marker and do not restart it unless a later material change requires a focused delta.',
     team_selection_gate:
       "Recommend only the smallest useful team. Emit APP_IT_SKILLS_SET to open editable checkboxes, but do not treat that marker as approval and do not use newly proposed agents. Wait for the user's dashboard confirmation, delivered as IDRAK_INTERNAL_SKILLS_UPDATE; that confirmed selection is authoritative.",
+    execution_gate: guidedProjectExecutionTurnDirective(specialists),
     project_listing: projectSummary || "(listing unavailable)",
     workspace,
     enabled_specialists: specialists,
@@ -1453,6 +1454,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       completedInReply: phases.completed,
       next: upcoming,
       reply: response,
+      startedInReply: phases.started,
     })
       ? upcoming
       : null;
@@ -2208,14 +2210,18 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                   (termRef.current?.buffer.active.length ?? 1) - 1,
                 );
                 lastGuidedResponseRef.current = "";
-                const modelRouting = guidedModelRoutingTurnDirective(
-                  guidedModelProviderRef.current,
-                  guidedSkillModelsRef.current,
-                );
+                const routing = guidedProjectTurnDirectives({
+                  approvedAgentIds: guidedSelectedSpecialistIdsRef.current,
+                  completed: guidedPhasesCompletedRef.current,
+                  current: guidedPhaseCurrentRef.current,
+                  models: guidedSkillModelsRef.current,
+                  provider: guidedModelProviderRef.current,
+                });
                 writeGuidedPrompt(
-                  `${guidedPlainLanguageTurnDirective()}\n${modelRouting}\n${advanceTo
-                    ? `IDRAK_INTERNAL_CONTINUE: Start the ${advanceLabel} phase now. Load skill_view(name="ultimate-builder:${advanceTo}"), emit [APP_IT_PHASE:${advanceTo}] in your next reply, run or delegate that phase, verify its artifact, then emit [APP_IT_PHASE_DONE:${advanceTo}] and continue with the next enabled phase. Do not merely describe the next action. Stop for: any approval checkpoint (requirements summary, visual preview, final delivery), a real user decision, permission request, blocker, or final completion. At approval checkpoints, present options (Approve / Change / Skip) and wait.`
-                    : "IDRAK_INTERNAL_CONTINUE: Continue the selected workflow now. Perform the promised tool call or specialist delegation, verify its artifact, and then advance through later enabled phases. Do not merely describe the next action. Stop for: any approval checkpoint (requirements summary, visual preview, final delivery), a real user decision, permission request, blocker, or final completion. At approval checkpoints, present options (Approve / Change / Skip) and wait."}`,
+                  `${routing.join("\n")}\n${guidedPhaseContinuationDirective(
+                    advanceTo,
+                    advanceLabel,
+                  )}`,
                   {
                     isOpen: () =>
                       wsRef.current?.readyState === WebSocket.OPEN,
@@ -2580,21 +2586,14 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       specialist: guidedDefaultSpecialistRef.current,
     });
     setGuidedOutput("");
-    const routing: string[] = [
-      guidedPlainLanguageTurnDirective(),
-      guidedModelRoutingTurnDirective(
-        guidedModelProviderRef.current,
-        guidedSkillModelsRef.current,
-      ),
-    ];
-    if (options.applyAgentRouting !== false) {
-      routing.push(
-        guidedRequirementsTurnDirective({
-          completed: guidedPhasesCompletedRef.current,
-          current: guidedPhaseCurrentRef.current,
-        }),
-      );
-    }
+    const routing = guidedProjectTurnDirectives({
+      approvedAgentIds: guidedSelectedSpecialistIdsRef.current,
+      completed: guidedPhasesCompletedRef.current,
+      current: guidedPhaseCurrentRef.current,
+      includeRequirements: options.applyAgentRouting !== false,
+      models: guidedSkillModelsRef.current,
+      provider: guidedModelProviderRef.current,
+    });
     const routedText = [...routing, text].filter(Boolean).join("\n");
     // Bracketed paste, not raw typing: a multi-line prompt written straight to
     // the PTY submits at its first newline, so only the opening line became the
@@ -3056,12 +3055,15 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     window.setTimeout(() => {
       const active = wsRef.current;
       if (!active || active.readyState !== WebSocket.OPEN) return;
-      const modelRouting = guidedModelRoutingTurnDirective(
-        guidedModelProviderRef.current,
-        guidedSkillModelsRef.current,
-      );
+      const routing = guidedProjectTurnDirectives({
+        approvedAgentIds: guidedSelectedSpecialistIdsRef.current,
+        completed: guidedPhasesCompletedRef.current,
+        current: guidedPhaseCurrentRef.current,
+        models: guidedSkillModelsRef.current,
+        provider: guidedModelProviderRef.current,
+      });
       writeGuidedPrompt(
-        `${guidedPlainLanguageTurnDirective()}\n${modelRouting}\n${lastUserMessage.content}`,
+        `${routing.join("\n")}\n${lastUserMessage.content}`,
         {
         isOpen: () => wsRef.current?.readyState === WebSocket.OPEN,
         schedule: (run, delayMs) => window.setTimeout(run, delayMs),

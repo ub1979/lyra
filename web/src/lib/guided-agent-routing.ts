@@ -61,6 +61,79 @@ export function guidedRequirementsTurnDirective({
   );
 }
 
+/**
+ * Keep the foreground Studio conversation as the responsive coordinator.
+ *
+ * This is sent with every turn because an existing conversation can retain an
+ * older cached coordinator prompt. It changes only the new user message and
+ * therefore does not rewrite history or invalidate the cached prefix.
+ */
+export function guidedProjectExecutionTurnDirective(
+  approvedAgentIds: readonly string[],
+): string {
+  return (
+    `IDRAK_INTERNAL_PROJECT_EXECUTION: ${JSON.stringify({
+      approved_agents: approvedAgentIds,
+    })}. ` +
+    "Classify this user message before using tools. Answer status questions, explanations, " +
+    "approvals, and pause or stop requests directly as Lyra. For a concrete report of wrong " +
+    "behavior, first compare it with the latest approved requirements. If it is covered, the " +
+    "first owner is Debugging, which reproduces the exact report and establishes the root cause; " +
+    "then Development implements the bounded fix; finally QA independently reruns the exact " +
+    "user-reported journey and relevant regression checks. If the expected behavior is genuinely " +
+    "new or unclear in the approved requirements, Requirements asks one focused delta question " +
+    "before downstream work. Every non-interactive phase must be queued with hermes project-run " +
+    "as a durable background project job. In this foreground conversation, do not load specialist " +
+    "playbooks, do not edit application files, do not run application test suites, and do not " +
+    "perform a specialist's work. Lyra may inspect concise project-run status and queue or resume " +
+    "the bounded job. After the queue accepts it, immediately tell the user which agent owns it, " +
+    "what it is checking, whether the whole application is finished, and that work continues in " +
+    "the background, then end this turn. Use only approved_agents. If a required agent is absent, " +
+    "ask to add it; never silently activate it or do its work in the main chat."
+  );
+}
+
+export type GuidedProjectTurnRoutingState = GuidedRequirementsRoutingState & {
+  approvedAgentIds: readonly string[];
+  includeRequirements?: boolean;
+  models: Readonly<Record<string, string>>;
+  provider: string;
+};
+
+/** Compose every live guard together so send and retry paths cannot diverge. */
+export function guidedProjectTurnDirectives({
+  approvedAgentIds,
+  completed,
+  current,
+  includeRequirements = true,
+  models,
+  provider,
+}: GuidedProjectTurnRoutingState): string[] {
+  const directives = [
+    guidedPlainLanguageTurnDirective(),
+    guidedModelRoutingTurnDirective(provider, models),
+    guidedProjectExecutionTurnDirective(approvedAgentIds),
+  ];
+  if (includeRequirements) {
+    directives.push(guidedRequirementsTurnDirective({ completed, current }));
+  }
+  return directives;
+}
+
+/** Keep automatic handoffs interactive only for the Requirements interview. */
+export function guidedPhaseContinuationDirective(
+  phaseId: string | null,
+  phaseLabel: string | null,
+): string {
+  if (phaseId === "req-engineer") {
+    return `IDRAK_INTERNAL_CONTINUE: Start the interactive ${phaseLabel ?? "Requirements"} phase now in this conversation, emit [APP_IT_PHASE:${phaseId}], and stop at its approval checkpoint. Requirements is the only interactive specialist phase.`;
+  }
+  if (phaseId) {
+    return `IDRAK_INTERNAL_CONTINUE: Start the ${phaseLabel ?? phaseId} phase by inspecting project-run status and queueing ${phaseId} as a durable background project job. Do not load its playbook or perform its work in this conversation. Emit [APP_IT_PHASE:${phaseId}] when the job is confirmed, immediately acknowledge the handoff to the user, and end this foreground turn. The background completion notification will resume the workflow.`;
+  }
+  return "IDRAK_INTERNAL_CONTINUE: Inspect project-run status and queue or resume the next approved non-interactive phase as a durable background project job. Do not load a specialist playbook or perform specialist work in this conversation. Immediately acknowledge the confirmed handoff and end this foreground turn. Stop instead for an interactive Requirements or approval checkpoint, a real user decision, permission request, blocker, or final completion.";
+}
+
 /** Override any provider/model map frozen in an older conversation prefix. */
 export function guidedModelRoutingTurnDirective(
   provider: string,
