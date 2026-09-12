@@ -133,8 +133,7 @@ export const en: Translations = {
       elevenLabsNeedsKey: 'ElevenLabs STT needs ELEVENLABS_API_KEY.',
       elevenLabsRejectedKey: 'ElevenLabs rejected the API key (401).',
       gatewayAuthFailed: 'Gateway authentication failed — check your API_SERVER_KEY.',
-      methodNotAllowed:
-        'The desktop backend rejected that request (405 Method Not Allowed). Try restarting Lyra.',
+      methodNotAllowed: 'The desktop backend rejected that request (405 Method Not Allowed). Try restarting Lyra.',
       microphonePermission: 'Microphone permission was denied.',
       openaiRejectedApiKey: 'OpenAI rejected the API key.',
       openaiRejectedApiKeyWithStatus: status => `OpenAI rejected the API key (${status} invalid_api_key).`,
@@ -694,8 +693,7 @@ export const en: Translations = {
         'The host key has CHANGED since you last connected. Verify this is expected, then run ssh-keygen -R <host> and reconnect.',
       sshErrNotInstalled:
         'Lyra is not installed on the remote host. Install it there (curl -fsSL https://hermes-agent.idrakit.com/install.sh | sh) or set the Lyra path.',
-      sshErrPlatform:
-        'Unsupported remote platform. Lyra SSH mode supports Linux, macOS, and Windows remote hosts.',
+      sshErrPlatform: 'Unsupported remote platform. Lyra SSH mode supports Linux, macOS, and Windows remote hosts.',
       sshErrTimeout: 'SSH connection timed out. The host may be unreachable or asleep.',
       sshErrUpdateRequired: 'Update Lyra on the remote host before connecting with Desktop SSH.',
       sshErrUnknown: 'SSH connection failed.'
@@ -2140,8 +2138,7 @@ export const en: Translations = {
     installTo: 'Will install to',
     retryAfterRun: 'I’ve run it -- retry',
     setupChoiceTitle: 'Set up Lyra',
-    setupChoiceDesc:
-      'Connect this app to a Lyra gateway you already run, or install Lyra locally on this computer.',
+    setupChoiceDesc: 'Connect this app to a Lyra gateway you already run, or install Lyra locally on this computer.',
     connectExistingTitle: 'Connect to existing Lyra',
     connectExistingShort: 'Connect existing',
     connectExistingDesc: 'Use a remote backend with a session token or browser sign-in. No local install will start.',

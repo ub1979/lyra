@@ -513,7 +513,7 @@ export function CommandPalette() {
             keywords: ['gateway', 'restart', 'messaging', 'reconnect', 'system'],
             label: cc.restartGateway,
             run: () => void runGatewayRestart()
-          },
+          }
         ]
       },
       {

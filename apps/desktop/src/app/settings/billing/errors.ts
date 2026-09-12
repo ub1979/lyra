@@ -60,8 +60,7 @@ export const resolveRefusal = (refusal: BillingRefusal): BillingRefusalPresentat
     case 'remote_spending_disabled':
       return {
         action: portalAction(refusal.portalUrl),
-        message:
-          "Remote spending is off for this account — a billing admin can turn it on from the account portal.",
+        message: 'Remote spending is off for this account — a billing admin can turn it on from the account portal.',
         title: 'Remote spending is off'
       }
 

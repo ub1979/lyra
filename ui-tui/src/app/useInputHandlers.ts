@@ -321,7 +321,9 @@ export function useInputHandlers(ctx: InputHandlerContext): InputHandlerResult {
   }
 
   useInput((ch, key) => {
-    if (isPromptAnswerFrame(ch)) {return}
+    if (isPromptAnswerFrame(ch)) {
+      return
+    }
     const live = getUiState()
 
     if (isBlocked) {
