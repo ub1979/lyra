@@ -70,7 +70,10 @@ class TestFetchOpenRouterModels:
                 return b'{"data":[{"id":"anthropic/claude-opus-4.8","pricing":{"prompt":"0.000015","completion":"0.000075"}},{"id":"qwen/qwen3.7-max","pricing":{"prompt":"0.000000325","completion":"0.00000195"}},{"id":"nvidia/nemotron-3-super-120b-a12b:free","pricing":{"prompt":"0","completion":"0"}}]}'
 
         monkeypatch.setattr(_models_mod, "_openrouter_catalog_cache", None)
-        with patch("hermes_cli.models._urlopen_model_catalog_request", return_value=_Resp()):
+        with (
+            patch("hermes_cli.model_catalog.get_curated_openrouter_models", return_value=[]),
+            patch("hermes_cli.models._urlopen_model_catalog_request", return_value=_Resp()),
+        ):
             models = fetch_openrouter_models(force_refresh=True)
 
         assert models == [
@@ -167,7 +170,10 @@ class TestFetchOpenRouterModels:
                 )
 
         monkeypatch.setattr(_models_mod, "_openrouter_catalog_cache", None)
-        with patch("hermes_cli.models._urlopen_model_catalog_request", return_value=_Resp()):
+        with (
+            patch("hermes_cli.model_catalog.get_curated_openrouter_models", return_value=[]),
+            patch("hermes_cli.models._urlopen_model_catalog_request", return_value=_Resp()),
+        ):
             models = fetch_openrouter_models(force_refresh=True)
 
         ids = [mid for mid, _ in models]
@@ -271,6 +277,13 @@ class TestDetectProviderForModel:
             result = detect_provider_for_model("sonnet", "auto")
         assert result is not None
         assert result[0] == "anthropic"
+        assert result[1].startswith("claude-sonnet")
+
+    def test_short_alias_keeps_current_claude_cli_transport(self):
+        """An explicitly selected subscription transport remains authoritative."""
+        result = detect_provider_for_model("sonnet", "claude-cli")
+        assert result is not None
+        assert result[0] == "claude-cli"
         assert result[1].startswith("claude-sonnet")
 
     def test_openrouter_slug_match(self):

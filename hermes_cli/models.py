@@ -2109,11 +2109,11 @@ _AGGREGATOR_PROVIDERS = frozenset(
     {"nous", "openrouter", "copilot", "kilocode"}
 )
 
-# Subscription/OAuth providers whose catalogs RE-EXPOSE other vendors' models
-# would be listed here (tried only as a last resort for bare short-alias
-# resolution, after every native-vendor catalog, so they never hijack an alias
-# away from the model's native vendor). None are currently defined.
-_BORROWED_MODEL_PROVIDERS: frozenset[str] = frozenset()
+# Subscription/OAuth transports whose catalogs re-expose a vendor's models are
+# tried only when already selected. They must not hijack an automatic bare
+# alias from the direct native provider merely because their catalog was
+# inserted earlier in the registry.
+_BORROWED_MODEL_PROVIDERS: frozenset[str] = frozenset({"claude-cli"})
 
 # Providers whose live /v1/models endpoint is the authoritative catalog, so the
 # curated list is a discovery-only fallback. For these, the picker merges
@@ -2176,9 +2176,9 @@ def _resolve_static_model_alias(
         if provider in current_keys and (matched := _match(provider)):
             return provider, matched
 
-    # Last resort: providers that re-expose other vendors' models. Only reached
-    # when no native-vendor catalog matched — so `sonnet` resolves to anthropic.
-    # None are currently defined (_BORROWED_MODEL_PROVIDERS is empty).
+    # Last resort: a currently selected transport that re-exposes the vendor's
+    # models. Automatic resolution still sends `sonnet` to Anthropic, while an
+    # explicit/current Claude CLI session remains on Claude CLI.
     for provider in _BORROWED_MODEL_PROVIDERS:
         if provider in current_keys and (matched := _match(provider)):
             return provider, matched

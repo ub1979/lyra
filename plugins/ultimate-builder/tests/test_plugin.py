@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 from pathlib import Path
+import shutil
+import subprocess
 
 from lyra_version import LYRA_CHANNEL, LYRA_VERSION
 
@@ -162,6 +165,60 @@ def test_start_script_launches_dashboard_from_ignored_project_root():
     assert 'WORKSPACE_DIR="$PROJECT_DIR/my_projects"' in start_script
     assert 'cd "$WORKSPACE_DIR"' in start_script
     assert 'uv run --project "$PROJECT_DIR" hermes dashboard' in start_script
+
+
+def test_start_script_replaces_stale_gateway_when_dispatcher_is_unhealthy(tmp_path):
+    project = tmp_path / "lyra"
+    project.mkdir()
+    shutil.copy2(ROOT.parents[1] / "start.sh", project / "start.sh")
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    log = tmp_path / "uv.log"
+    ready = tmp_path / "dispatcher-ready"
+
+    (fake_bin / "lsof").write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+    (fake_bin / "uv").write_text(
+        """#!/bin/bash
+printf '%s\\n' "$*" >> "$LYRA_START_TEST_LOG"
+case " $* " in
+  *" python -c "*)
+    if [[ -f "$LYRA_START_TEST_READY" ]]; then echo ready; else echo missing; fi
+    ;;
+  *" hermes gateway run "*)
+    touch "$LYRA_START_TEST_READY"
+    trap 'exit 0' TERM INT
+    while true; do sleep 1; done
+    ;;
+esac
+exit 0
+""",
+        encoding="utf-8",
+    )
+    for executable in (fake_bin / "lsof", fake_bin / "uv"):
+        executable.chmod(0o755)
+
+    env = os.environ.copy()
+    env.update(
+        {
+            "PATH": f"{fake_bin}:{env['PATH']}",
+            "LYRA_START_TEST_LOG": str(log),
+            "LYRA_START_TEST_READY": str(ready),
+        }
+    )
+    result = subprocess.run(
+        ["bash", str(project / "start.sh")],
+        cwd=project,
+        env=env,
+        text=True,
+        capture_output=True,
+        timeout=10,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    calls = log.read_text(encoding="utf-8").splitlines()
+    gateway_call = next(call for call in calls if "hermes gateway run" in call)
+    assert gateway_call.endswith("hermes gateway run --replace --external-supervisor")
 
 
 def test_manifest_uses_the_non_conflicting_dashboard_entry():

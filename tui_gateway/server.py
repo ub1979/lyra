@@ -11162,6 +11162,11 @@ def _claim_kanban_tui_notification(sid: str, session: dict) -> dict | None:
                     if not events:
                         continue
                     task = _kb.get_task(conn, task_id)
+                    # The claim above deliberately advances the subscription cursor.
+                    # Once a task is archived its earlier terminal events are stale:
+                    # surfacing them can revive superseded scope in a resumed chat.
+                    if task is not None and task.status == "archived":
+                        continue
                     from hermes_cli.project_job_attention import task_attention
 
                     return {

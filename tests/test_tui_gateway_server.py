@@ -12212,6 +12212,45 @@ def test_resumed_tui_claims_saved_project_completion(monkeypatch, tmp_path):
     assert "whether the whole application is finished" in internal
 
 
+def test_resumed_tui_skips_completion_for_task_archived_after_event(
+    monkeypatch, tmp_path
+):
+    """Superseded work must not reopen old scope in a resumed conversation."""
+    from hermes_cli import kanban_db as kb
+
+    monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
+    monkeypatch.setattr(server, "_get_db", lambda: None)
+    workspace = tmp_path / "project"
+    workspace.mkdir()
+    with kb.connect_closing() as conn:
+        task_id = kb.create_task(
+            conn,
+            title="Lyra project: superseded production feature",
+            assignee="default",
+            workspace_kind="dir",
+            workspace_path=str(workspace),
+        )
+        kb.add_notify_sub(
+            conn,
+            task_id=task_id,
+            platform="tui",
+            chat_id="saved-project-chat",
+        )
+        assert kb.complete_task(conn, task_id, summary="Old work completed")
+        assert kb.archive_task(conn, task_id)
+
+    session = {
+        "session_key": "saved-project-chat",
+        "running": False,
+        "_finalized": False,
+    }
+    assert server._claim_kanban_tui_notification("ui-session", session) is None
+
+    # The stale event was consumed, not merely postponed for the next poll.
+    session["_kanban_notification_next_poll"] = 0
+    assert server._claim_kanban_tui_notification("ui-session", session) is None
+
+
 # --- image.attach_bytes / pdf.attach (remote-client byte upload) -------------
 
 # Smallest valid 1x1 PNG, base64-encoded.

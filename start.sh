@@ -76,7 +76,11 @@ dispatcher_is_ready() {
 LYRA_GATEWAY_PID=""
 if ! dispatcher_is_ready; then
   echo "Starting Lyra's recoverable project worker..."
-  uv run --project "$PROJECT_DIR" hermes gateway run --external-supervisor &
+  # A suspended previous launcher is not a healthy dispatcher, but it can
+  # still own platform-scoped locks such as the Telegram bot token. Use the
+  # gateway's PID/start-time-validated takeover so the replacement does not
+  # spend its lifetime retrying behind that stale process.
+  uv run --project "$PROJECT_DIR" hermes gateway run --replace --external-supervisor &
   LYRA_GATEWAY_PID="$!"
   for _attempt in {1..100}; do
     if dispatcher_is_ready; then

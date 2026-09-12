@@ -9,6 +9,28 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.36] - 2026-09-12 — reliable restart and resume
+
+### Fixed
+
+- Restarting Lyra after an earlier launcher was suspended now safely replaces
+  the stale gateway instead of leaving Telegram trapped in repeated
+  “bot token already in use” retries.
+- Healthy standalone gateways remain untouched because Lyra still starts its
+  launcher-owned gateway only when no healthy project dispatcher is present.
+- Reopening a completed project no longer lets an old event from an archived,
+  superseded job interrupt the user's next question or revive obsolete scope.
+- Project-job follow-ups now treat the latest approved profile and saved project
+  state as authoritative, so a completed Personal MVP stays completed unless the
+  user explicitly asks to expand it.
+- Automatic short Claude model aliases again prefer the direct Anthropic
+  provider, while an explicitly selected Claude CLI session stays on its
+  subscription transport.
+
+Restart Lyra once to load these fixes. Existing projects,
+conversations, Telegram credentials, cron jobs, and Kanban history are
+preserved.
+
 ## [0.19.35] - 2026-09-11 — right-sized project planning
 
 ### Fixed

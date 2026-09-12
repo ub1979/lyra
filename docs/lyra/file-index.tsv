@@ -1773,7 +1773,11 @@ docs/lyra/changes/2026-09-11-delegated-kanban-heartbeat.md	docs	md: 2026 09 11 d
 docs/lyra/changes/2026-09-11-direct-specialist-worker-bounds.md	docs	md: 2026 09 11 direct specialist worker bounds
 docs/lyra/changes/2026-09-11-guided-diff-leak.md	docs	md: 2026 09 11 guided diff leak
 docs/lyra/changes/2026-09-11-guided-main-chat-progress.md	docs	md: 2026 09 11 guided main chat progress
+docs/lyra/changes/2026-09-11-stale-gateway-takeover.md	docs	md: 2026 09 11 stale gateway takeover
 docs/lyra/changes/2026-09-11-workflow-contract-and-state-consolidation.md	docs	md: 2026 09 11 workflow contract and state consolidation
+docs/lyra/changes/2026-09-12-completed-project-resume.md	docs	md: 2026 09 12 completed project resume
+docs/lyra/changes/2026-09-12-model-catalog-test-isolation.md	docs	md: 2026 09 12 model catalog test isolation
+docs/lyra/changes/2026-09-12-static-model-alias-priority.md	docs	md: 2026 09 12 static model alias priority
 docs/lyra/file-index.tsv	docs	tsv: file index
 docs/middleware/README.md	docs	md: README
 docs/observability/README.md	docs	md: README
