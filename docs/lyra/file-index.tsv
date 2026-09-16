@@ -286,6 +286,9 @@ apps/desktop/assets/icon.icns	apps	icns: icon
 apps/desktop/assets/icon.ico	apps	ico: icon
 apps/desktop/assets/icon.png	apps	png: icon
 apps/desktop/components.json	apps	json: components
+apps/desktop/e2e-studio/echo-model.ts	apps	* A tiny OpenAI-compatible model that echoes the last user message.
+apps/desktop/e2e-studio/studio-dashboard.ts	apps	* Start the real Lyra dashboard for a browser test.
+apps/desktop/e2e-studio/studio-smoke.spec.ts	apps	* Studio smoke: the only test that sees ChatPage's wiring.
 apps/desktop/e2e/boot-failure.spec.ts	apps	* E2E boot-failure tests — verify the app shows an error overlay when the
 apps/desktop/e2e/boot.spec.ts	apps	* E2E smoke tests for the dev-mode desktop app.
 apps/desktop/e2e/chat.spec.ts	apps	* E2E chat tests — send a message and verify a response appears.
@@ -442,6 +445,7 @@ apps/desktop/eslint.config.mjs	apps	mjs: eslint.config
 apps/desktop/index.html	apps	html: index
 apps/desktop/package.json	apps	json: package
 apps/desktop/playwright.config.ts	apps	ts: playwright.config
+apps/desktop/playwright.studio.config.ts	apps	ts: playwright.studio.config
 apps/desktop/pr-assets/session-source-folders.png	apps	png: session source folders
 apps/desktop/preview-demo.html	apps	html: preview demo
 apps/desktop/public/apple-touch-icon.png	apps	png: apple touch icon
@@ -1788,6 +1792,7 @@ docs/lyra/changes/2026-09-16-notification-busy-ownership.md	docs	md: 2026 09 16 
 docs/lyra/changes/2026-09-16-project-run-tool.md	docs	md: 2026 09 16 project run tool
 docs/lyra/changes/2026-09-16-reply-turn-identity.md	docs	md: 2026 09 16 reply turn identity
 docs/lyra/changes/2026-09-16-studio-event-reducer-and-journeys.md	docs	md: 2026 09 16 studio event reducer and journeys
+docs/lyra/changes/2026-09-16-studio-playwright-smoke.md	docs	md: 2026 09 16 studio playwright smoke
 docs/lyra/changes/2026-09-16-synced-transcript-refs.md	docs	md: 2026 09 16 synced transcript refs
 docs/lyra/changes/2026-09-16-turn-free-job-updates.md	docs	md: 2026 09 16 turn free job updates
 docs/lyra/changes/2026-09-16-worker-usage-accounting.md	docs	md: 2026 09 16 worker usage accounting
@@ -2115,6 +2120,7 @@ hermes_cli/web_dist/assets/RulesCompressed-Regular-BSXFyF4x.woff2	hermes_cli	Gen
 hermes_cli/web_dist/assets/RulesExpanded-Bold-DZA7s8Pa.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Regular-l8uVympt.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/index-BGAdPJZk.css	hermes_cli	Generated asset; edit its source and rebuild
+hermes_cli/web_dist/assets/index-D_FqcEZ9.js	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Bold.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Italic.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Regular.woff2	hermes_cli	Generated asset; edit its source and rebuild

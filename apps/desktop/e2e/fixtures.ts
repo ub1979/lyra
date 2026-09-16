@@ -70,7 +70,7 @@ function isCredentialEnvVar(name: string): boolean {
   return CREDENTIAL_SUFFIXES.some((suffix) => name.endsWith(suffix))
 }
 
-function stripCredentials(env: Record<string, string | undefined>): Record<string, string> {
+export function stripCredentials(env: Record<string, string | undefined>): Record<string, string> {
   const clean: Record<string, string> = {}
 
   for (const [key, value] of Object.entries(env)) {

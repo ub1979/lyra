@@ -63,6 +63,16 @@ jobs:
         with:
           command: uv sync --locked --python 3.11 --extra all --extra dev
 
+      # ── Studio browser smoke prerequisites ─────────────────────────────
+      # The Electron specs never needed a browser; the Studio smoke drives the
+      # real dashboard in headless Chromium and its node terminal child needs
+      # the gitignored ui-tui/dist bundle.
+      - name: Install Chromium for the Studio smoke
+        working-directory: apps/desktop
+        run: npx playwright install --with-deps chromium
+      - name: Build the Studio terminal bundle
+        run: npm run build -w ui-tui
+
       # ── Build desktop app ─────────────────────────────────────────────
       # The Playwright step below runs `npm run build` before testing so
       # dist/ is always fresh — no separate build step needed here.
@@ -107,6 +117,17 @@ jobs:
           OPENAI_API_KEY: ""
           NOUS_API_KEY: ""
 
+      # ── Studio browser smoke (real dashboard, headless Chromium) ──────
+      - name: Run Studio browser smoke
+        if: always()
+        working-directory: apps/desktop
+        run: npx playwright test -c playwright.studio.config.ts --reporter=list
+        env:
+          CI: "true"
+          OPENROUTER_API_KEY: ""
+          OPENAI_API_KEY: ""
+          NOUS_API_KEY: ""
+
       # ── Save updated baselines to cache (main only) ───────────────────
       - name: Save updated baselines to cache
         if: github.ref_name == 'main' && always()
@@ -122,7 +143,9 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: playwright-report-${{ github.sha }}
-          path: apps/desktop/playwright-report
+          path: |
+            apps/desktop/playwright-report
+            apps/desktop/playwright-report-studio
           retention-days: 14
           overwrite: true
 
@@ -133,7 +156,9 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: playwright-test-results-${{ github.sha }}
-          path: apps/desktop/test-results
+          path: |
+            apps/desktop/test-results
+            apps/desktop/test-results-studio
           retention-days: 14
           overwrite: true
 
