@@ -1048,7 +1048,9 @@ export function TextInput({
   useInput(
     (inp: string, k: Key, event: InputEvent) => {
       // A delayed answer must never become a new chat message or editable text.
-      if (isPromptAnswerFrame(inp)) {return}
+      if (isPromptAnswerFrame(inp)) {
+        return
+      }
       const eventRaw = event.keypress.raw
 
       // Configured voice shortcut wins over composer-level defaults like
