@@ -11174,6 +11174,7 @@ def _claim_kanban_tui_notification(sid: str, session: dict) -> dict | None:
                         "task_id": task_id,
                         "task_title": task.title if task else "Project agent",
                         "task_status": task.status if task else events[-1].kind,
+                        "event_kind": events[-1].kind,
                         "workspace_path": task.workspace_path if task else "",
                         "session_key": str(sub.get("chat_id") or ""),
                         "board": board,

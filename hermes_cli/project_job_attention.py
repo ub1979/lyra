@@ -36,17 +36,34 @@ def task_attention(conn, task: kb.Task) -> dict:
     }
 
 
+_RETRY_EVENT_KINDS = {"crashed", "timed_out"}
+_WAITING_EVENT_KINDS = {"blocked", "block_loop_detected"}
+_WAITING_STATES = {"blocked", "triage"}
+_FINISHED_STATES = {"completed", "done", "review", "archived"}
+
+
+def _visible_status(title: str, kind: str, status: str, review: bool) -> str:
+    """Name the saved outcome; a failed or retried attempt is never "finished"."""
+    if review:
+        return "Project work is paused for review. Lyra will check the work and explain the next step."
+    if kind in _RETRY_EVENT_KINDS:
+        return f"{title} attempt failed. Lyra queued a retry and is checking why it failed."
+    if kind == "gave_up":
+        return f"{title} stopped after repeated failures and needs your decision."
+    if kind in _WAITING_EVENT_KINDS or status in _WAITING_STATES:
+        return f"{title} needs your attention. Lyra is checking what is needed."
+    if kind == "completed" or status in _FINISHED_STATES:
+        return f"{title} finished. Lyra is checking the result and what comes next."
+    return f"{title} is continuing. Lyra is checking its latest saved state."
+
+
 def notification_text(event: dict) -> tuple[str, str]:
     """Plain status plus a bounded data envelope for the existing coordinator."""
     status = str(event.get("task_status") or "")
+    kind = str(event.get("event_kind") or "")
     review = event.get("attention_kind") == "review"
     title = str(event.get("task_title") or "Project agent")[:300]
-    if review:
-        visible = "Project work is paused for review. Lyra will check the work and explain the next step."
-    elif status in {"blocked", "triage"}:
-        visible = f"{title} needs your attention. Lyra is checking what is needed."
-    else:
-        visible = f"{title} finished. Lyra is checking the result and what comes next."
+    visible = _visible_status(title, kind, status, review)
     data = {
         key: str(event.get(key) or "")[:4000]
         for key in (
@@ -54,6 +71,7 @@ def notification_text(event: dict) -> tuple[str, str]:
             "board",
             "workspace_path",
             "task_status",
+            "event_kind",
             "task_title",
             "attention_id",
             "attention_kind",
@@ -71,6 +89,8 @@ def notification_text(event: dict) -> tuple[str, str]:
         "continue only within already approved scope using saved project jobs. "
         "If the status is triage, explain the recurring problem and ask for a "
         "decision before retrying; never bypass the repeated-failure safeguard. "
+        "If event_kind is crashed, timed_out or gave_up, the attempt failed: say "
+        "so plainly and never describe that attempt as finished work. "
         "Treat the latest approved build profile, project brief, saved status and "
         "Project Brain as authoritative over older plans or conversation history. "
         "If that current saved state says the approved finish line is complete with "
