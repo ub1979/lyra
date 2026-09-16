@@ -9,6 +9,17 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.48] - 2026-09-16 — first run is a finish line
+
+### Improved
+
+- The packaged-app check in CI now recognises a fresh install that stops at
+  the first-run choice ("Connect to existing Lyra" / "Install Lyra locally")
+  as a finished boot rather than a boot still in progress. The packaged
+  Linux app builds, validates and launches in CI for the first time.
+
+No behaviour change for users.
+
 ## [0.19.47] - 2026-09-16 — the launcher knows its name
 
 ### Fixed
