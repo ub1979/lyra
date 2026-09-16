@@ -11292,27 +11292,23 @@ def _notification_poller_loop(
             )
             _emitted.add(_dedup_key)
 
-        _requeued = False
-        with session["history_lock"]:
-            if session.get("running"):
-                process_registry.completion_queue.put(evt)
-                _requeued = True
-            else:
-                session["running"] = True
-        if _requeued:
+        from tui_gateway.notification_turn import begin_notification_turn
+
+        _outcome, _claim = begin_notification_turn(session, evt, "tui-poller")
+        if _outcome == "busy":
+            process_registry.completion_queue.put(evt)
             # Back off before re-polling: the re-queued event keeps the queue
             # non-empty, so without a sleep this loop spins at full speed
             # (100% CPU, GIL churn) for as long as the session stays busy.
             time.sleep(0.25)
             continue
+        if _claim is None:
+            continue
 
         rid = f"__notif__{int(time.time() * 1000)}"
         from tools.async_delegation import (
-            claim_event_delivery, complete_event_delivery, release_event_delivery,
+            complete_event_delivery, release_event_delivery,
         )
-        _claim = claim_event_delivery(evt, "tui-poller")
-        if _claim is None:
-            continue
         try:
             _emit("message.start", sid)
             if evt.get("type") == "async_delegation":
@@ -11380,19 +11376,19 @@ def _notification_poller_loop(
             _emit("status.update", sid, {"kind": "process", "text": text})
             _emitted.add(_dedup_key)
 
-        with session["history_lock"]:
-            if session.get("running"):
-                process_registry.completion_queue.put(evt)
-                break
-            session["running"] = True
+        from tui_gateway.notification_turn import begin_notification_turn
+
+        _outcome, _claim = begin_notification_turn(session, evt, "tui-poller")
+        if _outcome == "busy":
+            process_registry.completion_queue.put(evt)
+            break
+        if _claim is None:
+            continue
 
         rid = f"__notif__{int(time.time() * 1000)}"
         from tools.async_delegation import (
-            claim_event_delivery, complete_event_delivery, release_event_delivery,
+            complete_event_delivery, release_event_delivery,
         )
-        _claim = claim_event_delivery(evt, "tui-poller")
-        if _claim is None:
-            continue
         try:
             _emit("message.start", sid)
             if evt.get("type") == "async_delegation":
@@ -12179,18 +12175,20 @@ def _run_prompt_submit(
                 skip_poll_observed=False,
             )
             for index, (_evt, synth) in enumerate(drained):
-                with session["history_lock"]:
-                    if session.get("running"):
-                        for pending_evt, _pending_synth in drained[index:]:
-                            process_registry.completion_queue.put(pending_evt)
-                        break
-                    session["running"] = True
-                from tools.async_delegation import (
-                    claim_event_delivery, complete_event_delivery, release_event_delivery,
+                from tui_gateway.notification_turn import begin_notification_turn
+
+                _outcome, _claim = begin_notification_turn(
+                    session, _evt, "tui-post-turn"
                 )
-                _claim = claim_event_delivery(_evt, "tui-post-turn")
+                if _outcome == "busy":
+                    for pending_evt, _pending_synth in drained[index:]:
+                        process_registry.completion_queue.put(pending_evt)
+                    break
                 if _claim is None:
                     continue
+                from tools.async_delegation import (
+                    complete_event_delivery, release_event_delivery,
+                )
                 try:
                     _emit("message.start", sid)
                     _run_prompt_submit(rid, sid, session, synth)
