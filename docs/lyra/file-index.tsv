@@ -1778,6 +1778,7 @@ docs/lyra/changes/2026-09-12-static-model-alias-priority.md	docs	md: 2026 09 12 
 docs/lyra/changes/2026-09-16-coordinator-context-budget.md	docs	md: 2026 09 16 coordinator context budget
 docs/lyra/changes/2026-09-16-coordinator-guarantees.md	docs	md: 2026 09 16 coordinator guarantees
 docs/lyra/changes/2026-09-16-coordinator-without-terminal.md	docs	md: 2026 09 16 coordinator without terminal
+docs/lyra/changes/2026-09-16-desktop-readiness-and-ci-truth.md	docs	md: 2026 09 16 desktop readiness and ci truth
 docs/lyra/changes/2026-09-16-durable-worker-usage.md	docs	md: 2026 09 16 durable worker usage
 docs/lyra/changes/2026-09-16-failure-notification-wording.md	docs	md: 2026 09 16 failure notification wording
 docs/lyra/changes/2026-09-16-notification-busy-ownership.md	docs	md: 2026 09 16 notification busy ownership
@@ -5354,6 +5355,7 @@ tests/hermes_cli/test_proxy.py	tests	Behavioral tests: proxy
 tests/hermes_cli/test_psutil_android_extract.py	tests	Behavioral tests: psutil android extract
 tests/hermes_cli/test_pty_bridge.py	tests	Behavioral tests: pty bridge
 tests/hermes_cli/test_quarantine_forensic_logging.py	tests	Behavioral tests: quarantine forensic logging
+tests/hermes_cli/test_ready_sentinel.py	tests	Behavioral tests: ready sentinel
 tests/hermes_cli/test_reasoning_effort_menu.py	tests	Behavioral tests: reasoning effort menu
 tests/hermes_cli/test_reasoning_full_command.py	tests	Behavioral tests: reasoning full command
 tests/hermes_cli/test_redact_config_bridge.py	tests	Behavioral tests: redact config bridge
