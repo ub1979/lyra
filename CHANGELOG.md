@@ -9,6 +9,26 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.45] - 2026-09-16 — a browser sees Studio
+
+### Improved
+
+- Studio is now exercised the way a person uses it before release: a real
+  browser opens the shipped dashboard, types two messages through the real
+  terminal child and gateway, and checks that both replies stay on screen and
+  that the Tokens panel reports. Only the model is a stand-in that echoes the
+  prompt (`npm run test:e2e:studio` in `apps/desktop`; also runs in CI).
+
+### Known
+
+- The first browser run surfaced a gateway seam to fix next: when Studio pins
+  its model while the hidden welcome turn is still running, the model-switch
+  note bumps the history version and the welcome exchange is never saved to
+  session history (`history_version mismatch` in the gateway log). Visible
+  replies are unaffected.
+
+No behaviour change is intended. Restart Lyra and reload Studio once.
+
 ## [0.19.44] - 2026-09-16 — no line lost between frames
 
 ### Fixed
