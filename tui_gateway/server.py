@@ -5681,7 +5681,7 @@ def _make_agent(
         else _parse_tui_skills_env()
     )
     from tui_gateway.studio_model_routing import studio_model_override
-    from tui_gateway.studio_context import studio_toolsets
+    from tui_gateway.studio_context import studio_disabled_toolsets, studio_toolsets
 
     studio_override = studio_model_override(cfg, startup_skills)
     if studio_override is not None:
@@ -5811,6 +5811,7 @@ def _make_agent(
             _load_enabled_toolsets(),
             explicit=bool(os.environ.get("HERMES_TUI_TOOLSETS", "").strip()),
         ),
+        disabled_toolsets=studio_disabled_toolsets(startup_skills),
         # OpenRouter provider-routing prefs (config.yaml `provider_routing`).
         # Mirrors the messaging gateway + CLI so the desktop/TUI honors the same
         # routing instead of letting OpenRouter pick providers at random.

@@ -137,6 +137,29 @@ def test_hidden_from_workers_and_delegated_children(monkeypatch):
     assert tool.coordinator_only() is False
 
 
+def test_subprocess_lineage_blocks_mutation_but_not_status(project, monkeypatch):
+    from agent.delegation_context import DELEGATED_CHILD_ENV_MARKER
+
+    tool = load_tool()
+    monkeypatch.setenv(DELEGATED_CHILD_ENV_MARKER, "1")
+    assert tool.coordinator_only() is False
+    for action in ("queue", "pause", "resume", "stop"):
+        result = json.loads(tool.project_run_tool({
+            "action": action, "workspace": str(project), "phases": "sw-architect",
+        }))
+        assert result["ok"] is False
+        assert "delegated helper" in result["error"]
+    # Exercise the shared API used by the CLI, not only the model-tool guard.
+    runs = tool._sibling("project_runs")
+    with pytest.raises(PermissionError, match="delegated helper"):
+        runs.queue_project_run(project, ["sw-architect"])
+    for action in ("pause", "resume", "stop"):
+        with pytest.raises(PermissionError, match="delegated helper"):
+            runs.control_project_run(project, action)
+    status = json.loads(tool.project_run_tool({"action": "status", "workspace": str(project)}))
+    assert status["task_count"] == 0
+
+
 def test_plugin_registers_the_tool_in_the_guide_bundle():
     class Context:
         def __init__(self):

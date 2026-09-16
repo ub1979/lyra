@@ -339,13 +339,10 @@ def dispatch_blocked_reason(environ: Mapping[str, str] = os.environ) -> str | No
             "A running project worker cannot queue or control project jobs. "
             "Finish or block this task and describe what is needed; Lyra decides."
         )
-    try:
-        from agent.delegation_context import is_delegated_child_context
+    from agent.delegation_context import DELEGATED_CHILD_ENV_MARKER, is_delegated_child_context
 
-        if is_delegated_child_context():
-            return "A delegated helper cannot queue or control project jobs."
-    except Exception:
-        pass
+    if is_delegated_child_context() or environ.get(DELEGATED_CHILD_ENV_MARKER):
+        return "A delegated helper cannot queue or control project jobs."
     return None
 
 

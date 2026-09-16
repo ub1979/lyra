@@ -1794,6 +1794,7 @@ docs/lyra/changes/2026-09-16-synced-transcript-refs.md	docs	md: 2026 09 16 synce
 docs/lyra/changes/2026-09-16-turn-free-job-updates.md	docs	md: 2026 09 16 turn free job updates
 docs/lyra/changes/2026-09-16-turn-history-persists.md	docs	md: 2026 09 16 turn history persists
 docs/lyra/changes/2026-09-16-worker-usage-accounting.md	docs	md: 2026 09 16 worker usage accounting
+docs/lyra/changes/2026-09-17-coordinator-role-boundary.md	docs	md: 2026 09 17 coordinator role boundary
 docs/lyra/changes/2026-09-17-provider-address-notice.md	docs	md: 2026 09 17 provider address notice
 docs/lyra/changes/2026-09-17-worker-usage-freshness.md	docs	md: 2026 09 17 worker usage freshness
 docs/lyra/file-index.tsv	docs	tsv: file index

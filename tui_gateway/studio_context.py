@@ -22,10 +22,22 @@ _GUIDE_BUNDLES = frozenset({
 _WORKER_BUNDLES = frozenset({"code_execution", "delegation", "project"})
 
 
+def studio_disabled_toolsets(skills: list[str]) -> list[str] | None:
+    """Subtract worker execution capabilities even from explicit/custom bundles.
+
+    This is a construction-time role boundary, not a security sandbox. Keep
+    file editing for requirements and the user's selected memory/research tools.
+    Workers retain their own construction policy and full execution tools.
+    """
+    if not is_studio_coordinator(skills):
+        return None
+    return ["terminal", "code_execution", "delegation"]
+
+
 def studio_toolsets(
     skills: list[str], enabled: list[str] | None, *, explicit: bool = False
 ) -> list[str] | None:
-    """Trim the default coding bundle, never an explicit choice or worker.
+    """Trim default bundles; explicit choices still get role exclusions separately.
 
     Other configured bundles (including MCP/plugins) survive intact. Keeping
     this policy out of the turn loop preserves the cached tool-schema prefix.

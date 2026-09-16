@@ -5,9 +5,46 @@ import json
 import pytest
 
 from toolsets import resolve_multiple_toolsets
-from tui_gateway.studio_context import studio_toolsets
+from tui_gateway.studio_context import studio_disabled_toolsets, studio_toolsets
 
 STUDIO = ["ultimate-builder:app-it"]
+
+
+@pytest.mark.parametrize("configured", [["coding", "project"], ["debugging", "memory"], None])
+def test_explicit_bundles_cannot_restore_worker_execution(configured):
+    from model_tools import get_tool_definitions
+
+    selected = studio_toolsets(STUDIO, configured, explicit=True)
+    names = {
+        item["function"]["name"] for item in get_tool_definitions(
+            selected, disabled_toolsets=studio_disabled_toolsets(STUDIO), quiet_mode=True,
+        )
+    }
+    assert not {"terminal", "process", "execute_code", "delegate_task"} & names
+    assert {"memory", "read_file", "write_file", "patch"} <= names
+    assert studio_disabled_toolsets(["ultimate-builder:ultimate-app-builder"]) is None
+
+
+def test_gateway_applies_role_exclusions_at_construction(tmp_path, monkeypatch):
+    from unittest.mock import MagicMock, patch
+    from tui_gateway import server
+
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setenv("HERMES_TUI_TOOLSETS", "coding,project")
+    with (
+        patch.object(server, "_load_cfg", return_value={}),
+        patch.object(server, "_get_db", return_value=MagicMock()),
+        patch.object(server, "_load_enabled_toolsets", return_value=["coding", "project"]),
+        patch.object(server, "_resolve_startup_runtime", return_value=("mock", "custom")),
+        patch("hermes_cli.runtime_provider.resolve_runtime_provider", return_value={
+            "provider": "custom", "base_url": "http://127.0.0.1:1/v1", "api_key": "test",
+        }),
+        patch("agent.skill_commands.build_preloaded_skills_prompt", return_value=("guide", STUDIO, [])),
+        patch("run_agent.AIAgent") as constructor,
+    ):
+        server._make_agent("isolated", "isolated", skills_override=STUDIO)
+    assert constructor.call_args.kwargs["disabled_toolsets"] == studio_disabled_toolsets(STUDIO)
+    assert constructor.call_args.kwargs["enabled_toolsets"] == ["coding", "project"]
 
 
 def test_default_coordinator_retains_requirements_memory_and_research():

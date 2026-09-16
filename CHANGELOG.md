@@ -9,6 +9,14 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.54] - 2026-09-17 — coordinator role boundaries
+
+### Fixed
+
+- Explicit Studio tool bundles no longer restore shell/code/delegation tools.
+- Project dispatch rejects delegated subprocesses using the existing lineage
+  marker; requirements editing, memory, research and worker tools remain intact.
+
 ## [0.19.53] - 2026-09-17 — honest worker usage updates
 
 ### Fixed
