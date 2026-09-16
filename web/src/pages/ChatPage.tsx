@@ -4835,6 +4835,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                           : cn(
                               "rounded-bl-md border border-current/10 bg-midground/5 text-text-primary",
                               message.plain && "whitespace-pre-wrap",
+                              message.tone === "warning" && "border-warning/40 bg-warning/10 text-warning",
                             ),
                       )}
                     >

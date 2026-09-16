@@ -25,6 +25,7 @@ import {
   parseGuidedPhaseMarkers,
   shouldAdvanceGuidedPhase,
 } from "./guided-phase-plan";
+import { guidedReplyWarning } from "./guided-reply-warning";
 import { withRequiredGuidedSpecialists } from "./guided-required-specialists";
 import { mergeGuidedResponse } from "./guided-response-merge";
 import { reduceGuidedToolEvent } from "./guided-tool-events";
@@ -173,6 +174,10 @@ function messageComplete(state: GuidedEventState, payload: Payload, ctx: GuidedE
   const teamRecommendation = extractAppItSkillSelection(response, ctx.selectableSpecialistIds);
   const finished = applyGuidedResponse(next, response, ctx);
   next = finished.state;
+  // The gateway's "shown but not saved" word rides on the same frame; it must
+  // be seen, not dropped, and must never overwrite or be overwritten by a reply.
+  const warning = guidedReplyWarning(payload, state.turnSeq, ctx.now);
+  if (warning) next = { ...next, messages: appendMessageOnce(next.messages, warning) };
   const effects = [...finished.effects];
   const advanceTo = next.phaseAdvance;
   next = { ...next, phaseAdvance: null };

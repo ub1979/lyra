@@ -1790,6 +1790,7 @@ docs/lyra/changes/2026-09-16-studio-event-reducer-and-journeys.md	docs	md: 2026 
 docs/lyra/changes/2026-09-16-studio-playwright-smoke.md	docs	md: 2026 09 16 studio playwright smoke
 docs/lyra/changes/2026-09-16-synced-transcript-refs.md	docs	md: 2026 09 16 synced transcript refs
 docs/lyra/changes/2026-09-16-turn-free-job-updates.md	docs	md: 2026 09 16 turn free job updates
+docs/lyra/changes/2026-09-16-turn-history-persists.md	docs	md: 2026 09 16 turn history persists
 docs/lyra/changes/2026-09-16-worker-usage-accounting.md	docs	md: 2026 09 16 worker usage accounting
 docs/lyra/file-index.tsv	docs	tsv: file index
 docs/middleware/README.md	docs	md: README
@@ -2115,7 +2116,7 @@ hermes_cli/web_dist/assets/RulesCompressed-Regular-BSXFyF4x.woff2	hermes_cli	Gen
 hermes_cli/web_dist/assets/RulesExpanded-Bold-DZA7s8Pa.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Regular-l8uVympt.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/index-BGAdPJZk.css	hermes_cli	Generated asset; edit its source and rebuild
-hermes_cli/web_dist/assets/index-D_FqcEZ9.js	hermes_cli	Generated asset; edit its source and rebuild
+hermes_cli/web_dist/assets/index-Bn8V6cd2.js	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Bold.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Italic.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Regular.woff2	hermes_cli	Generated asset; edit its source and rebuild
@@ -4466,6 +4467,7 @@ tests/fixtures/lyra_workflow_worker.py	tests	Behavioral tests: lyra workflow wor
 tests/fixtures/plugins/example-dashboard/dashboard/manifest.json	tests	Behavioral tests: manifest
 tests/fixtures/plugins/example-dashboard/dashboard/plugin_api.py	tests	Behavioral tests: plugin api
 tests/fixtures/studio_frames/notification-after-reply.jsonl	tests	Behavioral tests: notification-after-reply
+tests/fixtures/studio_frames/reply-not-saved.jsonl	tests	Behavioral tests: reply-not-saved
 tests/fixtures/studio_frames/timed-out-notice.jsonl	tests	Behavioral tests: timed-out-notice
 tests/gateway/__init__.py	tests	Behavioral tests:   init
 tests/gateway/_plugin_adapter_loader.py	tests	Behavioral tests:  plugin adapter loader
@@ -6376,6 +6378,7 @@ tests/tui_gateway/test_slash_worker_sys_path.py	tests	Behavioral tests: slash wo
 tests/tui_gateway/test_studio_budget.py	tests	Behavioral tests: studio budget
 tests/tui_gateway/test_studio_context.py	tests	Behavioral tests: studio context
 tests/tui_gateway/test_studio_model_routing.py	tests	Behavioral tests: studio model routing
+tests/tui_gateway/test_studio_turn_history_persists.py	tests	Behavioral tests: studio turn history persists
 tests/tui_gateway/test_studio_wait_events.py	tests	Behavioral tests: studio wait events
 tests/tui_gateway/test_subagent_child_mirror.py	tests	Behavioral tests: subagent child mirror
 tests/tui_gateway/test_subprocess_encoding.py	tests	Behavioral tests: subprocess encoding
@@ -7150,6 +7153,8 @@ web/src/lib/guided-phase-plan.test.ts	web	Behavioral tests: guided-phase-plan.te
 web/src/lib/guided-phase-plan.ts	web	* The phase chain: who is working now, what is done, what runs next.
 web/src/lib/guided-project-session.test.ts	web	Behavioral tests: guided-project-session.test
 web/src/lib/guided-project-session.ts	web	ts: guided project session
+web/src/lib/guided-reply-warning.test.ts	web	Behavioral tests: guided-reply-warning.test
+web/src/lib/guided-reply-warning.ts	web	ts: guided reply warning
 web/src/lib/guided-required-specialists.test.ts	web	Behavioral tests: guided-required-specialists.test
 web/src/lib/guided-required-specialists.ts	web	* Specialists the project cannot switch off.
 web/src/lib/guided-response-merge.test.ts	web	Behavioral tests: guided-response-merge.test

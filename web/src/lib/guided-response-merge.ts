@@ -3,6 +3,8 @@ export interface GuidedMergeMessage {
   role: "user" | "assistant" | "error";
   content: string;
   plain?: boolean;
+  /** A quiet line that needs attention (e.g. "this reply was not saved"). */
+  tone?: "warning";
   createdAt?: number;
   /** Sequence number of the model turn that produced an assistant reply. */
   turn?: number;

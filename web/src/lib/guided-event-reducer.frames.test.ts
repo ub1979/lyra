@@ -55,6 +55,20 @@ describe("real gateway frames replayed through the reducer", () => {
     expect(effects.filter((e) => e.kind === "agentReady")).toHaveLength(2);
   });
 
+  it("reply-not-saved: the reply stays visible and the gateway's warning becomes its own line", () => {
+    const { state } = replay("reply-not-saved");
+    const replies = state.messages.filter((m) => m.role === "assistant" && !m.plain);
+    expect(replies).toHaveLength(1);
+    expect(replies[0].content).toContain("rewrote the history");
+    const warnings = state.messages.filter((m) => m.tone === "warning");
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0].content).toContain("not saved to session history");
+    expect(warnings[0].plain).toBe(true);
+    expect(state.messages.indexOf(warnings[0])).toBeGreaterThan(state.messages.indexOf(replies[0]));
+    expect(state.turnSettled).toBe(true);
+    expect(state.activity.phase).toBe("idle");
+  });
+
   it("timed-out-notice: one quiet line, no turn, no change to activity", () => {
     const before = { ...INITIAL_GUIDED_STATE, turnSeq: 3 };
     const { effects, state } = replay("timed-out-notice", before);

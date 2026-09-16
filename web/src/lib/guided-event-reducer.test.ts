@@ -188,3 +188,26 @@ describe("applyGuidedResponse — phases and hand-offs", () => {
     expect(state.messages[0].content).not.toContain("APP_IT_SKILLS_SET");
   });
 });
+
+describe("reduceGuidedEvent — a reply the gateway could not save", () => {
+  const notSaved =
+    "History changed during this turn — the response above is visible but was not saved to session history.";
+  const completeWithWarning = (text: string): GatewayEvent => ({
+    type: "message.complete",
+    payload: { status: "complete", text, warning: notSaved },
+  });
+
+  it("keeps the reply and adds one amber line after it, once per turn", () => {
+    const { state } = play([start, completeWithWarning("Here is the answer."), completeWithWarning("Here is the answer.")]);
+    expect(state.messages.map((m) => [m.role, m.plain ?? false, m.tone ?? null, m.content])).toEqual([
+      ["assistant", false, null, "Here is the answer."],
+      ["assistant", true, "warning", notSaved],
+    ]);
+    expect(state.turnSettled).toBe(true);
+  });
+
+  it("a later reply lands after the warning instead of replacing it", () => {
+    const { state } = play([start, completeWithWarning("First."), start, complete("Second.")]);
+    expect(state.messages.map((m) => m.content)).toEqual(["First.", notSaved, "Second."]);
+  });
+});
