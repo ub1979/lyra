@@ -1799,6 +1799,7 @@ docs/lyra/changes/2026-09-17-coordinator-role-boundary.md	docs	md: 2026 09 17 co
 docs/lyra/changes/2026-09-17-dispatch-wakeup.md	docs	md: 2026 09 17 dispatch wakeup
 docs/lyra/changes/2026-09-17-inline-read-admission.md	docs	md: 2026 09 17 inline read admission
 docs/lyra/changes/2026-09-17-provider-address-notice.md	docs	md: 2026 09 17 provider address notice
+docs/lyra/changes/2026-09-17-worker-liveness-test.md	docs	md: 2026 09 17 worker liveness test
 docs/lyra/changes/2026-09-17-worker-usage-freshness.md	docs	md: 2026 09 17 worker usage freshness
 docs/lyra/file-index.tsv	docs	tsv: file index
 docs/middleware/README.md	docs	md: README

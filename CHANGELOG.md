@@ -9,6 +9,14 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.58] - 2026-09-17 — portable worker recovery checks
+
+### Fixed
+
+- Worker shutdown tests now use the production cross-platform liveness probe,
+  removing a Linux-only copy that falsely reported exited macOS workers as alive.
+  Original termination timing and safety guards remain unchanged.
+
 ## [0.19.57] - 2026-09-17 — prompt project dispatch wakeup
 
 ### Fixed
