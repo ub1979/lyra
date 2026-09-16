@@ -9,6 +9,14 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.59] - 2026-09-17 — packaged connection recovery proof
+
+### Fixed
+
+- Added a real packaged first-run journey: wrong-token rejection, authenticated
+  connection, mock-model reply and saved-chat reload. Packaged CI now runs this
+  journey as well as the existing launch smoke; no production boot behavior changed.
+
 ## [0.19.58] - 2026-09-17 — portable worker recovery checks
 
 ### Fixed

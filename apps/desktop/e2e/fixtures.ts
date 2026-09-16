@@ -546,7 +546,12 @@ export interface PackagedAppFixture {
  *
  * Skips if the packaged binary doesn't exist — run `npm run pack` first.
  */
-export async function setupPackagedApp(): Promise<PackagedAppFixture> {
+export interface PackagedAppOptions {
+  /** Disable simulated boot when testing first-run connection to a real backend. */
+  fakeBoot?: boolean
+}
+
+export async function setupPackagedApp(options: PackagedAppOptions = {}): Promise<PackagedAppFixture> {
   if (!packagedBinaryExists()) {
     throw new Error(
       `Built app binary not found: ${PACKAGED_BINARY_PATH}. Run 'npm run pack' first.`,
@@ -559,7 +564,7 @@ export async function setupPackagedApp(): Promise<PackagedAppFixture> {
   // packaged-binary-specific overrides.
   const env = buildAppEnv(sandbox, {
     // Fake boot: simulates progress steps without spawning the real backend.
-    HERMES_DESKTOP_BOOT_FAKE: '1',
+    HERMES_DESKTOP_BOOT_FAKE: options.fakeBoot === false ? '0' : '1',
     HERMES_DESKTOP_BOOT_FAKE_STEP_MS: '120',
   })
 
