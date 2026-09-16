@@ -9,6 +9,20 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.43] - 2026-09-16 — tests that see the conversation
+
+### Improved
+
+- The Studio conversation's event handling is now a single tested step fed by
+  frames recorded from the real gateway, so the sequence "Lyra replies, a
+  background job reports in, Lyra replies again" is checked end to end before
+  release rather than discovered on screen.
+- Every coordinator guarantee (no shell, dispatch only through `project_run`,
+  bounded tool output, one turn per real update, summed worker usage) is now
+  verified across all the stages it passes through.
+
+No behaviour change is intended. Restart Lyra and reload Studio once.
+
 ## [0.19.42] - 2026-09-16 — replies stay put
 
 ### Fixed

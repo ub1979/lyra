@@ -1787,6 +1787,7 @@ docs/lyra/changes/2026-09-16-failure-notification-wording.md	docs	md: 2026 09 16
 docs/lyra/changes/2026-09-16-notification-busy-ownership.md	docs	md: 2026 09 16 notification busy ownership
 docs/lyra/changes/2026-09-16-project-run-tool.md	docs	md: 2026 09 16 project run tool
 docs/lyra/changes/2026-09-16-reply-turn-identity.md	docs	md: 2026 09 16 reply turn identity
+docs/lyra/changes/2026-09-16-studio-event-reducer-and-journeys.md	docs	md: 2026 09 16 studio event reducer and journeys
 docs/lyra/changes/2026-09-16-turn-free-job-updates.md	docs	md: 2026 09 16 turn free job updates
 docs/lyra/changes/2026-09-16-worker-usage-accounting.md	docs	md: 2026 09 16 worker usage accounting
 docs/lyra/file-index.tsv	docs	tsv: file index
@@ -4464,6 +4465,8 @@ tests/fakes/fake_ha_server.py	tests	Behavioral tests: fake ha server
 tests/fixtures/lyra_workflow_worker.py	tests	Behavioral tests: lyra workflow worker
 tests/fixtures/plugins/example-dashboard/dashboard/manifest.json	tests	Behavioral tests: manifest
 tests/fixtures/plugins/example-dashboard/dashboard/plugin_api.py	tests	Behavioral tests: plugin api
+tests/fixtures/studio_frames/notification-after-reply.jsonl	tests	Behavioral tests: notification-after-reply
+tests/fixtures/studio_frames/timed-out-notice.jsonl	tests	Behavioral tests: timed-out-notice
 tests/gateway/__init__.py	tests	Behavioral tests:   init
 tests/gateway/_plugin_adapter_loader.py	tests	Behavioral tests:  plugin adapter loader
 tests/gateway/conftest.py	tests	Behavioral tests: conftest
@@ -6323,6 +6326,7 @@ tests/tools/test_xai_http_storage.py	tests	Behavioral tests: xai http storage
 tests/tools/test_yolo_mode.py	tests	Behavioral tests: yolo mode
 tests/tools/test_zombie_process_cleanup.py	tests	Behavioral tests: zombie process cleanup
 tests/tui_gateway/__init__.py	tests	Behavioral tests:   init
+tests/tui_gateway/frame_fixtures.py	tests	Behavioral tests: frame fixtures
 tests/tui_gateway/test_auto_continue.py	tests	Behavioral tests: auto continue
 tests/tui_gateway/test_billing_rpc.py	tests	Behavioral tests: billing rpc
 tests/tui_gateway/test_codex_app_server_live_events.py	tests	Behavioral tests: codex app server live events
@@ -6330,6 +6334,7 @@ tests/tui_gateway/test_compaction_status.py	tests	Behavioral tests: compaction s
 tests/tui_gateway/test_compress_lock_skip.py	tests	Behavioral tests: compress lock skip
 tests/tui_gateway/test_compute_host.py	tests	Behavioral tests: compute host
 tests/tui_gateway/test_compute_host_phase1.py	tests	Behavioral tests: compute host phase1
+tests/tui_gateway/test_coordinator_invariants.py	tests	Behavioral tests: coordinator invariants
 tests/tui_gateway/test_custom_provider_session_persistence.py	tests	Behavioral tests: custom provider session persistence
 tests/tui_gateway/test_delegation_session_lifecycle.py	tests	Behavioral tests: delegation session lifecycle
 tests/tui_gateway/test_entry_sys_path.py	tests	Behavioral tests: entry sys path
@@ -7133,6 +7138,10 @@ web/src/lib/guided-composer-paste.test.ts	web	Behavioral tests: guided-composer-
 web/src/lib/guided-composer-paste.ts	web	* Writing a prompt into the TUI composer over the PTY.
 web/src/lib/guided-connection-recovery.test.ts	web	Behavioral tests: guided-connection-recovery.test
 web/src/lib/guided-connection-recovery.ts	web	ts: guided connection recovery
+web/src/lib/guided-event-reducer.frames.test.ts	web	Behavioral tests: guided-event-reducer.frames.test
+web/src/lib/guided-event-reducer.test.ts	web	Behavioral tests: guided-event-reducer.test
+web/src/lib/guided-event-reducer.ts	web	ts: guided event reducer
+web/src/lib/guided-event-state.ts	web	ts: guided event state
 web/src/lib/guided-job-notice.test.ts	web	Behavioral tests: guided-job-notice.test
 web/src/lib/guided-job-notice.ts	web	ts: guided job notice
 web/src/lib/guided-phase-plan.test.ts	web	Behavioral tests: guided-phase-plan.test
@@ -7147,6 +7156,8 @@ web/src/lib/guided-session-recovery.test.ts	web	Behavioral tests: guided-session
 web/src/lib/guided-session-recovery.ts	web	ts: guided session recovery
 web/src/lib/guided-specialists-dialog.test.ts	web	Behavioral tests: guided-specialists-dialog.test
 web/src/lib/guided-specialists-dialog.ts	web	ts: guided specialists dialog
+web/src/lib/guided-tool-events.test.ts	web	Behavioral tests: guided-tool-events.test
+web/src/lib/guided-tool-events.ts	web	ts: guided tool events
 web/src/lib/guided-turn-watchdog.test.ts	web	Behavioral tests: guided-turn-watchdog.test
 web/src/lib/guided-turn-watchdog.ts	web	* Silence watchdog for a guided-chat turn.
 web/src/lib/lyra-studio-text-size.test.ts	web	Behavioral tests: lyra-studio-text-size.test
