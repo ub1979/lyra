@@ -9,6 +9,14 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.53] - 2026-09-17 — honest worker usage updates
+
+### Fixed
+
+- Worker usage snapshots retry failed saves, detect late token totals and update
+  at a 30-second minimum interval. No report is invented before a model call.
+- Studio shows the saved usage timestamp separately from worker activity.
+
 ## [0.19.52] - 2026-09-17 — clear provider address guidance
 
 ### Improved

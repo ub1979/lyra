@@ -44,6 +44,15 @@ export function ProjectAgentJobs({ items, stale }: ProjectAgentJobsProps) {
           <p className="mt-1.5 text-[10px] text-text-secondary" title={item.usage?.model || undefined}>
             {formatProjectAgentUsage(item.usage)}
           </p>
+          {item.usage?.recordedAt != null && (
+            <time
+              className="block text-[10px] text-text-secondary"
+              dateTime={studioDateTimeIso(item.usage.recordedAt * 1000)}
+              title="Saved usage may lag current work; a flat counter alone does not mean the agent is stuck."
+            >
+              Usage saved {formatStudioDateTime(item.usage.recordedAt * 1000)}
+            </time>
+          )}
           {item.lastActivityAt && (
             <time
               className="mt-1.5 block text-[10px] text-text-secondary"

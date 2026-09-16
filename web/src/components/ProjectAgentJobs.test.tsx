@@ -89,6 +89,9 @@ describe('Studio agent activity rendering', () => {
     const html = renderToStaticMarkup(<ProjectAgentJobs items={items} stale={false} />)
     expect(html).toContain('Usage not reported')
     expect(html).toContain('10.5K tokens · 3 calls · ~$0.013')
+    expect(html).toContain('Usage saved')
+    expect(html).toContain('1970-01-01T00:01:40.000Z')
+    expect(html).toContain('a flat counter alone does not mean the agent is stuck')
   })
 
   it('escapes saved reasons as text and announces stale status', () => {

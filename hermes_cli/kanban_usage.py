@@ -120,8 +120,7 @@ def record_worker_run_usage_from_env(
         return record_run_usage(conn, task_id, usage, run_id=run_id)
 
 
-_SNAPSHOT_MIN_INTERVAL_SECONDS = 120.0
-_snapshot_state: dict[str, Any] = {"at": float("-inf"), "calls": None}
+_SNAPSHOT_MIN_INTERVAL_SECONDS = 30.0
 
 
 def record_worker_usage_snapshot(
@@ -132,23 +131,38 @@ def record_worker_usage_snapshot(
 ) -> bool:
     """Save an in-flight cumulative snapshot so a long first attempt is not "unreported".
 
-    Throttled to one write every two minutes and skipped while the call count
-    has not moved, so the heartbeat path never adds a row per tool call.
+    Throttled to one attempt every 30 seconds and skipped while counters
+    have not moved. Failed writes remain retryable after that interval.
     Snapshots of one session are cumulative; the reader keeps only the newest
     per attempt, so they never double count.
     """
     if not environ.get("HERMES_KANBAN_TASK"):
         return False
+    usage = usage_from_agent(agent)
+    if not usage or not usage["api_calls"]:
+        return False
     current = time.monotonic() if now is None else now
-    calls = getattr(agent, "session_api_calls", None)
+    identity = tuple(environ.get(key) for key in (
+        "HERMES_KANBAN_HOME", "HERMES_KANBAN_DB", "HERMES_KANBAN_BOARD",
+        "HERMES_KANBAN_TASK", "HERMES_KANBAN_RUN_ID",
+    )) + (usage["session_id"],)
+    state = getattr(agent, "_kanban_usage_snapshot", {})
+    if state.get("identity") != identity:
+        state = {"identity": identity, "at": float("-inf"), "saved": None}
+        agent._kanban_usage_snapshot = state
+    # Usage can arrive after the API call counter advances. Compare all saved
+    # fields except the sampling timestamp, not just the number of calls.
+    fingerprint = {key: value for key, value in usage.items() if key != "recorded_at"}
     if (
-        current - _snapshot_state["at"] < _SNAPSHOT_MIN_INTERVAL_SECONDS
-        or calls == _snapshot_state["calls"]
+        current - state["at"] < _SNAPSHOT_MIN_INTERVAL_SECONDS
+        or fingerprint == state["saved"]
     ):
         return False
-    _snapshot_state["at"] = current
-    _snapshot_state["calls"] = calls
-    return record_worker_run_usage_from_env(usage_from_agent(agent), environ)
+    state["at"] = current
+    saved = record_worker_run_usage_from_env(usage, environ)
+    if saved:
+        state["saved"] = fingerprint
+    return saved
 
 
 def _attempt_key(payload: dict, run_id: Optional[int], row_id: int) -> str:

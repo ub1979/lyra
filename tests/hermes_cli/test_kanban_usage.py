@@ -129,7 +129,6 @@ def test_live_snapshots_are_throttled_and_only_written_when_calls_advance(
     tmp_path, monkeypatch
 ):
     monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "home"))
-    monkeypatch.setattr(kanban_usage, "_snapshot_state", {"at": float("-inf"), "calls": None})
     with kb.connect_closing() as conn:
         task_id = kb.create_task(conn, title="Development", assignee="default")
     env = {"HERMES_KANBAN_TASK": task_id}
@@ -137,10 +136,10 @@ def test_live_snapshots_are_throttled_and_only_written_when_calls_advance(
 
     assert record_worker_usage_snapshot(agent, {}, now=0) is False
     assert record_worker_usage_snapshot(agent, env, now=0) is True
-    assert record_worker_usage_snapshot(agent, env, now=60) is False
+    assert record_worker_usage_snapshot(agent, env, now=10) is False
     agent.session_api_calls += 1
-    assert record_worker_usage_snapshot(agent, env, now=60) is False
-    assert record_worker_usage_snapshot(agent, env, now=200) is True
+    assert record_worker_usage_snapshot(agent, env, now=10) is False
+    assert record_worker_usage_snapshot(agent, env, now=30) is True
     assert record_worker_usage_snapshot(agent, env, now=500) is False
 
     with kb.connect_closing() as conn:
@@ -148,6 +147,54 @@ def test_live_snapshots_are_throttled_and_only_written_when_calls_advance(
         rows = [e for e in kb.list_events(conn, task_id) if e.kind == "usage"]
     assert len(rows) == 2
     assert total["attempts"] == 1 and total["api_calls"] == 4
+
+
+@pytest.mark.parametrize("failure", [False, OSError("temporarily unavailable")])
+def test_failed_snapshot_is_retried_without_new_model_calls(board, monkeypatch, failure):
+    task_id = kb.create_task(board, title="Development", assignee="default")
+    env = {"HERMES_KANBAN_TASK": task_id}
+    agent = _agent()
+    real_write = kanban_usage.record_worker_run_usage_from_env
+
+    def fail(*args):
+        if isinstance(failure, Exception):
+            raise failure
+        return failure
+
+    monkeypatch.setattr(kanban_usage, "record_worker_run_usage_from_env", fail)
+    if isinstance(failure, Exception):
+        with pytest.raises(OSError):
+            record_worker_usage_snapshot(agent, env, now=0)
+    else:
+        assert not record_worker_usage_snapshot(agent, env, now=0)
+    monkeypatch.setattr(kanban_usage, "record_worker_run_usage_from_env", real_write)
+    assert not record_worker_usage_snapshot(agent, env, now=10)
+    assert record_worker_usage_snapshot(agent, env, now=30)
+    assert run_usage_totals_by_task(board, [task_id])[task_id]["api_calls"] == 3
+
+
+def test_late_usage_and_separate_agents_are_not_suppressed(board):
+    first = kb.create_task(board, title="First", assignee="default")
+    second = kb.create_task(board, title="Second", assignee="default")
+    agent = _agent()
+    env = {"HERMES_KANBAN_TASK": first}
+    assert record_worker_usage_snapshot(agent, env, now=0)
+    agent.session_input_tokens += 500
+    assert record_worker_usage_snapshot(agent, env, now=30)
+    assert record_worker_usage_snapshot(_agent(), {"HERMES_KANBAN_TASK": second}, now=0)
+    totals = run_usage_totals_by_task(board, [first, second])
+    assert totals[first]["input_tokens"] == 1700
+    assert totals[second]["input_tokens"] == 1200
+    # Reusing an agent for a new assigned run must not reuse its suppression state.
+    assert record_worker_usage_snapshot(agent, {"HERMES_KANBAN_TASK": second}, now=31)
+
+
+def test_no_snapshot_before_first_model_call(board):
+    task_id = kb.create_task(board, title="Development", assignee="default")
+    agent = _agent()
+    agent.session_api_calls = 0
+    assert not record_worker_usage_snapshot(agent, {"HERMES_KANBAN_TASK": task_id}, now=0)
+    assert run_usage_totals_by_task(board, [task_id]) == {}
 
 
 def _agent(**overrides):
