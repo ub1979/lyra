@@ -7,7 +7,7 @@ from tools.budget_config import DEFAULT_BUDGET, BudgetConfig, budget_for_context
 from tools.tool_result_storage import enforce_turn_budget, maybe_persist_tool_result
 from tui_gateway.studio_budget import (
     COORDINATOR_INLINE_CAPS,
-    COORDINATOR_PRUNE_MIN_RESULT_CHARS,
+    COORDINATOR_COMPRESSION_CAP_TOKENS,
     COORDINATOR_READ_FILE_CHARS,
     COORDINATOR_RESULT_CHARS,
     COORDINATOR_TURN_CHARS,
@@ -83,22 +83,37 @@ def test_project_brain_survives_both_budget_stages_in_one_turn():
     assert sum(len(m["content"]) for m in reads[1:]) < 3 * 6_000
 
 
-def test_prune_threshold_is_capped_for_huge_context_windows():
-    compressor = SimpleNamespace(context_length=1_000_000, proactive_prune_tokens=0)
+def _compressor(window=1_000_000, **kwargs):
+    from agent.context_compressor import ContextCompressor
+    return ContextCompressor(model="test-model", config_context_length=window, quiet_mode=True, **kwargs)
+
+
+def test_compression_threshold_is_capped_and_survives_model_switch():
+    compressor = _compressor()
     apply_coordinator_context_policy(SimpleNamespace(context_compressor=compressor), COORDINATOR)
-    assert compressor.proactive_prune_tokens == 100_000
+    assert compressor.threshold_tokens == COORDINATOR_COMPRESSION_CAP_TOKENS
+    assert compressor.tail_token_budget == int(compressor.threshold_tokens * compressor.summary_target_ratio)
+    compressor.update_model("another-model", 2_000_000)
+    assert compressor.threshold_tokens == COORDINATOR_COMPRESSION_CAP_TOKENS
 
 
-def test_policy_marks_coordinator_and_enables_pruning():
-    compressor = SimpleNamespace(
-        context_length=128_000, proactive_prune_tokens=0, proactive_prune_min_result_chars=8000
-    )
+def test_policy_preserves_cache_until_normal_compression_and_retains_history_on_failure():
+    compressor = _compressor(128_000, proactive_prune_tokens=1)
     agent = SimpleNamespace(context_compressor=compressor)
 
     assert apply_coordinator_context_policy(agent, COORDINATOR) is True
     assert agent._studio_coordinator is True
-    assert compressor.proactive_prune_tokens == int(128_000 * 0.4)
-    assert compressor.proactive_prune_min_result_chars == COORDINATOR_PRUNE_MIN_RESULT_CHARS
+    assert compressor.proactive_prune_tokens == 0
+    assert compressor.abort_on_summary_failure is True
+    history = [{"role": "tool", "content": "unique decision " * 2000}] * 40
+    unchanged, pruned = compressor.prune_tool_results_only(history, current_tokens=120_000)
+    assert unchanged is history and pruned == 0
+
+
+def test_tighter_user_compression_cap_is_respected():
+    compressor = _compressor(threshold_tokens_cap=40_000)
+    apply_coordinator_context_policy(SimpleNamespace(context_compressor=compressor), COORDINATOR)
+    assert compressor.threshold_tokens == 40_000
 
 
 def test_policy_leaves_workers_and_missing_compressors_alone():
@@ -114,8 +129,8 @@ def test_policy_leaves_workers_and_missing_compressors_alone():
     assert bare._studio_coordinator is True
 
 
-def test_unknown_context_length_falls_back_to_a_finite_prune_threshold():
+def test_external_context_engines_keep_their_own_policy():
     compressor = SimpleNamespace(context_length=None, proactive_prune_tokens=0)
     agent = SimpleNamespace(context_compressor=compressor)
     apply_coordinator_context_policy(agent, COORDINATOR)
-    assert compressor.proactive_prune_tokens == 60_000
+    assert vars(compressor) == {"context_length": None, "proactive_prune_tokens": 0}

@@ -1,12 +1,12 @@
-"""Keep the Studio coordinator's context small: bound tool results, prune old ones.
+"""Bound Studio context through tool budgets and normal Hermes compression.
 
 The coordinator is a conversation that interviews the user and dispatches
 specialists; it must never accumulate the specialists' raw output. One saved
 project chat reached ~571k tokens of which 90 % was tool output the
 coordinator had pulled in itself. Two existing Hermes mechanisms handle this
 once they are pointed at the coordinator: the tool-result ``BudgetConfig``
-(per result and per turn) and the compressor's proactive pruning of old tool
-results, which ships disabled. Workers and delegated children keep the normal
+(per result and per turn) and summary compression with its memory handoff.
+Workers and delegated children keep the normal
 budget because the marker is set on the coordinator's agent object only and
 is never passed to a child constructor.
 """
@@ -29,12 +29,7 @@ COORDINATOR_INLINE_CAPS = {
     "read_file": COORDINATOR_READ_FILE_CHARS,
     "search_files": 8_000,
 }
-COORDINATOR_PRUNE_MIN_RESULT_CHARS = 2_000
-_PRUNE_WINDOW_FRACTION = 0.4
-# A coordinating conversation should never wait for 40 % of a million-token
-# window before pruning; the fraction only matters for small models.
-_PRUNE_CAP_TOKENS = 100_000
-_PRUNE_FALLBACK_TOKENS = 60_000
+COORDINATOR_COMPRESSION_CAP_TOKENS = 100_000
 
 __all__ = ["coordinator_budget", "apply_coordinator_context_policy"]
 
@@ -51,7 +46,7 @@ def coordinator_budget(base: BudgetConfig) -> BudgetConfig:
 
 
 def apply_coordinator_context_policy(agent: Any, skills: Iterable[str]) -> bool:
-    """Mark the coordinator and switch on old-tool-result pruning for it alone."""
+    """Use normal, memory-aware compression instead of blind historical pruning."""
     coordinator = is_studio_coordinator(list(skills))
     agent._studio_coordinator = coordinator
     if not coordinator:
@@ -59,12 +54,15 @@ def apply_coordinator_context_policy(agent: Any, skills: Iterable[str]) -> bool:
     compressor = getattr(agent, "context_compressor", None)
     if compressor is None:
         return True
-    context_length = getattr(compressor, "context_length", None)
-    threshold = (
-        min(int(int(context_length) * _PRUNE_WINDOW_FRACTION), _PRUNE_CAP_TOKENS)
-        if isinstance(context_length, (int, float)) and context_length > 0
-        else _PRUNE_FALLBACK_TOKENS
-    )
-    compressor.proactive_prune_tokens = threshold
-    compressor.proactive_prune_min_result_chars = COORDINATOR_PRUNE_MIN_RESULT_CHARS
+    from agent.context_compressor import ContextCompressor
+
+    if not isinstance(compressor, ContextCompressor):
+        return True  # External engines own their lifecycle and retention policy.
+    existing_cap = compressor.threshold_tokens_cap
+    cap = min(existing_cap, COORDINATOR_COMPRESSION_CAP_TOKENS) if existing_cap else COORDINATOR_COMPRESSION_CAP_TOKENS
+    compressor.threshold_tokens_cap = cap  # update_model() preserves this cap.
+    compressor.threshold_tokens = min(compressor.threshold_tokens, cap)
+    compressor.tail_token_budget = int(compressor.threshold_tokens * compressor.summary_target_ratio)
+    compressor.proactive_prune_tokens = 0
+    compressor.abort_on_summary_failure = True
     return True

@@ -1794,6 +1794,7 @@ docs/lyra/changes/2026-09-16-synced-transcript-refs.md	docs	md: 2026 09 16 synce
 docs/lyra/changes/2026-09-16-turn-free-job-updates.md	docs	md: 2026 09 16 turn free job updates
 docs/lyra/changes/2026-09-16-turn-history-persists.md	docs	md: 2026 09 16 turn history persists
 docs/lyra/changes/2026-09-16-worker-usage-accounting.md	docs	md: 2026 09 16 worker usage accounting
+docs/lyra/changes/2026-09-17-coordinator-context-compaction.md	docs	md: 2026 09 17 coordinator context compaction
 docs/lyra/changes/2026-09-17-coordinator-role-boundary.md	docs	md: 2026 09 17 coordinator role boundary
 docs/lyra/changes/2026-09-17-provider-address-notice.md	docs	md: 2026 09 17 provider address notice
 docs/lyra/changes/2026-09-17-worker-usage-freshness.md	docs	md: 2026 09 17 worker usage freshness
@@ -6532,7 +6533,7 @@ tui_gateway/provider_identity.py	tui_gateway	Is the agent already running the pr
 tui_gateway/render.py	tui_gateway	Rendering bridge — routes TUI content through Python-side renderers.
 tui_gateway/server.py	tui_gateway	py: server
 tui_gateway/slash_worker.py	tui_gateway	Persistent slash-command worker — one HermesCLI per TUI session.
-tui_gateway/studio_budget.py	tui_gateway	Keep the Studio coordinator's context small: bound tool results, prune old ones.
+tui_gateway/studio_budget.py	tui_gateway	Bound Studio context through tool budgets and normal Hermes compression.
 tui_gateway/studio_context.py	tui_gateway	Choose Studio's coordinator capabilities once, at agent construction.
 tui_gateway/studio_model_routing.py	tui_gateway	Model ownership for the Studio coordinator, separate from worker pins.
 tui_gateway/synthetic_turn.py	tui_gateway	Synthetic GIL-heavy turn driver for the AC-4 isolation certify harness.

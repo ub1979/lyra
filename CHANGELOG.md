@@ -9,6 +9,14 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.55] - 2026-09-17 — memory-aware context compaction
+
+### Fixed
+
+- Studio uses normal Hermes summary compression and its memory handoff, capped
+  at 100k tokens (or a tighter configured threshold), instead of blind proactive
+  history pruning. Failed summaries preserve history; worker policies are unchanged.
+
 ## [0.19.54] - 2026-09-17 — coordinator role boundaries
 
 ### Fixed
