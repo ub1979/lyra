@@ -1796,6 +1796,7 @@ docs/lyra/changes/2026-09-16-turn-history-persists.md	docs	md: 2026 09 16 turn h
 docs/lyra/changes/2026-09-16-worker-usage-accounting.md	docs	md: 2026 09 16 worker usage accounting
 docs/lyra/changes/2026-09-17-coordinator-context-compaction.md	docs	md: 2026 09 17 coordinator context compaction
 docs/lyra/changes/2026-09-17-coordinator-role-boundary.md	docs	md: 2026 09 17 coordinator role boundary
+docs/lyra/changes/2026-09-17-dispatch-wakeup.md	docs	md: 2026 09 17 dispatch wakeup
 docs/lyra/changes/2026-09-17-inline-read-admission.md	docs	md: 2026 09 17 inline read admission
 docs/lyra/changes/2026-09-17-provider-address-notice.md	docs	md: 2026 09 17 provider address notice
 docs/lyra/changes/2026-09-17-worker-usage-freshness.md	docs	md: 2026 09 17 worker usage freshness
@@ -1973,6 +1974,7 @@ hermes_cli/kanban.py	hermes_cli	CLI for the Hermes Kanban board — ``hermes kan
 hermes_cli/kanban_db.py	hermes_cli	SQLite-backed Kanban board for multi-profile, multi-project collaboration.
 hermes_cli/kanban_decompose.py	hermes_cli	Kanban decomposer — fan a triage task out into a graph of child tasks.
 hermes_cli/kanban_diagnostics.py	hermes_cli	Kanban diagnostics — structured, actionable distress signals for tasks.
+hermes_cli/kanban_dispatch_wakeup.py	hermes_cli	Best-effort cross-process wake signal; the dispatcher still owns all claims.
 hermes_cli/kanban_notifications.py	hermes_cli	Shared caller notification policy for Kanban CLI and model-tool creation.
 hermes_cli/kanban_specify.py	hermes_cli	Kanban triage specifier — flesh out a one-liner into a real spec.
 hermes_cli/kanban_swarm.py	hermes_cli	Kanban Swarm v1: thin swarm topology helpers on top of Kanban.
@@ -5232,6 +5234,7 @@ tests/hermes_cli/test_kanban_decompose_db.py	tests	Behavioral tests: kanban deco
 tests/hermes_cli/test_kanban_default_assignee.py	tests	Behavioral tests: kanban default assignee
 tests/hermes_cli/test_kanban_diagnostics.py	tests	Behavioral tests: kanban diagnostics
 tests/hermes_cli/test_kanban_dispatch_lock.py	tests	Behavioral tests: kanban dispatch lock
+tests/hermes_cli/test_kanban_dispatch_wakeup.py	tests	Behavioral tests: kanban dispatch wakeup
 tests/hermes_cli/test_kanban_goal_mode.py	tests	Behavioral tests: kanban goal mode
 tests/hermes_cli/test_kanban_init_lock_bounded.py	tests	Behavioral tests: kanban init lock bounded
 tests/hermes_cli/test_kanban_lifecycle_hooks.py	tests	Behavioral tests: kanban lifecycle hooks

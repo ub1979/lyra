@@ -610,6 +610,9 @@ def queue_project_run(
                 continue
 
             parent_ids = [create_task(conn, phase, parents=parent_ids)]
+    if created:
+        from hermes_cli.kanban_dispatch_wakeup import request_dispatch
+        request_dispatch()
     return {
         "ok": True,
         "project": str(project),
@@ -809,6 +812,9 @@ def control_project_run(workspace: str | Path, action: str) -> dict[str, Any]:
                     continue
                 if kb.archive_task(conn, task.id):
                     changed.append(task.id)
+    if changed and action == "resume":
+        from hermes_cli.kanban_dispatch_wakeup import request_dispatch
+        request_dispatch()
     return {"ok": True, "action": action, "changed": changed, "project": str(project)}
 
 

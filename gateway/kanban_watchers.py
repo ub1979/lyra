@@ -1332,7 +1332,10 @@ class GatewayKanbanWatchersMixin:
         logger.info(
             "kanban dispatcher: embedded in gateway (interval=%.1fs)", interval
         )
+        from hermes_cli.kanban_dispatch_wakeup import wait_for_dispatch_async, wake_token
+
         while self._running:
+            observed_wakeup = wake_token()
             try:
                 # Reap zombie children before per-board work so a board DB
                 # failure cannot block cleanup of unrelated workers.
@@ -1396,12 +1399,9 @@ class GatewayKanbanWatchersMixin:
             except Exception:
                 logger.exception("kanban dispatcher: unexpected watcher error")
 
-            # Sleep in 1s slices so shutdown is snappy — otherwise a stop()
-            # waits up to `interval` seconds for the current sleep to finish.
-            slept = 0.0
-            while slept < interval and self._running:
-                await asyncio.sleep(min(1.0, interval - slept))
-                slept += 1.0
+            # One-second slices retain quick shutdown and notice committed jobs
+            # without launching a second dispatcher or bypassing claim fencing.
+            await wait_for_dispatch_async(lambda: self._running, interval, observed_wakeup)
 
         _release_singleton_lock(self._kanban_dispatcher_lock_handle)
         self._kanban_dispatcher_lock_handle = None

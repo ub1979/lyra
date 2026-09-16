@@ -9264,7 +9264,10 @@ def run_daemon(
                 except (ValueError, OSError):
                     pass
 
+    from hermes_cli.kanban_dispatch_wakeup import wait_for_dispatch, wake_token
+
     while not stop_event.is_set():
+        observed_wakeup = wake_token()
         try:
             with contextlib.closing(connect()) as conn:
                 res = dispatch_once(
@@ -9281,7 +9284,7 @@ def run_daemon(
             # Don't let any single tick kill the daemon.
             import traceback
             traceback.print_exc()
-        stop_event.wait(timeout=interval)
+        wait_for_dispatch(stop_event, interval, observed_wakeup)
 
 
 # ---------------------------------------------------------------------------

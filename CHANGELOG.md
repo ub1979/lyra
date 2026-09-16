@@ -9,6 +9,14 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.57] - 2026-09-17 — prompt project dispatch wakeup
+
+### Fixed
+
+- Queue and resume operations wake the existing dispatcher after committing.
+  Normal polling remains the fallback; worker claims, concurrency and dependencies
+  are unchanged. This removes idle polling delay, not provider response latency.
+
 ## [0.19.56] - 2026-09-17 — bounded document read batches
 
 ### Fixed
