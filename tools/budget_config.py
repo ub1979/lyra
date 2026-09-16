@@ -33,6 +33,17 @@ class BudgetConfig:
     turn_budget: int = DEFAULT_TURN_BUDGET_CHARS
     preview_size: int = DEFAULT_PREVIEW_SIZE_CHARS
     tool_overrides: Dict[str, int] = field(default_factory=dict)
+    # Hard inline truncation applied before persistence. Unlike
+    # ``tool_overrides`` it also applies to pinned tools: it never writes a
+    # file, so it cannot create the persist->read->persist loop the pin exists
+    # to prevent. Used for agents whose context must stay small (the Studio
+    # coordinator) rather than for sandbox-backed archiving.
+    inline_caps: Dict[str, int] = field(default_factory=dict)
+
+    def resolve_inline_cap(self, tool_name: str) -> int | None:
+        """Return the inline character cap for a tool, or None when uncapped."""
+        cap = self.inline_caps.get(tool_name)
+        return int(cap) if cap is not None and cap > 0 else None
 
     def resolve_threshold(self, tool_name: str) -> int | float:
         """Resolve the persistence threshold for a tool.

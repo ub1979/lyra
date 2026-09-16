@@ -86,9 +86,16 @@ def _budget_for_agent(agent) -> BudgetConfig:
     """
     try:
         ctx = getattr(getattr(agent, "context_compressor", None), "context_length", None)
-        return budget_for_context_window(int(ctx)) if ctx else DEFAULT_BUDGET
+        budget = budget_for_context_window(int(ctx)) if ctx else DEFAULT_BUDGET
     except Exception:
-        return DEFAULT_BUDGET
+        budget = DEFAULT_BUDGET
+    if getattr(agent, "_studio_coordinator", False):
+        # The Studio coordinator dispatches work; its context must not hold
+        # specialists' raw output. Marker is set only on that agent object.
+        from tui_gateway.studio_budget import coordinator_budget
+
+        return coordinator_budget(budget)
+    return budget
 
 # Maximum number of concurrent worker threads for parallel tool execution.
 # Mirrors the constant in ``run_agent`` for tests/imports that look here.

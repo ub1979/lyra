@@ -5823,6 +5823,9 @@ def _make_agent(
     agent._force_synchronous_delegation = (
         "ultimate-builder:ultimate-app-builder" in startup_skills
     )
+    from tui_gateway.studio_budget import apply_coordinator_context_policy
+
+    apply_coordinator_context_policy(agent, startup_skills)
     return agent
 
 

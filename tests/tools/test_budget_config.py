@@ -255,3 +255,25 @@ class TestBudgetForContextWindow:
         threshold = cfg.resolve_threshold("mcp_firecrawl_firecrawl_search")
         assert threshold < huge_len
         assert cfg.default_result_size < huge_len
+
+
+# ---------------------------------------------------------------------------
+# inline_caps — hard truncation that also applies to pinned tools
+# ---------------------------------------------------------------------------
+
+
+class TestInlineCaps:
+    def test_default_budget_has_no_inline_caps(self):
+        assert DEFAULT_BUDGET.inline_caps == {}
+        assert DEFAULT_BUDGET.resolve_inline_cap("read_file") is None
+
+    def test_inline_cap_applies_to_pinned_tools(self):
+        budget = BudgetConfig(inline_caps={"read_file": 8_000})
+        assert budget.resolve_inline_cap("read_file") == 8_000
+        # Persistence threshold is unchanged: pinned stays infinite.
+        assert budget.resolve_threshold("read_file") == math.inf
+
+    def test_non_positive_caps_are_ignored(self):
+        budget = BudgetConfig(inline_caps={"search_files": 0, "terminal": -5})
+        assert budget.resolve_inline_cap("search_files") is None
+        assert budget.resolve_inline_cap("terminal") is None

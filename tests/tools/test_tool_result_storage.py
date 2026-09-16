@@ -584,3 +584,28 @@ class TestPerToolThresholds:
             assert val == 100_000
         except ImportError:
             pytest.skip("file_tools not importable in test env")
+
+
+# ── inline caps ────────────────────────────────────────────────────────
+
+class TestInlineCaps:
+    def test_capped_result_is_truncated_without_touching_the_sandbox(self):
+        env = MagicMock()
+        budget = BudgetConfig(inline_caps={"read_file": 1_000})
+        content = "row\n" * 2_000
+
+        result = maybe_persist_tool_result(content, "read_file", "id-1", env=env, config=budget)
+
+        assert len(result) < 1_400
+        assert "Truncated: tool response was 8,000 chars" in result
+        env.execute.assert_not_called()
+
+    def test_uncapped_tools_follow_the_normal_path(self):
+        budget = BudgetConfig(inline_caps={"read_file": 1_000})
+        content = "row\n" * 2_000
+        assert maybe_persist_tool_result(content, "search_files", "id-2", env=None, config=budget) == content
+
+    def test_content_under_the_cap_is_untouched(self):
+        budget = BudgetConfig(inline_caps={"read_file": 10_000})
+        content = "short"
+        assert maybe_persist_tool_result(content, "read_file", "id-3", env=None, config=budget) == content
