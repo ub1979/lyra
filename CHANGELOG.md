@@ -9,6 +9,21 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.39] - 2026-09-16 — accurate worker spending
+
+### Fixed
+
+- A project job's usage now adds up every attempt instead of showing only the
+  latest retry, and says how many attempts it took.
+- Token totals in Studio follow Lyra's own accounting: fresh input, cached
+  input, cache writes and output. Reasoning tokens are no longer added twice.
+- Running project workers report their usage while they work (about every two
+  minutes), so a long first attempt no longer reads "Usage not reported" until
+  it ends.
+
+Restart Lyra and reload Studio once to load these fixes. Existing projects,
+conversations, jobs and saved usage records are preserved.
+
 ## [0.19.38] - 2026-09-16 — truthful busy state and worker usage
 
 ### Fixed
