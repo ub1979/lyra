@@ -21,7 +21,14 @@ from tui_gateway.studio_model_routing import is_studio_coordinator
 
 COORDINATOR_RESULT_CHARS = 8_000
 COORDINATOR_TURN_CHARS = 32_000
-COORDINATOR_INLINE_CAPS = {"read_file": 8_000, "search_files": 8_000}
+# read_file stays large enough for the documents the coordinator itself owns
+# (a Project Brain runs ~15 KB); the 50 KB dumps that bloated sessions came
+# from terminal, which the coordinator no longer has.
+COORDINATOR_READ_FILE_CHARS = 24_000
+COORDINATOR_INLINE_CAPS = {
+    "read_file": COORDINATOR_READ_FILE_CHARS,
+    "search_files": 8_000,
+}
 COORDINATOR_PRUNE_MIN_RESULT_CHARS = 2_000
 _PRUNE_WINDOW_FRACTION = 0.4
 _PRUNE_FALLBACK_TOKENS = 60_000

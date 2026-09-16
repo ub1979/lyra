@@ -17,7 +17,8 @@ for pinned tools because it writes no file and so cannot cause the
 persist→read→persist loop the pin guards against.
 `tools/tool_result_storage.py` applies it first. New
 `tui_gateway/studio_budget.py` defines the coordinator budget (8 KB per result,
-32 KB per turn, inline caps for `read_file`/`search_files`) composed with the
+32 KB per turn, inline caps of 24 KB for `read_file` — a Project Brain runs
+~15 KB and must stay whole — and 8 KB for `search_files`) composed with the
 context-window scaling by `min()`, and `apply_coordinator_context_policy`, which
 sets `agent._studio_coordinator` and turns on
 `ContextCompressor.proactive_prune_tokens` (40 % of the window, 2 KB minimum

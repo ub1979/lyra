@@ -8,6 +8,7 @@ from tools.tool_result_storage import maybe_persist_tool_result
 from tui_gateway.studio_budget import (
     COORDINATOR_INLINE_CAPS,
     COORDINATOR_PRUNE_MIN_RESULT_CHARS,
+    COORDINATOR_READ_FILE_CHARS,
     COORDINATOR_RESULT_CHARS,
     COORDINATOR_TURN_CHARS,
     apply_coordinator_context_policy,
@@ -46,10 +47,18 @@ def test_pinned_read_file_is_still_truncated_inline_for_the_coordinator():
 
     kept = maybe_persist_tool_result(huge, "read_file", "call-1", env=None, config=budget)
 
-    assert len(kept) < COORDINATOR_RESULT_CHARS + 300
+    assert len(kept) < COORDINATOR_READ_FILE_CHARS + 300
     assert "Ask a specialist job" in kept
     # The default budget keeps read_file unbounded (pinned), so workers are unchanged.
     assert maybe_persist_tool_result(huge, "read_file", "call-2", env=None) == huge
+
+
+def test_coordinator_can_still_read_its_own_project_brain_whole():
+    """A Project Brain runs ~15 KB; truncating it would corrupt the interview."""
+    budget = coordinator_budget(DEFAULT_BUDGET)
+    brain = "decision\n" * 1_800  # ~16 KB
+    assert maybe_persist_tool_result(brain, "read_file", "brain", env=None, config=budget) == brain
+    assert COORDINATOR_READ_FILE_CHARS > 16_500
 
 
 def test_policy_marks_coordinator_and_enables_pruning():
