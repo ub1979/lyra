@@ -21,7 +21,9 @@ def load_guard():
     return module
 
 
-def git(path: Path, *args: str) -> str:
+def git_env() -> dict[str, str]:
+    """An identity for every git call: CI runners have none configured, and a
+    commit refused for "Author identity unknown" would look like a blocked one."""
     env = os.environ.copy()
     env.update(
         {
@@ -31,11 +33,15 @@ def git(path: Path, *args: str) -> str:
             "GIT_COMMITTER_EMAIL": "test@example.invalid",
         }
     )
+    return env
+
+
+def git(path: Path, *args: str) -> str:
     return subprocess.run(
         ["git", "-C", str(path), *args],
         capture_output=True,
         check=True,
-        env=env,
+        env=git_env(),
         text=True,
     ).stdout.strip()
 
@@ -107,7 +113,7 @@ def test_real_hooks_block_commit_and_push(tmp_path):
         ["git", "-C", str(root), "commit", "--no-gpg-sign", "-m", "must fail"],
         capture_output=True,
         check=False,
-        env=os.environ.copy(),
+        env=git_env(),
         text=True,
     )
     assert blocked_commit.returncode != 0
@@ -122,7 +128,7 @@ def test_real_hooks_block_commit_and_push(tmp_path):
         ["git", "-C", str(root), "push", "-u", "origin", "main"],
         capture_output=True,
         check=False,
-        env=os.environ.copy(),
+        env=git_env(),
         text=True,
     )
     assert blocked_push.returncode != 0

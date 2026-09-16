@@ -455,11 +455,16 @@ class TestReadmeNoLongerSaysWindowsUnsupported:
             "install copy to reflect the PowerShell installer."
         )
 
-    def test_readme_mentions_powershell_installer(self):
+    def test_readme_does_not_send_windows_users_to_the_upstream_installer(self):
+        """Lyra's README documents ``start.sh``; ``scripts/install.ps1`` clones
+        upstream ``NousResearch/hermes-agent``, so pointing Windows users at it
+        would install the wrong product. (Upstream's inverse assertion lived
+        here until 2026-09-16.)"""
         root = Path(__file__).resolve().parents[2]
         source = (root / "README.md").read_text(encoding="utf-8")
-        assert "install.ps1" in source, (
-            "README.md must point at scripts/install.ps1 for Windows users"
+        assert "install.ps1" not in source, (
+            "README.md points Windows users at scripts/install.ps1, which installs "
+            "upstream Hermes rather than Lyra"
         )
 
 

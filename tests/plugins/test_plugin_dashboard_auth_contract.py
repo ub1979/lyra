@@ -31,8 +31,11 @@ import pytest
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _PLUGINS_DIR = _REPO_ROOT / "plugins"
 
-# The forbidden global. Reading it directly bypasses the gated-mode auth path.
-_FORBIDDEN = "__HERMES_SESSION_TOKEN__"
+# The forbidden globals. Reading either directly bypasses the gated-mode auth
+# path: the current name is what web_server.py injects today; the pre-rebrand
+# name is kept so an old plugin build that still reads it is also flagged.
+_FORBIDDEN_NAMES = ("__IDRAK_IT_SESSION_TOKEN__", "__HERMES_SESSION_TOKEN__")
+_FORBIDDEN = " / ".join(_FORBIDDEN_NAMES)
 
 # Files explicitly allowed to mention the token (none today). Map path →
 # reason so the allowance is self-documenting if one is ever needed.
@@ -76,13 +79,15 @@ def test_plugin_bundle_does_not_read_session_token(bundle: Path) -> None:
     # ``//`` comment marker on that line.
     offending: list[str] = []
     for i, line in enumerate(text.splitlines(), start=1):
-        idx = line.find(_FORBIDDEN)
-        if idx == -1:
-            continue
-        comment_idx = line.find("//")
-        in_comment = comment_idx != -1 and comment_idx < idx
-        if not in_comment:
-            offending.append(f"  {i}: {line.strip()}")
+        for name in _FORBIDDEN_NAMES:
+            idx = line.find(name)
+            if idx == -1:
+                continue
+            comment_idx = line.find("//")
+            in_comment = comment_idx != -1 and comment_idx < idx
+            if not in_comment:
+                offending.append(f"  {i}: {line.strip()}")
+                break
 
     if not offending:
         return

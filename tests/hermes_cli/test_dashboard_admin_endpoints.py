@@ -1033,134 +1033,38 @@ class TestAdminEndpointsAuthGate:
 
 
 class TestUpdateCheckEndpoint:
-    """``GET /api/hermes/update/check`` reports availability without applying.
+    """``GET /api/hermes/update/check`` is switched off in the Lyra distribution.
 
-    Powers the dashboard's check-before-you-update flow: the System page
-    shows the commit-behind count and asks the user to confirm before
-    ``POST /api/hermes/update`` runs ``hermes update``.
+    Upstream Hermes exposes a check-before-you-update flow here; Lyra ships
+    its own version and update signal on ``GET /api/lyra/version`` (see
+    ``lyra_version.version_payload``) and keeps the upstream endpoint
+    unavailable so the System page cannot offer an in-place ``hermes update``
+    of a checkout that is not upstream Hermes.
     """
 
     @pytest.fixture(autouse=True)
     def _setup(self, _isolate_hermes_home):
         self.client, _ = _client()
 
-    def test_git_install_reports_behind_count(self, monkeypatch):
+    def test_upstream_update_check_is_disabled(self, monkeypatch):
         import hermes_cli.web_server as ws
 
-        monkeypatch.setattr(ws, "detect_install_method", lambda *a, **k: "git")
-        # Stub the shared checker so the contract is deterministic (no network).
-        import hermes_cli.banner as banner
-
-        monkeypatch.setattr(banner, "check_for_updates", lambda: 5)
-
-        r = self.client.get("/api/hermes/update/check")
-        assert r.status_code == 200
-        body = r.json()
-        assert {
-            "install_method",
-            "current_version",
-            "behind",
-            "update_available",
-            "can_apply",
-            "update_command",
-            "message",
-        } <= set(body)
-        assert body["install_method"] == "git"
-        assert body["behind"] == 5
-        assert body["update_available"] is True
-        # git/pip installs can apply the update in place from the dashboard.
-        assert body["can_apply"] is True
-
-    def test_up_to_date(self, monkeypatch):
-        import hermes_cli.web_server as ws
-        import hermes_cli.banner as banner
-
-        monkeypatch.setattr(ws, "detect_install_method", lambda *a, **k: "git")
-        monkeypatch.setattr(banner, "check_for_updates", lambda: 0)
-
-        body = self.client.get("/api/hermes/update/check").json()
-        assert body["behind"] == 0
-        assert body["update_available"] is False
-
-    def test_docker_is_not_applyable(self, monkeypatch):
-        import hermes_cli.web_server as ws
-
-        monkeypatch.setattr(ws, "detect_install_method", lambda *a, **k: "docker")
-        body = self.client.get("/api/hermes/update/check").json()
-        # Docker images are immutable — the dashboard can't apply an update.
-        assert body["can_apply"] is False
-        assert body["message"]
-        assert body["behind"] is None
-
-    def test_managed_runtime_dashboard_is_not_applyable(self, monkeypatch):
-        import hermes_cli.web_server as ws
-
-        monkeypatch.setattr(ws, "_dashboard_local_update_managed_externally", lambda: True)
+        # Even a git install must not be probed: the handler refuses first.
         monkeypatch.setattr(
             ws,
             "detect_install_method",
-            lambda *a, **k: pytest.fail(
-                "managed runtime update check should not probe install method"
-            ),
+            lambda *a, **k: pytest.fail("disabled update check must not probe the install method"),
         )
-
-        body = self.client.get("/api/hermes/update/check").json()
-        assert body["install_method"] == "managed-runtime"
-        assert body["can_apply"] is False
-        assert body["update_available"] is False
-        assert body["behind"] is None
-        assert "managed outside this dashboard" in body["message"]
-
-    def test_check_failure_is_soft(self, monkeypatch):
-        import hermes_cli.web_server as ws
-        import hermes_cli.banner as banner
-
-        monkeypatch.setattr(ws, "detect_install_method", lambda *a, **k: "git")
-
-        def _boom():
-            raise RuntimeError("offline")
-
-        monkeypatch.setattr(banner, "check_for_updates", _boom)
-        # A failed check must not 500 — it returns behind=null with guidance.
         r = self.client.get("/api/hermes/update/check")
+        assert r.status_code == 404
+        assert "disabled" in r.json()["detail"]
+
+    def test_lyra_version_endpoint_carries_the_update_signal(self):
+        r = self.client.get("/api/lyra/version")
         assert r.status_code == 200
         body = r.json()
-        assert body["behind"] is None
-        assert body["update_available"] is False
-        assert body["message"]
-
-    def test_git_behind_includes_commits(self, monkeypatch):
-        import hermes_cli.web_server as ws
-        import hermes_cli.banner as banner
-
-        monkeypatch.setattr(ws, "detect_install_method", lambda *a, **k: "git")
-        monkeypatch.setattr(banner, "check_for_updates", lambda: 3)
-        monkeypatch.setattr(
-            ws,
-            "_recent_upstream_commits",
-            lambda n=20: [
-                {"sha": "abc1234", "summary": "feat: x", "author": "a", "at": 1},
-            ],
-        )
-
-        body = self.client.get("/api/hermes/update/check").json()
-        # The desktop overlay renders this as the "what's changed" list.
-        assert isinstance(body["commits"], list)
-        assert body["commits"][0]["sha"] == "abc1234"
-        assert body["commits"][0]["summary"] == "feat: x"
-
-    def test_up_to_date_omits_commits(self, monkeypatch):
-        import hermes_cli.web_server as ws
-        import hermes_cli.banner as banner
-
-        monkeypatch.setattr(ws, "detect_install_method", lambda *a, **k: "git")
-        monkeypatch.setattr(banner, "check_for_updates", lambda: 0)
-
-        body = self.client.get("/api/hermes/update/check").json()
-        # No commits list when there's nothing to show (additive, non-breaking).
-        assert body.get("commits", []) == []
-
-
+        assert {"version", "display", "release_name", "notes", "update"} <= set(body)
+        assert {"behind", "update_available", "branch", "checked"} <= set(body["update"])
 class TestDebugShareEndpoint:
     """POST /api/ops/debug-share returns the paste URLs synchronously so the
     dashboard can render them as copyable links (not a backgrounded log tail)."""

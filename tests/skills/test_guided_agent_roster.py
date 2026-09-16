@@ -1,10 +1,11 @@
 """Every agent the dashboard offers is wired end to end.
 
-Adding a team member touches five places: the label, description and ETA maps in
+Adding a team member touches four places: the label and description maps in
 ChatPage, the phase order in guided-phase-plan.ts, and a workflow playbook the
 orchestrator can load. Miss one and the failure is quiet — an agent with no
-playbook is delegated into nothing, an agent missing from the phase order never
-gets its turn, and one missing an ETA advertises the coordinator's estimate.
+playbook is delegated into nothing and an agent missing from the phase order
+never gets its turn. (Per-agent time estimates were removed on 2026-09-05 with
+the durable-agent activity feed; there is no ETA map to check any more.)
 
 Avatar artwork is reported, not enforced: the UI falls back to an initial, so a
 new agent may legitimately ship before its illustration exists.
@@ -62,13 +63,10 @@ def test_the_picker_offers_more_than_a_handful(selectable):
         assert expected in selectable
 
 
-def test_every_agent_has_a_description_and_an_eta(selectable):
+def test_every_agent_has_a_description(selectable):
     descriptions = _record("GUIDED_SPECIALIST_DESCRIPTIONS")
-    etas = _record("GUIDED_SPECIALIST_ETA_SECONDS")
     missing_desc = [i for i in selectable if i not in descriptions]
-    missing_eta = [i for i in selectable if i not in etas]
     assert not missing_desc, f"no card description: {missing_desc}"
-    assert not missing_eta, f"no time estimate: {missing_eta}"
 
 
 def test_every_agent_has_a_slot_in_the_phase_order(selectable):

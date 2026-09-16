@@ -39,6 +39,43 @@ In scope / explicitly deferred:
   context and its tests pass the name explicitly; the E2E job timeout is
   unchanged pending the measurement from the 0.19.46 run.
 
+The Python matrix ran again in the 0.19.46 CI run — for the first time since
+before 0.19.40 — and exposed eleven failures in eight files that the skipped
+matrix had hidden. Each fixed at its cause (all are in this change set):
+- `tests/hermes_cli/test_dashboard_admin_endpoints.py::TestUpdateCheckEndpoint`
+  (6): upstream tests for `GET /api/hermes/update/check`, which Lyra
+  deliberately answers with 404 ("disabled for this private distribution").
+  Replaced by two tests of Lyra's contract: the endpoint refuses without
+  probing the install method, and `GET /api/lyra/version` carries the update
+  signal.
+- `tests/skills/test_guided_agent_roster.py`: still required a
+  `GUIDED_SPECIALIST_ETA_SECONDS` map that `7e89a305b` (2026-09-05) removed
+  with the durable-agent feed. The test checks descriptions only now.
+- `tests/hermes_cli/test_dashboard_auth_gate.py`: expected the pre-rebrand
+  `__HERMES_SESSION_TOKEN__` global; the server injects and `web/src/lib/api.ts`
+  reads `__IDRAK_IT_SESSION_TOKEN__` (they agree — test drift only).
+  `tests/plugins/test_plugin_dashboard_auth_contract.py` now forbids both
+  spellings so the guard is not defeated by a rename again (plugin bundles
+  mention the old name only in a comment).
+- `tests/tools/test_windows_native_support.py`: demanded that README point at
+  `scripts/install.ps1`; that script clones upstream `NousResearch/hermes-agent`,
+  so Lyra's README must not send Windows users there. The assertion is
+  inverted with the reason recorded.
+- `tests/test_lyra_git_guard.py`: CI runners have no git identity, so the raw
+  `git commit` failed with "Author identity unknown" instead of the guard —
+  the test's identity env is now used for every git call.
+- `tests/hermes_cli/test_managed_uv.py::test_self_update_success`: predates
+  the runtime-repair hook (2026-07-24) that adds a third subprocess call; it
+  stubs the hook like its sibling test does.
+- `gateway/run.py` (real code, from `4aeeaa29f7` 2026-08-30): two SessionDB
+  calls inside `asyncio.gather` were functionally awaited but failed the
+  gateway's static rule that every `self._session_db.<method>()` is awaited
+  directly. Rewritten as two sequential awaits; `test_telegram_topic_mode.py`
+  and `test_compression_failure_session_sync.py` still pass.
+
+Two local-only observations, not remediated: `billing/index.test.tsx` has
+two tests that fail on this macOS checkout at `HEAD` but pass in CI.
+
 Acceptance criteria: launcher lookup finds `Lyra` on Linux, Windows and macOS
 layouts and still finds a pre-rebrand `hermes` tree; uninstall candidates list
 `Lyra` before `Hermes`; existing Windows integrity tests unchanged and green;
@@ -56,8 +93,16 @@ tests/hermes_cli/test_desktop_exe_integrity.py -q` and
 `tests/hermes_cli/test_gui_uninstall.py` green (one assertion changed to
 `samefile` because macOS is case-insensitive and reports `Hermes` for a
 `hermes` file); ruff "All checks passed"; footgun lint 0 findings; desktop
-`typecheck` clean; `node --check scripts/test-desktop.mjs` OK. The packaged
-CI job and the new `file-index` job are verified by the run after this push.
+`typecheck` clean; `node --check scripts/test-desktop.mjs` OK. The eleven
+repaired Python tests: `scripts/run_tests.sh` on the eight files plus
+`tests/gateway/test_telegram_topic_mode.py` and
+`tests/gateway/test_compression_failure_session_sync.py` — 306 passed, 0
+failed. Measured in the 0.19.46 CI run (35147974548): the Electron E2E suite
+now finishes in 3.2 min with 37 passed / 7 skipped / 0 failed (it timed out at
+20 min before the readiness fix), so `timeout-minutes` stays at 20; the
+Studio smoke passed again (7.8 s); `check:test:ui` and
+`check:test:desktop:platforms` are green. The packaged CI job and the new
+`file-index` job are verified by the run after this push.
 
 Compatibility / restart: none for Studio. Desktop users on an old `Hermes`
 install are still found by `hermes gui uninstall`.

@@ -275,8 +275,15 @@ class TestUpdateManagedUv:
 
     def test_self_update_success(self, tmp_path):
         _make_executable(tmp_path / "bin" / "uv")
+        # The runtime-repair hook that runs after the update has its own
+        # subprocess calls and its own tests; stub it so this test counts only
+        # the uv calls it is about.
         with patch("hermes_cli.managed_uv.get_hermes_home", return_value=tmp_path), \
-             patch("hermes_cli.managed_uv.subprocess.run") as mock_run:
+             patch("hermes_cli.managed_uv.subprocess.run") as mock_run, \
+             patch(
+                 "hermes_cli.managed_uv.repair_vulnerable_runtime",
+                 return_value=MagicMock(status="skipped"),
+             ):
             # uv self update succeeds
             mock_run.return_value = MagicMock(returncode=0, stdout="uv 0.2.0")
             from hermes_cli.managed_uv import update_managed_uv

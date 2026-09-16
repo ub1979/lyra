@@ -8851,18 +8851,20 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
                 raw_cwd = str(row.get("cwd") or "").strip()
                 if not existing_thread_id and raw_cwd:
                     project = Path(raw_cwd).expanduser().resolve(strict=False)
-                    project_sessions, topic_bindings = await asyncio.gather(
-                        self._session_db.list_sessions_rich(
-                            cwd_prefix=str(project),
-                            limit=200,
-                            include_children=False,
-                            order_by_last_active=True,
-                            project_compression_tips=True,
-                            compact_rows=True,
-                        ),
-                        self._session_db.list_telegram_topic_bindings_for_chat(
-                            chat_id=home_chat_id,
-                        ),
+                    # Two awaited reads rather than one gather: the gateway's
+                    # static guard (tests/gateway/test_async_session_db.py)
+                    # requires every SessionDB call to be awaited directly so
+                    # a blocking call can never slip onto the loop unnoticed.
+                    project_sessions = await self._session_db.list_sessions_rich(
+                        cwd_prefix=str(project),
+                        limit=200,
+                        include_children=False,
+                        order_by_last_active=True,
+                        project_compression_tips=True,
+                        compact_rows=True,
+                    )
+                    topic_bindings = await self._session_db.list_telegram_topic_bindings_for_chat(
+                        chat_id=home_chat_id,
                     )
                     bindings_by_session = {
                         str(item.get("session_id") or ""): item
