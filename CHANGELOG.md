@@ -9,6 +9,16 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.42] - 2026-09-16 — replies stay put
+
+### Fixed
+
+- A new reply from Lyra no longer replaces the previous one on screen when a
+  background job update arrives between them. Each reply keeps its place; only
+  a reply that is still being completed within the same turn is refined.
+
+Reload Studio after restarting Lyra. Existing conversations are preserved.
+
 ## [0.19.41] - 2026-09-16 — coordinator guarantees hold
 
 ### Fixed

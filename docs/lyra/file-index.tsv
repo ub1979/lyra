@@ -1786,6 +1786,7 @@ docs/lyra/changes/2026-09-16-durable-worker-usage.md	docs	md: 2026 09 16 durable
 docs/lyra/changes/2026-09-16-failure-notification-wording.md	docs	md: 2026 09 16 failure notification wording
 docs/lyra/changes/2026-09-16-notification-busy-ownership.md	docs	md: 2026 09 16 notification busy ownership
 docs/lyra/changes/2026-09-16-project-run-tool.md	docs	md: 2026 09 16 project run tool
+docs/lyra/changes/2026-09-16-reply-turn-identity.md	docs	md: 2026 09 16 reply turn identity
 docs/lyra/changes/2026-09-16-turn-free-job-updates.md	docs	md: 2026 09 16 turn free job updates
 docs/lyra/changes/2026-09-16-worker-usage-accounting.md	docs	md: 2026 09 16 worker usage accounting
 docs/lyra/file-index.tsv	docs	tsv: file index
@@ -2112,7 +2113,6 @@ hermes_cli/web_dist/assets/RulesCompressed-Regular-BSXFyF4x.woff2	hermes_cli	Gen
 hermes_cli/web_dist/assets/RulesExpanded-Bold-DZA7s8Pa.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Regular-l8uVympt.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/index-BGAdPJZk.css	hermes_cli	Generated asset; edit its source and rebuild
-hermes_cli/web_dist/assets/index-BObRIA3w.js	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Bold.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Italic.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Regular.woff2	hermes_cli	Generated asset; edit its source and rebuild
@@ -7141,6 +7141,8 @@ web/src/lib/guided-project-session.test.ts	web	Behavioral tests: guided-project-
 web/src/lib/guided-project-session.ts	web	ts: guided project session
 web/src/lib/guided-required-specialists.test.ts	web	Behavioral tests: guided-required-specialists.test
 web/src/lib/guided-required-specialists.ts	web	* Specialists the project cannot switch off.
+web/src/lib/guided-response-merge.test.ts	web	Behavioral tests: guided-response-merge.test
+web/src/lib/guided-response-merge.ts	web	ts: guided response merge
 web/src/lib/guided-session-recovery.test.ts	web	Behavioral tests: guided-session-recovery.test
 web/src/lib/guided-session-recovery.ts	web	ts: guided session recovery
 web/src/lib/guided-specialists-dialog.test.ts	web	Behavioral tests: guided-specialists-dialog.test
