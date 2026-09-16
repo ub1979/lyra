@@ -79,7 +79,12 @@ def test_rejects_bad_action_relative_workspace_and_missing_phases(project):
 def test_failures_return_json_instead_of_raising(project, monkeypatch):
     tool = load_tool()
     tool._modules["project_runs"] = type(
-        "Broken", (), {"project_run_state": staticmethod(lambda _w: (_ for _ in ()).throw(RuntimeError("db locked")))}
+        "Broken",
+        (),
+        {
+            "dispatch_blocked_reason": staticmethod(lambda: None),
+            "project_run_state": staticmethod(lambda _w: (_ for _ in ()).throw(RuntimeError("db locked"))),
+        },
     )
     out = json.loads(tool.project_run_tool({"action": "status", "workspace": str(project)}))
     assert out == {"ok": False, "error": "RuntimeError: db locked"}
@@ -90,11 +95,31 @@ def test_result_size_is_bounded(project):
     tool._modules["project_runs"] = type(
         "Huge",
         (),
-        {"project_run_state": staticmethod(lambda _w: {"tasks": [{"pad": "x" * 500}] * 100})},
+        {
+            "dispatch_blocked_reason": staticmethod(lambda: None),
+            "project_run_state": staticmethod(lambda _w: {"tasks": [{"pad": "x" * 500}] * 100}),
+        },
     )
     out = tool.project_run_tool({"action": "status", "workspace": str(project), "summary": False})
     assert len(out) <= tool._MAX_RESULT_CHARS
     assert out.endswith("one job at a time]")
+
+
+def test_worker_call_that_reaches_the_handler_cannot_queue_or_control(project, monkeypatch):
+    """Hiding the schema is not enough; a worker-originated call must be refused."""
+    tool = load_tool()
+    monkeypatch.setenv("HERMES_KANBAN_TASK", "t_review_worker")
+
+    queued = json.loads(
+        tool.project_run_tool({"action": "queue", "workspace": str(project), "phases": "sw-architect"})
+    )
+    assert queued["ok"] is False and "cannot queue" in queued["error"]
+    paused = json.loads(tool.project_run_tool({"action": "pause", "workspace": str(project)}))
+    assert paused["ok"] is False
+
+    monkeypatch.delenv("HERMES_KANBAN_TASK")
+    status = json.loads(tool.project_run_tool({"action": "status", "workspace": str(project)}))
+    assert status["task_count"] == 0
 
 
 def test_hidden_from_workers_and_delegated_children(monkeypatch):
@@ -106,9 +131,9 @@ def test_hidden_from_workers_and_delegated_children(monkeypatch):
     assert tool.coordinator_only() is False
 
     monkeypatch.delenv("HERMES_KANBAN_TASK", raising=False)
-    import tools.kanban_tools as kanban_tools
+    import agent.delegation_context as delegation_context
 
-    monkeypatch.setattr(kanban_tools, "_is_delegated_child_context", lambda: True)
+    monkeypatch.setattr(delegation_context, "is_delegated_child_context", lambda: True)
     assert tool.coordinator_only() is False
 
 

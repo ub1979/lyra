@@ -609,3 +609,26 @@ class TestInlineCaps:
         budget = BudgetConfig(inline_caps={"read_file": 10_000})
         content = "short"
         assert maybe_persist_tool_result(content, "read_file", "id-3", env=None, config=budget) == content
+
+
+class TestTurnBudgetRespectsInlineCaps:
+    def test_inline_capped_results_are_not_shrunk_by_the_aggregate_stage(self):
+        budget = BudgetConfig(turn_budget=20_000, inline_caps={"read_file": 24_000})
+        messages = [
+            {"role": "tool", "name": "read_file", "tool_call_id": "a", "content": "x" * 16_000},
+            {"role": "tool", "name": "web_extract", "tool_call_id": "b", "content": "y" * 9_000},
+        ]
+
+        enforce_turn_budget(messages, env=None, config=budget)
+
+        assert len(messages[0]["content"]) == 16_000
+        assert len(messages[1]["content"]) < 9_000
+
+    def test_uncapped_results_are_still_bounded_as_before(self):
+        budget = BudgetConfig(turn_budget=5_000)
+        messages = [
+            {"role": "tool", "name": "web_extract", "tool_call_id": "a", "content": "x" * 4_000},
+            {"role": "tool", "name": "web_extract", "tool_call_id": "b", "content": "y" * 4_000},
+        ]
+        enforce_turn_budget(messages, env=None, config=budget)
+        assert sum(len(m["content"]) for m in messages) <= 5_000 + 2_000

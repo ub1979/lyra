@@ -31,6 +31,9 @@ COORDINATOR_INLINE_CAPS = {
 }
 COORDINATOR_PRUNE_MIN_RESULT_CHARS = 2_000
 _PRUNE_WINDOW_FRACTION = 0.4
+# A coordinating conversation should never wait for 40 % of a million-token
+# window before pruning; the fraction only matters for small models.
+_PRUNE_CAP_TOKENS = 100_000
 _PRUNE_FALLBACK_TOKENS = 60_000
 
 __all__ = ["coordinator_budget", "apply_coordinator_context_policy"]
@@ -58,7 +61,7 @@ def apply_coordinator_context_policy(agent: Any, skills: Iterable[str]) -> bool:
         return True
     context_length = getattr(compressor, "context_length", None)
     threshold = (
-        int(int(context_length) * _PRUNE_WINDOW_FRACTION)
+        min(int(int(context_length) * _PRUNE_WINDOW_FRACTION), _PRUNE_CAP_TOKENS)
         if isinstance(context_length, (int, float)) and context_length > 0
         else _PRUNE_FALLBACK_TOKENS
     )

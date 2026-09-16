@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 from agent.tool_executor import _budget_for_agent
 from tools.budget_config import DEFAULT_BUDGET, BudgetConfig, budget_for_context_window
-from tools.tool_result_storage import maybe_persist_tool_result
+from tools.tool_result_storage import enforce_turn_budget, maybe_persist_tool_result
 from tui_gateway.studio_budget import (
     COORDINATOR_INLINE_CAPS,
     COORDINATOR_PRUNE_MIN_RESULT_CHARS,
@@ -59,6 +59,34 @@ def test_coordinator_can_still_read_its_own_project_brain_whole():
     brain = "decision\n" * 1_800  # ~16 KB
     assert maybe_persist_tool_result(brain, "read_file", "brain", env=None, config=budget) == brain
     assert COORDINATOR_READ_FILE_CHARS > 16_500
+
+
+def test_project_brain_survives_both_budget_stages_in_one_turn():
+    """Per-result cap admits the Brain; the aggregate stage must not shrink it after."""
+    budget = coordinator_budget(DEFAULT_BUDGET)
+    brain = "x" * 16_200
+    reads = [
+        {"role": "tool", "name": "read_file", "tool_call_id": "brain", "content": brain},
+        *[
+            {"role": "tool", "name": "web_extract", "tool_call_id": f"w{i}", "content": "y" * 6_000}
+            for i in range(3)
+        ],
+    ]
+    for message in reads:
+        message["content"] = maybe_persist_tool_result(
+            message["content"], message["name"], message["tool_call_id"], env=None, config=budget
+        )
+
+    enforce_turn_budget(reads, env=None, config=budget)
+
+    assert reads[0]["content"] == brain
+    assert sum(len(m["content"]) for m in reads[1:]) < 3 * 6_000
+
+
+def test_prune_threshold_is_capped_for_huge_context_windows():
+    compressor = SimpleNamespace(context_length=1_000_000, proactive_prune_tokens=0)
+    apply_coordinator_context_policy(SimpleNamespace(context_compressor=compressor), COORDINATOR)
+    assert compressor.proactive_prune_tokens == 100_000
 
 
 def test_policy_marks_coordinator_and_enables_pruning():

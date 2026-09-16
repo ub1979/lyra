@@ -230,8 +230,14 @@ def enforce_turn_budget(
         content = msg.get("content", "")
         size = len(content)
         total_size += size
-        if PERSISTED_OUTPUT_TAG not in content:
-            candidates.append((i, size))
+        if PERSISTED_OUTPUT_TAG in content:
+            continue
+        # A result already bounded by an inline cap was admitted whole on
+        # purpose (e.g. the coordinator's own Project Brain); the aggregate
+        # stage must not shrink it to a preview behind the per-result stage.
+        if config.resolve_inline_cap(str(msg.get("name") or msg.get("tool_name") or "")) is not None:
+            continue
+        candidates.append((i, size))
 
     if total_size <= config.turn_budget:
         return tool_messages

@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import importlib.util
 import json
-import os
 from pathlib import Path
 from typing import Any, Optional
 
@@ -85,12 +84,8 @@ def _sibling(name: str) -> Any:
 
 
 def coordinator_only() -> bool:
-    """Hide the tool inside workers and delegated children; only the chat may dispatch."""
-    if os.environ.get("HERMES_KANBAN_TASK"):
-        return False
-    from tools.kanban_tools import _is_delegated_child_context
-
-    return not _is_delegated_child_context()
+    """Hide the tool inside workers and delegated children; the handler re-checks the same gate."""
+    return _sibling("project_runs").dispatch_blocked_reason() is None
 
 
 def _string_map(value: Any) -> dict[str, str]:
@@ -116,6 +111,11 @@ def _bounded(text: str) -> str:
 def project_run_tool(args: dict, **_kwargs: Any) -> str:
     action = str(args.get("action") or "").strip().lower()
     workspace = str(args.get("workspace") or "").strip()
+    # The schema gate only hides the tool; a call that reaches the handler
+    # anyway (worker, delegated child) must fail here, not queue work.
+    blocked = _sibling("project_runs").dispatch_blocked_reason()
+    if blocked and action != "status":
+        return _error(blocked)
     if action not in _ACTIONS:
         return _error(f"Unknown action {action!r}; use one of {', '.join(_ACTIONS)}.")
     if not workspace or not Path(workspace).is_absolute():

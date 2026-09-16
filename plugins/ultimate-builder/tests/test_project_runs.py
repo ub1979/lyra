@@ -64,6 +64,25 @@ def test_project_phase_jobs_have_bounded_attempts_and_one_retry(tmp_path, monkey
     assert task.max_retries == 2
 
 
+def test_workers_and_delegated_children_cannot_queue_or_control_jobs(tmp_path, monkeypatch):
+    """One gate for the CLI and the tool: only the coordinating conversation dispatches."""
+    monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
+    project = tmp_path / "project"
+    project.mkdir()
+    module = load_project_runs()
+
+    monkeypatch.setenv("HERMES_KANBAN_TASK", "t_worker")
+    with pytest.raises(PermissionError, match="cannot queue or control"):
+        module.queue_project_run(project, ["sw-architect"])
+    with pytest.raises(PermissionError):
+        module.control_project_run(project, "pause")
+    assert module.project_run_state(project)["tasks"] == []
+
+    monkeypatch.delenv("HERMES_KANBAN_TASK")
+    assert module.dispatch_blocked_reason() is None
+    assert module.queue_project_run(project, ["sw-architect"])["tasks"]
+
+
 def test_run_state_reports_saved_worker_usage_or_none(tmp_path, monkeypatch):
     monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
     project = tmp_path / "project"

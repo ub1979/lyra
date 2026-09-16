@@ -8,7 +8,7 @@ import json
 import os
 import time
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 from hermes_cli import kanban_db as kb
 from hermes_cli.project_job_status import project_job_dispatch_issue, validate_project_worker
@@ -327,6 +327,34 @@ def _origin() -> dict[str, str | None]:
     }
 
 
+def dispatch_blocked_reason(environ: Mapping[str, str] = os.environ) -> str | None:
+    """Only the coordinating conversation may start or steer project jobs.
+
+    A running worker or a delegated helper that queues more jobs is the
+    recursion that produced multi-hour phases before 0.19.34; the check lives
+    here so the CLI and the ``project_run`` tool share one gate.
+    """
+    if environ.get("HERMES_KANBAN_TASK"):
+        return (
+            "A running project worker cannot queue or control project jobs. "
+            "Finish or block this task and describe what is needed; Lyra decides."
+        )
+    try:
+        from agent.delegation_context import is_delegated_child_context
+
+        if is_delegated_child_context():
+            return "A delegated helper cannot queue or control project jobs."
+    except Exception:
+        pass
+    return None
+
+
+def _assert_dispatch_allowed() -> None:
+    reason = dispatch_blocked_reason()
+    if reason:
+        raise PermissionError(reason)
+
+
 def queue_project_run(
     workspace: str | Path,
     phases: Iterable[str],
@@ -336,6 +364,7 @@ def queue_project_run(
     providers: dict[str, str] | None = None,
     force_new: bool = False,
 ) -> dict[str, Any]:
+    _assert_dispatch_allowed()
     project = _workspace(workspace)
     workflow_contract = _workflow_contract_module()
     workflow_contract.assert_valid_contract()
@@ -745,6 +774,7 @@ def project_run_state(workspace: str | Path) -> dict[str, Any]:
 
 
 def control_project_run(workspace: str | Path, action: str) -> dict[str, Any]:
+    _assert_dispatch_allowed()
     project = _workspace(workspace)
     action = action.strip().lower()
     if action not in {"pause", "resume", "stop"}:
