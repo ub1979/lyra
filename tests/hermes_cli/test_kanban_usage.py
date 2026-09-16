@@ -3,10 +3,13 @@
 import pytest
 
 from hermes_cli import kanban_db as kb
+import types
+
 from hermes_cli.kanban_usage import (
     latest_run_usage_by_task,
     record_run_usage,
     record_worker_run_usage_from_env,
+    usage_from_agent,
     usage_from_run_result,
 )
 
@@ -79,23 +82,69 @@ def test_latest_record_wins_and_unreported_tasks_are_absent(board):
     assert latest_run_usage_by_task(board, []) == {}
 
 
+def _agent(**overrides):
+    return types.SimpleNamespace(
+        session_input_tokens=1200,
+        session_output_tokens=300,
+        session_cache_read_tokens=9000,
+        session_cache_write_tokens=0,
+        session_reasoning_tokens=40,
+        session_api_calls=3,
+        session_estimated_cost_usd=0.0125,
+        session_cost_status="estimated",
+        session_cost_source="pricing-table",
+        model="claude-opus-4-6",
+        session_id="worker-session-xyz",
+        **overrides,
+    )
+
+
+def test_agent_session_totals_count_every_turn_of_a_goal_loop():
+    """The first turn's result goes stale; the agent's session counters do not."""
+    agent = _agent()
+    first = usage_from_agent(agent)
+    agent.session_input_tokens += 5000
+    agent.session_api_calls += 4
+    second = usage_from_agent(agent)
+
+    assert first["input_tokens"] == 1200 and first["api_calls"] == 3
+    assert second["input_tokens"] == 6200 and second["api_calls"] == 7
+    assert second["session_id"] == "worker-session-xyz"
+    assert usage_from_agent(types.SimpleNamespace(model="m")) is None
+
+
 def test_worker_process_saves_usage_on_its_assigned_task(tmp_path, monkeypatch):
     monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "home"))
     with kb.connect_closing() as conn:
         task_id = kb.create_task(conn, title="Development", assignee="default")
 
-    assert record_worker_run_usage_from_env(RESULT, {}) is False
+    assert record_worker_run_usage_from_env(usage_from_agent(_agent()), {}) is False
+    assert record_worker_run_usage_from_env(None, {"HERMES_KANBAN_TASK": task_id}) is False
     assert record_worker_run_usage_from_env(
-        {"final_response": "no counters"}, {"HERMES_KANBAN_TASK": task_id}
-    ) is False
-    assert record_worker_run_usage_from_env(
-        RESULT, {"HERMES_KANBAN_TASK": task_id, "HERMES_KANBAN_RUN_ID": "7"}
+        usage_from_agent(_agent()),
+        {"HERMES_KANBAN_TASK": task_id, "HERMES_KANBAN_RUN_ID": "7"},
     )
 
     with kb.connect_closing() as conn:
         assert latest_run_usage_by_task(conn, [task_id])[task_id]["api_calls"] == 3
         usage_events = [e for e in kb.list_events(conn, task_id) if e.kind == "usage"]
     assert [event.run_id for event in usage_events] == [7]
+
+
+def test_worker_process_writes_to_its_assigned_board(tmp_path, monkeypatch):
+    monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "home"))
+    with kb.connect_closing(board="project-x") as conn:
+        task_id = kb.create_task(conn, title="Development", assignee="default")
+
+    assert record_worker_run_usage_from_env(
+        usage_from_agent(_agent()),
+        {"HERMES_KANBAN_TASK": task_id, "HERMES_KANBAN_BOARD": "project-x"},
+    )
+
+    with kb.connect_closing(board="project-x") as conn:
+        assert task_id in latest_run_usage_by_task(conn, [task_id])
+    with kb.connect_closing() as conn:
+        assert latest_run_usage_by_task(conn, [task_id]) == {}
 
 
 def test_saved_usage_never_enters_child_worker_context(board):

@@ -16741,17 +16741,6 @@ def main(
                             and cli.agent.session_id != cli.session_id
                         ):
                             cli.session_id = cli.agent.session_id
-                        # A durable Kanban worker owns its own session, so the
-                        # coordinator's counters never include it. Save the
-                        # provider-reported usage on the task for Studio; a
-                        # failed write must never fail the worker.
-                        if os.environ.get("HERMES_KANBAN_TASK"):
-                            try:
-                                from hermes_cli.kanban_usage import record_worker_run_usage_from_env
-
-                                record_worker_run_usage_from_env(result)
-                            except Exception as _usage_exc:
-                                logger.debug("kanban usage record failed: %s", _usage_exc)
                         response = result.get("final_response", "") if isinstance(result, dict) else str(result)
                         # Surface backend errors that produced no visible output
                         # (e.g. invalid model slug → provider 4xx). Mirrors the
@@ -16779,6 +16768,22 @@ def main(
                                 _run_kanban_goal_loop_q(cli, response)
                             except Exception as _goal_exc:
                                 logger.debug("kanban goal loop failed: %s", _goal_exc)
+
+                        # A durable Kanban worker owns its own session, so the
+                        # coordinator's counters never include it. Save the
+                        # session's cumulative usage (after any goal loop) on
+                        # the task for Studio; a failed write must never fail
+                        # the worker.
+                        if os.environ.get("HERMES_KANBAN_TASK"):
+                            try:
+                                from hermes_cli.kanban_usage import (
+                                    record_worker_run_usage_from_env,
+                                    usage_from_agent,
+                                )
+
+                                record_worker_run_usage_from_env(usage_from_agent(cli.agent))
+                            except Exception as _usage_exc:
+                                logger.debug("kanban usage record failed: %s", _usage_exc)
 
                         # Session ID goes to stderr so piped stdout is clean.
                         print(f"\nsession_id: {cli.session_id}", file=sys.stderr)

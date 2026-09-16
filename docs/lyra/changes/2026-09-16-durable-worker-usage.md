@@ -15,7 +15,10 @@ In scope / explicitly deferred: new `hermes_cli/kanban_usage.py` compacts the
 `run_conversation` result into a `task_events` row of kind `usage` (never
 `task_runs.metadata`, which is serialized into child worker prompts), reads the
 newest row per task in one query per board, and gives the quiet worker path in
-`cli.py` a single guarded call keyed on `HERMES_KANBAN_TASK`/`HERMES_KANBAN_RUN_ID`.
+`cli.py` a single guarded call keyed on `HERMES_KANBAN_TASK`/`HERMES_KANBAN_RUN_ID`/
+`HERMES_KANBAN_BOARD`. The call runs after any goal loop and reads the agent's
+cumulative `session_*` counters, because a goal-mode worker keeps calling the
+model after its first `run_conversation` result and that result goes stale.
 `project_run_state()` adds `usage` (dict or `None`) to each task. Frontend:
 `web/src/lib/project-agent-usage.ts` (null-preserving normalisation, totals
 over every reported job including finished ones, formatting), a usage line on

@@ -29,6 +29,19 @@ _COUNTER_KEYS = (
     "api_calls",
 )
 _SQL_VARIABLE_CHUNK = 500
+_AGENT_SESSION_ATTRIBUTES = {
+    "input_tokens": "session_input_tokens",
+    "output_tokens": "session_output_tokens",
+    "cache_read_tokens": "session_cache_read_tokens",
+    "cache_write_tokens": "session_cache_write_tokens",
+    "reasoning_tokens": "session_reasoning_tokens",
+    "api_calls": "session_api_calls",
+    "estimated_cost_usd": "session_estimated_cost_usd",
+    "cost_status": "session_cost_status",
+    "cost_source": "session_cost_source",
+    "model": "model",
+    "session_id": "session_id",
+}
 
 
 def _count(value: Any) -> int:
@@ -53,6 +66,21 @@ def usage_from_run_result(result: Any) -> Optional[dict]:
     }
 
 
+def usage_from_agent(agent: Any) -> Optional[dict]:
+    """Read the agent's cumulative session counters, so every turn of a run counts.
+
+    A goal-mode worker keeps calling the model in the same session after its
+    first ``run_conversation`` result; that result is stale by the time the
+    worker exits, while the agent's ``session_*`` totals are not.
+    """
+    present = {
+        key: getattr(agent, attribute)
+        for key, attribute in _AGENT_SESSION_ATTRIBUTES.items()
+        if hasattr(agent, attribute)
+    }
+    return usage_from_run_result(present)
+
+
 def record_run_usage(
     conn: sqlite3.Connection,
     task_id: str,
@@ -68,22 +96,22 @@ def record_run_usage(
 
 
 def record_worker_run_usage_from_env(
-    result: Any, environ: Mapping[str, str] = os.environ
+    usage: Optional[dict], environ: Mapping[str, str] = os.environ
 ) -> bool:
     """Save this worker process's usage on the task the dispatcher assigned it.
 
-    The dispatcher identifies the worker through ``HERMES_KANBAN_TASK`` and
-    ``HERMES_KANBAN_RUN_ID``; the board resolves through the same environment
-    chain the worker's own Kanban tools use. Nothing is written for a process
+    The dispatcher identifies the worker through ``HERMES_KANBAN_TASK``,
+    ``HERMES_KANBAN_RUN_ID`` and ``HERMES_KANBAN_BOARD`` (``HERMES_KANBAN_DB``
+    still wins inside ``connect`` when set). Nothing is written for a process
     that is not a Kanban worker or whose run reported no counters.
     """
     task_id = str(environ.get("HERMES_KANBAN_TASK") or "")
-    usage = usage_from_run_result(result)
-    if not task_id or usage is None:
+    if not task_id or not usage:
         return False
     run_id_raw = str(environ.get("HERMES_KANBAN_RUN_ID") or "")
     run_id = int(run_id_raw) if run_id_raw.isdigit() else None
-    with kb.connect_closing() as conn, kb.write_txn(conn):
+    board = str(environ.get("HERMES_KANBAN_BOARD") or "") or None
+    with kb.connect_closing(board=board) as conn, kb.write_txn(conn):
         return record_run_usage(conn, task_id, usage, run_id=run_id)
 
 
