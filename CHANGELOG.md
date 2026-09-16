@@ -9,6 +9,14 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.52] - 2026-09-17 — clear provider address guidance
+
+### Improved
+
+- Main AI settings explain the safe restart boundary after editing a saved
+  provider address. Provider switching behavior is unchanged.
+
+
 ## [0.19.51] - 2026-09-16 — the provider already matches
 
 ### Fixed

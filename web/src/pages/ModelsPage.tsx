@@ -55,6 +55,7 @@ import { PluginSlot } from "@/plugins";
 import { ModelPickerDialog } from "@/components/ModelPickerDialog";
 import { ModelReloadConfirm } from "@/components/ModelReloadConfirm";
 import { OAuthProvidersCard } from "@/components/OAuthProvidersCard";
+import { ProviderAddressNotice } from "@/components/ProviderAddressNotice";
 import {
   listenForLyraStudioTheme,
   readLyraStudioTheme,
@@ -1126,6 +1127,7 @@ function QuickModelSetup({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <CardTitle className="text-base">Main AI model</CardTitle>
+            <ProviderAddressNotice />
             <p className="mt-1 text-sm text-text-secondary">
               This is the model Lyra uses to understand you and coordinate your project.
             </p>

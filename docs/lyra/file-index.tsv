@@ -1794,6 +1794,7 @@ docs/lyra/changes/2026-09-16-synced-transcript-refs.md	docs	md: 2026 09 16 synce
 docs/lyra/changes/2026-09-16-turn-free-job-updates.md	docs	md: 2026 09 16 turn free job updates
 docs/lyra/changes/2026-09-16-turn-history-persists.md	docs	md: 2026 09 16 turn history persists
 docs/lyra/changes/2026-09-16-worker-usage-accounting.md	docs	md: 2026 09 16 worker usage accounting
+docs/lyra/changes/2026-09-17-provider-address-notice.md	docs	md: 2026 09 17 provider address notice
 docs/lyra/file-index.tsv	docs	tsv: file index
 docs/middleware/README.md	docs	md: README
 docs/observability/README.md	docs	md: README
@@ -2117,8 +2118,8 @@ hermes_cli/web_dist/assets/RulesCompressed-Medium-CA76_CrB.woff2	hermes_cli	Gene
 hermes_cli/web_dist/assets/RulesCompressed-Regular-BSXFyF4x.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Bold-DZA7s8Pa.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Regular-l8uVympt.woff2	hermes_cli	Generated asset; edit its source and rebuild
-hermes_cli/web_dist/assets/index-B3VYWH2S.js	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/index-BGAdPJZk.css	hermes_cli	Generated asset; edit its source and rebuild
+hermes_cli/web_dist/assets/index-DDsbgfuA.js	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Bold.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Italic.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Regular.woff2	hermes_cli	Generated asset; edit its source and rebuild
@@ -7060,6 +7061,8 @@ web/src/components/ProfileScopeBanner.tsx	web	tsx: ProfileScopeBanner
 web/src/components/ProfileSwitcher.tsx	web	tsx: ProfileSwitcher
 web/src/components/ProjectAgentJobs.test.tsx	web	Behavioral tests: ProjectAgentJobs.test
 web/src/components/ProjectAgentJobs.tsx	web	tsx: ProjectAgentJobs
+web/src/components/ProviderAddressNotice.test.tsx	web	Behavioral tests: ProviderAddressNotice.test
+web/src/components/ProviderAddressNotice.tsx	web	Explain the explicit restart boundary for editing a saved connection.
 web/src/components/ReasoningPicker.tsx	web	* ReasoningPicker — sets the main model's reasoning effort from the dashboard
 web/src/components/ScheduleBuilder.tsx	web	tsx: ScheduleBuilder
 web/src/components/SidebarFooter.tsx	web	tsx: SidebarFooter
