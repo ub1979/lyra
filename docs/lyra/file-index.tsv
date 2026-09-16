@@ -1785,6 +1785,7 @@ docs/lyra/changes/2026-09-16-notification-busy-ownership.md	docs	md: 2026 09 16 
 docs/lyra/changes/2026-09-16-packaged-app-name-and-index-job.md	docs	md: 2026 09 16 packaged app name and index job
 docs/lyra/changes/2026-09-16-packaged-first-run-gate.md	docs	md: 2026 09 16 packaged first run gate
 docs/lyra/changes/2026-09-16-project-run-tool.md	docs	md: 2026 09 16 project run tool
+docs/lyra/changes/2026-09-16-provider-identity.md	docs	md: 2026 09 16 provider identity
 docs/lyra/changes/2026-09-16-refine-past-warning-and-cold-resume.md	docs	md: 2026 09 16 refine past warning and cold resume
 docs/lyra/changes/2026-09-16-reply-turn-identity.md	docs	md: 2026 09 16 reply turn identity
 docs/lyra/changes/2026-09-16-studio-event-reducer-and-journeys.md	docs	md: 2026 09 16 studio event reducer and journeys
@@ -6366,6 +6367,7 @@ tests/tui_gateway/test_pet_generate_rpc.py	tests	Behavioral tests: pet generate 
 tests/tui_gateway/test_project_tree.py	tests	Behavioral tests: project tree
 tests/tui_gateway/test_projects_rpc.py	tests	Behavioral tests: projects rpc
 tests/tui_gateway/test_protocol.py	tests	Behavioral tests: protocol
+tests/tui_gateway/test_provider_identity.py	tests	Behavioral tests: provider identity
 tests/tui_gateway/test_reasoning_config_per_model.py	tests	Behavioral tests: reasoning config per model
 tests/tui_gateway/test_reasoning_session_scope.py	tests	Behavioral tests: reasoning session scope
 tests/tui_gateway/test_render.py	tests	Behavioral tests: render
@@ -6523,6 +6525,7 @@ tui_gateway/loop_noise.py	tui_gateway	Suppress benign event-loop teardown noise 
 tui_gateway/notification_policy.py	tui_gateway	Decide which saved-job updates may spend a model turn in the Studio conversation.
 tui_gateway/notification_turn.py	tui_gateway	Own the session busy flag for one durable notification delivery attempt.
 tui_gateway/project_tree.py	tui_gateway	Authoritative project -> repo -> lane -> session tree builder.
+tui_gateway/provider_identity.py	tui_gateway	Is the agent already running the provider config.yaml names?
 tui_gateway/render.py	tui_gateway	Rendering bridge — routes TUI content through Python-side renderers.
 tui_gateway/server.py	tui_gateway	py: server
 tui_gateway/slash_worker.py	tui_gateway	Persistent slash-command worker — one HermesCLI per TUI session.

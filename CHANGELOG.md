@@ -9,6 +9,19 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.51] - 2026-09-16 — the provider already matches
+
+### Fixed
+
+- Studio no longer switches models or inserts a model-change note on the first
+  turn when a named provider already matches the agent's resolved provider
+  class and endpoint. Genuine model and endpoint changes still switch normally.
+- Endpoint identity preserves case-sensitive paths and query strings while
+  accepting host case and trailing-slash differences.
+
+Restart the backend when active work is finished to load this fix. No data
+migration is required; this does not claim to resolve every history conflict.
+
 ## [0.19.50] - 2026-09-16 — the reply keeps its bubble
 
 ### Fixed

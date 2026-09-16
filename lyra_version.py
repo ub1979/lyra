@@ -18,13 +18,13 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
-LYRA_VERSION = "0.19.50"
+LYRA_VERSION = "0.19.51"
 """Semantic version. Bump with every release; the changelog's top entry must match."""
 
 LYRA_CHANNEL = "beta"
 """alpha → beta → rc → stable. Shown next to the number so nobody mistakes this for finished."""
 
-LYRA_RELEASE_NAME = "the reply keeps its bubble"
+LYRA_RELEASE_NAME = "the provider already matches"
 """Short human name for the release. The line under the number in the UI."""
 
 LYRA_RELEASED = "2026-09-16"
@@ -37,7 +37,7 @@ _update_cache: dict[str, Any] = {}
 
 
 def lyra_version_display() -> str:
-    """What the user sees: ``beta v0.19.50``.
+    """What the user sees: ``beta v0.19.51``.
 
     The patch digit is dropped when it is zero — a release called
     "alpha v0.17.0" reads like a build number, not a version.
@@ -52,7 +52,7 @@ def changelog_entry(version: str = LYRA_VERSION) -> Optional[dict[str, Any]]:
     """Return ``{version, released, notes}`` for *version*, or None if absent.
 
     Parses the Keep-a-Changelog shape this repo uses:
-    ``## [0.19.50] - 2026-09-16 — the reply keeps its bubble``.
+    ``## [0.19.51] - 2026-09-16 — the provider already matches``.
     """
     try:
         text = CHANGELOG_PATH.read_text(encoding="utf-8")

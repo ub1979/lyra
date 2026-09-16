@@ -3841,6 +3841,14 @@ def _apply_model_switch(
     }
 
 
+def _configured_provider_identity(provider: str, model: str) -> Optional[tuple[str, str]]:
+    """(resolved class, base_url) of a configured provider name, or None."""
+    from hermes_cli.runtime_provider import resolve_runtime_provider
+
+    runtime = resolve_runtime_provider(requested=provider, target_model=model or None)
+    return str(runtime.get("provider") or ""), str(runtime.get("base_url") or "")
+
+
 def _sync_agent_model_with_config(sid: str, session: dict) -> None:
     """Adopt a config.yaml model change at turn start, like gateways do per
     message. Ordinary sessions pinned with /model keep their choice. Studio's
@@ -3869,9 +3877,16 @@ def _sync_agent_model_with_config(sid: str, session: dict) -> None:
     model, provider = target
     # Already running the configured model (branched/resumed session before
     # its first sync, or a config revert after a failed switch): adopt the
-    # baseline without a redundant switch.
-    if model == getattr(agent, "model", "") and (
-        not provider or provider == getattr(agent, "provider", "")
+    # baseline without a redundant switch. The agent is built with the
+    # provider's resolved class ("custom") and switched to its name later, so
+    # the comparison goes through provider_identity, not raw strings.
+    from tui_gateway.provider_identity import same_provider_identity
+
+    if model == getattr(agent, "model", "") and same_provider_identity(
+        provider,
+        getattr(agent, "provider", ""),
+        getattr(agent, "base_url", ""),
+        lambda name: _configured_provider_identity(name, model),
     ):
         if studio:
             session.pop("model_override", None)

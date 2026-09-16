@@ -127,6 +127,16 @@ def test_first_turn_model_adoption_keeps_the_reply(runtime, monkeypatch, capsys)
     assert any(c.startswith(MARKER_PREFIX) for _, c in roles), "the model note stays part of the history"
     assert session["history_version"] >= 2
     assert "history_version mismatch" not in capsys.readouterr().err
+
+    # A fresh connection must see the reply, not just the live session cache.
+    from hermes_state import SessionDB
+
+    reopened = SessionDB(db_path=db.db_path, read_only=True)
+    try:
+        assert any(m["content"] == roles[-1][1]
+                   for m in reopened.get_messages(session["session_key"]))
+    finally:
+        reopened.close()
     _, completes = _complete_frames(rt)
     assert len(completes) == 1
     assert "warning" not in completes[0]["payload"]
@@ -173,3 +183,50 @@ def test_external_history_change_during_turn_is_reported(runtime, monkeypatch, c
     assert payload["text"] == "This reply arrives after someone rewrote the history."
     assert "not saved to session history" in payload["warning"]
     write_or_check("reply-not-saved", frames)
+
+
+def test_a_session_built_on_the_configured_provider_is_not_switched(runtime, monkeypatch, capsys):
+    """The build path stores the provider's resolved class ("custom") and its
+    endpoint; config names the entry ("mock"). That is the same provider, so
+    the first turn must not switch, append a note, or touch the history version."""
+    rt = runtime
+    session = _studio_session(rt, agent_model="studio-model")
+    db = rt.server._get_db()
+    agent, _ = _controlled_agent(session, db, iter(["Plain reply, no ceremony."]), model="studio-model")
+    agent.provider = "custom"
+    agent.base_url = "http://127.0.0.1:4010/v1"
+    session["agent"] = agent
+    apply, switches = _fake_switch(rt, agent)
+    monkeypatch.setattr(rt.server, "_apply_model_switch", apply)
+    monkeypatch.setattr(rt.server, "_config_model_target", lambda: ("studio-model", "mock"))
+    monkeypatch.setattr(
+        rt.server,
+        "_configured_provider_identity",
+        lambda provider, model: ("custom", "http://127.0.0.1:4010/v1/") if provider == "mock" else None,
+    )
+
+    _run_turn(rt, session, "hello")
+
+    assert switches == []
+    contents = [m["content"] for m in session["history"]]
+    assert not any(c.startswith(MARKER_PREFIX) for c in contents)
+    assert "Plain reply, no ceremony." in contents
+    assert session["history_version"] == 1
+    assert "history_version mismatch" not in capsys.readouterr().err
+
+
+def test_same_model_on_a_different_endpoint_still_switches(runtime, monkeypatch):
+    rt = runtime
+    session = _studio_session(rt, agent_model="studio-model")
+    agent, _ = _controlled_agent(session, rt.server._get_db(), iter(["New endpoint reply."]), model="studio-model")
+    agent.provider = "custom"
+    agent.base_url = "http://127.0.0.1:4010/v1"
+    session["agent"] = agent
+    apply, switches = _fake_switch(rt, agent)
+    monkeypatch.setattr(rt.server, "_apply_model_switch", apply)
+    monkeypatch.setattr(rt.server, "_config_model_target", lambda: ("studio-model", "other"))
+    monkeypatch.setattr(rt.server, "_configured_provider_identity",
+                        lambda provider, model: ("custom", "http://127.0.0.1:4020/v1"))
+    _run_turn(rt, session, "hello")
+    assert switches == ["studio-model --provider other"]
+    assert any(m["content"].startswith(MARKER_PREFIX) for m in session["history"])
