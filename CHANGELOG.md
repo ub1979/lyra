@@ -9,6 +9,27 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.46] - 2026-09-16 — the desktop finds its backend
+
+### Fixed
+
+- The desktop app could not recognise the backend it starts: since the July
+  rebrand the backend announces `IDRAK_IT_DASHBOARD_READY` while the desktop
+  still waited for `HERMES_DASHBOARD_READY`, so a locally spawned backend
+  timed out after 90 s on every launch (SSH remote mode and the `iso-certify`
+  script had the same pattern). Both spellings are now accepted, and a test
+  matches every listener against the exact line the backend prints.
+- CI told the truth again: the Python unit-test matrix had been skipped on
+  every run because the committed file index contained files that exist only
+  on the machine that generated it; the index now lists tracked files only.
+  28 test helpers read and write files without an explicit UTF-8 encoding,
+  which the Windows-footgun lint blocks. Desktop unit and E2E tests still
+  looked for pre-rebrand "Hermes" copy. The packaged-app validation, which
+  needs a built installer, moved out of the per-script matrix into its own
+  job that builds one first.
+
+Restart Lyra and reload Studio once. Desktop users: relaunch the app.
+
 ## [0.19.45] - 2026-09-16 — a browser sees Studio
 
 ### Improved
