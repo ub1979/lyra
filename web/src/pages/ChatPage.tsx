@@ -141,7 +141,14 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type SetStateAction,
+} from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 
@@ -1008,6 +1015,27 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     typeof window === "undefined" ? [] : readGuidedMessages(workspaceParam),
   );
   const guidedMessagesRef = useRef(guidedMessages);
+  // The refs are the source of truth for the event reducer's snapshot, so every
+  // writer updates them synchronously; React state follows. A ref that only
+  // caught up in an effect could be read stale by the very next frame.
+  const setGuidedMessagesSynced = useCallback(
+    (update: SetStateAction<GuidedMessage[]>) => {
+      const next =
+        typeof update === "function" ? update(guidedMessagesRef.current) : update;
+      guidedMessagesRef.current = next;
+      setGuidedMessages(next);
+    },
+    [],
+  );
+  const setGuidedActivitySynced = useCallback(
+    (update: SetStateAction<GuidedChatPresentation>) => {
+      const next =
+        typeof update === "function" ? update(guidedActivityRef.current) : update;
+      guidedActivityRef.current = next;
+      setGuidedActivity(next);
+    },
+    [],
+  );
   const guidedWelcomeStartedRef = useRef(false);
   const [guidedMessageWorkspace, setGuidedMessageWorkspace] =
     useState(workspaceParam);
@@ -1191,7 +1219,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const blockedInputNoticeRef = useRef(false);
   const lastResumeReconnectAtRef = useRef(0);
   const appendGuidedError = useCallback((content: string) => {
-    setGuidedMessages((messages) => {
+    setGuidedMessagesSynced((messages) => {
       const next = appendErrorMessage(
         { ...INITIAL_GUIDED_STATE, messages },
         content,
@@ -1200,7 +1228,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       guidedMessagesRef.current = next;
       return next;
     });
-  }, []);
+  }, [setGuidedMessagesSynced]);
 
   const markGuidedAgentReady = useCallback(() => {
     guidedAgentReadyRef.current = true;
@@ -1362,7 +1390,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   useEffect(() => {
     if (!guided || guidedMessageWorkspace === workspaceParam) return;
     const phaseState = readGuidedPhaseState(workspaceParam);
-    setGuidedMessages(readGuidedMessages(workspaceParam));
+    setGuidedMessagesSynced(readGuidedMessages(workspaceParam));
     setGuidedMessageWorkspace(workspaceParam);
     setGuidedPhaseCurrent(phaseState.current);
     setGuidedPhasesCompleted(phaseState.completed);
@@ -1371,7 +1399,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     guidedWelcomeStartedRef.current = false;
     lastGuidedResponseRef.current = "";
     guidedTurnSettledRef.current = true;
-    setGuidedActivity({ phase: "idle", text: "", specialist: null });
+    setGuidedActivitySynced({ phase: "idle", text: "", specialist: null });
     setGuidedWorkers([]);
     guidedApprovalRef.current = null;
     setGuidedApproval(null);
@@ -1384,7 +1412,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     setGuidedSkillModels({});
     guidedModelProviderRef.current = "";
     setGuidedModelProvider("");
-  }, [clearGuidedClarification, guided, guidedMessageWorkspace, workspaceParam]);
+  }, [clearGuidedClarification, guided, guidedMessageWorkspace, setGuidedActivitySynced, setGuidedMessagesSynced, workspaceParam]);
 
   // Keep the preloaded skill set aligned with the project URL as the
   // persistent ChatPage moves between the launcher, model settings, and chat.
@@ -1450,11 +1478,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     (previous: GuidedEventState, next: GuidedEventState) => {
       if (next.messages !== previous.messages) {
         guidedMessagesRef.current = next.messages as GuidedMessage[];
-        setGuidedMessages(next.messages as GuidedMessage[]);
+        setGuidedMessagesSynced(next.messages as GuidedMessage[]);
       }
       if (next.activity !== previous.activity) {
         guidedActivityRef.current = next.activity;
-        setGuidedActivity(next.activity);
+        setGuidedActivitySynced(next.activity);
       }
       if (next.usage !== previous.usage) {
         guidedUsageRef.current = next.usage;
@@ -1497,7 +1525,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       guidedTurnSeqRef.current = next.turnSeq;
       guidedTurnSettledRef.current = next.turnSettled;
     },
-    [],
+    [setGuidedActivitySynced, setGuidedMessagesSynced],
   );
 
   /** The one effect that talks to the socket: hand the next phase to its agent. */
@@ -1656,7 +1684,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     } catch {
       // State still clears when browser storage is unavailable.
     }
-    setGuidedMessages([]);
+    setGuidedMessagesSynced([]);
     setGuidedOutput("");
     setGuidedInput("");
     setGuidedPaused(false);
@@ -1674,11 +1702,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     guidedSubagentGraceUntilRef.current = 0;
     guidedActiveToolsRef.current = new Map();
     setGuidedCompacting(false);
-    setGuidedActivity({ phase: "idle", text: "", specialist: null });
+    setGuidedActivitySynced({ phase: "idle", text: "", specialist: null });
     lastGuidedResponseRef.current = "";
     guidedTurnSettledRef.current = true;
     startFreshDashboardChat();
-  }, [startFreshDashboardChat, workspaceParam]);
+  }, [setGuidedActivitySynced, setGuidedMessagesSynced, startFreshDashboardChat, workspaceParam]);
   // Raw state for the mobile side-sheet + a derived value that force-
   // closes whenever the chat tab isn't active.  The *derived* value is
   // what side-effects (body-scroll lock, keydown listener, portal render)
@@ -1897,7 +1925,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         if (type === "clarify.resolved") {
           if (questionResolved) {
             setGuidedLastSignalAt(Date.now());
-            setGuidedActivity({ phase: "working", text: payload?.status === "cancelled"
+            setGuidedActivitySynced({ phase: "working", text: payload?.status === "cancelled"
               ? "Question closed. Continuing…" : "Answer received. Lyra is continuing with your request…", specialist: APP_IT_SPECIALIST });
           }
           return;
@@ -1911,7 +1939,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                   (choice): choice is string => typeof choice === "string",
                 )
               : [];
-            setGuidedMessages((messages) =>
+            setGuidedMessagesSynced((messages) =>
               messages.some((message) => message.id === id)
                 ? messages
                 : [
@@ -1927,7 +1955,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             );
           }
           setGuidedLastSignalAt(Date.now());
-          setGuidedActivity({ phase: "working", text: "Waiting for your answer…", specialist: APP_IT_SPECIALIST });
+          setGuidedActivitySynced({ phase: "working", text: "Waiting for your answer…", specialist: APP_IT_SPECIALIST });
           return;
         }
         if (type === "clarify.expire") {
@@ -1972,6 +2000,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     runGuidedEffects,
     snapshotGuidedState,
     workspaceParam,
+    setGuidedActivitySynced,
+    setGuidedMessagesSynced,
   ]);
 
   useEffect(() => {
@@ -2026,7 +2056,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         if (cancelled) return;
         const recovered = recoverGuidedSessionTail(response.messages);
         if (!recovered.length) return;
-        setGuidedMessages((current) =>
+        setGuidedMessagesSynced((current) =>
           current === baseline
             ? mergeRecoveredGuidedSessionTail(current, recovered)
             : current,
@@ -2045,6 +2075,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     guidedMessageWorkspace,
     resumeParam,
     scopedProfile,
+    setGuidedMessagesSynced,
     workspaceParam,
   ]);
 
@@ -2157,7 +2188,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     const resolvedAnswer = guidedClarificationAnswer(request, answer);
     if (!answerClarification(resolvedAnswer)) return false;
     const id = `answer-${requestId}`;
-    setGuidedMessages((messages) => messages.some(message => message.id === id) ? messages : [...messages, {
+    setGuidedMessagesSynced((messages) => messages.some(message => message.id === id) ? messages : [...messages, {
       id,
       role: "user",
       content: resolvedAnswer,
@@ -2166,7 +2197,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     setGuidedInput("");
     setGuidedLastSignalAt(Date.now());
     return true;
-  }, [answerClarification, guidedClarificationRef]);
+  }, [answerClarification, guidedClarificationRef, setGuidedMessagesSynced]);
 
   const submitGuidedText = useCallback(
     (
@@ -2198,7 +2229,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       const key = guidedApprovalKey(approval.choices, choice);
       if (!key) return;
       ws.send(key);
-      setGuidedMessages((messages) => [
+      setGuidedMessagesSynced((messages) => [
         ...messages,
         {
           id: `approval-answer-${Date.now()}`,
@@ -2212,7 +2243,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       setGuidedInput("");
       setBanner(null);
       setGuidedLastSignalAt(Date.now());
-      setGuidedActivity((current) => ({
+      setGuidedActivitySynced((current) => ({
         phase: "working",
         text: choice === "deny" ? "Stopping that action…" : "Continuing…",
         specialist: current.specialist ?? APP_IT_SPECIALIST,
@@ -2256,7 +2287,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     guidedAutoContinueCountRef.current = 0;
     lastGuidedResponseRef.current = "";
     setGuidedLastSignalAt(Date.now());
-    setGuidedMessages((messages) => [
+    setGuidedMessagesSynced((messages) => [
       ...messages,
       {
         id: `user-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -2265,7 +2296,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         createdAt: Date.now(),
       },
     ]);
-    setGuidedActivity({
+    setGuidedActivitySynced({
       phase: "working",
       text: "Let me think…",
       specialist: guidedDefaultSpecialistRef.current,
@@ -2290,7 +2321,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     });
     if (!options.preserveDraft) setGuidedInput("");
     },
-    [respondToGuidedClarification, guidedClarificationRef],
+    [respondToGuidedClarification, guidedClarificationRef, setGuidedActivitySynced, setGuidedMessagesSynced],
   );
 
   const sendGuidedProjectState = useCallback(
@@ -2720,7 +2751,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     setGuidedCompacting(false);
     setGuidedOutput("");
     setGuidedLastSignalAt(Date.now());
-    setGuidedMessages((messages) =>
+    setGuidedMessagesSynced((messages) =>
       messages[messages.length - 1]?.role === "error"
         ? messages.slice(0, -1)
         : messages,
@@ -2728,7 +2759,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     const inferred = lastAssistantMessage
       ? analyzeGuidedChatOutput(lastAssistantMessage.content).specialist
       : null;
-    setGuidedActivity({
+    setGuidedActivitySynced({
       phase: "working",
       text: "Trying that again…",
       specialist:
@@ -2756,7 +2787,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         },
       );
     }, 300);
-  }, [guidedMessages]);
+  }, [guidedMessages, setGuidedActivitySynced, setGuidedMessagesSynced]);
 
   const handleCopyLast = () => {
     const ws = wsRef.current;
@@ -3305,7 +3336,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         // before the WebSocket exists. Once the saved chat is open again,
         // that transport error is no longer true and must not remain as a
         // permanent Problem message in the conversation.
-        setGuidedMessages(clearRecoveredGuidedConnectionErrors);
+        setGuidedMessagesSynced(clearRecoveredGuidedConnectionErrors);
       }
       blockedInputNoticeRef.current = false;
       // Connected — cancel any pending reconnect from a prior transient drop.
@@ -3355,7 +3386,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 "The project conversation did not finish preparing. Use Restart project chat below to reconnect it without losing this project’s saved conversation.",
               );
               guidedTurnSettledRef.current = true;
-              setGuidedActivity({
+              setGuidedActivitySynced({
                 phase: "idle",
                 text: "",
                 specialist: null,
@@ -3373,7 +3404,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             term.buffer.active.length - 1,
           );
           guidedTurnSettledRef.current = false;
-          setGuidedActivity({
+          setGuidedActivitySynced({
             phase: "working",
             text: "Let me think…",
             specialist: guidedDefaultSpecialistRef.current,
@@ -3408,7 +3439,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 term.buffer.active.length - 1,
               );
               guidedTurnSettledRef.current = false;
-              setGuidedActivity({
+              setGuidedActivitySynced({
                 phase: "working",
                 text: "Lyra is getting to know your project…",
                 specialist: APP_IT_SPECIALIST,
@@ -3475,7 +3506,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         // Never leave a friendly specialist animation claiming work is still
         // happening after its transport has closed. A reconnect or reload
         // will establish a fresh, truthful activity state.
-        setGuidedActivity({
+        setGuidedActivitySynced({
           phase: "idle",
           text: "",
           specialist: null,
@@ -3630,7 +3661,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             setGuidedLastSignalAt(Date.now());
             guidedTurnSettledRef.current = true;
             appendGuidedError(snapshot.errorMessage);
-            setGuidedActivity({
+            setGuidedActivitySynced({
               phase: "idle",
               text: "",
               specialist: null,
@@ -3642,7 +3673,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               guidedSelectedSpecialistIdsRef.current.includes(detected.id)
                 ? detected
                 : null;
-            setGuidedActivity((current) => ({
+            setGuidedActivitySynced((current) => ({
               phase:
                 guidedStructuredFeedEstablishedRef.current &&
                 snapshot.presentation.phase === "response"
@@ -3686,7 +3717,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         // transient WebSocket close: retry the same attach token with
         // backoff and keep the temporary outage out of durable chat history.
         if (guided) {
-          setGuidedActivity({
+          setGuidedActivitySynced({
             phase: "idle",
             text: "",
             specialist: null,
@@ -3707,7 +3738,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             ? `The project chat could not connect: ${error.message}`
             : "The project chat could not connect. Reload and try again.",
         );
-        setGuidedActivity({
+        setGuidedActivitySynced({
           phase: "idle",
           text: "",
           specialist: null,
@@ -3777,6 +3808,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     appendGuidedError,
     finishGuidedResponse,
     markGuidedAgentReady,
+    setGuidedActivitySynced,
+    setGuidedMessagesSynced,
   ]);
 
   useEffect(() => {
@@ -3877,7 +3910,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       }
       appendGuidedError(guidedWatchdogMessage(decision.reason));
       guidedTurnSettledRef.current = true;
-      setGuidedActivity({ phase: "idle", text: "", specialist: null });
+      setGuidedActivitySynced({ phase: "idle", text: "", specialist: null });
     }, remainingMs);
     return () => window.clearTimeout(timeout);
   }, [
@@ -3890,6 +3923,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     guidedApproval,
     guidedLastSignalAt,
     sendGuidedControlCommand,
+    setGuidedActivitySynced,
   ]);
 
   // When the user returns to the chat tab (isActive: false → true), the
