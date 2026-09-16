@@ -9,6 +9,24 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.47] - 2026-09-16 — the launcher knows its name
+
+### Fixed
+
+- `hermes desktop` could not find a packaged app: the executable has been
+  called `Lyra` since the rebrand while the launcher, the uninstaller and the
+  packaging checks still looked for `Hermes`. All of them now read the name
+  from the desktop package configuration and keep the old name as a fallback
+  for installs made before the rename.
+- A stale file index no longer skips the Python test matrix in CI; the
+  freshness check runs as its own visible job.
+- The Python matrix's first run in weeks exposed eleven stale tests (upstream
+  update-check contract, pre-rebrand copy, a removed ETA map, a CI runner
+  without a git identity, a mocked hook) and two Telegram-topic database reads
+  that bypassed the gateway's awaited-call rule; all repaired.
+
+No restart needed for Studio.
+
 ## [0.19.46] - 2026-09-16 — the desktop finds its backend
 
 ### Fixed
