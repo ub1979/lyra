@@ -65,8 +65,6 @@ import {
   formatGuidedTokens,
   guidedUsageTotal,
   markGuidedWorkerStopping,
-  normalizeGuidedUsage,
-  updateGuidedWorkers,
   type GuidedRuntimeEventPayload,
   type GuidedUsageSnapshot,
   type GuidedWorkerRuntime,
@@ -74,22 +72,16 @@ import {
 import {
   guidedPhaseProgress,
   guidedPhaseSummary,
-  nextGuidedPhase,
   orderGuidedPhases,
-  parseGuidedPhaseMarkers,
-  shouldAdvanceGuidedPhase,
 } from "@/lib/guided-phase-plan";
 import {
-  guidedApprovalChoices,
   guidedApprovalChoiceFromText,
   guidedApprovalKey,
   guidedApprovalLabel,
-  guidedApprovalMessage,
   guidedPhaseContinuationDirective,
   guidedProjectExecutionTurnDirective,
   guidedProjectTurnDirectives,
   unavailableGuidedModelAssignments,
-  type GuidedApprovalChoice,
   type GuidedUnavailableModelAssignment,
 } from "@/lib/guided-agent-routing";
 import {
@@ -99,16 +91,21 @@ import {
 } from "@/lib/guided-agent-model-preferences";
 import {
   GUIDED_MODEL_SILENCE_TIMEOUT_MS,
-  GUIDED_TOOL_SILENCE_GRACE_MS,
   decideGuidedWatchdog,
-  extendGuidedSubagentGrace,
-  guidedCompressionTransition,
   guidedWatchdogMessage,
-  isGuidedModelActivityEvent,
-  shouldRestoreGuidedWorkingState,
 } from "@/lib/guided-turn-watchdog";
-import { guidedJobNotice } from "@/lib/guided-job-notice";
-import { mergeGuidedResponse } from "@/lib/guided-response-merge";
+import type { GatewayEvent } from "@hermes/shared";
+import { applyGuidedResponse, reduceGuidedEvent } from "@/lib/guided-event-reducer";
+import {
+  INITIAL_GUIDED_STATE,
+  appendErrorMessage,
+  type GuidedApprovalRequest,
+  type GuidedEffect,
+  type GuidedEventContext,
+  type GuidedEventState,
+  type GuidedMessage,
+  type GuidedRunningTool,
+} from "@/lib/guided-event-state";
 import {
   clearRecoveredGuidedConnectionErrors,
   isTransientGuidedConnectionSetupError,
@@ -180,12 +177,9 @@ import { useModalBehavior } from "@/hooks/useModalBehavior";
 import {
   analyzeGuidedChatOutput,
   canUseGuidedTerminalFallback,
-  extractAppItSkillSelection,
-  friendlyActivityLabel,
   guidedStructuredFeedEstablished,
   isGuidedCancellationNotice,
   sanitizeGuidedResponse,
-  shouldAutoContinueGuidedWorkflow,
   type GuidedChatPresentation,
   type GuidedSpecialist,
 } from "@/lib/guided-chat-output";
@@ -273,22 +267,6 @@ function writeGuidedPanelPreference(key: string, open: boolean): void {
   }
 }
 
-interface GuidedMessage {
-  id: string;
-  role: "user" | "assistant" | "error";
-  content: string;
-  plain?: boolean;
-  createdAt?: number;
-  turn?: number;
-}
-
-interface GuidedRunningTool {
-  deadline: number;
-  id: string;
-  label: string;
-  name: string;
-  startedAt: number;
-}
 
 interface GuidedAgentEventEnvelope {
   method?: string;
@@ -324,14 +302,6 @@ interface GuidedAgentEventEnvelope {
       usage?: unknown;
     };
   };
-}
-
-interface GuidedApprovalRequest {
-  choices: GuidedApprovalChoice[];
-  command: string;
-  description: string;
-  fingerprint: string;
-  messageId: string;
 }
 
 interface GuidedModelReviewRequest {
@@ -823,6 +793,11 @@ export function GuidedMainActivity({
 }
 
 
+/** Ids for transcript lines; the reducer never reads the clock or randomness itself. */
+function guidedNewId(prefix: string): string {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 function guidedAgentName(id: string, label?: string): string {
   const base = label ?? GUIDED_SPECIALIST_LABELS[id] ?? id;
   return /\bagent\b/i.test(base) ? base : `${base} agent`;
@@ -1028,6 +1003,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const guidedActivityRef = useRef(guidedActivity);
   const [guidedLastSignalAt, setGuidedLastSignalAt] = useState(Date.now);
   const [guidedCompacting, setGuidedCompacting] = useState(false);
+  const guidedCompactingRef = useRef(false);
   const [guidedMessages, setGuidedMessages] = useState<GuidedMessage[]>(() =>
     typeof window === "undefined" ? [] : readGuidedMessages(workspaceParam),
   );
@@ -1127,6 +1103,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     useState("Project default");
   const [guidedUsage, setGuidedUsage] =
     useState<GuidedUsageSnapshot>(EMPTY_GUIDED_USAGE);
+  const guidedUsageRef = useRef<GuidedUsageSnapshot>(EMPTY_GUIDED_USAGE);
   const [guidedApproval, setGuidedApproval] =
     useState<GuidedApprovalRequest | null>(null);
   const guidedApprovalRef = useRef<GuidedApprovalRequest | null>(null);
@@ -1144,6 +1121,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     useState<GuidedModelReviewRequest | null>(null);
   const guidedModelReviewRef = useRef<GuidedModelReviewRequest | null>(null);
   const [guidedWorkers, setGuidedWorkers] = useState<GuidedWorkerRuntime[]>([]);
+  const guidedWorkersRef = useRef<readonly GuidedWorkerRuntime[]>([]);
+  // Streamed reply text for the turn in flight; owned by the event reducer.
+  const guidedStreamedTextRef = useRef("");
   const [guidedRecommendedSpecialistIds, setGuidedRecommendedSpecialistIds] =
     useState<string[]>([]);
   const [guidedTeamRecommendationPending, setGuidedTeamRecommendationPending] =
@@ -1212,17 +1192,13 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const lastResumeReconnectAtRef = useRef(0);
   const appendGuidedError = useCallback((content: string) => {
     setGuidedMessages((messages) => {
-      const last = messages[messages.length - 1];
-      if (last?.role === "error" && last.content === content) return messages;
-      return [
-        ...messages,
-        {
-          id: `error-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-          role: "error",
-          content,
-          createdAt: Date.now(),
-        },
-      ];
+      const next = appendErrorMessage(
+        { ...INITIAL_GUIDED_STATE, messages },
+        content,
+        { newId: guidedNewId, now: Date.now() },
+      ).messages as GuidedMessage[];
+      guidedMessagesRef.current = next;
+      return next;
     });
   }, []);
 
@@ -1239,6 +1215,18 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   useEffect(() => {
     guidedActivityRef.current = guidedActivity;
   }, [guidedActivity]);
+
+  useEffect(() => {
+    guidedUsageRef.current = guidedUsage;
+  }, [guidedUsage]);
+
+  useEffect(() => {
+    guidedWorkersRef.current = guidedWorkers;
+  }, [guidedWorkers]);
+
+  useEffect(() => {
+    guidedCompactingRef.current = guidedCompacting;
+  }, [guidedCompacting]);
 
   const applyGuidedSpecialistIds = useCallback(
     (ids: readonly string[]) => {
@@ -1411,85 +1399,171 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   // Counts model turns (message.start) so a completed reply can refine only
   // the reply of its own turn; a notification turn never overwrites the last.
   const guidedTurnSeqRef = useRef(0);
-  const finishGuidedResponse = useCallback((content: string) => {
-    // Phase markers come off first: they are stripped from what the user reads
-    // and they, not the wording of the reply, decide who is working and what
-    // runs next.
-    const phases = parseGuidedPhaseMarkers(
-      content,
-      GUIDED_SELECTABLE_SPECIALIST_IDS,
-    );
-    const startedPhase = phases.started[phases.started.length - 1] ?? null;
-    if (phases.completed.length) {
-      const merged = Array.from(
-        new Set([...guidedPhasesCompletedRef.current, ...phases.completed]),
-      );
-      guidedPhasesCompletedRef.current = merged;
-      setGuidedPhasesCompleted(merged);
-    }
-    if (startedPhase) {
-      guidedPhaseCurrentRef.current = startedPhase;
-      setGuidedPhaseCurrent(startedPhase);
-    } else if (
-      guidedPhaseCurrentRef.current &&
-      phases.completed.includes(guidedPhaseCurrentRef.current)
-    ) {
-      guidedPhaseCurrentRef.current = null;
-      setGuidedPhaseCurrent(null);
-    }
 
-    const skillSelection = extractAppItSkillSelection(
-      phases.content,
-      GUIDED_SELECTABLE_SPECIALIST_IDS,
-    );
-    // A marker is a proposal, never permission. Lyra can recommend the smallest
-    // useful team, but the editable dashboard confirmation is the only place a
-    // recommendation becomes project state.
-    if (skillSelection) {
-      const recommended = withRequiredGuidedSpecialists(
-        skillSelection.skillIds,
-        GUIDED_SELECTABLE_SPECIALIST_IDS,
-      );
-      setGuidedRecommendedSpecialistIds(recommended);
-      setGuidedSkillDraftIds(recommended);
-      setGuidedSkillModelDraft({ ...guidedSkillModelsRef.current });
-      setGuidedTeamRecommendationPending(true);
-      setGuidedSkillsOpen(true);
-    }
-    const response = sanitizeGuidedResponse(
-      skillSelection?.content ?? phases.content,
-    );
-    if (!response || response === lastGuidedResponseRef.current) return;
+  /** Read-only facts for the event reducer; every clock and id is injected here. */
+  const guidedContext = useCallback(
+    (): GuidedEventContext => ({
+      agentName: guidedAgentName,
+      appItSpecialist: APP_IT_SPECIALIST,
+      clarificationPending: Boolean(guidedClarificationRef.current),
+      defaultSpecialist: guidedDefaultSpecialistRef.current,
+      labelFor: (id) => GUIDED_SPECIALIST_LABELS[id],
+      newId: guidedNewId,
+      now: Date.now(),
+      selectableSpecialistIds: GUIDED_SELECTABLE_SPECIALIST_IDS,
+      selectedSpecialistIds: guidedSelectedSpecialistIdsRef.current,
+    }),
+    [guidedClarificationRef],
+  );
 
-    // Deterministic advancement: a phase reported a verified artifact, another
-    // enabled phase is still outstanding, and the reply is not asking the user
-    // anything. The prose-regex path below stays as a fallback for replies that
-    // carry no markers at all.
-    const orderedPhases = orderGuidedPhases(
-      guidedSelectedSpecialistIdsRef.current,
-    );
-    const upcoming = nextGuidedPhase({
-      completed: guidedPhasesCompletedRef.current,
-      current: guidedPhaseCurrentRef.current,
-      ordered: orderedPhases,
-    });
-    guidedPhaseAdvanceRef.current = shouldAdvanceGuidedPhase({
-      completedInReply: phases.completed,
-      next: upcoming,
-      reply: response,
-      startedInReply: phases.started,
-    })
-      ? upcoming
-      : null;
-    guidedTurnSettledRef.current = true;
-    lastGuidedResponseRef.current = response;
-    setGuidedLastSignalAt(Date.now());
-    setGuidedOutput(response);
-    setGuidedActivity({ phase: "idle", text: "", specialist: null });
-    setGuidedMessages((messages) =>
-      mergeGuidedResponse(messages, response, guidedTurnSeqRef.current, Date.now()),
-    );
-  }, []);
+  /** The reducer's view of the conversation, assembled from the refs ChatPage already keeps. */
+  const snapshotGuidedState = useCallback(
+    (): GuidedEventState => ({
+      activeTools: guidedActiveToolsRef.current,
+      activity: guidedActivityRef.current,
+      approval: guidedApprovalRef.current,
+      approvalSeq: guidedApprovalSequenceRef.current,
+      autoContinueCount: guidedAutoContinueCountRef.current,
+      compacting: guidedCompactingRef.current,
+      lastResponse: lastGuidedResponseRef.current,
+      lastSignalAt: 0,
+      messages: guidedMessagesRef.current,
+      output: "",
+      phaseAdvance: guidedPhaseAdvanceRef.current,
+      phaseCurrent: guidedPhaseCurrentRef.current,
+      phasesCompleted: guidedPhasesCompletedRef.current,
+      streamedText: guidedStreamedTextRef.current,
+      subagentGraceUntil: guidedSubagentGraceUntilRef.current,
+      turnSeq: guidedTurnSeqRef.current,
+      turnSettled: guidedTurnSettledRef.current,
+      usage: guidedUsageRef.current,
+      workers: guidedWorkersRef.current,
+    }),
+    [],
+  );
+
+  /**
+   * Push changed slices to the existing setters and refs. Refs are updated
+   * synchronously so two frames arriving in one tick never read stale state.
+   */
+  const applyGuidedState = useCallback(
+    (previous: GuidedEventState, next: GuidedEventState) => {
+      if (next.messages !== previous.messages) {
+        guidedMessagesRef.current = next.messages as GuidedMessage[];
+        setGuidedMessages(next.messages as GuidedMessage[]);
+      }
+      if (next.activity !== previous.activity) {
+        guidedActivityRef.current = next.activity;
+        setGuidedActivity(next.activity);
+      }
+      if (next.usage !== previous.usage) {
+        guidedUsageRef.current = next.usage;
+        setGuidedUsage(next.usage);
+      }
+      if (next.workers !== previous.workers) {
+        guidedWorkersRef.current = next.workers;
+        setGuidedWorkers(next.workers as GuidedWorkerRuntime[]);
+      }
+      if (next.compacting !== previous.compacting) {
+        guidedCompactingRef.current = next.compacting;
+        setGuidedCompacting(next.compacting);
+      }
+      if (next.approval !== previous.approval) {
+        guidedApprovalRef.current = next.approval;
+        setGuidedApproval(next.approval);
+      }
+      if (next.phaseCurrent !== previous.phaseCurrent) {
+        guidedPhaseCurrentRef.current = next.phaseCurrent;
+        setGuidedPhaseCurrent(next.phaseCurrent);
+      }
+      if (next.phasesCompleted !== previous.phasesCompleted) {
+        const completed = [...next.phasesCompleted];
+        guidedPhasesCompletedRef.current = completed;
+        setGuidedPhasesCompleted(completed);
+      }
+      if (next.lastSignalAt !== previous.lastSignalAt) {
+        setGuidedLastSignalAt(next.lastSignalAt);
+      }
+      if (next.lastResponse !== previous.lastResponse) {
+        lastGuidedResponseRef.current = next.lastResponse;
+        setGuidedOutput(next.output);
+      }
+      guidedActiveToolsRef.current = next.activeTools as Map<string, GuidedRunningTool>;
+      guidedApprovalSequenceRef.current = next.approvalSeq;
+      guidedAutoContinueCountRef.current = next.autoContinueCount;
+      guidedPhaseAdvanceRef.current = next.phaseAdvance;
+      guidedStreamedTextRef.current = next.streamedText;
+      guidedSubagentGraceUntilRef.current = next.subagentGraceUntil;
+      guidedTurnSeqRef.current = next.turnSeq;
+      guidedTurnSettledRef.current = next.turnSettled;
+    },
+    [],
+  );
+
+  /** The one effect that talks to the socket: hand the next phase to its agent. */
+  const scheduleGuidedAutoContinue = useCallback(
+    (phase: string | null, label: string | null) => {
+      window.setTimeout(() => {
+        const active = wsRef.current;
+        if (!active || active.readyState !== WebSocket.OPEN) return;
+        guidedTurnStartLineRef.current = Math.max(
+          0,
+          (termRef.current?.buffer.active.length ?? 1) - 1,
+        );
+        lastGuidedResponseRef.current = "";
+        const routing = guidedProjectTurnDirectives({
+          approvedAgentIds: guidedSelectedSpecialistIdsRef.current,
+          completed: guidedPhasesCompletedRef.current,
+          current: guidedPhaseCurrentRef.current,
+          models: guidedSkillModelsRef.current,
+          provider: guidedModelProviderRef.current,
+        });
+        writeGuidedPrompt(
+          `${routing.join("\n")}\n${guidedPhaseContinuationDirective(phase, label)}`,
+          {
+            isOpen: () => wsRef.current?.readyState === WebSocket.OPEN,
+            schedule: (run, delayMs) => window.setTimeout(run, delayMs),
+            send: (data) => active.send(data),
+          },
+        );
+      }, 350);
+    },
+    [],
+  );
+
+  const runGuidedEffects = useCallback(
+    (effects: readonly GuidedEffect[]) => {
+      for (const effect of effects) {
+        if (effect.kind === "agentReady") {
+          markGuidedAgentReady();
+        } else if (effect.kind === "persistSessionId") {
+          if (workspaceParam) writeGuidedProjectSessionId(workspaceParam, effect.sessionId);
+        } else if (effect.kind === "openSkillsDialog") {
+          // A marker is a proposal, never permission: the editable dashboard
+          // confirmation is the only place a recommendation becomes state.
+          setGuidedRecommendedSpecialistIds(effect.recommended);
+          setGuidedSkillDraftIds(effect.recommended);
+          setGuidedSkillModelDraft({ ...guidedSkillModelsRef.current });
+          setGuidedTeamRecommendationPending(true);
+          setGuidedSkillsOpen(true);
+        } else if (effect.kind === "autoContinue") {
+          scheduleGuidedAutoContinue(effect.phase, effect.label);
+        }
+      }
+    },
+    [markGuidedAgentReady, scheduleGuidedAutoContinue, workspaceParam],
+  );
+
+  /** Reply text from any source (live turn or recovery) goes through the same pure pipeline. */
+  const finishGuidedResponse = useCallback(
+    (content: string) => {
+      const previous = snapshotGuidedState();
+      const step = applyGuidedResponse(previous, content, guidedContext());
+      applyGuidedState(previous, step.state);
+      runGuidedEffects(step.effects);
+    },
+    [applyGuidedState, guidedContext, runGuidedEffects, snapshotGuidedState],
+  );
   // True from the moment the connect effect begins until the socket resolves
   // (open or close). Guards the page-resume reconnect against firing during
   // the async ticket/URL await gap where wsRef.current is not yet assigned.
@@ -1771,7 +1845,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
 
     let unmounting = false;
     let ws: WebSocket | null = null;
-    let streamedText = "";
+    guidedStreamedTextRef.current = "";
     let reconnectAttempt = 0;
     let reconnectTimer: number | null = null;
 
@@ -1860,433 +1934,17 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           setGuidedLastSignalAt(Date.now());
           return;
         }
-        const jobNotice = type === "status.update" ? guidedJobNotice(payload) : null;
-        if (jobNotice) {
-          // A saved job's retry or stale update: one quiet line, no turn, no
-          // change to what Lyra is doing right now.
-          setGuidedMessages((messages) =>
-            messages.some((message) => message.id === jobNotice.id)
-              ? messages
-              : [...messages, jobNotice],
-          );
-          return;
-        }
-        const compressionTransition = guidedCompressionTransition(
-          type,
-          payload?.kind,
+        // Every other event is a pure fold over the conversation state; the
+        // reducer is tested against real gateway frames, ChatPage only maps
+        // the result back onto its state slices and runs the effects.
+        const previous = snapshotGuidedState();
+        const step = reduceGuidedEvent(
+          previous,
+          frame.params as GatewayEvent,
+          guidedContext(),
         );
-        if (compressionTransition === "start") {
-          guidedTurnSettledRef.current = false;
-          setGuidedCompacting(true);
-          setGuidedLastSignalAt(Date.now());
-          setGuidedActivity((current) => ({
-            phase: "working",
-            text: "Summarizing the conversation so Lyra can continue…",
-            specialist:
-              current.specialist ?? guidedDefaultSpecialistRef.current,
-          }));
-          return;
-        }
-        if (compressionTransition === "finish") {
-          setGuidedCompacting(false);
-          if (type === "status.update") {
-            setGuidedLastSignalAt(Date.now());
-            setGuidedActivity((current) => ({
-              phase: "working",
-              text: "Conversation summarized. Continuing…",
-              specialist:
-                current.specialist ?? guidedDefaultSpecialistRef.current,
-            }));
-            return;
-          }
-        }
-          if (type === "session.info") {
-            // The gateway has built the agent and published its durable
-            // session. This is a stronger readiness signal than scraping the
-            // hidden terminal for a prompt glyph, which can be lost during a
-            // server restart or terminal-width reflow.
-            markGuidedAgentReady();
-            const storedSessionId =
-              typeof payload?.stored_session_id === "string"
-                ? payload.stored_session_id.trim()
-                : "";
-            if (storedSessionId && workspaceParam) {
-              writeGuidedProjectSessionId(workspaceParam, storedSessionId);
-            }
-            if (payload?.usage) {
-              setGuidedUsage(normalizeGuidedUsage(payload.usage));
-            }
-            if (
-              shouldRestoreGuidedWorkingState({
-                backendRunning: payload?.running,
-                browserPhase: guidedActivityRef.current.phase,
-                waitingForInput: Boolean(
-                  guidedClarificationRef.current || guidedApprovalRef.current,
-                ),
-              })
-            ) {
-              const recoveredActivity: GuidedChatPresentation = {
-                phase: "working",
-                text: "Lyra is continuing the active request…",
-                specialist: guidedDefaultSpecialistRef.current,
-              };
-              guidedActivityRef.current = recoveredActivity;
-              guidedTurnSettledRef.current = false;
-              setGuidedLastSignalAt(Date.now());
-              setGuidedActivity(recoveredActivity);
-            }
-            return;
-          }
-        if (type === "approval.request") {
-          const choices = guidedApprovalChoices({
-            allowPermanent: payload?.allow_permanent,
-            choices: payload?.choices,
-            smartDenied: payload?.smart_denied,
-          });
-          const command =
-            typeof payload?.command === "string" ? payload.command : "";
-          const description =
-            typeof payload?.description === "string"
-              ? payload.description
-              : "This action needs your approval";
-          const fingerprint = JSON.stringify({ choices, command, description });
-          const previous = guidedApprovalRef.current;
-          const messageId =
-            previous?.fingerprint === fingerprint
-              ? previous.messageId
-              : `approval-${Date.now()}-${(guidedApprovalSequenceRef.current += 1)}`;
-          const approval = {
-            choices,
-            command,
-            description,
-            fingerprint,
-            messageId,
-          };
-          guidedApprovalRef.current = approval;
-          setGuidedApproval(approval);
-          setGuidedMessages((messages) =>
-            messages.some((message) => message.id === messageId)
-              ? messages
-              : [
-                  ...messages,
-                  {
-                    id: messageId,
-                    role: "assistant",
-                    content: guidedApprovalMessage(
-                      description,
-                      choices,
-                      command,
-                    ),
-                    plain: true,
-                    createdAt: Date.now(),
-                  },
-                ],
-          );
-          setGuidedLastSignalAt(Date.now());
-          setGuidedActivity((current) => ({
-            phase: "working",
-            text: "Waiting for your approval…",
-            specialist: current.specialist ?? APP_IT_SPECIALIST,
-          }));
-          return;
-        }
-        if (type === "message.start") {
-          guidedTurnSettledRef.current = false;
-          guidedTurnSeqRef.current += 1;
-          streamedText = "";
-          setGuidedLastSignalAt(Date.now());
-          setGuidedActivity((current) => ({
-            phase: "working",
-            text: "Continuing with the next step…",
-            specialist:
-              current.specialist ?? guidedDefaultSpecialistRef.current,
-          }));
-          return;
-        }
-        if (type === "message.delta") {
-          if (typeof payload?.text === "string") {
-            streamedText += payload.text;
-          }
-          setGuidedLastSignalAt(Date.now());
-          return;
-        }
-        if (type === "thinking.delta" || type === "reasoning.delta") {
-          if (isGuidedModelActivityEvent(type, payload)) {
-            setGuidedLastSignalAt(Date.now());
-          }
-          if (type === "thinking.delta") {
-            const waitText =
-              typeof payload?.text === "string" ? payload.text.trim() : "";
-            if (waitText) {
-              setGuidedActivity((current) => ({
-                phase: "working",
-                text: waitText,
-                specialist:
-                  current.specialist ?? guidedDefaultSpecialistRef.current,
-              }));
-            }
-          }
-          return;
-        }
-        if (
-          type === "tool.start" ||
-          type === "tool.progress" ||
-          type === "tool.generating" ||
-          type === "subagent.spawn_requested" ||
-          type === "subagent.start" ||
-          type === "subagent.thinking" ||
-          type === "subagent.tool" ||
-          type === "subagent.progress"
-        ) {
-          const signal = [
-            payload?.name,
-            payload?.args_text,
-            payload?.goal,
-            payload?.context,
-            payload?.preview,
-            payload?.summary,
-            payload?.text,
-          ]
-            .filter((value): value is string => typeof value === "string")
-            .join(" ");
-          const detected = analyzeGuidedChatOutput(signal).specialist;
-          const selected =
-            detected &&
-            guidedSelectedSpecialistIdsRef.current.includes(detected.id)
-              ? detected
-              : null;
-          const isSubagent = type.startsWith("subagent.");
-          if (isSubagent) {
-            // Every genuine phase event pushes the deadline forward, so a live
-            // phase is never interrupted — but silence after the last one is
-            // bounded, and a bare spawn request buys much less time.
-            guidedSubagentGraceUntilRef.current = extendGuidedSubagentGrace(
-              guidedSubagentGraceUntilRef.current,
-              type,
-              Date.now(),
-            );
-              setGuidedWorkers((current) =>
-                updateGuidedWorkers(
-                  current,
-                  type,
-                  payload ?? {},
-                  Date.now(),
-                ),
-              );
-          }
-          const label = friendlyActivityLabel(
-            payload as Record<string, unknown> | undefined,
-            isSubagent,
-          );
-          if (!isSubagent) {
-            const now = Date.now();
-            const toolId =
-              typeof payload?.tool_id === "string" && payload.tool_id.trim()
-                ? payload.tool_id.trim()
-                : "";
-            if (type === "tool.start") {
-              const id =
-                toolId ||
-                `${String(payload?.name || "tool")}-${now.toString(36)}`;
-              const next = new Map(guidedActiveToolsRef.current);
-              next.set(id, {
-                deadline: now + GUIDED_TOOL_SILENCE_GRACE_MS,
-                id,
-                label: label ?? "A project tool is running…",
-                name:
-                  typeof payload?.name === "string" && payload.name.trim()
-                    ? payload.name.trim()
-                    : "tool",
-                startedAt: now,
-              });
-              guidedActiveToolsRef.current = next;
-            } else if (guidedActiveToolsRef.current.size > 0) {
-              // A progress/generating event proves the active tool is alive.
-              // Extend matching ids when supplied, otherwise all active calls
-              // because some provider adapters emit id-less progress frames.
-              const next = new Map(guidedActiveToolsRef.current);
-              for (const [id, tool] of next) {
-                if (!toolId || id === toolId) {
-                  next.set(id, {
-                    ...tool,
-                    deadline: now + GUIDED_TOOL_SILENCE_GRACE_MS,
-                    label: label ?? tool.label,
-                  });
-                }
-              }
-              guidedActiveToolsRef.current = next;
-            }
-          }
-          guidedTurnSettledRef.current = false;
-          setGuidedLastSignalAt(Date.now());
-          setGuidedActivity((current) => ({
-            phase: "working",
-            text:
-              label ??
-              (isSubagent
-                ? "An agent is working on this phase…"
-                : "Preparing the next step…"),
-            specialist:
-              selected ??
-              current.specialist ??
-              guidedDefaultSpecialistRef.current,
-          }));
-          return;
-        }
-        if (type === "subagent.complete") {
-          guidedSubagentGraceUntilRef.current = 0;
-          setGuidedLastSignalAt(Date.now());
-            setGuidedWorkers((current) =>
-              updateGuidedWorkers(
-                current,
-                type,
-                payload ?? {},
-                Date.now(),
-              ),
-            );
-          return;
-        }
-        if (type === "tool.complete") {
-          const next = new Map(guidedActiveToolsRef.current);
-          const toolId =
-            typeof payload?.tool_id === "string" ? payload.tool_id.trim() : "";
-          if (toolId) {
-            next.delete(toolId);
-          } else if (typeof payload?.name === "string") {
-            for (const [id, tool] of next) {
-              if (tool.name === payload.name) next.delete(id);
-            }
-          }
-          guidedActiveToolsRef.current = next;
-          setGuidedLastSignalAt(Date.now());
-          // Older backends confirm questions via tool completion. Do not leave
-          // their waiting label visible while the following model call runs.
-          if (payload?.name === "clarify") {
-            setGuidedActivity({ phase: "working", text: "Question handled. Continuing…", specialist: APP_IT_SPECIALIST });
-          }
-          return;
-        }
-        if (type === "message.complete") {
-          guidedApprovalRef.current = null;
-          setGuidedApproval(null);
-          // A completed parent message is also a definitive boundary for any
-          // child phase, even when a provider omitted subagent.complete.
-          guidedSubagentGraceUntilRef.current = 0;
-          guidedActiveToolsRef.current = new Map();
-          setGuidedCompacting(false);
-            if (payload?.usage) {
-              setGuidedUsage(normalizeGuidedUsage(payload.usage));
-            }
-            const response = (
-              typeof payload?.text === "string" && payload.text.trim()
-              ? payload.text
-              : streamedText
-            ).trim();
-          streamedText = "";
-          if (response) {
-            const teamRecommendation = extractAppItSkillSelection(
-              response,
-              GUIDED_SELECTABLE_SPECIALIST_IDS,
-            );
-            finishGuidedResponse(response);
-            // A declared [APP_IT_PHASE_DONE:...] is the reliable signal; the
-            // prose test stays as a fallback for replies without markers.
-            const advanceTo = guidedPhaseAdvanceRef.current;
-            guidedPhaseAdvanceRef.current = null;
-            if (
-              shouldAutoContinueGuidedWorkflow({
-                awaitingTeamConfirmation: Boolean(teamRecommendation),
-                hasDeclaredNextPhase: Boolean(advanceTo),
-                response,
-              })
-            ) {
-              const nextAttempt = guidedAutoContinueCountRef.current + 1;
-              guidedAutoContinueCountRef.current = nextAttempt;
-              if (nextAttempt > 24) {
-                appendGuidedError(
-                  "The workflow paused after too many automatic handoffs. Send “continue” to resume from the current phase.",
-                );
-                return;
-              }
-              guidedTurnSettledRef.current = false;
-              setGuidedLastSignalAt(Date.now());
-              const advanceLabel = advanceTo
-                  ? (GUIDED_SPECIALIST_LABELS[advanceTo] ?? advanceTo)
-                : null;
-              setGuidedActivity((current) => ({
-                phase: "working",
-                // Narrow on advanceTo itself: TypeScript cannot carry the
-                // null-check across from advanceLabel into this closure.
-                text: advanceTo
-                    ? `Handing over to ${guidedAgentName(advanceTo, advanceLabel ?? undefined)}…`
-                  : "Moving to the promised agent…",
-                specialist: advanceTo
-                  ? { id: advanceTo, label: advanceLabel ?? advanceTo }
-                    : (current.specialist ??
-                      guidedDefaultSpecialistRef.current),
-              }));
-              window.setTimeout(() => {
-                const active = wsRef.current;
-                if (!active || active.readyState !== WebSocket.OPEN) return;
-                guidedTurnStartLineRef.current = Math.max(
-                  0,
-                  (termRef.current?.buffer.active.length ?? 1) - 1,
-                );
-                lastGuidedResponseRef.current = "";
-                const routing = guidedProjectTurnDirectives({
-                  approvedAgentIds: guidedSelectedSpecialistIdsRef.current,
-                  completed: guidedPhasesCompletedRef.current,
-                  current: guidedPhaseCurrentRef.current,
-                  models: guidedSkillModelsRef.current,
-                  provider: guidedModelProviderRef.current,
-                });
-                writeGuidedPrompt(
-                  `${routing.join("\n")}\n${guidedPhaseContinuationDirective(
-                    advanceTo,
-                    advanceLabel,
-                  )}`,
-                  {
-                    isOpen: () =>
-                      wsRef.current?.readyState === WebSocket.OPEN,
-                    schedule: (run, delayMs) =>
-                      window.setTimeout(run, delayMs),
-                    send: (data) => active.send(data),
-                  },
-                );
-              }, 350);
-            }
-          } else if (payload?.failure_reason) {
-            guidedTurnSettledRef.current = true;
-            appendGuidedError(
-              `The AI model could not finish this response: ${payload.failure_reason}`,
-            );
-            setGuidedActivity({
-              phase: "idle",
-              text: "",
-              specialist: null,
-            });
-          } else {
-            guidedTurnSettledRef.current = true;
-            setGuidedActivity({
-              phase: "idle",
-              text: "",
-              specialist: null,
-            });
-          }
-          return;
-        }
-        if (type === "error" && payload?.message) {
-          setGuidedApproval(null);
-          guidedSubagentGraceUntilRef.current = 0;
-          guidedActiveToolsRef.current = new Map();
-          guidedTurnSettledRef.current = true;
-          appendGuidedError(payload.message);
-          setGuidedActivity({
-            phase: "idle",
-            text: "",
-            specialist: null,
-          });
-        }
+        applyGuidedState(previous, step.state);
+        runGuidedEffects(step.effects);
       });
       } catch {
         scheduleReconnect();
@@ -2302,13 +1960,17 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     };
   }, [
     appendGuidedError,
+    applyGuidedState,
     channel,
     finishGuidedResponse,
     guided,
+    guidedContext,
     guidedSessionLookupComplete,
     hasActivated,
     markGuidedAgentReady,
     handleGuidedClarificationEvent,
+    runGuidedEffects,
+    snapshotGuidedState,
     workspaceParam,
   ]);
 
