@@ -9,6 +9,28 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.40] - 2026-09-16 — a lightweight coordinator
+
+### Fixed
+
+- Lyra's Studio conversation no longer has a shell. It starts, inspects, pauses
+  and resumes specialist work only through the new `project_run` tool, so it
+  cannot drift into doing a specialist's job in the chat. Specialist workers
+  keep every tool they had.
+- Tool output that does enter Lyra's conversation is capped, and older tool
+  results are pruned automatically, so a long-lived project chat stops growing
+  into minutes of summarising before every reply.
+- A failed attempt that is already queued for retry, or an outdated "blocked"
+  update, now appears as one quiet line in the chat instead of interrupting
+  Lyra with a full turn. Finished phases and real decisions still get Lyra's
+  attention.
+- Each specialist job commits its own work; Lyra reports the saved commit
+  rather than running Git in the conversation.
+
+Restart Lyra and reload Studio once. Existing projects, conversations, jobs and
+Kanban history are preserved. For very large saved conversations, starting a
+new conversation for the project gives the fastest result.
+
 ## [0.19.39] - 2026-09-16 — accurate worker spending
 
 ### Fixed

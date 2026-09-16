@@ -1779,9 +1779,13 @@ docs/lyra/changes/2026-09-12-completed-project-resume.md	docs	md: 2026 09 12 com
 docs/lyra/changes/2026-09-12-model-catalog-test-isolation.md	docs	md: 2026 09 12 model catalog test isolation
 docs/lyra/changes/2026-09-12-responsive-project-coordinator.md	docs	md: 2026 09 12 responsive project coordinator
 docs/lyra/changes/2026-09-12-static-model-alias-priority.md	docs	md: 2026 09 12 static model alias priority
+docs/lyra/changes/2026-09-16-coordinator-context-budget.md	docs	md: 2026 09 16 coordinator context budget
+docs/lyra/changes/2026-09-16-coordinator-without-terminal.md	docs	md: 2026 09 16 coordinator without terminal
 docs/lyra/changes/2026-09-16-durable-worker-usage.md	docs	md: 2026 09 16 durable worker usage
 docs/lyra/changes/2026-09-16-failure-notification-wording.md	docs	md: 2026 09 16 failure notification wording
 docs/lyra/changes/2026-09-16-notification-busy-ownership.md	docs	md: 2026 09 16 notification busy ownership
+docs/lyra/changes/2026-09-16-project-run-tool.md	docs	md: 2026 09 16 project run tool
+docs/lyra/changes/2026-09-16-turn-free-job-updates.md	docs	md: 2026 09 16 turn free job updates
 docs/lyra/changes/2026-09-16-worker-usage-accounting.md	docs	md: 2026 09 16 worker usage accounting
 docs/lyra/file-index.tsv	docs	tsv: file index
 docs/middleware/README.md	docs	md: README
@@ -3051,6 +3055,7 @@ plugins/ultimate-builder/project_learnings.py	plugins	Non-destructive reconcilia
 plugins/ultimate-builder/project_progress.py	plugins	Parse project progress conservatively and separate reports from evidence.
 plugins/ultimate-builder/project_repository.py	plugins	Create and verify project-local Git repositories without touching Lyra Git.
 plugins/ultimate-builder/project_run_cli.py	plugins	CLI adapter for durable Lyra project jobs.
+plugins/ultimate-builder/project_run_tool.py	plugins	Let the Studio coordinator queue and inspect durable project jobs without a shell.
 plugins/ultimate-builder/project_runs.py	plugins	Durable Ultimate Builder phase runs backed by Hermes Kanban.
 plugins/ultimate-builder/project_status.py	plugins	Maintain Lyra's small, validated project-status projection.
 plugins/ultimate-builder/project_work_units.py	plugins	Load bounded development work units from a project's task graph.
@@ -3090,6 +3095,7 @@ plugins/ultimate-builder/tests/test_preview_api.py	plugins	Behavioral tests: pre
 plugins/ultimate-builder/tests/test_project_brain.py	plugins	Behavioral tests: project brain
 plugins/ultimate-builder/tests/test_project_progress.py	plugins	Behavioral tests: project progress
 plugins/ultimate-builder/tests/test_project_repository.py	plugins	Behavioral tests: project repository
+plugins/ultimate-builder/tests/test_project_run_tool.py	plugins	Behavioral tests: project run tool
 plugins/ultimate-builder/tests/test_project_runs.py	plugins	Behavioral tests: project runs
 plugins/ultimate-builder/tests/test_project_status.py	plugins	Behavioral tests: project status
 plugins/ultimate-builder/tests/test_project_work_units.py	plugins	Behavioral tests: project work units
@@ -6341,7 +6347,9 @@ tests/tui_gateway/test_mcp_reload_rev.py	tests	Behavioral tests: mcp reload rev
 tests/tui_gateway/test_moa_reference_emit.py	tests	Behavioral tests: moa reference emit
 tests/tui_gateway/test_model_switch_marker_role.py	tests	Behavioral tests: model switch marker role
 tests/tui_gateway/test_notification_busy_state.py	tests	Behavioral tests: notification busy state
+tests/tui_gateway/test_notification_policy.py	tests	Behavioral tests: notification policy
 tests/tui_gateway/test_notification_turn.py	tests	Behavioral tests: notification turn
+tests/tui_gateway/test_notification_turn_free.py	tests	Behavioral tests: notification turn free
 tests/tui_gateway/test_pet_generate_rpc.py	tests	Behavioral tests: pet generate rpc
 tests/tui_gateway/test_project_tree.py	tests	Behavioral tests: project tree
 tests/tui_gateway/test_projects_rpc.py	tests	Behavioral tests: projects rpc
@@ -6356,6 +6364,7 @@ tests/tui_gateway/test_slash_worker_ansi.py	tests	Behavioral tests: slash worker
 tests/tui_gateway/test_slash_worker_mcp_discovery.py	tests	Behavioral tests: slash worker mcp discovery
 tests/tui_gateway/test_slash_worker_profile_home.py	tests	Behavioral tests: slash worker profile home
 tests/tui_gateway/test_slash_worker_sys_path.py	tests	Behavioral tests: slash worker sys path
+tests/tui_gateway/test_studio_budget.py	tests	Behavioral tests: studio budget
 tests/tui_gateway/test_studio_context.py	tests	Behavioral tests: studio context
 tests/tui_gateway/test_studio_model_routing.py	tests	Behavioral tests: studio model routing
 tests/tui_gateway/test_studio_wait_events.py	tests	Behavioral tests: studio wait events
@@ -6498,11 +6507,13 @@ tui_gateway/event_publisher.py	tui_gateway	Best-effort WebSocket publisher trans
 tui_gateway/git_probe.py	tui_gateway	Git working-tree probing for the gateway: run git, resolve repo roots, fold
 tui_gateway/host_supervisor.py	tui_gateway	Supervisor for the dashboard compute-host child process.
 tui_gateway/loop_noise.py	tui_gateway	Suppress benign event-loop teardown noise on the gateway serving loop.
+tui_gateway/notification_policy.py	tui_gateway	Decide which saved-job updates may spend a model turn in the Studio conversation.
 tui_gateway/notification_turn.py	tui_gateway	Own the session busy flag for one durable notification delivery attempt.
 tui_gateway/project_tree.py	tui_gateway	Authoritative project -> repo -> lane -> session tree builder.
 tui_gateway/render.py	tui_gateway	Rendering bridge — routes TUI content through Python-side renderers.
 tui_gateway/server.py	tui_gateway	py: server
 tui_gateway/slash_worker.py	tui_gateway	Persistent slash-command worker — one HermesCLI per TUI session.
+tui_gateway/studio_budget.py	tui_gateway	Keep the Studio coordinator's context small: bound tool results, prune old ones.
 tui_gateway/studio_context.py	tui_gateway	Choose Studio's coordinator capabilities once, at agent construction.
 tui_gateway/studio_model_routing.py	tui_gateway	Model ownership for the Studio coordinator, separate from worker pins.
 tui_gateway/synthetic_turn.py	tui_gateway	Synthetic GIL-heavy turn driver for the AC-4 isolation certify harness.
@@ -7120,6 +7131,8 @@ web/src/lib/guided-composer-paste.test.ts	web	Behavioral tests: guided-composer-
 web/src/lib/guided-composer-paste.ts	web	* Writing a prompt into the TUI composer over the PTY.
 web/src/lib/guided-connection-recovery.test.ts	web	Behavioral tests: guided-connection-recovery.test
 web/src/lib/guided-connection-recovery.ts	web	ts: guided connection recovery
+web/src/lib/guided-job-notice.test.ts	web	Behavioral tests: guided-job-notice.test
+web/src/lib/guided-job-notice.ts	web	ts: guided job notice
 web/src/lib/guided-phase-plan.test.ts	web	Behavioral tests: guided-phase-plan.test
 web/src/lib/guided-phase-plan.ts	web	* The phase chain: who is working now, what is done, what runs next.
 web/src/lib/guided-project-session.test.ts	web	Behavioral tests: guided-project-session.test
