@@ -145,10 +145,15 @@ export function ApprovalPrompt({ cols = 80, onChoice, req, t }: ApprovalPromptPr
 
 export function ClarifyPrompt({ cols = 80, onAnswer, onCancel, req, t }: ClarifyPromptProps) {
   const delivery = useRef<ReturnType<typeof setTimeout> | null>(null)
-  useEffect(() => () => {
-    if (delivery.current) {clearTimeout(delivery.current)}
-    delivery.current = null
-  }, [req.requestId])
+  useEffect(
+    () => () => {
+      if (delivery.current) {
+        clearTimeout(delivery.current)
+      }
+      delivery.current = null
+    },
+    [req.requestId]
+  )
   const [sel, setSel] = useState(0)
   const [custom, setCustom] = useState('')
   const [typing, setTyping] = useState(false)
@@ -168,7 +173,9 @@ export function ClarifyPrompt({ cols = 80, onAnswer, onCancel, req, t }: Clarify
       if (frame?.requestId === req.requestId && !delivery.current) {
         // Suppress duplicate clicks while the existing RPC is outstanding.
         // If RPC fails and the prompt remains, permit an explicit later retry.
-        delivery.current = setTimeout(() => { delivery.current = null }, 10_000)
+        delivery.current = setTimeout(() => {
+          delivery.current = null
+        }, 10_000)
         onAnswer(frame.answer)
       }
 
