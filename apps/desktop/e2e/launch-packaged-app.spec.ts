@@ -46,7 +46,7 @@ test('renderer loads and shows DOM content', async () => {
   expect(childCount).toBeGreaterThan(0)
 })
 
-test('boot progress overlay fades out or shows error state', async () => {
+test('boot progress overlay fades out, stops at first-run setup, or shows an error', async () => {
   const page = fixture!.page
   await page.waitForFunction(
     () => {
@@ -57,9 +57,20 @@ test('boot progress overlay fades out or shows error state', async () => {
       }
 
       const text = root.textContent ?? ''
+      const lower = text.toLowerCase()
 
       // Error path: boot failure overlay renders an error message.
       if (text.includes('error') || text.includes('Error') || text.includes('failed')) {
+        return true
+      }
+
+      // First-run path: in a fresh sandbox (no Lyra installed, no backend to
+      // attach to) boot pauses on purpose at the setup choice — "Connect to
+      // existing Lyra" or "Install Lyra locally" — and the progress overlay
+      // reads "Waiting for first-run setup choice" until the user picks.
+      // That is boot finishing its automatic part, not boot in progress
+      // (electron/first-run-setup-gate.ts).
+      if (lower.includes('first-run setup choice')) {
         return true
       }
 
@@ -67,7 +78,6 @@ test('boot progress overlay fades out or shows error state', async () => {
       // no "boot" / "starting" / "installing" text visible, boot has
       // completed (either to the main UI or to onboarding).
       const bootIndicators = ['starting', 'resolving', 'spawning', 'waiting', 'installing']
-      const lower = text.toLowerCase()
 
       return !bootIndicators.some((word) => lower.includes(word))
     },

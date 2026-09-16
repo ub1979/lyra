@@ -1783,6 +1783,7 @@ docs/lyra/changes/2026-09-16-durable-worker-usage.md	docs	md: 2026 09 16 durable
 docs/lyra/changes/2026-09-16-failure-notification-wording.md	docs	md: 2026 09 16 failure notification wording
 docs/lyra/changes/2026-09-16-notification-busy-ownership.md	docs	md: 2026 09 16 notification busy ownership
 docs/lyra/changes/2026-09-16-packaged-app-name-and-index-job.md	docs	md: 2026 09 16 packaged app name and index job
+docs/lyra/changes/2026-09-16-packaged-first-run-gate.md	docs	md: 2026 09 16 packaged first run gate
 docs/lyra/changes/2026-09-16-project-run-tool.md	docs	md: 2026 09 16 project run tool
 docs/lyra/changes/2026-09-16-reply-turn-identity.md	docs	md: 2026 09 16 reply turn identity
 docs/lyra/changes/2026-09-16-studio-event-reducer-and-journeys.md	docs	md: 2026 09 16 studio event reducer and journeys
