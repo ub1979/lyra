@@ -11567,6 +11567,7 @@ def _run_prompt_submit(
     _emit("message.start", sid)
 
     def run():
+        nonlocal history_version
         approval_token = None
         session_tokens = []
         home_token = None  # per-turn HERMES_HOME override for a resumed remote profile
@@ -11618,6 +11619,15 @@ def _run_prompt_submit(
             # the NEXT turn, after the finally-restore below.
             if not one_turn_restore:
                 _sync_agent_model_with_config(sid, session)
+                # Adopting a model appends a "[System: … model changed]" note
+                # and bumps history_version — inside this turn, after the
+                # baseline above was taken. Re-read the baseline so the turn
+                # compares against the history it will actually extend;
+                # otherwise its own note makes its reply look like an external
+                # edit and the reply is never written (Studio's welcome turn
+                # lost its reply on every open this way).
+                with session["history_lock"]:
+                    history_version = int(session.get("history_version", 0))
             cwd = _session_cwd(session)
             _register_session_cwd(session)
             cols = session.get("cols", 80)
