@@ -87,7 +87,7 @@ def test_build_command_protects_lyra_checkout():
 
 
 def test_dashboard_enforces_requirements_gate_with_real_skill_loading():
-    dashboard = DASHBOARD_ENTRY.read_text()
+    dashboard = DASHBOARD_ENTRY.read_text(encoding="utf-8")
     assert "first_turn_gate" in dashboard
     assert "build_profile_gate" in dashboard
     assert 'build_profile: mode === "new" ? buildProfile : "existing"' in dashboard
@@ -150,18 +150,18 @@ def test_dashboard_enforces_requirements_gate_with_real_skill_loading():
 
 def test_built_dashboard_uses_the_same_product_version():
     expected_version = f"v{LYRA_VERSION} {LYRA_CHANNEL}"
-    assert expected_version in DASHBOARD_DIST_ENTRY.read_text()
+    assert expected_version in DASHBOARD_DIST_ENTRY.read_text(encoding="utf-8")
 
 
 def test_built_dashboard_contains_the_mandatory_build_scale_gate():
-    dashboard = DASHBOARD_DIST_ENTRY.read_text()
+    dashboard = DASHBOARD_DIST_ENTRY.read_text(encoding="utf-8")
     assert "How much should Lyra build?" in dashboard
     assert "Choose how much Lyra should build before starting." in dashboard
     assert 'build_profile: mode === "new" ? buildProfile : "existing"' in dashboard
 
 
 def test_start_script_launches_dashboard_from_ignored_project_root():
-    start_script = (ROOT.parents[1] / "start.sh").read_text()
+    start_script = (ROOT.parents[1] / "start.sh").read_text(encoding="utf-8")
     assert 'WORKSPACE_DIR="$PROJECT_DIR/my_projects"' in start_script
     assert 'cd "$WORKSPACE_DIR"' in start_script
     assert 'uv run --project "$PROJECT_DIR" hermes dashboard' in start_script
@@ -222,14 +222,14 @@ exit 0
 
 
 def test_manifest_uses_the_non_conflicting_dashboard_entry():
-    manifest = (ROOT / "dashboard" / "manifest.json").read_text()
+    manifest = (ROOT / "dashboard" / "manifest.json").read_text(encoding="utf-8")
     assert '"entry": "app/index.js"' in manifest
 
 
 def test_skills_define_chat_first_tool_recovery_and_website_research():
     skill_root = ROOT / "skills"
-    umbrella = (skill_root / "ultimate-app-builder" / "SKILL.md").read_text()
-    guide = (skill_root / "app-it" / "SKILL.md").read_text()
+    umbrella = (skill_root / "ultimate-app-builder" / "SKILL.md").read_text(encoding="utf-8")
+    guide = (skill_root / "app-it" / "SKILL.md").read_text(encoding="utf-8")
     req_root = (
         skill_root
         / "ultimate-app-builder"
@@ -237,8 +237,8 @@ def test_skills_define_chat_first_tool_recovery_and_website_research():
         / "workflows"
         / "req-engineer"
     )
-    requirements = (req_root / "SKILL.md").read_text()
-    site_research = (req_root / "references" / "site-research.md").read_text()
+    requirements = (req_root / "SKILL.md").read_text(encoding="utf-8")
+    site_research = (req_root / "references" / "site-research.md").read_text(encoding="utf-8")
 
     assert "every Hermes tool present in the live session schema" in umbrella
     assert "/tools enable <toolset>" in umbrella
@@ -256,9 +256,9 @@ def test_skills_define_chat_first_tool_recovery_and_website_research():
 
 def test_project_guide_translates_engineering_progress_for_nontechnical_users():
     skill_root = ROOT / "skills"
-    umbrella = (skill_root / "ultimate-app-builder" / "SKILL.md").read_text()
-    guide = (skill_root / "app-it" / "SKILL.md").read_text()
-    chat = (ROOT.parents[1] / "web" / "src" / "pages" / "ChatPage.tsx").read_text()
+    umbrella = (skill_root / "ultimate-app-builder" / "SKILL.md").read_text(encoding="utf-8")
+    guide = (skill_root / "app-it" / "SKILL.md").read_text(encoding="utf-8")
+    chat = (ROOT.parents[1] / "web" / "src" / "pages" / "ChatPage.tsx").read_text(encoding="utf-8")
 
     assert "Assume the user is not technical" in guide
     assert "Is the whole application finished" in guide
@@ -270,8 +270,8 @@ def test_project_guide_translates_engineering_progress_for_nontechnical_users():
 
 def test_project_guide_requires_scale_and_caps_personal_projects():
     skill_root = ROOT / "skills"
-    umbrella = (skill_root / "ultimate-app-builder" / "SKILL.md").read_text()
-    guide = (skill_root / "app-it" / "SKILL.md").read_text()
+    umbrella = (skill_root / "ultimate-app-builder" / "SKILL.md").read_text(encoding="utf-8")
+    guide = (skill_root / "app-it" / "SKILL.md").read_text(encoding="utf-8")
     requirements = (
         skill_root
         / "ultimate-app-builder"
@@ -279,7 +279,7 @@ def test_project_guide_requires_scale_and_caps_personal_projects():
         / "workflows"
         / "req-engineer"
         / "SKILL.md"
-    ).read_text()
+    ).read_text(encoding="utf-8")
     planner = (
         skill_root
         / "ultimate-app-builder"
@@ -287,7 +287,7 @@ def test_project_guide_requires_scale_and_caps_personal_projects():
         / "workflows"
         / "task-planner"
         / "SKILL.md"
-    ).read_text()
+    ).read_text(encoding="utf-8")
     normalized_planner = " ".join(planner.split())
 
     assert "A missing profile is not a" in guide
@@ -302,8 +302,8 @@ def test_project_guide_requires_scale_and_caps_personal_projects():
 
 def test_project_brain_is_automatic_bounded_and_verified():
     skill_root = ROOT / "skills"
-    umbrella = (skill_root / "ultimate-app-builder" / "SKILL.md").read_text()
-    guide = (skill_root / "app-it" / "SKILL.md").read_text()
+    umbrella = (skill_root / "ultimate-app-builder" / "SKILL.md").read_text(encoding="utf-8")
+    guide = (skill_root / "app-it" / "SKILL.md").read_text(encoding="utf-8")
     memory = (
         skill_root
         / "ultimate-app-builder"
@@ -311,7 +311,7 @@ def test_project_brain_is_automatic_bounded_and_verified():
         / "workflows"
         / "context-save"
         / "SKILL.md"
-    ).read_text()
+    ).read_text(encoding="utf-8")
 
     for instructions in (umbrella, guide, memory):
         assert ".sdlc/project-brain.md" in instructions

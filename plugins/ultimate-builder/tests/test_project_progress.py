@@ -135,7 +135,7 @@ def test_project_map_uses_the_latest_ledger_or_worker_timestamp():
 
 def test_evidence_available_does_not_claim_tests_were_verified(tmp_path):
     module = progress_module()
-    (tmp_path / "report.md").write_text("An agent's report")
+    (tmp_path / "report.md").write_text("An agent's report", encoding="utf-8")
     ledger = module._parse_progress_ledger(
         "| Phase | Status | Evidence |\n|---|---|---|\n| Research | Complete | `report.md` |"
     )
@@ -153,10 +153,10 @@ def test_citations_reject_escape_and_symlink_and_fingerprint_contents(tmp_path):
     project = tmp_path / "project"
     project.mkdir()
     outside = tmp_path / "outside.md"
-    outside.write_text("Private")
+    outside.write_text("Private", encoding="utf-8")
     (project / "link.md").symlink_to(outside)
     source = project / "report.md"
-    source.write_text("Report")
+    source.write_text("Report", encoding="utf-8")
     refs = evidence_paths(
         "[Report](report.md) `../outside.md` `link.md` `https://example.com`"
     )
@@ -167,5 +167,5 @@ def test_citations_reject_escape_and_symlink_and_fingerprint_contents(tmp_path):
         "outside_project",
         "outside_project",
     ]
-    source.write_text("Changed report")
+    source.write_text("Changed report", encoding="utf-8")
     assert inspect_evidence(project, ["report.md"])[0]["sha256"] != records[0]["sha256"]

@@ -315,7 +315,7 @@ def test_real_move_and_trash_routes_preserve_recovery_points(tmp_path, monkeypat
     project.mkdir()
     destination.mkdir()
     module.register_project(module.ProjectRegisterRequest(workspace=str(project)))
-    (project / "note.txt").write_text("original")
+    (project / "note.txt").write_text("original", encoding="utf-8")
     manager = cp.CheckpointManager(enabled=True)
     assert manager.ensure_checkpoint(str(project))
     checkpoint = manager.list_checkpoints(str(project))[0]["hash"]
@@ -363,7 +363,7 @@ def test_register_and_move_project_without_overwriting(tmp_path, monkeypatch):
 
     project = source_parent / "music-app"
     project.mkdir(parents=True)
-    (project / module._PROJECT_MARKER).write_text("Managed by Lyra\n")
+    (project / module._PROJECT_MARKER).write_text("Managed by Lyra\n", encoding="utf-8")
     with pytest.raises(HTTPException, match="already exists") as error:
         module.move_project(
             module.ProjectMoveRequest(
@@ -390,7 +390,7 @@ def test_move_refuses_while_project_worker_is_active(tmp_path, monkeypatch):
     destination = tmp_path / "destination"
     project.mkdir()
     destination.mkdir()
-    (project / module._PROJECT_MARKER).write_text("Managed by Lyra\n")
+    (project / module._PROJECT_MARKER).write_text("Managed by Lyra\n", encoding="utf-8")
 
     class ActiveProjectRuns(_IdleProjectRuns):
         @staticmethod
@@ -414,7 +414,7 @@ def test_delete_moves_project_to_recoverable_lyra_trash(tmp_path, monkeypatch):
     module = load_plugin_api()
     project = tmp_path / "old-project"
     project.mkdir()
-    (project / module._PROJECT_MARKER).write_text("Managed by Lyra\n")
+    (project / module._PROJECT_MARKER).write_text("Managed by Lyra\n", encoding="utf-8")
     trash = tmp_path / "lyra-trash"
     monkeypatch.setattr(module, "_project_runs_module", lambda: _IdleProjectRuns)
     monkeypatch.setattr(module, "_relocate_saved_sessions", lambda *_args: 0)
@@ -443,7 +443,7 @@ def test_move_updates_saved_project_paths(tmp_path, monkeypatch):
     project = source_parent / "music-app"
     project.mkdir(parents=True)
     destination_parent.mkdir()
-    (project / module._PROJECT_MARKER).write_text("Managed by Lyra\n")
+    (project / module._PROJECT_MARKER).write_text("Managed by Lyra\n", encoding="utf-8")
     monkeypatch.setattr(module, "_project_runs_module", lambda: _IdleProjectRuns)
     monkeypatch.setattr(module, "_relocate_saved_sessions", lambda *_args: 0)
     relocated = []

@@ -278,3 +278,52 @@ jobs:
             " 2>/dev/null || true
           fi
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # ── Packaged app: build, validate the bundle, launch it ──────────────
+  # `test-desktop.mjs all` needs a packaged binary, which the per-script
+  # `js-tests.yml` matrix never builds — so it lives here, in its own job:
+  # a red package never masks the E2E result above, and the E2E job's clock
+  # is not spent on electron-builder. The launch spec boots with BOOT_FAKE=1
+  # (no Python backend is spawned), so no uv setup is needed.
+  packaged:
+    name: Packaged app (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install system dependencies for Electron
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            xvfb \
+            libgtk-3-0 libnotify4 libnss3 libxss1 libxtst6 \
+            xdg-utils libatspi2.0-0 libdrm2 libgbm1 libasound2t64
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: ./.github/actions/retry
+        with:
+          command: npm ci
+      - name: Build, package and validate the desktop bundle
+        working-directory: apps/desktop
+        run: node scripts/test-desktop.mjs all
+      - name: Launch the packaged app
+        working-directory: apps/desktop
+        run: |
+          xvfb-run -a --server-args="-screen 0 1280x1024x24" \
+            npx playwright test e2e/launch-packaged-app.spec.ts --reporter=list
+        env:
+          CI: "true"
+          OPENROUTER_API_KEY: ""
+          OPENAI_API_KEY: ""
+          NOUS_API_KEY: ""
+      - name: Upload packaged-app test results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-packaged-results-${{ github.sha }}
+          path: apps/desktop/test-results
+          retention-days: 14
+          overwrite: true
+          if-no-files-found: ignore

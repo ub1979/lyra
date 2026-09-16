@@ -46,6 +46,13 @@ def included(path: str) -> bool:
 
 
 def inventory(root: Path) -> str:
+    """Index tracked files only, so every checkout regenerates the same index.
+
+    Untracked files differ from machine to machine (scratch folders, local
+    lockfiles); including them made `--check` fail in CI for an index that was
+    current where it was generated. Force-added gitignored assets stay in
+    because they are cached.
+    """
     result = subprocess.run(
         [
             "git",
@@ -53,8 +60,6 @@ def inventory(root: Path) -> str:
             str(root),
             "ls-files",
             "--cached",
-            "--others",
-            "--exclude-standard",
             "-z",
         ],
         capture_output=True,
