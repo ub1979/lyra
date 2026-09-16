@@ -1779,6 +1779,9 @@ docs/lyra/changes/2026-09-12-completed-project-resume.md	docs	md: 2026 09 12 com
 docs/lyra/changes/2026-09-12-model-catalog-test-isolation.md	docs	md: 2026 09 12 model catalog test isolation
 docs/lyra/changes/2026-09-12-responsive-project-coordinator.md	docs	md: 2026 09 12 responsive project coordinator
 docs/lyra/changes/2026-09-12-static-model-alias-priority.md	docs	md: 2026 09 12 static model alias priority
+docs/lyra/changes/2026-09-16-durable-worker-usage.md	docs	md: 2026 09 16 durable worker usage
+docs/lyra/changes/2026-09-16-failure-notification-wording.md	docs	md: 2026 09 16 failure notification wording
+docs/lyra/changes/2026-09-16-notification-busy-ownership.md	docs	md: 2026 09 16 notification busy ownership
 docs/lyra/file-index.tsv	docs	tsv: file index
 docs/middleware/README.md	docs	md: README
 docs/observability/README.md	docs	md: README
@@ -1956,6 +1959,7 @@ hermes_cli/kanban_diagnostics.py	hermes_cli	Kanban diagnostics — structured, a
 hermes_cli/kanban_notifications.py	hermes_cli	Shared caller notification policy for Kanban CLI and model-tool creation.
 hermes_cli/kanban_specify.py	hermes_cli	Kanban triage specifier — flesh out a one-liner into a real spec.
 hermes_cli/kanban_swarm.py	hermes_cli	Kanban Swarm v1: thin swarm topology helpers on top of Kanban.
+hermes_cli/kanban_usage.py	hermes_cli	Save and read provider-reported usage for durable Kanban worker runs.
 hermes_cli/local_ollama.py	hermes_cli	Small, keyless integration with the Ollama app running on this computer.
 hermes_cli/logs.py	hermes_cli	``hermes logs`` — view and filter Hermes log files.
 hermes_cli/main.py	hermes_cli	py: main
@@ -2102,7 +2106,6 @@ hermes_cli/web_dist/assets/RulesCompressed-Regular-BSXFyF4x.woff2	hermes_cli	Gen
 hermes_cli/web_dist/assets/RulesExpanded-Bold-DZA7s8Pa.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Regular-l8uVympt.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/index-BGAdPJZk.css	hermes_cli	Generated asset; edit its source and rebuild
-hermes_cli/web_dist/assets/index-CXEv9Ao6.js	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Bold.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Italic.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Regular.woff2	hermes_cli	Generated asset; edit its source and rebuild
@@ -5218,6 +5221,7 @@ tests/hermes_cli/test_kanban_reclaim_claim_lock_guard.py	tests	Behavioral tests:
 tests/hermes_cli/test_kanban_specify.py	tests	Behavioral tests: kanban specify
 tests/hermes_cli/test_kanban_specify_db.py	tests	Behavioral tests: kanban specify db
 tests/hermes_cli/test_kanban_swarm.py	tests	Behavioral tests: kanban swarm
+tests/hermes_cli/test_kanban_usage.py	tests	Behavioral tests: kanban usage
 tests/hermes_cli/test_kanban_worker_image_extraction.py	tests	Behavioral tests: kanban worker image extraction
 tests/hermes_cli/test_kanban_worker_spawn_toolsets.py	tests	Behavioral tests: kanban worker spawn toolsets
 tests/hermes_cli/test_kanban_worker_terminal_cwd.py	tests	Behavioral tests: kanban worker terminal cwd
@@ -6335,6 +6339,8 @@ tests/tui_gateway/test_mcp_late_refresh_thread_owner.py	tests	Behavioral tests: 
 tests/tui_gateway/test_mcp_reload_rev.py	tests	Behavioral tests: mcp reload rev
 tests/tui_gateway/test_moa_reference_emit.py	tests	Behavioral tests: moa reference emit
 tests/tui_gateway/test_model_switch_marker_role.py	tests	Behavioral tests: model switch marker role
+tests/tui_gateway/test_notification_busy_state.py	tests	Behavioral tests: notification busy state
+tests/tui_gateway/test_notification_turn.py	tests	Behavioral tests: notification turn
 tests/tui_gateway/test_pet_generate_rpc.py	tests	Behavioral tests: pet generate rpc
 tests/tui_gateway/test_project_tree.py	tests	Behavioral tests: project tree
 tests/tui_gateway/test_projects_rpc.py	tests	Behavioral tests: projects rpc
@@ -6491,6 +6497,7 @@ tui_gateway/event_publisher.py	tui_gateway	Best-effort WebSocket publisher trans
 tui_gateway/git_probe.py	tui_gateway	Git working-tree probing for the gateway: run git, resolve repo roots, fold
 tui_gateway/host_supervisor.py	tui_gateway	Supervisor for the dashboard compute-host child process.
 tui_gateway/loop_noise.py	tui_gateway	Suppress benign event-loop teardown noise on the gateway serving loop.
+tui_gateway/notification_turn.py	tui_gateway	Own the session busy flag for one durable notification delivery attempt.
 tui_gateway/project_tree.py	tui_gateway	Authoritative project -> repo -> lane -> session tree builder.
 tui_gateway/render.py	tui_gateway	Rendering bridge — routes TUI content through Python-side renderers.
 tui_gateway/server.py	tui_gateway	py: server
@@ -7140,6 +7147,8 @@ web/src/lib/nested.ts	web	ts: nested
 web/src/lib/project-agent-activity.fixtures.ts	web	ts: project agent activity.fixtures
 web/src/lib/project-agent-activity.test.ts	web	Behavioral tests: project-agent-activity.test
 web/src/lib/project-agent-activity.ts	web	ts: project agent activity
+web/src/lib/project-agent-usage.test.ts	web	Behavioral tests: project-agent-usage.test
+web/src/lib/project-agent-usage.ts	web	ts: project agent usage
 web/src/lib/project-attention.ts	web	ts: project attention
 web/src/lib/prompt-answer-frame.test.ts	web	Behavioral tests: prompt-answer-frame.test
 web/src/lib/pty-attach-token.test.ts	web	Behavioral tests: pty-attach-token.test

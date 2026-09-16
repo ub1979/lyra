@@ -9,6 +9,27 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.38] - 2026-09-16 — truthful busy state and worker usage
+
+### Fixed
+
+- A project notification that had already been delivered can no longer leave
+  the Studio conversation marked busy with no work running. Lyra releases the
+  busy state whenever a delivery claim is rejected or fails, on every delivery
+  path.
+- Project job notifications now say when an attempt failed and a retry is
+  queued, or when a job stopped after repeated failures, instead of announcing
+  it as finished. Only completed work is called finished.
+- Studio shows the token usage saved by each durable project worker beside the
+  job, plus a separate "Project agents" total, so Lyra's own counter is no
+  longer mistaken for all project spending.
+- Usage that has not been reported yet is labelled as such instead of showing
+  zero, and the Tokens panel shows when its numbers were last updated.
+
+Restart Lyra and reload Studio once to load these fixes. Existing projects,
+conversations, jobs and Kanban history are preserved; workers started before
+the restart report usage from their next run.
+
 ## [0.19.37] - 2026-09-12 — responsive project coordination
 
 ### Fixed
