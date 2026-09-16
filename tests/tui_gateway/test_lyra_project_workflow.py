@@ -350,3 +350,147 @@ def test_approval_to_worker_to_resumed_chat(
     assert session["history"][-1]["content"] == final_text
     assert db.get_messages(session["session_key"])[-1]["content"] == final_text
     assert not session["running"]
+
+
+class _StopAfterOneClaim:
+    """Let the poller run one queue timeout plus one Kanban claim, then exit."""
+
+    def __init__(self):
+        self._checks = 0
+
+    def is_set(self):
+        self._checks += 1
+        return self._checks > 1
+
+
+def _finish_one_research_job(rt):
+    queued = rt.runs.queue_project_run(rt.project, ["researcher"])
+    task_id = queued["tasks"][0]["task_id"]
+    with rt.kb.connect_closing() as conn:
+        dispatched = rt.kb.dispatch_once(conn, max_spawn=1)
+        assert [item[0] for item in dispatched.spawned] == [task_id]
+        pid = rt.kb.get_task(conn, task_id).worker_pid
+    try:
+        until(lambda: (rt.project / "worker-started").exists())
+        (rt.project / "allow-completion").touch()
+        until(
+            lambda: rt.runs.project_run_state(rt.project)["tasks"][0]["status"] == "done"
+        )
+    finally:
+        (rt.project / "allow-completion").touch()
+        if pid:
+            until(lambda: os.waitpid(pid, os.WNOHANG)[0] == pid, timeout=25)
+    return task_id
+
+
+def test_notification_turn_after_reply_keeps_both_replies(runtime, monkeypatch):
+    """Two turns with no user message between them must produce two replies, not one.
+
+    This is the journey the browser lost in 0.19.41: Lyra answered the user, a
+    saved job's completion started its own turn, and its reply replaced the
+    first on screen. The frames captured here are committed under
+    tests/fixtures/studio_frames/ and replayed through the Studio event reducer.
+    """
+    from tests.tui_gateway.frame_fixtures import normalize_frames, write_or_check
+
+    rt = runtime
+    task_id = _finish_one_research_job(rt)
+
+    session = {
+        "session_key": "isolated-project-chat",
+        "running": False,
+        "history_lock": threading.Lock(),
+        "history": [],
+        "cwd": str(rt.project),
+        "model_override": "controlled-test",
+    }
+    rt.server._sessions["resumed"] = session
+    db = rt.server._get_db()
+    db.create_session(session["session_key"], source="tui", model="controlled-test")
+    replies = iter([
+        "Here is where the project stands: research is finished, architecture is next.",
+        "That was the completion notice for Research; nothing new is needed from you.",
+    ])
+    seen = []
+    transcript = []
+
+    def controlled_model(text, **kwargs):
+        # Like the real agent, return the whole conversation: the gateway
+        # replaces session history with it rather than appending.
+        seen.append(text)
+        reply = next(replies)
+        messages = [
+            {"role": "user", "content": text},
+            {"role": "assistant", "content": reply},
+        ]
+        for message in messages:
+            db.append_message(session_id=session["session_key"], **message)
+        transcript.extend(messages)
+        kwargs["stream_callback"](reply)
+        return {"messages": list(transcript), "final_response": reply}
+
+    session["agent"] = SimpleNamespace(
+        session_id=session["session_key"],
+        model="controlled-test",
+        run_conversation=controlled_model,
+    )
+
+    # Turn 1: the user's own message through the real turn path.
+    rt.server._run_prompt_submit("user-turn", "resumed", session, "hi, what's the progress?")
+    session["_run_thread"].join(timeout=5)
+    assert not session["_run_thread"].is_alive()
+    assert not session["running"]
+
+    # Turn 2: the saved completion, delivered by the real poller into a real turn.
+    submit = rt.server._run_prompt_submit
+    stop = threading.Event()
+
+    def coordinator(rid, sid, resumed, text, *args, **kwargs):
+        submit(rid, sid, resumed, text, *args, **kwargs)
+        resumed["_run_thread"].join(timeout=5)
+        stop.set()
+
+    monkeypatch.setattr(rt.server, "_run_prompt_submit", coordinator)
+    session.pop("_kanban_notification_next_poll", None)
+    poller = threading.Thread(
+        target=rt.server._notification_poller_loop, args=(stop, "resumed", session)
+    )
+    poller.start()
+    try:
+        assert stop.wait(10), "Saved completion never reached the coordinator"
+    finally:
+        stop.set()
+        poller.join(timeout=6)
+    assert len(seen) == 2
+    assert "IDRAK_INTERNAL_PROJECT_TASK_UPDATE" in seen[1]
+    assert [m["content"] for m in session["history"] if m["role"] == "assistant"][-2:] == [
+        "Here is where the project stands: research is finished, architecture is next.",
+        "That was the completion notice for Research; nothing new is needed from you.",
+    ]
+    turn_frames = normalize_frames(rt.server._real_stdout.getvalue().splitlines())
+    completes = [i for i, f in enumerate(turn_frames) if f["type"] == "message.complete"]
+    assert len(completes) == 2
+    starts = [i for i, f in enumerate(turn_frames) if f["type"] == "message.start"]
+    assert any(i < completes[0] for i in starts)
+    assert any(completes[0] < i < completes[1] for i in starts), (
+        "the notification turn must announce itself with message.start"
+    )
+    write_or_check("notification-after-reply", turn_frames)
+
+    # Turn-free: a re-queued failure on the same task is one quiet line, no turn.
+    marker = len(rt.server._real_stdout.getvalue().splitlines())
+    with rt.kb.connect_closing() as conn, rt.kb.write_txn(conn):
+        rt.kb._append_event(conn, task_id, "timed_out", {"reason": "controlled retry"})
+
+    def never(rid, sid, resumed, text, *args, **kwargs):
+        pytest.fail("a timed_out update must not start a model turn")
+
+    monkeypatch.setattr(rt.server, "_run_prompt_submit", never)
+    session.pop("_kanban_notification_next_poll", None)
+    rt.server._notification_poller_loop(_StopAfterOneClaim(), "resumed", session)
+    notice_frames = normalize_frames(rt.server._real_stdout.getvalue().splitlines()[marker:])
+    kinds = [(f["type"], (f.get("payload") or {}).get("kind")) for f in notice_frames]
+    assert ("status.update", "project_job") in kinds
+    assert not any(t == "message.start" for t, _ in kinds)
+    assert not session["running"]
+    write_or_check("timed-out-notice", notice_frames)

@@ -1,0 +1,2 @@
+{"payload": {"kind": "process", "text": "Lyra project: Research attempt failed. Lyra queued a retry and is checking why it failed."}, "type": "status.update"}
+{"payload": {"event_cursor": "<redacted>", "event_kind": "timed_out", "kind": "project_job", "task_id": "<redacted>", "task_status": "done", "text": "Lyra project: Research attempt failed. Lyra queued a retry and is checking why it failed."}, "type": "status.update"}
