@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "contract_version": "1.0.2",
+  "contract_version": "1.0.3",
   "rules": [
     {
       "id": "workspace-boundary",
@@ -43,6 +43,12 @@
       "summary": "Every Lyra project job has a finite runtime and retry budget.",
       "mode": "enforced",
       "evidence": ["plugins/ultimate-builder/project_runs.py", "hermes_cli/kanban_db.py"]
+    },
+    {
+      "id": "coordinator-dispatch-only",
+      "summary": "The coordinating conversation has no shell; specialist work starts only through the project_run tool.",
+      "mode": "enforced",
+      "evidence": ["toolsets.py", "tui_gateway/studio_context.py", "plugins/ultimate-builder/project_run_tool.py"]
     },
     {
       "id": "truthful-evidence-presentation",

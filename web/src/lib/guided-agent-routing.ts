@@ -82,10 +82,10 @@ export function guidedProjectExecutionTurnDirective(
     "then Development implements the bounded fix; finally QA independently reruns the exact " +
     "user-reported journey and relevant regression checks. If the expected behavior is genuinely " +
     "new or unclear in the approved requirements, Requirements asks one focused delta question " +
-    "before downstream work. Every non-interactive phase must be queued with hermes project-run " +
-    "as a durable background project job. In this foreground conversation, do not load specialist " +
+    "before downstream work. Every non-interactive phase must be queued with the project_run tool " +
+    "as a durable background project job; Lyra has no terminal. In this foreground conversation, do not load specialist " +
     "playbooks, do not edit application files, do not run application test suites, and do not " +
-    "perform a specialist's work. Lyra may inspect concise project-run status and queue or resume " +
+    "perform a specialist's work. Lyra may inspect concise project_run status and queue or resume " +
     "the bounded job. After the queue accepts it, immediately tell the user which agent owns it, " +
     "what it is checking, whether the whole application is finished, and that work continues in " +
     "the background, then end this turn. Use only approved_agents. If a required agent is absent, " +

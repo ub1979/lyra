@@ -19,8 +19,6 @@ def test_default_coordinator_retains_requirements_memory_and_research():
         "write_file",
         "patch",
         "search_files",
-        "terminal",
-        "process",
         "skill_view",
         "skills_list",
         "memory",
@@ -43,6 +41,34 @@ def test_default_coordinator_retains_requirements_memory_and_research():
         & tools
     )
     assert tools < set(resolve_multiple_toolsets(["coding", "project"]))
+
+
+def test_coordinator_has_no_shell():
+    """Dispatch runs through the project_run tool; a shell would let it do specialist work."""
+    tools = set(resolve_multiple_toolsets(studio_toolsets(STUDIO, ["coding", "project"])))
+    assert not {"terminal", "process", "read_terminal", "close_terminal"} & tools
+
+
+def test_project_run_tool_joins_the_guide_bundle_through_the_registry():
+    import importlib.util
+    from pathlib import Path
+
+    from tools.registry import registry
+
+    path = Path(__file__).resolve().parents[2] / "plugins/ultimate-builder/project_run_tool.py"
+    spec = importlib.util.spec_from_file_location("studio_context_project_run_tool", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    class Ctx:
+        def register_tool(self, **kwargs):
+            if "project_run" not in registry.get_tool_names_for_toolset("project-guide"):
+                registry.register(**kwargs)
+
+    module.register_project_run_tool(Ctx())
+
+    assert "project_run" in set(resolve_multiple_toolsets(["project-guide"]))
+    assert "project_run" not in set(resolve_multiple_toolsets(["coding"]))
 
 
 @pytest.mark.parametrize(
@@ -99,9 +125,14 @@ def test_real_schema_resolution_is_smaller_and_repeatable():
     second = get_tool_definitions(selected, quiet_mode=True)
     assert json.dumps(first) == json.dumps(second)
     normal_by_name = {item["function"]["name"]: item for item in normal}
-    # Retained schemas keep the complete argument/validation contract.
+    # Retained schemas keep the complete argument/validation contract. The
+    # coordinator-only dispatch tool is the one schema the coding profile lacks.
+    coordinator_only = {item["function"]["name"] for item in first} - set(normal_by_name)
+    assert coordinator_only <= {"project_run"}
     for item in first:
         name = item["function"]["name"]
+        if name in coordinator_only:
+            continue
         assert (
             item["function"]["parameters"]
             == normal_by_name[name]["function"]["parameters"]

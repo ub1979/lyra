@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from tui_gateway.studio_model_routing import is_studio_coordinator
 
+# Bundles the default coding profile resolves to; they are *replaced* by
+# ``project-guide``, which grants a subset (no terminal — dispatch runs through
+# the ``project_run`` tool).
 _GUIDE_BUNDLES = frozenset({
     "web",
     "browser",

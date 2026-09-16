@@ -349,10 +349,12 @@ TOOLSETS = {
     # spotify, home-assistant, cron, computer-use).
     "project-guide": {
         "description": "Project interviewing, memory, research and durable job coordination",
-        "tools": ["project_list", "skills_list", "skill_view", "read_terminal", "close_terminal"],
-        "includes": ["web", "browser", "file", "terminal", "vision", "memory", "session_search", "clarify", "todo"],
-        # Specialist jobs use the original coding bundle. The coordinator
-        # dispatches durable work through the existing project-run CLI.
+        "tools": ["project_list", "skills_list", "skill_view"],
+        "includes": ["web", "browser", "file", "vision", "memory", "session_search", "clarify", "todo"],
+        # Specialist jobs use the original coding bundle. The coordinator has
+        # no shell: it dispatches and inspects durable work only through the
+        # plugin-registered ``project_run`` tool, which the registry merges
+        # into this bundle at resolve time.
         "posture": True,
     },
     "coding": {

@@ -57,7 +57,7 @@ def test_contract_reports_its_boundary_and_validates_real_evidence():
     report = load_contract_module().contract_report()
 
     assert report["ok"] is True
-    assert report["contract_version"] == "1.0.2"
+    assert report["contract_version"] == "1.0.3"
     assert report["enforced"] > 0
     assert report["exhorted"] > 0
     assert report["declared_rules"] == report["enforced"] + report["exhorted"]
@@ -65,6 +65,17 @@ def test_contract_reports_its_boundary_and_validates_real_evidence():
         report["enforced"] / report["declared_rules"], 4
     )
     assert "declared critical workflow rules" in report["note"]
+
+
+def test_contract_enforces_dispatch_only_coordinator():
+    module = load_contract_module()
+    rules = {rule["id"]: rule for rule in module.load_contract()["rules"]}
+
+    rule = rules["coordinator-dispatch-only"]
+    assert rule["mode"] == "enforced"
+    assert "project_run" in rule["summary"]
+    assert "toolsets.py" in rule["evidence"]
+    assert "plugins/ultimate-builder/project_run_tool.py" in rule["evidence"]
 
 
 def test_contract_declares_build_scale_before_planning():
