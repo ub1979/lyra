@@ -9,6 +9,23 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.49] - 2026-09-16 — history that stays
+
+### Fixed
+
+- Lyra's first reply in every Studio conversation was shown but never saved:
+  adopting the configured model at the start of a turn appended a system note
+  and moved the history version forward inside that same turn, so the turn
+  then refused to write its own reply ("history_version mismatch" in the
+  gateway log on every open). The turn now re-reads its baseline after the
+  adoption; the reply and the note are both kept.
+- When a reply genuinely cannot be saved (the history was changed by
+  something else mid-turn), Studio now says so under the reply — an amber
+  line "…the response above is visible but was not saved to session
+  history" — instead of silently dropping the gateway's warning.
+
+Restart Lyra and reload Studio once.
+
 ## [0.19.48] - 2026-09-16 — first run is a finish line
 
 ### Improved
