@@ -108,6 +108,7 @@ import {
   shouldRestoreGuidedWorkingState,
 } from "@/lib/guided-turn-watchdog";
 import { guidedJobNotice } from "@/lib/guided-job-notice";
+import { mergeGuidedResponse } from "@/lib/guided-response-merge";
 import {
   clearRecoveredGuidedConnectionErrors,
   isTransientGuidedConnectionSetupError,
@@ -278,6 +279,7 @@ interface GuidedMessage {
   content: string;
   plain?: boolean;
   createdAt?: number;
+  turn?: number;
 }
 
 interface GuidedRunningTool {
@@ -1406,6 +1408,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     );
     applyGuidedSpecialistIds(selected);
   }, [applyGuidedSpecialistIds, guided, searchParams, workspaceParam]);
+  // Counts model turns (message.start) so a completed reply can refine only
+  // the reply of its own turn; a notification turn never overwrites the last.
+  const guidedTurnSeqRef = useRef(0);
   const finishGuidedResponse = useCallback((content: string) => {
     // Phase markers come off first: they are stripped from what the user reads
     // and they, not the wording of the reply, decide who is working and what
@@ -1481,21 +1486,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     setGuidedLastSignalAt(Date.now());
     setGuidedOutput(response);
     setGuidedActivity({ phase: "idle", text: "", specialist: null });
-    setGuidedMessages((messages) => {
-      const last = messages[messages.length - 1];
-      if (last?.role === "assistant") {
-        return [...messages.slice(0, -1), { ...last, content: response }];
-      }
-      return [
-        ...messages,
-        {
-          id: `assistant-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-          role: "assistant",
-          content: response,
-          createdAt: Date.now(),
-        },
-      ];
-    });
+    setGuidedMessages((messages) =>
+      mergeGuidedResponse(messages, response, guidedTurnSeqRef.current, Date.now()),
+    );
   }, []);
   // True from the moment the connect effect begins until the socket resolves
   // (open or close). Guards the page-resume reconnect against firing during
@@ -1999,6 +1992,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         }
         if (type === "message.start") {
           guidedTurnSettledRef.current = false;
+          guidedTurnSeqRef.current += 1;
           streamedText = "";
           setGuidedLastSignalAt(Date.now());
           setGuidedActivity((current) => ({
