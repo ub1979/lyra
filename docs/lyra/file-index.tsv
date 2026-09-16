@@ -1785,6 +1785,7 @@ docs/lyra/changes/2026-09-16-notification-busy-ownership.md	docs	md: 2026 09 16 
 docs/lyra/changes/2026-09-16-packaged-app-name-and-index-job.md	docs	md: 2026 09 16 packaged app name and index job
 docs/lyra/changes/2026-09-16-packaged-first-run-gate.md	docs	md: 2026 09 16 packaged first run gate
 docs/lyra/changes/2026-09-16-project-run-tool.md	docs	md: 2026 09 16 project run tool
+docs/lyra/changes/2026-09-16-refine-past-warning-and-cold-resume.md	docs	md: 2026 09 16 refine past warning and cold resume
 docs/lyra/changes/2026-09-16-reply-turn-identity.md	docs	md: 2026 09 16 reply turn identity
 docs/lyra/changes/2026-09-16-studio-event-reducer-and-journeys.md	docs	md: 2026 09 16 studio event reducer and journeys
 docs/lyra/changes/2026-09-16-studio-playwright-smoke.md	docs	md: 2026 09 16 studio playwright smoke
@@ -2115,8 +2116,8 @@ hermes_cli/web_dist/assets/RulesCompressed-Medium-CA76_CrB.woff2	hermes_cli	Gene
 hermes_cli/web_dist/assets/RulesCompressed-Regular-BSXFyF4x.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Bold-DZA7s8Pa.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Regular-l8uVympt.woff2	hermes_cli	Generated asset; edit its source and rebuild
+hermes_cli/web_dist/assets/index-B3VYWH2S.js	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/index-BGAdPJZk.css	hermes_cli	Generated asset; edit its source and rebuild
-hermes_cli/web_dist/assets/index-Bn8V6cd2.js	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Bold.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Italic.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Regular.woff2	hermes_cli	Generated asset; edit its source and rebuild

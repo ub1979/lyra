@@ -95,4 +95,17 @@ test('a user turn, a second turn, and the token panel all render in Studio', asy
   await tokens.locator('summary').click()
   await expect(tokens.locator('summary strong')).not.toHaveText('Not reported yet', { timeout: 30_000 })
   await expect(tokens.getByText('Updated')).toBeVisible()
+
+  // Cold resume: reload the same URL. Studio reopens the saved session, so the
+  // whole exchange must come back from history — including Lyra's first
+  // reply, which 0.19.49 stopped losing — and no new welcome seed may be sent
+  // (a fresh session would show up as one more model call).
+  const promptsBeforeReload = echo.prompts.length
+  await page.reload()
+  await expect(composer).toHaveAttribute('placeholder', /Describe your idea/, { timeout: 120_000 })
+  await expect(bubbles.filter({ hasText: FIRST }).filter({ hasText: 'You' })).toBeVisible({ timeout: 60_000 })
+  await expect(firstReply).toHaveCount(1, { timeout: 60_000 })
+  await expect(secondReply).toHaveCount(1)
+  await expect(bubbles.filter({ hasText: 'Echo:' })).toHaveCount(3) // welcome + two replies, restored
+  expect(echo.prompts.length).toBe(promptsBeforeReload)
 })

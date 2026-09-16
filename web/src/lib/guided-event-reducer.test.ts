@@ -211,3 +211,15 @@ describe("reduceGuidedEvent — a reply the gateway could not save", () => {
     expect(state.messages.map((m) => m.content)).toEqual(["First.", notSaved, "Second."]);
   });
 });
+
+describe("reduceGuidedEvent — refinement after a warning line", () => {
+  const notSaved = "History changed during this turn — the response above is visible but was not saved to session history.";
+  it("a same-turn refinement still refines the reply, not a new bubble after the warning", () => {
+    const withWarning: GatewayEvent = {
+      type: "message.complete",
+      payload: { status: "complete", text: "Answer A", warning: notSaved },
+    };
+    const { state } = play([start, withWarning, complete("Answer A, refined")]);
+    expect(state.messages.map((m) => m.content)).toEqual(["Answer A, refined", notSaved]);
+  });
+});

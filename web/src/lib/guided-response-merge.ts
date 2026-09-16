@@ -22,9 +22,15 @@ export function mergeGuidedResponse<T extends GuidedMergeMessage>(
   now: number,
   id: string = `assistant-${now}-${Math.random().toString(36).slice(2)}`,
 ): T[] {
-  const last = messages[messages.length - 1];
+  // A quiet line that belongs to this same turn (the "not saved" warning)
+  // sits after the reply; look past it so the reply can still be refined in
+  // place. A notice from another turn (a job update) keeps its place and
+  // makes the next completion a new bubble, as before.
+  let index = messages.length - 1;
+  while (index >= 0 && messages[index].plain && messages[index].turn === turn) index -= 1;
+  const last = messages[index];
   if (last && last.role === "assistant" && !last.plain && last.turn === turn) {
-    return [...messages.slice(0, -1), { ...last, content: response }];
+    return [...messages.slice(0, index), { ...last, content: response }, ...messages.slice(index + 1)];
   }
   const appended = {
     id,

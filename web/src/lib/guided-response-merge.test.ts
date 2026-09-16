@@ -41,6 +41,27 @@ describe("mergeGuidedResponse", () => {
     expect(out[1]).toBe(notice);
   });
 
+  it("refines the reply past its own turn's quiet warning line, leaving the line in place", () => {
+    const first = mergeGuidedResponse([user], "Answer A", 3, 1_000, "a1");
+    const warned: GuidedMergeMessage[] = [
+      ...first,
+      { id: "w3", role: "assistant", content: "not saved", plain: true, tone: "warning", turn: 3 },
+    ];
+    const out = mergeGuidedResponse(warned, "Answer A, refined", 3, 2_000, "a2");
+    expect(out.map((m) => [m.id, m.content])).toEqual([
+      ["u1", "build the rest"],
+      ["a1", "Answer A, refined"],
+      ["w3", "not saved"],
+    ]);
+  });
+
+  it("a quiet line from another turn still ends refinement", () => {
+    const first = mergeGuidedResponse([user], "Answer A", 3, 1_000, "a1");
+    const noticed: GuidedMergeMessage[] = [...first, { id: "n1", role: "assistant", content: "job update", plain: true }];
+    const out = mergeGuidedResponse(noticed, "Answer B", 3, 2_000, "a2");
+    expect(out.map((m) => m.content)).toEqual(["build the rest", "Answer A", "job update", "Answer B"]);
+  });
+
   it("treats replies restored without a turn as separate messages", () => {
     const restored: GuidedMergeMessage = { id: "old", role: "assistant", content: "earlier" };
     const out = mergeGuidedResponse([restored], "new reply", 1, 1_000, "a1");
