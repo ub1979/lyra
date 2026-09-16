@@ -2,8 +2,11 @@ import fs from 'node:fs'
 
 // `hermes serve` announces IDRAK_IT_BACKEND_READY; the legacy `hermes dashboard`
 // backend announces IDRAK_IT_DASHBOARD_READY. Accept either so the desktop spawn
-// works against both the headless backend and old/dashboard runtimes.
-const _READY_RE = /^HERMES_(?:BACKEND|DASHBOARD)_READY port=(\d+)/m
+// works against both the headless backend and old/dashboard runtimes. The
+// pre-rebrand HERMES_* spelling is still accepted for backends installed before
+// the rename; `tests/hermes_cli/test_ready_sentinel.py` pins this pattern to
+// the token web_server.py actually prints.
+const _READY_RE = /^(?:IDRAK_IT|HERMES)_(?:BACKEND|DASHBOARD)_READY port=(\d+)/m
 
 // The announcement clock starts the instant the backend process is spawned —
 // before uvicorn binds its socket. On a cold install the child must first
@@ -35,7 +38,7 @@ function resolvePortAnnounceTimeoutMs(env = process.env) {
 }
 
 /**
- * Watch a child process's stdout for the `HERMES_(BACKEND|DASHBOARD)_READY
+ * Watch a child process's stdout for the `IDRAK_IT_(BACKEND|DASHBOARD)_READY
  * port=<N>` line that web_server.py prints after uvicorn binds its socket.
  *
  * Returns the parsed port. Rejects if:
