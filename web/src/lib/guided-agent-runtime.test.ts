@@ -32,7 +32,8 @@ describe("guided agent runtime", () => {
       output: 300,
       reasoning: 40,
       calls: 3,
-    });
+      cost_status: "estimated",
+    }, 5_000);
 
     expect(usage).toMatchObject({
       model: "gpt-5.6-sol",
@@ -40,8 +41,21 @@ describe("guided agent runtime", () => {
       cacheRead: 9000,
       output: 300,
       calls: 3,
+      costStatus: "estimated",
+      reported: true,
+      updatedAt: 5_000,
     });
     expect(guidedUsageTotal(usage)).toBe(10_540);
+  });
+
+  it("treats an empty usage payload as unknown rather than a measured zero", () => {
+    expect(normalizeGuidedUsage({}, 5_000).reported).toBe(false);
+    expect(normalizeGuidedUsage(undefined, 5_000).reported).toBe(false);
+    expect(normalizeGuidedUsage({ input: 0, calls: 0 }, 5_000)).toMatchObject({
+      reported: true,
+      input: 0,
+      updatedAt: 5_000,
+    });
   });
 
   it("updates one live worker from heartbeat through completion", () => {

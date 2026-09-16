@@ -1,4 +1,5 @@
 import type { ProjectAgentActivityItem } from '../lib/project-agent-activity'
+import { formatProjectAgentUsage } from '../lib/project-agent-usage'
 import { formatStudioDateTime, studioDateTimeIso } from '../lib/studio-time'
 
 export interface ProjectAgentJobsProps {
@@ -40,6 +41,9 @@ export function ProjectAgentJobs({ items, stale }: ProjectAgentJobsProps) {
               {item.detail}
             </p>
           )}
+          <p className="mt-1.5 text-[10px] text-text-secondary" title={item.usage?.model || undefined}>
+            {formatProjectAgentUsage(item.usage)}
+          </p>
           {item.lastActivityAt && (
             <time
               className="mt-1.5 block text-[10px] text-text-secondary"

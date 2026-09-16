@@ -1,5 +1,6 @@
 import type { UltimateBuilderRunState, UltimateBuilderRunTask } from './api'
 import { needsTechnicalReview } from './project-attention'
+import { normalizeProjectAgentUsage, type ProjectAgentUsage } from './project-agent-usage'
 
 export interface ProjectAgentActivityItem {
   id: string
@@ -10,6 +11,7 @@ export interface ProjectAgentActivityItem {
   running: boolean
   attention: boolean
   lastActivityAt: number | null
+  usage: ProjectAgentUsage | null
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -69,7 +71,8 @@ function presentTask(task: UltimateBuilderRunTask, stale: boolean): ProjectAgent
     detail,
     running: !stale && task.status === 'running',
     attention: !stale && !paused && (stalled || Boolean(task.dispatch_issue) || ['blocked', 'triage'].includes(task.status)),
-    lastActivityAt: task.last_activity_at
+    lastActivityAt: task.last_activity_at,
+    usage: normalizeProjectAgentUsage(task.usage)
   }
 }
 

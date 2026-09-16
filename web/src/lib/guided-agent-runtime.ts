@@ -4,11 +4,15 @@ export interface GuidedUsageSnapshot {
   calls: number;
   contextMax: number;
   contextUsed: number;
+  costStatus: string;
   costUsd: number;
   input: number;
   model: string;
   output: number;
   reasoning: number;
+  /** False until the backend has sent real counters; zeros then mean "unknown". */
+  reported: boolean;
+  updatedAt: number;
 }
 
 export interface GuidedWorkerRuntime extends GuidedUsageSnapshot {
@@ -26,6 +30,7 @@ export interface GuidedRuntimeEventPayload {
   api_calls?: unknown;
   cache_read_tokens?: unknown;
   cache_write_tokens?: unknown;
+  cost_status?: unknown;
   cost_usd?: unknown;
   display_label?: unknown;
   duration_seconds?: unknown;
@@ -55,27 +60,42 @@ export const EMPTY_GUIDED_USAGE: GuidedUsageSnapshot = {
   calls: 0,
   contextMax: 0,
   contextUsed: 0,
+  costStatus: "",
   costUsd: 0,
   input: 0,
   model: "",
   output: 0,
   reasoning: 0,
+  reported: false,
+  updatedAt: 0,
 };
 
-export function normalizeGuidedUsage(value: unknown): GuidedUsageSnapshot {
+const USAGE_COUNTER_KEYS = ["input", "output", "cache_read", "calls", "total"];
+
+export function normalizeGuidedUsage(
+  value: unknown,
+  now: number = Date.now(),
+): GuidedUsageSnapshot {
   if (!value || typeof value !== "object") return EMPTY_GUIDED_USAGE;
   const usage = value as Record<string, unknown>;
+  // An empty payload (compute-host mirror missing, agent not attached) is
+  // "unknown", not "zero"; only real counters may claim to be a measurement.
+  const reported = USAGE_COUNTER_KEYS.some((key) => key in usage);
+  if (!reported) return EMPTY_GUIDED_USAGE;
   return {
     cacheRead: numberValue(usage.cache_read),
     cacheWrite: numberValue(usage.cache_write),
     calls: numberValue(usage.calls),
     contextMax: numberValue(usage.context_max),
     contextUsed: numberValue(usage.context_used),
+    costStatus: stringValue(usage.cost_status),
     costUsd: numberValue(usage.cost_usd),
     input: numberValue(usage.input),
     model: stringValue(usage.model),
     output: numberValue(usage.output),
     reasoning: numberValue(usage.reasoning),
+    reported: true,
+    updatedAt: now,
   };
 }
 
@@ -118,6 +138,7 @@ export function updateGuidedWorkers(
     calls: numberValue(payload.api_calls) || previous?.calls || 0,
     contextMax: 0,
     contextUsed: 0,
+    costStatus: stringValue(payload.cost_status) || previous?.costStatus || "",
     costUsd: numberValue(payload.cost_usd) || previous?.costUsd || 0,
     goal:
       stringValue(payload.goal) || previous?.goal || "Delegated project work",
@@ -135,11 +156,13 @@ export function updateGuidedWorkers(
     output: numberValue(payload.output_tokens) || previous?.output || 0,
     reasoning:
       numberValue(payload.reasoning_tokens) || previous?.reasoning || 0,
+    reported: true,
     startedAt:
       previous?.startedAt ||
       Math.max(0, now - numberValue(payload.duration_seconds) * 1000),
     status,
     toolCount: numberValue(payload.tool_count) || previous?.toolCount || 0,
+    updatedAt: now,
   };
 
   return [...current.filter((worker) => worker.id !== id), next]

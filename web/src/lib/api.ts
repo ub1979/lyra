@@ -1981,6 +1981,20 @@ export interface UltimateBuilderHistory {
   conversations: UltimateBuilderConversation[];
 }
 
+/** Provider-reported accounting saved by a durable worker; absent means not reported. */
+export interface UltimateBuilderRunUsage {
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
+  reasoning_tokens: number;
+  api_calls: number;
+  cost_usd: number | null;
+  cost_status: string;
+  model: string;
+  recorded_at: number;
+}
+
 export interface UltimateBuilderRunTask {
   phase: string;
   label: string;
@@ -2000,6 +2014,7 @@ export interface UltimateBuilderRunTask {
   attention_id?: string | null;
   attention_kind?: "review" | "input" | "blocked" | null;
   dispatch_issue?: string;
+  usage?: UltimateBuilderRunUsage | null;
 }
 
 export interface UltimateBuilderRunState {

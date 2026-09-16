@@ -157,6 +157,7 @@ import {
   projectAgentActivity,
   projectAgentSummary,
 } from "@/lib/project-agent-activity";
+import { projectAgentUsageTotal } from "@/lib/project-agent-usage";
 import {
   guidedClarificationAnswer,
   guidedClarificationMessage,
@@ -635,9 +636,10 @@ export function GuidedRuntimePanel({
   usage: GuidedUsageSnapshot;
 }) {
   const model = usage.model || defaultModelLabel;
-  const jobs = activeProjectAgentActivity(
-    projectAgentActivity(runState, runStateStale),
-  );
+  const allJobs = projectAgentActivity(runState, runStateStale);
+  const jobs = activeProjectAgentActivity(allJobs);
+  // Saved jobs report their own usage; it is never folded into Lyra's number.
+  const jobUsage = projectAgentUsageTotal(allJobs);
   const workingCount = activeWorkers.length + jobs.filter((job) => job.running).length;
   const status = runStateStale ? "Status unavailable" : projectAgentSummary(jobs, activeWorkers.length);
 
@@ -680,10 +682,14 @@ export function GuidedRuntimePanel({
             Tokens
           </span>
           <strong className="text-midground">
-            {formatGuidedTokens(guidedUsageTotal(usage))}
+            {usage.reported
+              ? formatGuidedTokens(guidedUsageTotal(usage))
+              : "Not reported yet"}
           </strong>
         </summary>
         <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 border-t border-current/10 px-2.5 py-2 text-[10px]">
+          <span className="text-text-secondary">Scope</span>
+          <strong className="text-right text-midground">Lyra only</strong>
           <span className="text-text-secondary">Fresh</span>
           <strong className="text-right text-midground">
             {formatGuidedTokens(usage.input)}
@@ -710,6 +716,20 @@ export function GuidedRuntimePanel({
               </strong>
             </>
           )}
+          <span className="text-text-secondary">Updated</span>
+          <strong className="text-right text-midground">
+            {usage.reported ? formatStudioDateTime(usage.updatedAt) : "—"}
+          </strong>
+          <span className="text-text-secondary">Project agents</span>
+          <strong className="text-right text-midground">
+            {jobUsage.reported
+              ? `${formatGuidedTokens(jobUsage.tokens)}${
+                  jobUsage.costKnown ? ` · ~$${jobUsage.costUsd.toFixed(3)}` : ""
+                } · ${jobUsage.reported} of ${jobUsage.total} reported`
+              : jobUsage.total
+                ? `Not reported · 0 of ${jobUsage.total}`
+                : "None"}
+          </strong>
         </div>
       </details>
 

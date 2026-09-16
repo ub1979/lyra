@@ -14,6 +14,7 @@ from hermes_cli import kanban_db as kb
 from hermes_cli.project_job_status import project_job_dispatch_issue, validate_project_worker
 from hermes_cli.project_job_attention import task_attention
 from hermes_cli.kanban_notifications import subscribe_task_origin
+from hermes_cli.kanban_usage import latest_run_usage_by_task
 
 
 TASK_KEY_PREFIX = "lyra-project:v1:"
@@ -658,6 +659,14 @@ def project_run_state(workspace: str | Path) -> dict[str, Any]:
     has_development_units = any(
         identity[0] == "sw-developer" and identity[1] for identity in latest
     )
+    # Worker usage is saved per task; read each board once so routine Studio
+    # polling never grows with the number of jobs or their event history.
+    usage_by_board: dict[str, dict[str, dict]] = {}
+    for board in {board for board, _task in latest.values()}:
+        with kb.connect_closing(board=board) as conn:
+            usage_by_board[board] = latest_run_usage_by_task(
+                conn, [task.id for item_board, task in latest.values() if item_board == board]
+            )
     items = []
     for (phase, work_unit), (board, task) in latest.items():
         if (
@@ -707,6 +716,7 @@ def project_run_state(workspace: str | Path) -> dict[str, Any]:
             "last_activity_at": last_activity_at,
             "activity_health": activity_health,
             "activity_age_seconds": activity_age_seconds,
+            "usage": usage_by_board.get(board, {}).get(task.id),
         })
     items.sort(key=lambda item: int(item["last_activity_at"] or 0))
     active = [

@@ -64,6 +64,25 @@ def test_project_phase_jobs_have_bounded_attempts_and_one_retry(tmp_path, monkey
     assert task.max_retries == 2
 
 
+def test_run_state_reports_saved_worker_usage_or_none(tmp_path, monkeypatch):
+    monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
+    project = tmp_path / "project"
+    project.mkdir()
+    module = load_project_runs()
+    from hermes_cli.kanban_usage import record_run_usage
+
+    task_id = module.queue_project_run(project, ["sw-architect"])["tasks"][0][
+        "task_id"
+    ]
+    assert module.project_run_state(project)["tasks"][0]["usage"] is None
+
+    with module.kb.connect_closing() as conn, module.kb.write_txn(conn):
+        record_run_usage(conn, task_id, {"input_tokens": 12, "api_calls": 1})
+
+    usage = module.project_run_state(project)["tasks"][0]["usage"]
+    assert usage == {"input_tokens": 12, "api_calls": 1}
+
+
 def test_reused_unfinished_phase_adopts_current_execution_bounds(tmp_path, monkeypatch):
     monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
     project = tmp_path / "project"

@@ -63,6 +63,34 @@ describe('Studio agent activity rendering', () => {
     expect(html).not.toContain('90/90')
   })
 
+  it('shows saved worker usage and says plainly when none was reported', () => {
+    const items = projectAgentActivity(
+      savedRun([
+        job({ task_id: 'unreported', label: 'Architecture', status: 'running' }),
+        job({
+          task_id: 'reported',
+          label: 'Development',
+          status: 'running',
+          usage: {
+            input_tokens: 1200,
+            output_tokens: 300,
+            cache_read_tokens: 9000,
+            cache_write_tokens: 0,
+            reasoning_tokens: 40,
+            api_calls: 3,
+            cost_usd: 0.0125,
+            cost_status: 'estimated',
+            model: 'claude-opus-4-6',
+            recorded_at: 100
+          }
+        })
+      ])
+    )
+    const html = renderToStaticMarkup(<ProjectAgentJobs items={items} stale={false} />)
+    expect(html).toContain('Usage not reported')
+    expect(html).toContain('10.5K tokens · 3 calls · ~$0.013')
+  })
+
   it('escapes saved reasons as text and announces stale status', () => {
     const items = projectAgentActivity(
       savedRun([job({ status: 'blocked', wait_reason: '<script>unsafe()</script>' })]),
