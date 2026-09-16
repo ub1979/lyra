@@ -9,6 +9,22 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.41] - 2026-09-16 — coordinator guarantees hold
+
+### Fixed
+
+- Lyra's Project Brain and other documents she reads herself are no longer cut
+  down when a turn's combined tool output is large; only unbounded results are
+  trimmed.
+- A running specialist worker cannot queue, pause, resume or stop project jobs
+  through any path — the tool, the command line, or the shared queue function
+  all refuse — so a job can never spawn more jobs by accident.
+- Old tool results in Lyra's conversation are pruned from 100k tokens at the
+  latest, instead of waiting for 40 % of a very large model window.
+
+Restart Lyra to load these fixes. Existing projects, conversations and jobs are
+preserved.
+
 ## [0.19.40] - 2026-09-16 — a lightweight coordinator
 
 ### Fixed

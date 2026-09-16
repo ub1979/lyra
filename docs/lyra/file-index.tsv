@@ -1780,6 +1780,7 @@ docs/lyra/changes/2026-09-12-model-catalog-test-isolation.md	docs	md: 2026 09 12
 docs/lyra/changes/2026-09-12-responsive-project-coordinator.md	docs	md: 2026 09 12 responsive project coordinator
 docs/lyra/changes/2026-09-12-static-model-alias-priority.md	docs	md: 2026 09 12 static model alias priority
 docs/lyra/changes/2026-09-16-coordinator-context-budget.md	docs	md: 2026 09 16 coordinator context budget
+docs/lyra/changes/2026-09-16-coordinator-guarantees.md	docs	md: 2026 09 16 coordinator guarantees
 docs/lyra/changes/2026-09-16-coordinator-without-terminal.md	docs	md: 2026 09 16 coordinator without terminal
 docs/lyra/changes/2026-09-16-durable-worker-usage.md	docs	md: 2026 09 16 durable worker usage
 docs/lyra/changes/2026-09-16-failure-notification-wording.md	docs	md: 2026 09 16 failure notification wording
@@ -2111,6 +2112,7 @@ hermes_cli/web_dist/assets/RulesCompressed-Regular-BSXFyF4x.woff2	hermes_cli	Gen
 hermes_cli/web_dist/assets/RulesExpanded-Bold-DZA7s8Pa.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Regular-l8uVympt.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/index-BGAdPJZk.css	hermes_cli	Generated asset; edit its source and rebuild
+hermes_cli/web_dist/assets/index-BObRIA3w.js	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Bold.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Italic.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Regular.woff2	hermes_cli	Generated asset; edit its source and rebuild
