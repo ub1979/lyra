@@ -9,6 +9,22 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.50] - 2026-09-16 — the reply keeps its bubble
+
+### Fixed
+
+- A reply that refines itself after the new "not saved" line appeared would
+  have shown up as a second bubble; it now refines in place, with the line
+  staying under it.
+
+### Improved
+
+- The browser test now reloads the conversation after two turns and checks
+  that everything comes back from history without a new welcome round-trip —
+  the first cold-resume check.
+
+No restart needed.
+
 ## [0.19.49] - 2026-09-16 — history that stays
 
 ### Fixed
