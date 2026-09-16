@@ -11178,6 +11178,7 @@ def _claim_kanban_tui_notification(sid: str, session: dict) -> dict | None:
                         "task_title": task.title if task else "Project agent",
                         "task_status": task.status if task else events[-1].kind,
                         "event_kind": events[-1].kind,
+                        "event_at": events[-1].created_at,
                         "workspace_path": task.workspace_path if task else "",
                         "session_key": str(sub.get("chat_id") or ""),
                         "board": board,
@@ -11295,6 +11296,19 @@ def _notification_poller_loop(
                 {"kind": "process", "text": visible_text or text},
             )
             _emitted.add(_dedup_key)
+
+        if evt.get("type") == "kanban_task":
+            from tui_gateway.notification_policy import (
+                job_notice_payload,
+                notification_requires_turn,
+            )
+
+            if not notification_requires_turn(evt):
+                # A re-queued failure or a stale block is news for the user,
+                # not a decision for the model: one quiet line, no turn, and
+                # the durable cursor was already advanced by the claim.
+                _emit("status.update", sid, job_notice_payload(evt, visible_text))
+                continue
 
         from tui_gateway.notification_turn import begin_notification_turn
 

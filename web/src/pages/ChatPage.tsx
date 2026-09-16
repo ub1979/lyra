@@ -107,6 +107,7 @@ import {
   isGuidedModelActivityEvent,
   shouldRestoreGuidedWorkingState,
 } from "@/lib/guided-turn-watchdog";
+import { guidedJobNotice } from "@/lib/guided-job-notice";
 import {
   clearRecoveredGuidedConnectionErrors,
   isTransientGuidedConnectionSetupError,
@@ -1864,6 +1865,17 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         }
         if (type === "clarify.expire") {
           setGuidedLastSignalAt(Date.now());
+          return;
+        }
+        const jobNotice = type === "status.update" ? guidedJobNotice(payload) : null;
+        if (jobNotice) {
+          // A saved job's retry or stale update: one quiet line, no turn, no
+          // change to what Lyra is doing right now.
+          setGuidedMessages((messages) =>
+            messages.some((message) => message.id === jobNotice.id)
+              ? messages
+              : [...messages, jobNotice],
+          );
           return;
         }
         const compressionTransition = guidedCompressionTransition(

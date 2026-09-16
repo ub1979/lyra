@@ -63,6 +63,13 @@ def test_notification_names_failed_attempts_and_never_calls_them_finished(
     assert json.loads(internal.split("\nJob data: ", 1)[1])["event_kind"] == event_kind
 
 
+def test_internal_envelope_stays_short_because_it_repeats_per_job_update():
+    _visible, internal = notification_text({"task_title": "Foundation", "event_kind": "completed"})
+    preamble = internal.split("\nJob data: ", 1)[0]
+    assert len(preamble) <= 1100
+    assert "project_run status" in preamble
+
+
 def test_review_notification_has_exact_reference_and_no_implied_approval():
     event = {
         "task_id": "task-reference",
