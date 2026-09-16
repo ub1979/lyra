@@ -9,6 +9,14 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.56] - 2026-09-17 — bounded document read batches
+
+### Fixed
+
+- Multiple inline-capped reads now share a batch allowance. Admitted documents
+  stay whole; excess results explicitly request a separate read instead of
+  silently turning important documents into partial previews. Worker budgets are unchanged.
+
 ## [0.19.55] - 2026-09-17 — memory-aware context compaction
 
 ### Fixed

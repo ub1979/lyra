@@ -34,6 +34,7 @@ from tools.budget_config import (
     BudgetConfig,
     DEFAULT_BUDGET,
 )
+from tools.inline_result_admission import admit_inline_results
 
 logger = logging.getLogger(__name__)
 PERSISTED_OUTPUT_TAG = "<persisted-output>"
@@ -224,6 +225,7 @@ def enforce_turn_budget(
 
     Mutates the list in-place and returns it.
     """
+    admit_inline_results(tool_messages, config)
     candidates = []
     total_size = 0
     for i, msg in enumerate(tool_messages):

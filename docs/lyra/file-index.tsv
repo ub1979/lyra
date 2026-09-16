@@ -1796,6 +1796,7 @@ docs/lyra/changes/2026-09-16-turn-history-persists.md	docs	md: 2026 09 16 turn h
 docs/lyra/changes/2026-09-16-worker-usage-accounting.md	docs	md: 2026 09 16 worker usage accounting
 docs/lyra/changes/2026-09-17-coordinator-context-compaction.md	docs	md: 2026 09 17 coordinator context compaction
 docs/lyra/changes/2026-09-17-coordinator-role-boundary.md	docs	md: 2026 09 17 coordinator role boundary
+docs/lyra/changes/2026-09-17-inline-read-admission.md	docs	md: 2026 09 17 inline read admission
 docs/lyra/changes/2026-09-17-provider-address-notice.md	docs	md: 2026 09 17 provider address notice
 docs/lyra/changes/2026-09-17-worker-usage-freshness.md	docs	md: 2026 09 17 worker usage freshness
 docs/lyra/file-index.tsv	docs	tsv: file index
@@ -6124,6 +6125,7 @@ tests/tools/test_image_generation_image_to_image.py	tests	Behavioral tests: imag
 tests/tools/test_image_generation_plugin_dispatch.py	tests	Behavioral tests: image generation plugin dispatch
 tests/tools/test_image_source.py	tests	Behavioral tests: image source
 tests/tools/test_init_session_cwd_respect.py	tests	Behavioral tests: init session cwd respect
+tests/tools/test_inline_result_admission.py	tests	Behavioral tests: inline result admission
 tests/tools/test_interrupt.py	tests	Behavioral tests: interrupt
 tests/tools/test_kanban_redaction.py	tests	Behavioral tests: kanban redaction
 tests/tools/test_kanban_tools.py	tests	Behavioral tests: kanban tools
@@ -6455,6 +6457,7 @@ tools/homeassistant_tool.py	tools	Home Assistant tool for controlling smart home
 tools/hook_output_spill.py	tools	Spill oversized hook-injected context to disk with a preview placeholder.
 tools/image_generation_tool.py	tools	py: image generation tool
 tools/image_source.py	tools	Single resolver for every vision_analyze image source -> bytes + mime.
+tools/inline_result_admission.py	tools	Admit whole inline-capped results within a batch, never partial documents.
 tools/interrupt.py	tools	Per-thread interrupt signaling for all tools.
 tools/kanban_tools.py	tools	Kanban tools — structured tool-call surface for worker + orchestrator agents.
 tools/lazy_deps.py	tools	Lazy dependency installer for opt-in Hermes Agent backends.
