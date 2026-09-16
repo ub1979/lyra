@@ -189,3 +189,10 @@ def register(ctx) -> None:
                 "Queue, inspect, control, or validate durable project work."
             ),
         )
+    tool_spec = importlib.util.spec_from_file_location(
+        "ultimate_builder_project_run_tool", _ROOT / "project_run_tool.py"
+    )
+    if tool_spec is not None and tool_spec.loader is not None:
+        tool_module = importlib.util.module_from_spec(tool_spec)
+        tool_spec.loader.exec_module(tool_module)
+        tool_module.register_project_run_tool(ctx)
