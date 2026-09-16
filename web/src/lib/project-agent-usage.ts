@@ -11,6 +11,7 @@ export interface ProjectAgentUsage {
   costUsd: number | null
   costStatus: string
   model: string
+  attempts: number
   recordedAt: number | null
 }
 
@@ -40,12 +41,14 @@ export function normalizeProjectAgentUsage(
     costUsd: typeof wire.cost_usd === 'number' && Number.isFinite(wire.cost_usd) ? wire.cost_usd : null,
     costStatus: typeof wire.cost_status === 'string' ? wire.cost_status : '',
     model: typeof wire.model === 'string' ? wire.model : '',
+    attempts: Math.max(1, count(wire.attempts)),
     recordedAt: typeof wire.recorded_at === 'number' ? wire.recorded_at : null
   }
 }
 
+/** Same canonical total as the coordinator panel: prompt (fresh + cached + cache write) + output. */
 export function projectAgentUsageTokens(usage: ProjectAgentUsage): number {
-  return usage.input + usage.cacheRead + usage.output + usage.reasoning
+  return usage.input + usage.cacheRead + usage.cacheWrite + usage.output
 }
 
 /** Sum every saved record, finished jobs included, so the total never shrinks as work completes. */
@@ -68,5 +71,6 @@ export function formatProjectAgentUsage(usage: ProjectAgentUsage | null): string
   const tokens = `${formatGuidedTokens(projectAgentUsageTokens(usage))} tokens`
   const calls = `${usage.calls} ${usage.calls === 1 ? 'call' : 'calls'}`
   const cost = usage.costUsd !== null ? ` · ~$${usage.costUsd.toFixed(3)}` : ''
-  return `${tokens} · ${calls}${cost}`
+  const attempts = usage.attempts > 1 ? ` · ${usage.attempts} attempts` : ''
+  return `${tokens} · ${calls}${cost}${attempts}`
 }

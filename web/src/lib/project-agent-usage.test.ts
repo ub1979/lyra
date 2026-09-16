@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   formatProjectAgentUsage,
   normalizeProjectAgentUsage,
+  projectAgentUsageTokens,
   projectAgentUsageTotal
 } from './project-agent-usage'
 
@@ -37,23 +38,39 @@ describe('project agent usage', () => {
     expect(formatProjectAgentUsage(usage)).toBe('10.5K tokens · 3 calls')
   })
 
-  it('formats saved usage and names the unreported case plainly', () => {
+  it('formats saved usage, retries and the unreported case plainly', () => {
     expect(formatProjectAgentUsage(normalizeProjectAgentUsage(saved))).toBe(
       '10.5K tokens · 3 calls · ~$0.013'
+    )
+    expect(formatProjectAgentUsage(normalizeProjectAgentUsage({ ...saved, attempts: 2 }))).toBe(
+      '10.5K tokens · 3 calls · ~$0.013 · 2 attempts'
     )
     expect(formatProjectAgentUsage(null)).toBe('Usage not reported')
   })
 
+  it('counts tokens with the canonical formula: prompt (fresh + cached + cache write) + output', () => {
+    const usage = normalizeProjectAgentUsage({
+      ...saved,
+      input_tokens: 100,
+      cache_read_tokens: 200,
+      cache_write_tokens: 80,
+      output_tokens: 50,
+      reasoning_tokens: 20
+    })!
+    expect(projectAgentUsageTokens(usage)).toBe(
+      usage.input + usage.cacheRead + usage.cacheWrite + usage.output
+    )
+    expect(projectAgentUsageTokens(usage)).toBe(430)
+  })
+
   it('totals every reported job, finished ones included, and counts the unreported', () => {
-    const items = [
-      { usage: normalizeProjectAgentUsage(saved) },
-      { usage: normalizeProjectAgentUsage({ ...saved, input_tokens: 800, cost_usd: 0.002 }) },
-      { usage: null }
-    ]
+    const first = normalizeProjectAgentUsage(saved)!
+    const second = normalizeProjectAgentUsage({ ...saved, input_tokens: 800, cost_usd: 0.002 })!
+    const items = [{ usage: first }, { usage: second }, { usage: null }]
     expect(projectAgentUsageTotal(items)).toEqual({
       reported: 2,
       total: 3,
-      tokens: 10_540 + 10_140,
+      tokens: projectAgentUsageTokens(first) + projectAgentUsageTokens(second),
       costUsd: 0.0145,
       costKnown: true
     })

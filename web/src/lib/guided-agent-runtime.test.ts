@@ -29,6 +29,7 @@ describe("guided agent runtime", () => {
       model: "gpt-5.6-sol",
       input: 1200,
       cache_read: 9000,
+      cache_write: 80,
       output: 300,
       reasoning: 40,
       calls: 3,
@@ -39,13 +40,25 @@ describe("guided agent runtime", () => {
       model: "gpt-5.6-sol",
       input: 1200,
       cacheRead: 9000,
+      cacheWrite: 80,
       output: 300,
       calls: 3,
       costStatus: "estimated",
       reported: true,
       updatedAt: 5_000,
     });
-    expect(guidedUsageTotal(usage)).toBe(10_540);
+  });
+
+  it("totals tokens the way the backend's canonical usage does", () => {
+    // CanonicalUsage.total_tokens = fresh + cache read + cache write + output;
+    // reasoning is reported separately and must not be added again.
+    const usage = normalizeGuidedUsage({
+      input: 100, cache_read: 200, cache_write: 80, output: 50, reasoning: 20,
+    }, 5_000);
+    expect(guidedUsageTotal(usage)).toBe(
+      usage.input + usage.cacheRead + usage.cacheWrite + usage.output,
+    );
+    expect(guidedUsageTotal(usage)).toBe(430);
   });
 
   it("treats an empty usage payload as unknown rather than a measured zero", () => {

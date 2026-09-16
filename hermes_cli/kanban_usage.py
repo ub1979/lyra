@@ -6,6 +6,11 @@ coordinator's session counters never include it, and the dispatcher's
 obvious place but it is serialized into child worker prompts, so usage lives
 in its own ``task_events`` row instead: Studio can read it and no prompt
 ever sees it. A task without such a row has *unknown* usage, never zero.
+
+Rows are cumulative snapshots of one worker session. A retry is a new
+session, so a task's spending is the sum of the newest snapshot of every
+distinct attempt — never just the newest row, which would discard the
+earlier attempts' tokens.
 """
 
 from __future__ import annotations
@@ -115,28 +120,91 @@ def record_worker_run_usage_from_env(
         return record_run_usage(conn, task_id, usage, run_id=run_id)
 
 
-def latest_run_usage_by_task(
+_SNAPSHOT_MIN_INTERVAL_SECONDS = 120.0
+_snapshot_state: dict[str, Any] = {"at": float("-inf"), "calls": None}
+
+
+def record_worker_usage_snapshot(
+    agent: Any,
+    environ: Mapping[str, str] = os.environ,
+    *,
+    now: Optional[float] = None,
+) -> bool:
+    """Save an in-flight cumulative snapshot so a long first attempt is not "unreported".
+
+    Throttled to one write every two minutes and skipped while the call count
+    has not moved, so the heartbeat path never adds a row per tool call.
+    Snapshots of one session are cumulative; the reader keeps only the newest
+    per attempt, so they never double count.
+    """
+    if not environ.get("HERMES_KANBAN_TASK"):
+        return False
+    current = time.monotonic() if now is None else now
+    calls = getattr(agent, "session_api_calls", None)
+    if (
+        current - _snapshot_state["at"] < _SNAPSHOT_MIN_INTERVAL_SECONDS
+        or calls == _snapshot_state["calls"]
+    ):
+        return False
+    _snapshot_state["at"] = current
+    _snapshot_state["calls"] = calls
+    return record_worker_run_usage_from_env(usage_from_agent(agent), environ)
+
+
+def _attempt_key(payload: dict, run_id: Optional[int], row_id: int) -> str:
+    session_id = str(payload.get("session_id") or "")
+    if session_id:
+        return f"session:{session_id}"
+    return f"run:{run_id}" if run_id is not None else f"event:{row_id}"
+
+
+def _sum_attempts(attempts: list[dict]) -> dict:
+    latest = attempts[0]
+    priced = [a["cost_usd"] for a in attempts if isinstance(a.get("cost_usd"), (int, float))]
+    return {
+        **{key: sum(_count(a.get(key)) for a in attempts) for key in _COUNTER_KEYS},
+        "cost_usd": float(sum(priced)) if priced else None,
+        "cost_status": (
+            "partial" if 0 < len(priced) < len(attempts) else str(latest.get("cost_status") or "")
+        ),
+        "cost_source": str(latest.get("cost_source") or ""),
+        "model": str(latest.get("model") or ""),
+        "session_id": str(latest.get("session_id") or ""),
+        "attempts": len(attempts),
+        "recorded_at": max(_count(a.get("recorded_at")) for a in attempts),
+    }
+
+
+def run_usage_totals_by_task(
     conn: sqlite3.Connection, task_ids: Iterable[str]
 ) -> dict[str, dict]:
-    """Newest saved usage per task in one query per chunk; unreported tasks are absent."""
+    """Total spending per task: newest cumulative snapshot of each distinct attempt, summed.
+
+    Each worker session writes cumulative snapshots, so within one attempt only
+    the newest row counts; across retries every attempt's newest row is added.
+    One query per chunk of ids. Tasks with no usage row are absent (unknown).
+    """
     ids = [str(task_id) for task_id in dict.fromkeys(task_ids) if task_id]
-    latest: dict[str, dict] = {}
+    latest_by_attempt: dict[str, dict[str, dict]] = {}
     for start in range(0, len(ids), _SQL_VARIABLE_CHUNK):
         chunk = ids[start : start + _SQL_VARIABLE_CHUNK]
         rows = conn.execute(
-            "SELECT task_id, payload FROM task_events "
+            "SELECT id, task_id, run_id, payload FROM task_events "
             f"WHERE kind = ? AND task_id IN ({','.join('?' * len(chunk))}) "
             "ORDER BY created_at DESC, id DESC",
             (USAGE_EVENT_KIND, *chunk),
         ).fetchall()
         for row in rows:
-            task_id = row["task_id"]
-            if task_id in latest:
-                continue
             try:
                 payload = json.loads(row["payload"]) if row["payload"] else None
             except Exception:
                 payload = None
-            if isinstance(payload, dict):
-                latest[task_id] = payload
-    return latest
+            if not isinstance(payload, dict):
+                continue
+            run_id = int(row["run_id"]) if row["run_id"] is not None else None
+            attempts = latest_by_attempt.setdefault(row["task_id"], {})
+            attempts.setdefault(_attempt_key(payload, run_id, int(row["id"])), payload)
+    return {
+        task_id: _sum_attempts(list(attempts.values()))
+        for task_id, attempts in latest_by_attempt.items()
+    }

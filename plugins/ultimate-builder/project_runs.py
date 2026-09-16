@@ -14,7 +14,7 @@ from hermes_cli import kanban_db as kb
 from hermes_cli.project_job_status import project_job_dispatch_issue, validate_project_worker
 from hermes_cli.project_job_attention import task_attention
 from hermes_cli.kanban_notifications import subscribe_task_origin
-from hermes_cli.kanban_usage import latest_run_usage_by_task
+from hermes_cli.kanban_usage import run_usage_totals_by_task
 
 
 TASK_KEY_PREFIX = "lyra-project:v1:"
@@ -664,7 +664,7 @@ def project_run_state(workspace: str | Path) -> dict[str, Any]:
     usage_by_board: dict[str, dict[str, dict]] = {}
     for board in {board for board, _task in latest.values()}:
         with kb.connect_closing(board=board) as conn:
-            usage_by_board[board] = latest_run_usage_by_task(
+            usage_by_board[board] = run_usage_totals_by_task(
                 conn, [task.id for item_board, task in latest.values() if item_board == board]
             )
     items = []

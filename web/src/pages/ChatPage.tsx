@@ -777,10 +777,7 @@ export function GuidedRuntimePanel({
                 title={worker.model}
               >
                 {worker.model} · {worker.calls} calls ·{" "}
-                {formatGuidedTokens(
-                  worker.input + worker.cacheRead + worker.output,
-                )}{" "}
-                tokens
+                {formatGuidedTokens(guidedUsageTotal(worker))} tokens
               </p>
             </article>
           ))}

@@ -77,10 +77,14 @@ def test_run_state_reports_saved_worker_usage_or_none(tmp_path, monkeypatch):
     assert module.project_run_state(project)["tasks"][0]["usage"] is None
 
     with module.kb.connect_closing() as conn, module.kb.write_txn(conn):
-        record_run_usage(conn, task_id, {"input_tokens": 12, "api_calls": 1})
+        record_run_usage(conn, task_id, {"input_tokens": 12, "api_calls": 1, "session_id": "s1"})
+        record_run_usage(conn, task_id, {"input_tokens": 30, "api_calls": 2, "session_id": "s2"})
 
     usage = module.project_run_state(project)["tasks"][0]["usage"]
-    assert usage == {"input_tokens": 12, "api_calls": 1}
+    assert usage["input_tokens"] == 42
+    assert usage["api_calls"] == 3
+    assert usage["attempts"] == 2
+    assert usage["cost_usd"] is None
 
 
 def test_reused_unfinished_phase_adopts_current_execution_bounds(tmp_path, monkeypatch):

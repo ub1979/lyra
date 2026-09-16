@@ -5,10 +5,12 @@ import pytest
 from hermes_cli import kanban_db as kb
 import types
 
+from hermes_cli import kanban_usage
 from hermes_cli.kanban_usage import (
-    latest_run_usage_by_task,
     record_run_usage,
     record_worker_run_usage_from_env,
+    record_worker_usage_snapshot,
+    run_usage_totals_by_task,
     usage_from_agent,
     usage_from_run_result,
 )
@@ -62,24 +64,90 @@ def test_unpriced_result_keeps_cost_unknown():
     assert payload["cost_status"] == "unavailable"
 
 
-def test_latest_record_wins_and_unreported_tasks_are_absent(board):
-    first = kb.create_task(board, title="Architecture", assignee="default")
-    second = kb.create_task(board, title="Development", assignee="default")
+def test_retries_add_up_and_unreported_tasks_are_absent(board):
+    """1,000 tokens on attempt one plus 100 on the retry is 1,100 spent, not 100."""
+    task_id = kb.create_task(board, title="Architecture", assignee="default")
     never = kb.create_task(board, title="QA", assignee="default")
     with kb.write_txn(board):
-        assert record_run_usage(board, first, usage_from_run_result(RESULT), run_id=1)
         assert record_run_usage(
-            board, first, usage_from_run_result({**RESULT, "input_tokens": 5}), run_id=2
+            board, task_id,
+            usage_from_run_result({**RESULT, "input_tokens": 1000, "session_id": "attempt-1"}),
+            run_id=1,
         )
-        assert record_run_usage(board, second, usage_from_run_result(RESULT))
+        assert record_run_usage(
+            board, task_id,
+            usage_from_run_result({**RESULT, "input_tokens": 100, "session_id": "attempt-2"}),
+            run_id=2,
+        )
         assert record_run_usage(board, never, None) is False
 
-    latest = latest_run_usage_by_task(board, [first, second, never, first])
+    totals = run_usage_totals_by_task(board, [task_id, never, task_id])
 
-    assert latest[first]["input_tokens"] == 5
-    assert latest[second]["input_tokens"] == 1200
-    assert never not in latest
-    assert latest_run_usage_by_task(board, []) == {}
+    assert totals[task_id]["input_tokens"] == 1100
+    assert totals[task_id]["api_calls"] == 6
+    assert totals[task_id]["attempts"] == 2
+    assert totals[task_id]["cost_usd"] == pytest.approx(0.025)
+    assert never not in totals
+    assert run_usage_totals_by_task(board, []) == {}
+
+
+def test_snapshots_of_one_session_never_double_count(board):
+    task_id = kb.create_task(board, title="Development", assignee="default")
+    with kb.write_txn(board):
+        record_run_usage(board, task_id, usage_from_run_result({**RESULT, "input_tokens": 400}))
+        record_run_usage(board, task_id, usage_from_run_result({**RESULT, "input_tokens": 900}))
+        record_run_usage(
+            board, task_id,
+            usage_from_run_result({**RESULT, "input_tokens": 70, "estimated_cost_usd": 0,
+                                   "cost_status": "unavailable", "session_id": "other"}),
+        )
+
+    total = run_usage_totals_by_task(board, [task_id])[task_id]
+
+    assert total["input_tokens"] == 970
+    assert total["attempts"] == 2
+    assert total["cost_usd"] == pytest.approx(0.0125)
+    assert total["cost_status"] == "partial"
+
+
+def test_legacy_rows_without_session_fall_back_to_run_then_event(board):
+    task_id = kb.create_task(board, title="Development", assignee="default")
+    bare = {key: value for key, value in RESULT.items() if key != "session_id"}
+    with kb.write_txn(board):
+        record_run_usage(board, task_id, usage_from_run_result({**bare, "input_tokens": 10}), run_id=5)
+        record_run_usage(board, task_id, usage_from_run_result({**bare, "input_tokens": 20}), run_id=5)
+        record_run_usage(board, task_id, usage_from_run_result({**bare, "input_tokens": 300}))
+        record_run_usage(board, task_id, usage_from_run_result({**bare, "input_tokens": 4000}))
+
+    total = run_usage_totals_by_task(board, [task_id])[task_id]
+
+    assert total["input_tokens"] == 20 + 300 + 4000
+    assert total["attempts"] == 3
+
+
+def test_live_snapshots_are_throttled_and_only_written_when_calls_advance(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "home"))
+    monkeypatch.setattr(kanban_usage, "_snapshot_state", {"at": float("-inf"), "calls": None})
+    with kb.connect_closing() as conn:
+        task_id = kb.create_task(conn, title="Development", assignee="default")
+    env = {"HERMES_KANBAN_TASK": task_id}
+    agent = _agent()
+
+    assert record_worker_usage_snapshot(agent, {}, now=0) is False
+    assert record_worker_usage_snapshot(agent, env, now=0) is True
+    assert record_worker_usage_snapshot(agent, env, now=60) is False
+    agent.session_api_calls += 1
+    assert record_worker_usage_snapshot(agent, env, now=60) is False
+    assert record_worker_usage_snapshot(agent, env, now=200) is True
+    assert record_worker_usage_snapshot(agent, env, now=500) is False
+
+    with kb.connect_closing() as conn:
+        total = run_usage_totals_by_task(conn, [task_id])[task_id]
+        rows = [e for e in kb.list_events(conn, task_id) if e.kind == "usage"]
+    assert len(rows) == 2
+    assert total["attempts"] == 1 and total["api_calls"] == 4
 
 
 def _agent(**overrides):
@@ -126,7 +194,7 @@ def test_worker_process_saves_usage_on_its_assigned_task(tmp_path, monkeypatch):
     )
 
     with kb.connect_closing() as conn:
-        assert latest_run_usage_by_task(conn, [task_id])[task_id]["api_calls"] == 3
+        assert run_usage_totals_by_task(conn, [task_id])[task_id]["api_calls"] == 3
         usage_events = [e for e in kb.list_events(conn, task_id) if e.kind == "usage"]
     assert [event.run_id for event in usage_events] == [7]
 
@@ -142,9 +210,9 @@ def test_worker_process_writes_to_its_assigned_board(tmp_path, monkeypatch):
     )
 
     with kb.connect_closing(board="project-x") as conn:
-        assert task_id in latest_run_usage_by_task(conn, [task_id])
+        assert task_id in run_usage_totals_by_task(conn, [task_id])
     with kb.connect_closing() as conn:
-        assert latest_run_usage_by_task(conn, [task_id]) == {}
+        assert run_usage_totals_by_task(conn, [task_id]) == {}
 
 
 def test_saved_usage_never_enters_child_worker_context(board):

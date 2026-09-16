@@ -3490,6 +3490,10 @@ class AIAgent:
             try:
                 from tools.kanban_tools import heartbeat_current_worker_from_env
                 heartbeat_current_worker_from_env()
+                # Same cadence, same best-effort contract: a long first attempt
+                # should not read as "usage not reported" until it ends.
+                from hermes_cli.kanban_usage import record_worker_usage_snapshot
+                record_worker_usage_snapshot(self)
             except Exception:
                 # Never let the bridge break the agent loop.  The function
                 # already swallows exceptions internally; this outer guard

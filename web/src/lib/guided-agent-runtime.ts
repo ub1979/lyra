@@ -192,6 +192,7 @@ export function formatGuidedTokens(value: number): string {
   return Math.round(value).toLocaleString();
 }
 
+/** Canonical total = prompt (fresh + cache read + cache write) + output; reasoning is a detail of output, not an extra term. */
 export function guidedUsageTotal(usage: GuidedUsageSnapshot): number {
-  return usage.input + usage.cacheRead + usage.output + usage.reasoning;
+  return usage.input + usage.cacheRead + usage.cacheWrite + usage.output;
 }

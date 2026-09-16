@@ -1992,6 +1992,7 @@ export interface UltimateBuilderRunUsage {
   cost_usd: number | null;
   cost_status: string;
   model: string;
+  attempts?: number;
   recorded_at: number;
 }
 
