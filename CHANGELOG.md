@@ -9,6 +9,16 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.44] - 2026-09-16 — no line lost between frames
+
+### Fixed
+
+- A chat line or activity label written by one part of Studio can no longer be
+  overwritten by a gateway frame that arrives in the same instant; every writer
+  now updates the shared record first.
+
+Reload Studio after restarting Lyra.
+
 ## [0.19.43] - 2026-09-16 — tests that see the conversation
 
 ### Improved
