@@ -1782,6 +1782,7 @@ docs/lyra/changes/2026-09-16-desktop-readiness-and-ci-truth.md	docs	md: 2026 09 
 docs/lyra/changes/2026-09-16-durable-worker-usage.md	docs	md: 2026 09 16 durable worker usage
 docs/lyra/changes/2026-09-16-failure-notification-wording.md	docs	md: 2026 09 16 failure notification wording
 docs/lyra/changes/2026-09-16-notification-busy-ownership.md	docs	md: 2026 09 16 notification busy ownership
+docs/lyra/changes/2026-09-16-packaged-app-name-and-index-job.md	docs	md: 2026 09 16 packaged app name and index job
 docs/lyra/changes/2026-09-16-project-run-tool.md	docs	md: 2026 09 16 project run tool
 docs/lyra/changes/2026-09-16-reply-turn-identity.md	docs	md: 2026 09 16 reply turn identity
 docs/lyra/changes/2026-09-16-studio-event-reducer-and-journeys.md	docs	md: 2026 09 16 studio event reducer and journeys
@@ -5148,6 +5149,7 @@ tests/hermes_cli/test_default_interface_resolution.py	tests	Behavioral tests: de
 tests/hermes_cli/test_dep_ensure.py	tests	Behavioral tests: dep ensure
 tests/hermes_cli/test_deprecated_cwd_warning.py	tests	Behavioral tests: deprecated cwd warning
 tests/hermes_cli/test_desktop_exe_integrity.py	tests	Behavioral tests: desktop exe integrity
+tests/hermes_cli/test_desktop_packaged_executable.py	tests	Behavioral tests: desktop packaged executable
 tests/hermes_cli/test_desktop_repo_discovery_config.py	tests	Behavioral tests: desktop repo discovery config
 tests/hermes_cli/test_destructive_slash_confirm_gate.py	tests	Behavioral tests: destructive slash confirm gate
 tests/hermes_cli/test_detect_api_mode_for_url.py	tests	Behavioral tests: detect api mode for url

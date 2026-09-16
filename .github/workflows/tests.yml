@@ -42,9 +42,23 @@ jobs:
       - name: Generate test slices
         id: matrix
         run: |
-          python3 scripts/lyra_code_map.py --check
           MATRIX=$(python3 scripts/run_tests_parallel.py --generate-slices ${{ inputs.slice_count }})
           echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
+
+  # The file-index freshness check used to run inside "Generate slices", so a
+  # stale index skipped the entire Python matrix (every run from 0.19.40 to
+  # 0.19.45). It is still blocking, but as its own job: a stale index fails
+  # visibly while the tests still run.
+  file-index:
+    name: "File index is current"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Check the maintained file index
+        run: python3 scripts/lyra_code_map.py --check
 
   test:
     name: Run tests slice ${{ matrix.slice.index }}/${{ inputs.slice_count }}

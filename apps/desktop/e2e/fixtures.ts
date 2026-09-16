@@ -489,21 +489,38 @@ providers:
 // ─── Packaged-binary fixture ───────────────────────────────────────────
 
 /**
+ * The executable name electron-builder uses: `build.executableName`, else the
+ * product name. Read from package.json so a rename cannot strand this path
+ * (the pre-rebrand code looked for `Hermes` after the app became `Lyra`).
+ */
+function packagedExecutableName(): string {
+  const pkg = JSON.parse(fs.readFileSync(path.join(DESKTOP_ROOT, 'package.json'), 'utf8')) as {
+    name?: string
+    productName?: string
+    build?: { executableName?: string }
+  }
+
+  return pkg.build?.executableName || pkg.productName || pkg.name || 'app'
+}
+
+/**
  * Resolve the packaged Electron binary path, per-platform, matching
  * electron-builder's output layout under release/.
  */
 function resolvePackagedBinaryPath(): string {
+  const executable = packagedExecutableName()
+
   if (process.platform === 'win32') {
-    return path.join(RELEASE_ROOT, 'win-unpacked', 'Hermes.exe')
+    return path.join(RELEASE_ROOT, 'win-unpacked', `${executable}.exe`)
   }
 
   if (process.platform === 'darwin') {
     const arch = process.arch === 'arm64' ? 'arm64' : 'x64'
 
-    return path.join(RELEASE_ROOT, `mac-${arch}`, 'Hermes.app', 'Contents', 'MacOS', 'Hermes')
+    return path.join(RELEASE_ROOT, `mac-${arch}`, `${executable}.app`, 'Contents', 'MacOS', executable)
   }
 
-  return path.join(RELEASE_ROOT, 'linux-unpacked', 'hermes')
+  return path.join(RELEASE_ROOT, 'linux-unpacked', executable)
 }
 
 export const PACKAGED_BINARY_PATH = resolvePackagedBinaryPath()

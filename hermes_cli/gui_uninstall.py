@@ -108,33 +108,38 @@ def source_built_gui_artifacts(hermes_home: Path) -> "list[Path]":
     ]
 
 
+# Current product name first (apps/desktop/package.json ``productName``), then
+# the pre-rebrand name so installs from before 2026-07 are still found.
+_GUI_PRODUCT_NAMES = ("Lyra", "Hermes")
+
+
 def packaged_gui_app_paths() -> "list[Path]":
     """Standard install locations of the packaged desktop distributable.
 
     Returns every candidate for the current OS; the caller filters to those
     that actually exist. We never glob system-wide — only the well-known
-    electron-builder output locations for the "Hermes" product.
+    electron-builder output locations for the product, under its current
+    name ("Lyra") and the pre-rebrand one ("Hermes") for older installs.
     """
     home = Path.home()
     paths: list[Path] = []
     if sys.platform == "darwin":
-        paths += [
-            Path("/Applications/Hermes.app"),
-            home / "Applications" / "Hermes.app",
-        ]
+        for product in _GUI_PRODUCT_NAMES:
+            paths += [
+                Path("/Applications") / f"{product}.app",
+                home / "Applications" / f"{product}.app",
+            ]
     elif sys.platform == "win32":
         local = os.environ.get("LOCALAPPDATA")
         local_base = Path(local) if local else (home / "AppData" / "Local")
-        paths += [
-            # NSIS per-user install (perMachine=false → Programs\Hermes).
-            local_base / "Programs" / "Hermes",
-            # Older / alternate layout some builds used.
-            local_base / "hermes-desktop",
-        ]
+        # NSIS per-user install (perMachine=false → Programs\<product>).
+        paths += [local_base / "Programs" / product for product in _GUI_PRODUCT_NAMES]
+        # Older / alternate layout some builds used.
+        paths.append(local_base / "hermes-desktop")
         program_files = os.environ.get("ProgramFiles")
         if program_files:
             # NSIS per-machine fallback (needs admin to remove).
-            paths.append(Path(program_files) / "Hermes")
+            paths += [Path(program_files) / product for product in _GUI_PRODUCT_NAMES]
     else:
         # Linux: AppImage is a single file the user placed somewhere; we can
         # only reliably clean the desktop entry + icon we know the name of.
@@ -144,10 +149,11 @@ def packaged_gui_app_paths() -> "list[Path]":
         # ``uninstall_gui``.
         data = os.environ.get("XDG_DATA_HOME")
         data_base = Path(data) if data else (home / ".local" / "share")
-        paths += [
-            data_base / "applications" / "hermes.desktop",
-            data_base / "applications" / "Hermes.desktop",
-        ]
+        for product in _GUI_PRODUCT_NAMES:
+            paths += [
+                data_base / "applications" / f"{product.lower()}.desktop",
+                data_base / "applications" / f"{product}.desktop",
+            ]
     return paths
 
 

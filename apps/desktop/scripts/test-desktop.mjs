@@ -12,6 +12,12 @@ const ARCH = process.arch === 'arm64' ? 'arm64' : 'x64'
 const DESKTOP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const RELEASE_ROOT = path.join(DESKTOP_ROOT, 'release')
 const PLATFORM = process.platform
+// electron-builder names the executable after build.executableName (falling
+// back to productName) and installers after build.artifactName, whose prefix
+// here is the product name. Read both from package.json so a rename never
+// leaves this script looking for a binary that no longer exists.
+const EXECUTABLE = PACKAGE_JSON.build?.executableName || PACKAGE_JSON.productName || PACKAGE_JSON.name
+const ARTIFACT_PREFIX = PACKAGE_JSON.productName || EXECUTABLE
 
 // Platform-specific packaged-app layout. The thin installer ships an Electron
 // app shell plus extraResources (install-stamp.json + native-deps/) -- it
@@ -19,10 +25,10 @@ const PLATFORM = process.platform
 // launch via install.ps1 / install.sh, per the Phase 1 thin-installer flow).
 const APP = (() => {
   if (PLATFORM === 'darwin') {
-    const appPath = path.join(RELEASE_ROOT, `mac-${ARCH}`, 'Hermes.app')
+    const appPath = path.join(RELEASE_ROOT, `mac-${ARCH}`, `${EXECUTABLE}.app`)
     return {
       appPath,
-      binary: path.join(appPath, 'Contents', 'MacOS', 'Hermes'),
+      binary: path.join(appPath, 'Contents', 'MacOS', EXECUTABLE),
       resourcesPath: path.join(appPath, 'Contents', 'Resources'),
       asarPath: path.join(appPath, 'Contents', 'Resources', 'app.asar'),
       unpackedDistIndex: path.join(appPath, 'Contents', 'Resources', 'app.asar.unpacked', 'dist', 'index.html')
@@ -32,7 +38,7 @@ const APP = (() => {
     const unpacked = path.join(RELEASE_ROOT, 'win-unpacked')
     return {
       appPath: unpacked,
-      binary: path.join(unpacked, 'Hermes.exe'),
+      binary: path.join(unpacked, `${EXECUTABLE}.exe`),
       resourcesPath: path.join(unpacked, 'resources'),
       asarPath: path.join(unpacked, 'resources', 'app.asar'),
       unpackedDistIndex: path.join(unpacked, 'resources', 'app.asar.unpacked', 'dist', 'index.html')
@@ -42,7 +48,7 @@ const APP = (() => {
   const unpacked = path.join(RELEASE_ROOT, 'linux-unpacked')
   return {
     appPath: unpacked,
-    binary: path.join(unpacked, 'Hermes'),
+    binary: path.join(unpacked, EXECUTABLE),
     resourcesPath: path.join(unpacked, 'resources'),
     asarPath: path.join(unpacked, 'resources', 'app.asar'),
     unpackedDistIndex: path.join(unpacked, 'resources', 'app.asar.unpacked', 'dist', 'index.html')
@@ -124,10 +130,10 @@ function ensurePackagedApp() {
 
 function resolveDmgPath() {
   if (!exists(RELEASE_ROOT)) {
-    return path.join(RELEASE_ROOT, `Hermes-${PACKAGE_JSON.version}-${ARCH}.dmg`)
+    return path.join(RELEASE_ROOT, `${ARTIFACT_PREFIX}-${PACKAGE_JSON.version}-${ARCH}.dmg`)
   }
 
-  const prefix = `Hermes-${PACKAGE_JSON.version}`
+  const prefix = `${ARTIFACT_PREFIX}-${PACKAGE_JSON.version}`
   const candidates = fs
     .readdirSync(RELEASE_ROOT)
     .filter(name => name.endsWith('.dmg'))
@@ -141,7 +147,7 @@ function resolveDmgPath() {
 
   return candidates.length > 0
     ? path.join(RELEASE_ROOT, candidates[0])
-    : path.join(RELEASE_ROOT, `Hermes-${PACKAGE_JSON.version}-${ARCH}.dmg`)
+    : path.join(RELEASE_ROOT, `${ARTIFACT_PREFIX}-${PACKAGE_JSON.version}-${ARCH}.dmg`)
 }
 
 function resolveNsisPath() {
@@ -292,7 +298,10 @@ function launchFresh() {
 //     inside app.asar).
 function validateBundle() {
   if (!exists(APP.binary)) {
-    die(`Missing packaged app binary: ${APP.binary}`)
+    // Name what electron-builder did produce, so a renamed executable is
+    // diagnosed from the log instead of guessed at.
+    const produced = exists(APP.appPath) ? fs.readdirSync(APP.appPath).join(', ') : '(app directory missing)'
+    die(`Missing packaged app binary: ${APP.binary}\nContents of ${APP.appPath}: ${produced}`)
   }
 
   // Negative assertion: the OLD fat-installer factory payload must NOT be

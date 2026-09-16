@@ -5663,24 +5663,47 @@ def _write_desktop_build_stamp(project_root: Path, *, source_mode: bool) -> None
         logger.debug("Failed to write desktop build stamp: %s", exc)
 
 
+_LEGACY_DESKTOP_EXECUTABLE = "Hermes"
+
+
+def _desktop_executable_names(desktop_dir: Path) -> list[str]:
+    """Executable names electron-builder may have used, configured name first.
+
+    electron-builder names the binary after ``build.executableName`` (else
+    ``productName``) in ``apps/desktop/package.json``. The pre-rebrand name is
+    kept as a fallback so an older packaged tree still launches; on Linux the
+    default name is lowercased, so that spelling is tried too.
+    """
+    names: list[str] = []
+    try:
+        pkg = json.loads((desktop_dir / "package.json").read_text(encoding="utf-8"))
+        configured = (pkg.get("build") or {}).get("executableName") or pkg.get("productName")
+        if isinstance(configured, str) and configured.strip():
+            names.append(configured.strip())
+    except (OSError, ValueError):
+        pass
+    names.append(_LEGACY_DESKTOP_EXECUTABLE)
+    if sys.platform not in ("darwin", "win32"):
+        names.extend(name.lower() for name in list(names))
+    return list(dict.fromkeys(names))
+
+
 def _desktop_packaged_executable(desktop_dir: Path) -> Optional[Path]:
     """Return the current platform's unpacked Electron app executable."""
     release_dir = desktop_dir / "release"
-    if sys.platform == "darwin":
-        candidates = list(release_dir.glob("mac*/Hermes.app/Contents/MacOS/Hermes"))
-    elif sys.platform == "win32":
-        candidates = [
-            release_dir / "win-unpacked" / "Hermes.exe",
-            release_dir / "win-ia32-unpacked" / "Hermes.exe",
-            release_dir / "win-arm64-unpacked" / "Hermes.exe",
-        ]
-    else:
-        candidates = [
-            release_dir / "linux-unpacked" / "hermes",
-            release_dir / "linux-unpacked" / "Hermes",
-            release_dir / "linux-arm64-unpacked" / "hermes",
-            release_dir / "linux-arm64-unpacked" / "Hermes",
-        ]
+    candidates: list[Path] = []
+    for name in _desktop_executable_names(desktop_dir):
+        if sys.platform == "darwin":
+            candidates.extend(release_dir.glob(f"mac*/{name}.app/Contents/MacOS/{name}"))
+        elif sys.platform == "win32":
+            candidates.extend(
+                release_dir / tree / f"{name}.exe"
+                for tree in ("win-unpacked", "win-ia32-unpacked", "win-arm64-unpacked")
+            )
+        else:
+            candidates.extend(
+                release_dir / tree / name for tree in ("linux-unpacked", "linux-arm64-unpacked")
+            )
 
     existing = [p for p in candidates if p.exists()]
     if not existing:

@@ -175,6 +175,17 @@ def test_gui_install_summary_shape(tmp_path, monkeypatch):
     assert summary["platform"] == sys.platform
 
 
+def test_packaged_gui_app_paths_cover_current_and_pre_rebrand_names(monkeypatch):
+    """The uninstaller must find a "Lyra" install and still find an old "Hermes" one."""
+    monkeypatch.setattr(sys, "platform", "darwin")
+    names = [p.name for p in gu.packaged_gui_app_paths()]
+    assert names.index("Lyra.app") < names.index("Hermes.app")
+
+    monkeypatch.setattr(sys, "platform", "linux")
+    names = [p.name for p in gu.packaged_gui_app_paths()]
+    assert {"lyra.desktop", "Lyra.desktop", "hermes.desktop", "Hermes.desktop"} <= set(names)
+
+
 def test_userdata_dir_per_platform(monkeypatch):
     """userData path matches Electron's app.getPath('userData') for "Hermes"."""
     home = Path("/home/tester")
