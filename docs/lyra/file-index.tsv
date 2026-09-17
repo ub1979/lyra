@@ -1803,6 +1803,7 @@ docs/lyra/changes/2026-09-17-overnight-recovery-plan.md	docs	md: 2026 09 17 over
 docs/lyra/changes/2026-09-17-packaged-connect-journey.md	docs	md: 2026 09 17 packaged connect journey
 docs/lyra/changes/2026-09-17-provider-address-notice.md	docs	md: 2026 09 17 provider address notice
 docs/lyra/changes/2026-09-17-stability-fix-summary.md	docs	md: 2026 09 17 stability fix summary
+docs/lyra/changes/2026-09-17-targeted-job-recovery.md	docs	md: 2026 09 17 targeted job recovery
 docs/lyra/changes/2026-09-17-worker-liveness-test.md	docs	md: 2026 09 17 worker liveness test
 docs/lyra/changes/2026-09-17-worker-usage-freshness.md	docs	md: 2026 09 17 worker usage freshness
 docs/lyra/file-index.tsv	docs	tsv: file index
@@ -3078,6 +3079,7 @@ plugins/ultimate-builder/project_run_cli.py	plugins	CLI adapter for durable Lyra
 plugins/ultimate-builder/project_run_tool.py	plugins	Let the Studio coordinator queue and inspect durable project jobs without a shell.
 plugins/ultimate-builder/project_runs.py	plugins	Durable Ultimate Builder phase runs backed by Hermes Kanban.
 plugins/ultimate-builder/project_status.py	plugins	Maintain Lyra's small, validated project-status projection.
+plugins/ultimate-builder/project_task_recovery.py	plugins	Recover one failed project task without bypassing its dependency/review gates.
 plugins/ultimate-builder/project_work_units.py	plugins	Load bounded development work units from a project's task graph.
 plugins/ultimate-builder/scripts/evaluate_candidates.py	plugins	py: evaluate candidates
 plugins/ultimate-builder/skills/app-it/SKILL.md	plugins	md: SKILL
@@ -3118,6 +3120,7 @@ plugins/ultimate-builder/tests/test_project_repository.py	plugins	Behavioral tes
 plugins/ultimate-builder/tests/test_project_run_tool.py	plugins	Behavioral tests: project run tool
 plugins/ultimate-builder/tests/test_project_runs.py	plugins	Behavioral tests: project runs
 plugins/ultimate-builder/tests/test_project_status.py	plugins	Behavioral tests: project status
+plugins/ultimate-builder/tests/test_project_task_recovery.py	plugins	Behavioral tests: project task recovery
 plugins/ultimate-builder/tests/test_project_work_units.py	plugins	Behavioral tests: project work units
 plugins/ultimate-builder/tests/test_workflow_contract.py	plugins	Behavioral tests: workflow contract
 plugins/ultimate-builder/trivial_change.py	plugins	Conservative Git-diff classifier for change-record exemptions.

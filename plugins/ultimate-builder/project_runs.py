@@ -773,6 +773,20 @@ def project_run_state(workspace: str | Path) -> dict[str, Any]:
     }
 
 
+def retry_project_task(workspace: str | Path, task_id: str, reason: str) -> dict[str, Any]:
+    """Coordinator-only targeted recovery; never a blanket resume/unblock."""
+    _assert_dispatch_allowed()
+    project = _workspace(workspace)
+    spec = importlib.util.spec_from_file_location(
+        "lyra_project_task_recovery", Path(__file__).with_name("project_task_recovery.py")
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.retry_failed_task(
+        project, _project_tasks(project, include_archived=False), task_id, reason,
+    )
+
+
 def control_project_run(workspace: str | Path, action: str) -> dict[str, Any]:
     _assert_dispatch_allowed()
     project = _workspace(workspace)

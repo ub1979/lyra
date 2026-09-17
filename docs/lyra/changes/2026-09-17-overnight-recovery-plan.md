@@ -57,6 +57,7 @@ turns, usage and cold reload (1 passed, 13.5s); version tests (9 passed).
 The checkout lacked its pinned Playwright runner, so the browser check used
 1.58.2 installed in a temporary directory, not a changed dependency manifest.
 
-Steps 2–5 remain pending. This is not a stability sign-off and no live process
+Step 2 is implemented separately as 0.19.61; see the targeted-job-recovery record.
+Steps 3–5 remain pending. This is not a stability sign-off and no live process
 was restarted. Real-provider time-to-first-response must still be measured
 after the user restarts/reloads; no sub-second model latency is claimed.

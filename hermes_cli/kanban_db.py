@@ -5740,7 +5740,10 @@ def promote_task(
     return True, None
 
 
-def unblock_task(conn: sqlite3.Connection, task_id: str) -> bool:
+def unblock_task(
+    conn: sqlite3.Connection, task_id: str, *,
+    expected_event_id: int | None = None, recovery_reason: str | None = None,
+) -> bool:
     """Transition ``blocked``/``scheduled`` -> ready or todo.
 
     Defensively closes any stale ``current_run_id`` pointer before flipping
@@ -5749,9 +5752,18 @@ def unblock_task(conn: sqlite3.Connection, task_id: str) -> bool:
     the leaked run is closed as ``reclaimed`` inside the same txn so the
     runs invariant (``current_run_id IS NULL`` ⇔ run row in terminal
     state) holds for the rest of this function's lifetime.
+    ``expected_event_id`` fences a recovery decision against newer task events.
+    ``recovery_reason`` is saved for the next worker, atomically with unblocking.
     """
     now = int(time.time())
     with write_txn(conn):
+        if expected_event_id is not None:
+            latest = conn.execute(
+                "SELECT MAX(id) FROM task_events WHERE task_id = ?", (task_id,),
+            ).fetchone()[0]
+            # A caller's recovery decision must not clear a newer block.
+            if latest != expected_event_id:
+                return False
         stale = conn.execute(
             "SELECT current_run_id FROM tasks WHERE id = ? AND status IN ('blocked', 'scheduled')",
             (task_id,),
@@ -5799,9 +5811,15 @@ def unblock_task(conn: sqlite3.Connection, task_id: str) -> bool:
         )
         if cur.rowcount != 1:
             return False
+        if recovery_reason:
+            conn.execute(
+                "INSERT INTO task_comments (task_id, author, body, created_at) VALUES (?, ?, ?, ?)",
+                (task_id, "recovery", recovery_reason, now),
+            )
         _append_event(
             conn, task_id, "unblocked",
-            {"status": new_status} if new_status != "ready" else None,
+            {"status": new_status, "reason": recovery_reason}
+            if recovery_reason else {"status": new_status} if new_status != "ready" else None,
         )
         return True
 

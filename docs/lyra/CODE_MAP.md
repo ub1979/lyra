@@ -16,6 +16,7 @@ Durable project jobs → Hermes Kanban dispatcher → isolated worker sessions
 |---|---|---|
 | Studio composition | `web/src/pages/ChatPage.tsx` | Web suite, production build and real Chrome agent-picker repaint path |
 | User-initiated Studio startup | `web/src/lib/guided-project-setup.ts` | First-request recovery and browser smoke: no inference on empty open |
+| Targeted failed-job recovery | `plugins/ultimate-builder/project_task_recovery.py` | Real SQLite/tool/CLI isolation, dependency, stale-event and rollback tests |
 | Project map / agent artwork | `web/src/components/GuidedProgressMap.tsx`, `web/src/components/GuidedAgentAvatar.tsx` | Rendering tests and production build |
 | Compact project status / polling | `plugins/ultimate-builder/project_status.py`, `web/src/hooks/useProjectLedger.ts` | Atomic snapshot, malformed/stale fallback, hook and project API tests |
 | Question lifetime / typed reply | `web/src/hooks/useGuidedClarification.ts`, `web/src/lib/guided-clarification.ts`, `web/src/pages/ChatPage.tsx` | Message formatting, request fencing and hook integration tests |

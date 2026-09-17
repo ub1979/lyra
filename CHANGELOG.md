@@ -9,6 +9,15 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.61] - 2026-09-17 — targeted failed-job recovery
+
+### Fixed
+
+- The coordinator can retry one failed project job with saved recovery
+  instructions, without stopping/replanning the whole project. Dependencies,
+  review/input gates and recurrence limits remain enforced. A concurrent newer
+  task event cancels the stale recovery decision.
+
 ## [0.19.60] - 2026-09-17 — no hidden startup work
 
 ### Fixed

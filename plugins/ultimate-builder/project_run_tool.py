@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 _ROOT = Path(__file__).resolve().parent
-_ACTIONS = ("queue", "status", "pause", "resume", "stop")
+_ACTIONS = ("queue", "status", "pause", "resume", "stop", "retry")
 _MAX_RESULT_CHARS = 8_000
 _TRUNCATION_NOTE = (
     " …[project_run result truncated; ask for status with summary=true or "
@@ -26,7 +26,7 @@ _modules: dict[str, Any] = {}
 PROJECT_RUN_TOOL_SCHEMA = {
     "name": "project_run",
     "description": (
-        "Queue, inspect, pause, resume or stop Lyra's durable background project "
+        "Queue, inspect, pause, resume, stop or retry one failed job in Lyra's durable background project "
         "jobs for one project workspace. This is the only way the coordinating "
         "conversation starts specialist work; it never edits files itself."
     ),
@@ -57,6 +57,8 @@ PROJECT_RUN_TOOL_SCHEMA = {
                 "description": "Optional phase → provider overrides (queue only).",
             },
             "force_new": {"type": "boolean"},
+            "task_id": {"type": "string", "description": "retry only: exact failed job id from status."},
+            "reason": {"type": "string", "description": "retry only: why another attempt can succeed and the bounded remaining work. Never retry review/input waits or unchanged exhausted quota."},
             "summary": {
                 "type": "boolean",
                 "description": (
@@ -133,6 +135,11 @@ def project_run_tool(args: dict, **_kwargs: Any) -> str:
                 models=_string_map(args.get("models")),
                 providers=_string_map(args.get("providers")),
                 force_new=bool(args.get("force_new")),
+            )
+        elif action == "retry":
+            result = project_runs.retry_project_task(
+                workspace, str(args.get("task_id") or "").strip(),
+                str(args.get("reason") or "").strip(),
             )
         elif action == "status":
             result = project_runs.project_run_state(workspace)

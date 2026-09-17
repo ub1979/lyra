@@ -51,6 +51,10 @@ def setup_parser(parser: argparse.ArgumentParser) -> None:
         control = sub.add_parser(action, help=f"{action.title()} project jobs")
         control.add_argument("--workspace", required=True)
     sub.add_parser("contract", help="Report enforced and model-guided workflow rules")
+    retry = sub.add_parser("retry", help="Retry exactly one failed job; preserve review/input gates")
+    retry.add_argument("--workspace", required=True)
+    retry.add_argument("--task-id", required=True)
+    retry.add_argument("--reason", required=True)
     classify = sub.add_parser(
         "classify-change", help="Check whether a tiny diff may skip a change record"
     )
@@ -87,6 +91,8 @@ def handle(args: argparse.Namespace) -> None:
             providers=_mapping(args.provider),
             force_new=args.force_new,
         )
+    elif args.project_run_command == "retry":
+        result = project_runs.retry_project_task(args.workspace, args.task_id, args.reason)
     elif args.project_run_command == "status":
         result = project_runs.project_run_state(args.workspace)
         if getattr(args, "summary", False):
