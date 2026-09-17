@@ -114,9 +114,7 @@ describe('DesktopInstallOverlay first-run setup', () => {
     const install = (await screen.findByText('Install Lyra locally')).closest('button') as HTMLButtonElement
     fireEvent.click(install)
 
-    expect(
-      await screen.findByText('Local installation could not start. Restart Lyra and try again.')
-    ).toBeTruthy()
+    expect(await screen.findByText('Local installation could not start. Restart Lyra and try again.')).toBeTruthy()
     expect(install.disabled).toBe(false)
   })
 
