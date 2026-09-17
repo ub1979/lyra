@@ -9,6 +9,15 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.60] - 2026-09-17 — no hidden startup work
+
+### Fixed
+
+- Opening an empty Studio chat no longer submits an unsolicited model turn.
+  Setup instructions accompany the first actual user request. This removes
+  hidden startup investigations, not the provider's own response latency.
+- Saved first requests recover without leaking internal setup/routing text.
+
 ## [0.19.59] - 2026-09-17 — packaged connection recovery proof
 
 ### Fixed

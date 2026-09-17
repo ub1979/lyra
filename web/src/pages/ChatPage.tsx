@@ -79,11 +79,11 @@ import {
   guidedApprovalKey,
   guidedApprovalLabel,
   guidedPhaseContinuationDirective,
-  guidedProjectExecutionTurnDirective,
   guidedProjectTurnDirectives,
   unavailableGuidedModelAssignments,
   type GuidedUnavailableModelAssignment,
 } from "@/lib/guided-agent-routing";
+import { guidedSetupSeed } from "@/lib/guided-project-setup";
 import {
   guidedModelProviders,
   readGuidedModelPreferences,
@@ -475,76 +475,6 @@ function readGuidedPhaseState(workspace: string): {
  * Never throws and never blocks the greeting: any failure yields "" and the
  * agent simply falls back to asking.
  */
-async function fetchProjectSummary(workspace: string): Promise<string> {
-  if (!workspace) return "";
-  try {
-    const listing = await api.listFiles(workspace);
-    const entries = listing.entries ?? [];
-    if (!entries.length) return "The project folder is empty.";
-
-    const dirs = entries.filter((e) => e.is_directory).map((e) => e.name);
-    const files = entries.filter((e) => !e.is_directory).map((e) => e.name);
-    const CAP = 40;
-    const parts: string[] = [];
-    if (dirs.length) parts.push(`Folders: ${dirs.slice(0, CAP).join(", ")}`);
-    if (files.length) parts.push(`Files: ${files.slice(0, CAP).join(", ")}`);
-
-    // package.json name/description is the cheapest way to learn what the
-    // project calls itself, which is what makes the greeting feel informed.
-    if (files.includes("package.json")) {
-      try {
-        const pkg = await api.readFile(`${workspace}/package.json`);
-        // The files API returns a data: URL, not raw text.
-        const base64 = (pkg.data_url ?? "").split(",")[1] ?? "";
-        const parsed = JSON.parse(base64 ? atob(base64) : "{}") as {
-          name?: string;
-          description?: string;
-        };
-        const named = [parsed.name, parsed.description]
-          .filter(Boolean)
-          .join(" — ");
-        if (named) parts.push(`package.json: ${named}`);
-      } catch {
-        // Unreadable or non-JSON package.json is not worth failing over.
-      }
-    }
-    return parts.join("\n");
-  } catch {
-    return "";
-  }
-}
-
-function guidedWelcomeSeed(
-  workspace: string,
-  specialists: readonly string[],
-  models: Readonly<Record<string, string>>,
-  providers: Readonly<Record<string, string>>,
-  projectSummary: string,
-): string {
-  return `IDRAK_INTERNAL_SETUP_BEGIN ${JSON.stringify({
-    instruction:
-      "Lyra is the permanent user-facing project guide for non-technical users. Use the internal ultimate-builder:app-it skill, keep internal skill names and orchestration out of user-facing messages, and work only inside the selected workspace. Vocabulary: when speaking to the user these are AGENTS — the requirements agent, the development agent, the QA agent. Never call them skills, specialists, playbooks, or subagents in a user-facing message; those are internal words. Never show roadmap codes such as R16, change-request codes such as CR-006, migrations, schemas, filenames, raw test counts, or terms such as release-green unless the user asks for technical details. Translate them into what the user can now do. Every progress or completion update must plainly say whether the whole application is finished, what now works, what remains, and whether anything is blocked or partial. A finished task or milestone never means the whole application is finished. Every file change must be verified and committed to local Git before reporting completion or advancing phases. Stage only this task's files; never push remotely unless the user explicitly asks.",
-    first_turn_gate:
-      "The project listing below, together with your workspace snapshot, IS the inspection — do not call file, search, or terminal tools before greeting. Greet the user warmly as Lyra, briefly say what the project appears to be (or that it is empty) from what you were given, and ask exactly ONE short question about what they want to build or change. Inspect files later, once you know what they actually want. Recommend the smallest useful agent team later and ask permission before changing it.",
-    build_profile_gate:
-      "For a new or empty project, no build scale has been selected yet. After the user answers the first product question, ask exactly ONE choice before Requirements, team expansion, planning, or code: Personal / one-off (core path, basic safety, smoke check), Reusable project (focused architecture, review, and full user-flow testing), or Production / public (full security, deployment, operations, performance, and release assurance). Do not infer a larger profile from words such as complete, whole, everything working, or find all issues. If the user says decide for me, choose Personal / one-off for a local single-user tool with no public exposure, payments, regulated data, or ongoing operation. Record the answer and do not exceed it without asking again.",
-    requirements_gate:
-      'Requirements is a permanent project capability, not the speaker for every turn. Activate it for the first meaningful product brief when no approved requirements exist, while its interview is active, when the user explicitly asks to revise requirements, or when a request materially changes product scope, user-visible behavior, data, permissions, integrations, or acceptance criteria. Do not activate or reload it for greetings, status questions, explanations, approvals, pause/stop commands, ordinary in-scope feedback, implementation details already covered by approved requirements, or minor fixes. If requirements.md already covers the request, Lyra handles the turn directly. When Requirements is genuinely needed, load skill_view(name="ultimate-builder:req-engineer") and run its interactive playbook in this conversation; do not delegate it. Complete its relevant interview, Grill, design-space exploration, prototype choice, requirements.md update, and approval gate before downstream work affected by that change. Once approved, emit the done marker and do not restart it unless a later material change requires a focused delta.',
-    team_selection_gate:
-      "Recommend only the smallest useful team. Emit APP_IT_SKILLS_SET to open editable checkboxes, but do not treat that marker as approval and do not use newly proposed agents. Wait for the user's dashboard confirmation, delivered as IDRAK_INTERNAL_SKILLS_UPDATE; that confirmed selection is authoritative.",
-    execution_gate: guidedProjectExecutionTurnDirective(specialists),
-    project_listing: projectSummary || "(listing unavailable)",
-    workspace,
-    enabled_specialists: specialists,
-    enabled_specialist_labels: specialists.map(
-      (id) => GUIDED_SPECIALIST_LABELS[id],
-    ),
-    specialist_models: models,
-    specialist_providers: providers,
-    user_request:
-      "Start this project conversation now with Lyra's greeting and first focused question.",
-  })} IDRAK_INTERNAL_SETUP_END`;
-}
 
 function readGuidedMessages(workspace: string): GuidedMessage[] {
   try {
@@ -2287,6 +2217,9 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     guidedAutoContinueCountRef.current = 0;
     lastGuidedResponseRef.current = "";
     setGuidedLastSignalAt(Date.now());
+    const needsSetup = !guidedMessagesRef.current.some(
+      (message) => message.role === "user" || message.role === "assistant",
+    );
     setGuidedMessagesSynced((messages) => [
       ...messages,
       {
@@ -2310,7 +2243,16 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       models: guidedSkillModelsRef.current,
       provider: guidedModelProviderRef.current,
     });
-    const routedText = [...routing, text].filter(Boolean).join("\n");
+    // Setup is context for actual user input, never an autonomous model turn.
+    // It is appended once; existing history and its cached prefix stay untouched.
+    const setup = needsSetup ? guidedSetupSeed(
+      workspaceParam,
+      guidedSelectedSpecialistIdsRef.current,
+      guidedSkillModelsRef.current,
+      guidedModelProviders(guidedSkillModelsRef.current, guidedModelProviderRef.current),
+      GUIDED_SPECIALIST_LABELS,
+    ) : "";
+    const routedText = [...routing, setup, text].filter(Boolean).join("\n");
     // Bracketed paste, not raw typing: a multi-line prompt written straight to
     // the PTY submits at its first newline, so only the opening line became the
     // turn and the rest arrived as interruptions mid-answer.
@@ -2321,7 +2263,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     });
     if (!options.preserveDraft) setGuidedInput("");
     },
-    [respondToGuidedClarification, guidedClarificationRef, setGuidedActivitySynced, setGuidedMessagesSynced],
+    [respondToGuidedClarification, guidedClarificationRef, setGuidedActivitySynced, setGuidedMessagesSynced, workspaceParam],
   );
 
   const sendGuidedProjectState = useCallback(
@@ -3434,42 +3376,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               !guidedWelcomeStartedRef.current
             ) {
               guidedWelcomeStartedRef.current = true;
-              guidedTurnStartLineRef.current = Math.max(
-                0,
-                term.buffer.active.length - 1,
-              );
-              guidedTurnSettledRef.current = false;
+              guidedTurnSettledRef.current = true;
               setGuidedActivitySynced({
-                phase: "working",
-                text: "Lyra is getting to know your project…",
+                phase: "idle",
+                text: "Ready. What would you like to build or check?",
                 specialist: APP_IT_SPECIALIST,
-              });
-              // Resolve the listing first so the agent can greet in ONE model
-              // round-trip instead of inspecting and then greeting. Capped so a
-              // slow or unresponsive filesystem degrades to a plain greeting
-              // rather than stalling the session.
-              void Promise.race([
-                fetchProjectSummary(workspaceParam),
-                new Promise<string>((resolve) =>
-                  window.setTimeout(() => resolve(""), 1500),
-                ),
-              ]).then((projectSummary) => {
-                if (wsRef.current?.readyState !== WebSocket.OPEN) return;
-                const welcome = guidedWelcomeSeed(
-                  workspaceParam,
-                  guidedSelectedSpecialistIdsRef.current,
-                  guidedSkillModelsRef.current,
-                  guidedModelProviders(
-                    guidedSkillModelsRef.current,
-                    guidedModelProviderRef.current,
-                  ),
-                  projectSummary,
-                );
-                writeGuidedPrompt(welcome, {
-                    isOpen: () => wsRef.current?.readyState === WebSocket.OPEN,
-                    schedule: (run, delayMs) => window.setTimeout(run, delayMs),
-                  send: (data) => wsRef.current?.send(data),
-                });
               });
             }
             return;

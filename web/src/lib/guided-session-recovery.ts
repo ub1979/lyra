@@ -17,7 +17,7 @@ const SYNTHETIC_USER_PREFIXES = [
   "IDRAK_INTERNAL_SETUP_BEGIN",
 ];
 
-const ROUTING_LINE = /^IDRAK_INTERNAL_(?:PLAIN_LANGUAGE|MODEL_ROUTING|REQUIREMENTS_ROUTING):/;
+const ROUTING_LINE = /^IDRAK_INTERNAL_(?:PLAIN_LANGUAGE|MODEL_ROUTING|REQUIREMENTS_ROUTING|PROJECT_EXECUTION):/;
 const COMPACTED_SETUP_LINE = /^\[\[\s*IDRAK_INTERNAL_S\.\./;
 
 function recoveredMessageTime(timestamp: number | undefined): number | undefined {
@@ -42,6 +42,7 @@ export function recoverGuidedUserContent(raw: string): string {
   return text
     .split(/\r?\n/)
     .filter((line) => !ROUTING_LINE.test(line.trim()))
+    .filter((line) => !/^IDRAK_INTERNAL_SETUP_BEGIN .* IDRAK_INTERNAL_SETUP_END$/.test(line.trim()))
     .filter((line) => !COMPACTED_SETUP_LINE.test(line.trim()))
     .join("\n")
     .trim();

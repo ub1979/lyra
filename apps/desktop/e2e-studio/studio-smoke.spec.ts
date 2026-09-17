@@ -63,8 +63,9 @@ test('a user turn, a second turn, and the token panel all render in Studio', asy
   // and agent are ready; the send button additionally needs text, so it is
   // checked only after typing.
   await expect(composer).toHaveAttribute('placeholder', /Describe your idea/, { timeout: 120_000 })
-  // Studio sends a hidden welcome seed; its echoed reply is the first bubble.
-  await expect(bubbles.filter({ hasText: 'Echo:' }).first()).toBeVisible({ timeout: 90_000 })
+  // Opening an empty chat must not secretly submit a model turn. The real
+  // provider records requests, so this tests the entire PTY/gateway boundary.
+  expect(echo.prompts).toHaveLength(0)
   await expect(page.getByRole('status').filter({ hasText: 'Lyra is working' })).toBeHidden({ timeout: 60_000 })
 
   await composer.fill(FIRST)
@@ -85,6 +86,7 @@ test('a user turn, a second turn, and the token panel all render in Studio', asy
   // The regression the browser used to show: a new turn must not replace the last reply.
   await expect(firstReply).toHaveCount(1)
   expect(echo.prompts.some((p) => p.includes(FIRST))).toBe(true)
+  expect(echo.prompts.find((p) => p.includes(FIRST))).toContain('IDRAK_INTERNAL_SETUP_BEGIN')
   expect(echo.prompts.some((p) => p.includes(SECOND))).toBe(true)
 
   // Runtime panel: two instances mount (mobile + desktop); scope to the aside.
@@ -106,6 +108,6 @@ test('a user turn, a second turn, and the token panel all render in Studio', asy
   await expect(bubbles.filter({ hasText: FIRST }).filter({ hasText: 'You' })).toBeVisible({ timeout: 60_000 })
   await expect(firstReply).toHaveCount(1, { timeout: 60_000 })
   await expect(secondReply).toHaveCount(1)
-  await expect(bubbles.filter({ hasText: 'Echo:' })).toHaveCount(3) // welcome + two replies, restored
+  await expect(bubbles.filter({ hasText: 'Echo:' })).toHaveCount(2) // only actual user turns
   expect(echo.prompts.length).toBe(promptsBeforeReload)
 })
