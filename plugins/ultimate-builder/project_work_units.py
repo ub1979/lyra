@@ -1,4 +1,4 @@
-"""Load bounded development work units from a project's task graph."""
+"""Load bounded project work units for the existing Kanban dependency queue."""
 
 from __future__ import annotations
 
@@ -16,6 +16,54 @@ _TASK_ID = re.compile(r"\b[A-Z][A-Z0-9_-]*-\d{1,4}\b")
 _VERDICT = re.compile(r"\b(ACCEPTED|REJECTED)\b", re.I)
 _GRAPH_LOCATIONS = (Path("task-graph.md"), Path(".sdlc/task-graph.md"))
 MAX_WORK_UNITS = 120
+
+
+def load_qa_work_units() -> dict[str, Any]:
+    """Small QA stages on the existing dependency scheduler, not a new swarm.
+
+    These jobs share a project directory, so dependencies serialize writers.
+    A completed board job, not a stale evidence-file keyword, authorizes reuse.
+    """
+    stages = [
+        ("QA-001", "Prepare reproducible QA environment",
+         "Inventory applicable acceptance criteria and existing tests. Reuse the "
+         "project's runner; if existing tests already run the real entry point "
+         "with suitable isolation, use that command as the smoke gate and record "
+         "its output. Do not create or test a wrapper harness just for this stage. "
+         "Only fill a demonstrated setup gap. Establish one smoke command with isolated "
+         "temporary data/config, readiness checks, free ports and owned-process "
+         "cleanup. Prove setup works. Record commands, revision and limitations. "
+         "Do not execute the full QA campaign or repair product features here."),
+        ("QA-002", "Execute functional and boundary checks",
+         "Use QA-001's runner and setup; do not rebuild them without evidence they "
+         "are broken. Execute automated/API/data/CLI checks applicable to this app, "
+         "including repeated Start, cancellation, limits and failure behavior. "
+         "Record exact commands, outputs and revision. Record product defects for "
+         "a bounded developer repair; do not absorb an implementation project."),
+        ("QA-003", "Verify user journeys and integrations",
+         "Reuse setup and QA-002 evidence. Exercise real user journeys (browser "
+         "for UI apps), reload/restart and saved data. Run bounded external-provider "
+         "smokes only within existing user authority and cost limits. Label mock "
+         "integration evidence separately from real-provider evidence. For a "
+         "non-UI app use its real CLI/library entry points. Record failures and "
+         "untested areas; do not claim that unavailable checks passed."),
+        ("QA-004", "Assemble acceptance verdict and handoff",
+         "Inspect all stage evidence against the current revision and dirty files. "
+         "Rerun checks invalidated by code changes, not the entire bootstrap. "
+         "Write bug-report.md, exact run instructions and remaining risks. Update "
+         "the Project Brain and progress ledger. Only this final QA stage may mark "
+         "the phase verified, with applicable acceptance criteria actually met. "
+         "Open serious defects or required untested areas mean block with exact "
+         "bounded repair/retest requirements, not approval. Save the scoped handoff."),
+    ]
+    units = []
+    for index, (unit_id, title, section) in enumerate(stages):
+        units.append({
+            "id": unit_id, "title": title, "section": section,
+            "parents": [stages[index - 1][0]] if index else [],
+            "accepted": False,
+        })
+    return {"source": "ultimate-builder:qa-engineer bounded QA contract", "units": units}
 
 
 def _task_graph_path(project: Path) -> Path | None:

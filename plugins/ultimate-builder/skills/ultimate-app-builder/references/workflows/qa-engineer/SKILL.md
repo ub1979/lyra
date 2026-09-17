@@ -36,7 +36,35 @@ copy.
 ## ⛔ ENFORCEMENT
 
 This skill runs ONLY as a dedicated specialist worker — the orchestrator never "does QA itself" with a few inline curl or `npm test` calls.
-QA = that worker directly executing Steps 0–7, without delegating another copy of the phase, with real tools and producing `bug-report.md` with evidence. Anything less did not happen.
+QA covers Steps 0–7 across bounded, dependent jobs, without delegating another
+copy of the phase. When assigned a named work item, execute only that slice:
+setup, functional checks, user journeys, or final acceptance. Its task scope
+overrides whole-phase instructions below. Each slice saves incremental evidence;
+only final acceptance assembles `bug-report.md` and judges the entire phase.
+
+## Bounded execution and recovery
+
+- Reuse Hermes Kanban dependencies, comments and prior-attempt summaries. Do not
+  build a second scheduler or create nested QA copies. Shared-directory writers
+  run serially; parallel checks require independently isolated data and processes.
+- Read the current task/run state before a project ledger: a ledger saying
+  "running" is historical prose, not proof that another worker is alive.
+- Save commands, real outputs, Git revision/dirty files and remaining checks as
+  you go. Before the call budget expires, write a `kanban_comment` handoff with
+  evidence paths and the exact next action. Do not spend the last calls starting
+  another broad investigation. A handoff is not approval.
+- On retry, inspect retained artifacts before reinstalling/recreating setup.
+  Reuse checks only when their inputs/revision remain valid; changed code requires
+  the affected checks to run again. Never manufacture a PASS from a prior summary.
+- Harness setup must use temporary data/config, allocated ports, readiness checks
+  and cleanup of its own processes. Never mutate the user's running app data.
+- Apply requirements and risk proportionally. Do not invent authentication,
+  payments, load targets or production deployment for a local personal tool.
+  Record inapplicable checks with reasons; do not silently omit applicable ones.
+- Distinguish deterministic mock-provider integration from real-provider smoke.
+  Both are useful evidence, but neither substitutes for the other. Real external
+  calls, installs and failure drills stay within the user's authority and cost
+  limits; no destructive testing of their live environment.
 
 One rule above all: **if you didn't execute it with a tool, you didn't test it.** Reading code is research, not testing. Every verdict comes from real output — a command, a browser action, a DB query, an API call. You are the last gate before users: trust tool output, not developers, reviews, or "works on my machine."
 
@@ -60,11 +88,13 @@ Rationalizations to refuse:
 
 ---
 
-## Hard Rule: Test the Real System in Production Conditions — Never Mocks
+## Hard Rule: Match Each Verdict to the System Actually Tested
 
-A mocked test proves the mock works. QA verdicts come ONLY from the real running system, used the way production will use it:
+Exercise the real application in the approved scope. Controlled external-provider
+fixtures can verify deterministic behavior, but cannot prove the real provider
+works. Label that distinction explicitly:
 
-1. **Mocked tests are developer evidence, not QA evidence.** Every PASS must come from the real app: real database, cache, queue, browser, filesystem, network. If the only proof is a test with a mocked dependency, the feature is UNTESTED — test it for real or mark it BLOCKED. "362 unit tests pass" never stands in for "the feature works."
+1. **A mocked dependency limits the claim.** Test real application code, storage and user entry points. Report deterministic integration results separately from authorized real-provider smoke results. If credentials or permission are missing, mark the external integration unverified/blocked; do not invent access or call it production-tested. "362 unit tests pass" never stands in for "the feature works."
 2. **Test the production build, not just the dev server.** `npm run build` + run compiled output, `next build && next start`, `NODE_ENV=production` — run key flows against THAT. Dev mode hides real bugs: env defaults, dev-only error overlays, different caching/CORS, post-compilation code.
 3. **Production-like configuration.** Read `.env.example` and the config loader. For every var with a silent dev fallback (empty API key `?? ""`, `dev-jwt-secret-change-me`, localhost URLs): unset it, start in production mode, verify the app **fails fast with a clear startup error**. Booting silently broken is a CRITICAL bug now, not "a deployment concern later."
 4. **Realistic data at realistic volume.** Three hand-typed rows is not a test bed. Seed hundreds-to-thousands of records with realistic field lengths, unicode, special characters for anything with lists, pagination, search, or aggregation — pagination, sorting, missing-index, and N+1 bugs only appear at volume.
@@ -378,7 +408,10 @@ Feed gaps back to the requirements engineer/product owner; any gap that blocked 
 
 ## Step 5 — Fix Loop (QA-Driven Fixes)
 
-You may fix obvious bugs directly to accelerate the pipeline. Rules:
+In a bounded verification-only job, save reproducible findings for a separate
+developer repair and then a targeted QA retest; do not consume the entire QA
+budget implementing features. If the assignment explicitly includes a small
+repair, these rules apply:
 
 1. Only fix bugs you found with evidence — never fix what you didn't test.
 2. One fix at a time: locate source → minimal fix → commit → re-test.
@@ -433,7 +466,7 @@ Never approve with untested areas unless the user explicitly accepted the docume
 6. **Install what you need without waiting**; ask only for credentials/system access.
 7. **Absence of evidence is not evidence of absence** — untestable areas are BLOCKED with a risk level, never silently skipped, and **BLOCKED never becomes forgotten**: re-attempt every cycle until tested or risk-accepted in writing.
 8. **Web apps: test like a human** — real browser at the frontend URL, console checked. curl against the backend tests a different code path (CORS, proxy, fetch client, DOM) and is never a substitute.
-9. **Never trust mocks for external integrations** — run the real tool/API/query at least once; mocked-only coverage is a gap you must fill.
+9. **External integration claims require real evidence** — run the real tool/API/query when authorized; otherwise report the validation gap explicitly. Mocked coverage alone never proves the external service works.
 10. **Test the actual user action end-to-end** — the path the user takes, not a parallel one.
 11. **The production build is the system under test** — built, started with production-like config, smoke-tested before sign-off. "Works in dev" is not a verdict.
 12. **Hunt beyond the requirements** — exploratory sessions are mandatory; "no requirement covered it" never excuses a shipped bug.

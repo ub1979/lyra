@@ -42,6 +42,7 @@ Durable project jobs → Hermes Kanban dispatcher → isolated worker sessions
 | Phase reports / evidence | `plugins/ultimate-builder/project_progress.py`, `hermes_cli/project_evidence.py` | Negative status, missing file and path-escape tests |
 | Project jobs / bounded development scheduling / model repair | `plugins/ultimate-builder/project_runs.py`, `plugins/ultimate-builder/project_work_units.py`, `web/src/lib/guided-agent-model-preferences.ts`, `cli.py` goal-loop wiring | Task-graph parsing, real SQLite lifecycle, dependency gates, run fencing and provider/project isolation tests |
 | Automatic job decomposition | `hermes_cli/kanban_decompose.py` | Blanket-scope rejection and bounded replacement tests |
+| Bounded QA / budget handoff | `plugins/ultimate-builder/project_work_units.py`, `agent/worker_handoff.py`, `agent/turn_finalizer.py` | Real dependency/retry/legacy-job tests; real agent tool-loop cache-prefix and delegated-child isolation tests; SQLite summary persistence and stale-run fencing |
 | Project-local Git boundary | `plugins/ultimate-builder/project_repository.py`, `scripts/lyra_git_guard.py`, `.githooks/` | Real parent/project repository, commit-hook and push-hook tests |
 | Worker Git ancestry | `hermes_cli/worker_git_guard.py`, `hermes_cli/kanban_db.py`, `tools/code_execution_tool.py` | Real Git ref transactions, Python execution, existing hooks, credential scrub and spawn tests |
 | Job creation notification policy | `hermes_cli/kanban_notifications.py` | CLI/tool/phase creation, opt-out and idempotent subscription tests |

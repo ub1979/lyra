@@ -258,7 +258,7 @@ def test_project_guide_translates_engineering_progress_for_nontechnical_users():
     skill_root = ROOT / "skills"
     umbrella = (skill_root / "ultimate-app-builder" / "SKILL.md").read_text(encoding="utf-8")
     guide = (skill_root / "app-it" / "SKILL.md").read_text(encoding="utf-8")
-    chat = (ROOT.parents[1] / "web" / "src" / "pages" / "ChatPage.tsx").read_text(encoding="utf-8")
+    chat = (ROOT.parents[1] / "web" / "src" / "lib" / "guided-project-setup.ts").read_text(encoding="utf-8")
 
     assert "Assume the user is not technical" in guide
     assert "Is the whole application finished" in guide

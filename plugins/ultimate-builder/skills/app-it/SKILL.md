@@ -376,6 +376,21 @@ dependencies. Report the exact work-item title that is running. Never create or
 accept one catch-all job for all remaining requirements; return an oversized
 item to Planning for a smaller split.
 
+QA queueing uses the same durable scheduler for four dependent work items:
+reproducible setup, functional/boundary checks, user journeys/integrations, and
+final acceptance. A finished QA work item is not a finished QA phase. Read the
+remaining jobs before advancing. These workers share the project directory, so
+keep them sequential; do not re-enable nested specialist delegation to speed up
+the pipeline. Independent read-only checks may use existing Hermes delegation
+only where the configured role permits it and data/process isolation is proven.
+When QA records a defect, route a bounded developer repair and matching retest
+within the approved scope; do not ask the user to do engineering review. Never
+repair the generated application in this coordinating conversation. Reuse task
+comments, saved evidence and prior-attempt summaries after interruption, checking
+the current revision before accepting old results. Four stages can incur more
+startup context than one job: do not promise lower cost or latency without a
+measured end-to-end run.
+
 Technical review is Lyra's responsibility, not a new user approval checkpoint.
 When a worker blocks with `review-required:`, inspect its evidence, use the
 review specialist when appropriate, and record the outcome. Continue only

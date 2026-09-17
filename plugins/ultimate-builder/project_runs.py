@@ -168,7 +168,7 @@ def _phase_from_task(task: kb.Task) -> str | None:
     return _task_identity(task)[0]
 
 
-def _development_plan(project: Path) -> dict[str, Any]:
+def _work_plan(project: Path, phase: str = "sw-developer") -> dict[str, Any]:
     path = Path(__file__).resolve().with_name("project_work_units.py")
     spec = importlib.util.spec_from_file_location(
         "lyra_ultimate_builder_project_work_units_for_jobs", path
@@ -177,7 +177,8 @@ def _development_plan(project: Path) -> dict[str, Any]:
         raise RuntimeError("Could not load the project work plan")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return module.load_development_work_units(project)
+    return (module.load_qa_work_units() if phase == "qa-engineer"
+            else module.load_development_work_units(project))
 
 
 def _iteration_exhausted(task: kb.Task) -> bool:
@@ -267,10 +268,16 @@ Before finishing, update the ledger to verified or blocked with plain evidence p
 
 
 def _work_unit_body(
-    project: Path, unit: dict[str, Any], *, source: str
+    project: Path, unit: dict[str, Any], *, source: str, phase: str = "sw-developer"
 ) -> str:
     """Give a worker one independently verifiable unit, never a whole app."""
-    return f"""You are Lyra's Development agent completing one bounded project work item.
+    label = PHASES[phase]["label"]
+    completion_rule = (
+        "Only this final QA stage may mark the QA phase complete, after checking all stage evidence."
+        if phase == "qa-engineer" and unit["id"] == "QA-004" else
+        f"Do not mark the whole {label} phase or application complete; later jobs and independent review remain."
+    )
+    return f"""You are Lyra's {label} agent completing one bounded project work item.
 
 Workspace: {project}
 Current work item: {unit["id"]} — {unit["title"]}
@@ -283,7 +290,9 @@ Universal worker contract:
 
 Read the repository instructions, `.sdlc/status.json`, the Project Brain, and
 only the planning sections needed for this work item. Adopt valid partial work;
-never restart accepted work. Before editing, verify `git rev-parse
+never restart accepted work. Task/run state and prior-attempt comments in your
+Kanban context are authoritative over a stale project ledger. Verify prior
+evidence against the current Git revision and dirty files. Before editing, verify `git rev-parse
 --show-toplevel` resolves to this exact workspace and inspect Git status. Run
 every Git command from this project root. Never stage or commit files in Lyra's
 application repository, and never push a remote.
@@ -293,8 +302,12 @@ dependency and stop instead of absorbing it into this job. Use the project's
 engineering rules, write focused tests first, run the stated verification, and
 save evidence under `.sdlc/evidence/tasks/{unit["id"]}.txt`. Refresh the Project
 Brain and save verified changes in one local Git commit containing only this
-work item. Do not mark the whole Development phase or application complete;
-later jobs and independent review remain.
+work item. {completion_rule}
+
+Execute this assigned slice of the specialist playbook, not the whole phase.
+Do not delegate copies of it. Save incremental evidence and a kanban_comment
+handoff before the call budget runs out: revision, files, exact checks/results,
+remaining work and next command. A failed check is a finding, never a PASS.
 
 Exact work item:
 
@@ -387,8 +400,10 @@ def queue_project_run(
         )
     status_snapshot = _ensure_project_status(project)
     development_plan = (
-        _development_plan(project) if "sw-developer" in requested else {"source": None, "units": []}
+        _work_plan(project) if "sw-developer" in requested else {"source": None, "units": []}
     )
+    qa_plan = (_work_plan(project, "qa-engineer") if "qa-engineer" in requested
+               else {"source": None, "units": []})
     board = kb.get_current_board()
     existing = _project_tasks(project, include_archived=True)
     latest_by_identity: dict[tuple[str, str | None], tuple[str, kb.Task]] = {}
@@ -423,12 +438,12 @@ def queue_project_run(
                 )
                 max_runtime_seconds = (
                     DEVELOPMENT_MAX_RUNTIME_SECONDS
-                    if work_unit
+                    if work_unit and phase == "sw-developer"
                     else PHASE_MAX_RUNTIME_SECONDS
                 )
                 goal_max_turns = (
                     DEVELOPMENT_GOAL_MAX_TURNS
-                    if work_unit
+                    if work_unit and phase == "sw-developer"
                     else PHASE_GOAL_MAX_TURNS
                 )
                 with kb.write_txn(origin_conn):
@@ -465,16 +480,19 @@ def queue_project_run(
         model = models.get(phase) or None
         provider = providers.get(phase) or None
         if work_unit:
-            title = f"Development · {work_unit['id']} · {work_unit['title']}"
+            title = f"{PHASES[phase]['label']} · {work_unit['id']} · {work_unit['title']}"
             body = _work_unit_body(
-                project, work_unit, source=str(development_plan["source"])
+                project, work_unit, phase=phase,
+                source=str((qa_plan if phase == "qa-engineer" else development_plan)["source"])
             )
             idempotency_key = (
                 f"{WORK_UNIT_KEY_PREFIX}{_workspace_digest(project)}:{phase}:"
                 f"{work_unit['id']}:{run_token}"
             )
-            max_runtime_seconds = DEVELOPMENT_MAX_RUNTIME_SECONDS
-            goal_max_turns = DEVELOPMENT_GOAL_MAX_TURNS
+            max_runtime_seconds = (PHASE_MAX_RUNTIME_SECONDS if phase == "qa-engineer"
+                                   else DEVELOPMENT_MAX_RUNTIME_SECONDS)
+            goal_max_turns = (PHASE_GOAL_MAX_TURNS if phase == "qa-engineer"
+                              else DEVELOPMENT_GOAL_MAX_TURNS)
         else:
             title = f"Lyra project: {PHASES[phase]['label']}"
             body = _task_body(project, phase)
@@ -543,7 +561,8 @@ def queue_project_run(
     with kb.connect_closing(board=board) as conn:
         for phase in requested:
             previous = latest_by_identity.get((phase, None))
-            work_units = development_plan["units"] if phase == "sw-developer" else []
+            work_units = (development_plan["units"] if phase == "sw-developer" else
+                          qa_plan["units"] if phase == "qa-engineer" else [])
             # An already-running legacy phase must finish without a duplicate.
             # An iteration-exhausted broad phase is deliberately replaced by
             # bounded graph units on the next queue request.
@@ -601,7 +620,7 @@ def queue_project_run(
                         )
                     unit_task_ids[str(unit["id"])] = task_id
                     phase_entry_ids.append(task_id)
-                # Every later phase waits for every outstanding development
+                # Every later phase waits for every outstanding phase work
                 # unit. This is stricter than depending only on graph leaves
                 # and remains correct if a task graph is amended later.
                 parent_ids = phase_entry_ids or parent_ids
@@ -619,8 +638,8 @@ def queue_project_run(
         "board": board,
         "tasks": created,
         "work_plan": {
-            "source": development_plan["source"],
-            "unit_count": len(development_plan["units"]),
+            "source": development_plan["source"] or qa_plan["source"],
+            "unit_count": len(development_plan["units"]) + len(qa_plan["units"]),
             "accepted_units_skipped": skipped_work_units,
         },
         "superseded_tasks": superseded_tasks,

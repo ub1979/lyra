@@ -3119,6 +3119,7 @@ plugins/ultimate-builder/tests/test_plugin_api.py	plugins	Behavioral tests: plug
 plugins/ultimate-builder/tests/test_preview_api.py	plugins	Behavioral tests: preview api
 plugins/ultimate-builder/tests/test_project_brain.py	plugins	Behavioral tests: project brain
 plugins/ultimate-builder/tests/test_project_progress.py	plugins	Behavioral tests: project progress
+plugins/ultimate-builder/tests/test_project_qa_units.py	plugins	Behavioral tests: project qa units
 plugins/ultimate-builder/tests/test_project_repository.py	plugins	Behavioral tests: project repository
 plugins/ultimate-builder/tests/test_project_run_tool.py	plugins	Behavioral tests: project run tool
 plugins/ultimate-builder/tests/test_project_runs.py	plugins	Behavioral tests: project runs
