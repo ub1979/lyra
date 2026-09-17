@@ -155,7 +155,9 @@ Reading alone misses real problems — running reveals broken builds, failing te
 5. **Blast radius** — worst case per change plus rollback strategy
 
 Write this analysis into `.sdlc/changes/CR-<n>-<slug>.md` in the format in
-`references/engineering-standards.md`, not only into `plan.md`. That file is what
+the shared standards, loaded with
+`skill_view(name="ultimate-builder:ultimate-app-builder", file_path="references/engineering-standards.md")`,
+not only into `plan.md`. The change record is what
 `sw-developer` works from, what `code-reviewer` checks the diff against, and what
 `qa-engineer` uses to scope regression — an impact analysis that lives only in
 the architecture document reaches none of them.

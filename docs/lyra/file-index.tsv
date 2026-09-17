@@ -3125,6 +3125,7 @@ plugins/ultimate-builder/tests/test_project_runs.py	plugins	Behavioral tests: pr
 plugins/ultimate-builder/tests/test_project_status.py	plugins	Behavioral tests: project status
 plugins/ultimate-builder/tests/test_project_task_recovery.py	plugins	Behavioral tests: project task recovery
 plugins/ultimate-builder/tests/test_project_work_units.py	plugins	Behavioral tests: project work units
+plugins/ultimate-builder/tests/test_shared_standards_loading.py	plugins	Behavioral tests: shared standards loading
 plugins/ultimate-builder/tests/test_workflow_contract.py	plugins	Behavioral tests: workflow contract
 plugins/ultimate-builder/trivial_change.py	plugins	Conservative Git-diff classifier for change-record exemptions.
 plugins/ultimate-builder/workflow_contract.json	plugins	json: workflow contract

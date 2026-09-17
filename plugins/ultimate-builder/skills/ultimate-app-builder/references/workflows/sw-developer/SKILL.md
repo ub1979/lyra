@@ -50,7 +50,9 @@ Anything with a visible interface also loads the design side, in this order:
 
 ## Step 0.6 — House standards (NEVER Skip)
 
-Read `references/engineering-standards.md` once per session and follow it:
+Read the shared standards once per session with
+`skill_view(name="ultimate-builder:ultimate-app-builder", file_path="references/engineering-standards.md")`
+and follow them. This file belongs to the umbrella skill, not this specialist:
 **one unit per file** (class, component or module — whichever fits the language),
 one responsibility each, a test file for every unit, files under ~300 lines, and
 patterns applied only where the problem matches.

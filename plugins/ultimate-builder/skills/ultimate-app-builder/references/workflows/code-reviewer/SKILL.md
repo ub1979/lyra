@@ -11,7 +11,9 @@ Read `.sdlc/changes/CR-*.md` for this change first — it states what was meant 
 change and why. A diff that exceeds its record is a finding: either the record
 was wrong or the change grew silently.
 
-Then check `references/engineering-standards.md`:
+Then load the shared standards through their owning skill:
+`skill_view(name="ultimate-builder:ultimate-app-builder", file_path="references/engineering-standards.md")`.
+Check:
 
 - one unit per file, named after it, one responsibility, under ~300 lines;
 - **every unit has a test file** — a unit without one is a finding, not a
