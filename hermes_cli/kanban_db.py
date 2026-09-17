@@ -7794,6 +7794,8 @@ def _record_task_failure(
     release_claim: bool = False,
     end_run: bool = False,
     event_payload_extra: Optional[dict] = None,
+    run_summary: Optional[str] = None,
+    expected_run_id: Optional[int] = None,
 ) -> bool:
     """Record a non-success outcome (spawn_failed / crashed / timed_out)
     and maybe trip the circuit breaker.
@@ -7823,6 +7825,10 @@ def _record_task_failure(
     when the breaker trips, so callers can include outcome-specific
     context (e.g. pid on crash, elapsed on timeout).
 
+    ``run_summary`` preserves a bounded worker handoff through the existing
+    prior-attempt context. ``expected_run_id`` fences late worker finalizers;
+    dispatcher callers that already own lifecycle reconciliation may omit it.
+
     Resolution order for the effective threshold:
       1. per-task ``max_retries`` if set (nothing else overrides)
       2. caller-supplied ``failure_limit`` (gateway passes the config
@@ -7843,11 +7849,15 @@ def _record_task_failure(
     blocked = False
     with write_txn(conn):
         row = conn.execute(
-            "SELECT consecutive_failures, status, max_retries "
+            "SELECT consecutive_failures, status, max_retries, current_run_id "
             "FROM tasks WHERE id = ?", (task_id,),
         ).fetchone()
         if row is None:
             return False
+        if expected_run_id is not None and (
+            row["status"] != "running" or row["current_run_id"] != expected_run_id
+        ):
+            return False  # late finalizer cannot end a replacement worker
         failures = int(row["consecutive_failures"]) + 1
         cur_status = row["status"]
 
@@ -7890,6 +7900,7 @@ def _record_task_failure(
                 run_id = _end_run(
                     conn, task_id,
                     outcome="gave_up", status="gave_up",
+                    summary=run_summary,
                     error=error[:500],
                     metadata={
                         "failures": failures,
@@ -7935,6 +7946,7 @@ def _record_task_failure(
                 run_id = _end_run(
                     conn, task_id,
                     outcome=outcome, status=outcome,
+                    summary=run_summary,
                     error=error[:500],
                     metadata={"failures": failures},
                 )

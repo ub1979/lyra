@@ -1013,6 +1013,8 @@ def execute_tool_calls_concurrent(agent, assistant_message, messages: list, effe
             tc.id,
             effect_disposition=effect_disposition,
         )
+        from agent.worker_handoff import annotate_handoff_budget
+        annotate_handoff_budget(agent, tool_message)
         messages.append(tool_message)
         risk_metadata = tool_message.get("_tool_output_risk")
         if (
@@ -1712,6 +1714,8 @@ def execute_tool_calls_sequential(agent, assistant_message, messages: list, effe
         # (see parallel path for rationale). String results pass through.
         _tool_content = agent._tool_result_content_for_active_model(function_name, function_result)
         tool_message = make_tool_result_message(function_name, _tool_content, tool_call.id)
+        from agent.worker_handoff import annotate_handoff_budget
+        annotate_handoff_budget(agent, tool_message)
         messages.append(tool_message)
         risk_metadata = tool_message.get("_tool_output_risk")
         if (

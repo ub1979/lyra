@@ -230,6 +230,7 @@ agent/video_gen_provider.py	agent	Video Generation Provider ABC
 agent/video_gen_registry.py	agent	Video Generation Provider Registry
 agent/web_search_provider.py	agent	Web Search Provider ABC
 agent/web_search_registry.py	agent	Web Search Provider Registry
+agent/worker_handoff.py	agent	Early worker handoff guidance on new tool results, preserving cached history.
 apps/bootstrap-installer/.gitignore	apps	configuration: .gitignore
 apps/bootstrap-installer/eslint.config.mjs	apps	mjs: eslint.config
 apps/bootstrap-installer/index.html	apps	html: index
@@ -3082,7 +3083,7 @@ plugins/ultimate-builder/project_run_tool.py	plugins	Let the Studio coordinator 
 plugins/ultimate-builder/project_runs.py	plugins	Durable Ultimate Builder phase runs backed by Hermes Kanban.
 plugins/ultimate-builder/project_status.py	plugins	Maintain Lyra's small, validated project-status projection.
 plugins/ultimate-builder/project_task_recovery.py	plugins	Recover one failed project task without bypassing its dependency/review gates.
-plugins/ultimate-builder/project_work_units.py	plugins	Load bounded development work units from a project's task graph.
+plugins/ultimate-builder/project_work_units.py	plugins	Load bounded project work units for the existing Kanban dependency queue.
 plugins/ultimate-builder/scripts/evaluate_candidates.py	plugins	py: evaluate candidates
 plugins/ultimate-builder/skills/app-it/SKILL.md	plugins	md: SKILL
 plugins/ultimate-builder/skills/app-it/agents/openai.yaml	plugins	yaml: openai
@@ -4290,6 +4291,7 @@ tests/agent/test_vertex_adapter.py	tests	Behavioral tests: vertex adapter
 tests/agent/test_video_gen_registry.py	tests	Behavioral tests: video gen registry
 tests/agent/test_vision_resolved_args.py	tests	Behavioral tests: vision resolved args
 tests/agent/test_vision_routing_31179.py	tests	Behavioral tests: vision routing 31179
+tests/agent/test_worker_handoff.py	tests	Behavioral tests: worker handoff
 tests/agent/transports/__init__.py	tests	Behavioral tests:   init
 tests/agent/transports/test_bedrock_transport.py	tests	Behavioral tests: bedrock transport
 tests/agent/transports/test_chat_completions.py	tests	Behavioral tests: chat completions
@@ -5232,6 +5234,7 @@ tests/hermes_cli/test_journey_render.py	tests	Behavioral tests: journey render
 tests/hermes_cli/test_kanban_block_kinds.py	tests	Behavioral tests: kanban block kinds
 tests/hermes_cli/test_kanban_blocked_sticky.py	tests	Behavioral tests: kanban blocked sticky
 tests/hermes_cli/test_kanban_boards.py	tests	Behavioral tests: kanban boards
+tests/hermes_cli/test_kanban_budget_handoff.py	tests	Behavioral tests: kanban budget handoff
 tests/hermes_cli/test_kanban_cli.py	tests	Behavioral tests: kanban cli
 tests/hermes_cli/test_kanban_cli_dispatch_passthrough.py	tests	Behavioral tests: kanban cli dispatch passthrough
 tests/hermes_cli/test_kanban_core_functionality.py	tests	Behavioral tests: kanban core functionality
@@ -5822,6 +5825,7 @@ tests/run_agent/test_verification_continuation_budget.py	tests	Behavioral tests:
 tests/run_agent/test_vision_aware_preprocessing.py	tests	Behavioral tests: vision aware preprocessing
 tests/run_agent/test_vision_tool_messages.py	tests	Behavioral tests: vision tool messages
 tests/run_agent/test_wait_state_visibility.py	tests	Behavioral tests: wait state visibility
+tests/run_agent/test_worker_handoff_journey.py	tests	Behavioral tests: worker handoff journey
 tests/run_interrupt_test.py	tests	Behavioral tests: run interrupt test
 tests/scripts/test_build_skills_index_health.py	tests	Behavioral tests: build skills index health
 tests/scripts/test_contributor_map.py	tests	Behavioral tests: contributor map

@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from agent.turn_finalizer import finalize_turn
+from agent.worker_handoff import exhaustion_handoff
 
 
 class _LimitAgent:
@@ -292,6 +293,8 @@ def test_pending_response_records_kanban_timeout(monkeypatch):
             "within the allowed iterations"
         ),
         outcome="timed_out",
+        run_summary=exhaustion_handoff("composed report"),
+        expected_run_id=None,
         release_claim=True,
         end_run=True,
         event_payload_extra={"budget_used": 60, "budget_max": 60},

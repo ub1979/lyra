@@ -20,6 +20,7 @@ def _response(content="composed report"):
 @pytest.fixture
 def agent(tmp_path, monkeypatch):
     monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".hermes"))
+    monkeypatch.setattr("run_agent._hermes_home", tmp_path / ".hermes")
     with (
         patch("run_agent.get_tool_definitions", return_value=[]),
         patch("run_agent.check_toolset_requirements", return_value={}),

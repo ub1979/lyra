@@ -152,9 +152,11 @@ def finalize_turn(
         # rather than ``kanban_block`` so this counts toward the dispatcher's
         # consecutive-failure circuit breaker (#29747 gap 2).
         _kanban_task = os.environ.get("HERMES_KANBAN_TASK")
-        if _kanban_task:
+        from agent.delegation_context import is_delegated_child_process_context
+        if _kanban_task and not is_delegated_child_process_context():
             try:
                 from hermes_cli import kanban_db as _kb
+                from agent.worker_handoff import exhaustion_handoff
                 _conn = _kb.connect()
                 try:
                     _kb._record_task_failure(
@@ -167,6 +169,11 @@ def finalize_turn(
                             "iterations"
                         ),
                         outcome="timed_out",
+                        run_summary=exhaustion_handoff(final_response),
+                        expected_run_id=(
+                            int(os.environ["HERMES_KANBAN_RUN_ID"])
+                            if os.environ.get("HERMES_KANBAN_RUN_ID") else None
+                        ),
                         release_claim=True,
                         end_run=True,
                         event_payload_extra={
