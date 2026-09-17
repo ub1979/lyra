@@ -9,6 +9,19 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.62] - 2026-09-17 — worker Git history protection
+
+### Fixed
+
+- Newly launched local Kanban workers reject non-fast-forward updates to
+  existing Git branches, including direct `update-ref` calls from
+  Python execution. Normal commits, new branches and existing repository hooks
+  remain supported; operator Git configuration is not changed.
+- This is accident protection, not a sandbox or shared-workspace isolation.
+  Branch deletion and uncommitted-file protection are outside this guard.
+  Restart the dispatcher before launching protected workers. Existing jobs are
+  not restarted automatically; intentional history rewrites need operator action.
+
 ## [0.19.61] - 2026-09-17 — targeted failed-job recovery
 
 ### Fixed

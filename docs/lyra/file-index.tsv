@@ -1804,6 +1804,7 @@ docs/lyra/changes/2026-09-17-packaged-connect-journey.md	docs	md: 2026 09 17 pac
 docs/lyra/changes/2026-09-17-provider-address-notice.md	docs	md: 2026 09 17 provider address notice
 docs/lyra/changes/2026-09-17-stability-fix-summary.md	docs	md: 2026 09 17 stability fix summary
 docs/lyra/changes/2026-09-17-targeted-job-recovery.md	docs	md: 2026 09 17 targeted job recovery
+docs/lyra/changes/2026-09-17-worker-git-history-guard.md	docs	md: 2026 09 17 worker git history guard
 docs/lyra/changes/2026-09-17-worker-liveness-test.md	docs	md: 2026 09 17 worker liveness test
 docs/lyra/changes/2026-09-17-worker-usage-freshness.md	docs	md: 2026 09 17 worker usage freshness
 docs/lyra/file-index.tsv	docs	tsv: file index
@@ -2187,6 +2188,7 @@ hermes_cli/web_server.py	hermes_cli	Hermes Agent — Web UI server.
 hermes_cli/webhook.py	hermes_cli	hermes webhook — manage dynamic webhook subscriptions from the CLI.
 hermes_cli/win_pty_bridge.py	hermes_cli	Windows ConPTY bridge for the `hermes dashboard` chat tab.
 hermes_cli/windows_ssh_runtime.py	hermes_cli	Native Windows trust boundary for Desktop SSH backend lifecycle.
+hermes_cli/worker_git_guard.py	hermes_cli	Worker-scoped Git hooks: preserve branch ancestry without editing repositories.
 hermes_cli/write_approval_commands.py	hermes_cli	py: write approval commands
 hermes_cli/xai_retirement.py	hermes_cli	Detect xAI models retired on May 15, 2026.
 hermes_constants.py	root	Shared constants for Hermes Agent.
@@ -5525,6 +5527,7 @@ tests/hermes_cli/test_whatsapp_onboarding.py	tests	Behavioral tests: whatsapp on
 tests/hermes_cli/test_whatsapp_setup_ordering.py	tests	Behavioral tests: whatsapp setup ordering
 tests/hermes_cli/test_win_pty_bridge.py	tests	Behavioral tests: win pty bridge
 tests/hermes_cli/test_windows_native_docs.py	tests	Behavioral tests: windows native docs
+tests/hermes_cli/test_worker_git_guard.py	tests	Behavioral tests: worker git guard
 tests/hermes_cli/test_xai_curated_models.py	tests	Behavioral tests: xai curated models
 tests/hermes_cli/test_xai_model_flow.py	tests	Behavioral tests: xai model flow
 tests/hermes_cli/test_xai_oauth_profile_auth.py	tests	Behavioral tests: xai oauth profile auth

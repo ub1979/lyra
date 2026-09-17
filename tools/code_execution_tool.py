@@ -281,6 +281,9 @@ def _scrub_child_env(source_env, is_passthrough=None, is_windows=None):
             scrubbed = scrub_kanban_env(scrubbed)
     except Exception:
         pass
+    from hermes_cli.worker_git_guard import preserve_worker_guard
+
+    preserve_worker_guard(source_env, scrubbed)
     return scrubbed
 
 

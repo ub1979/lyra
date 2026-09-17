@@ -9212,6 +9212,9 @@ def _default_spawn(
     # logs don't collide across boards that happen to share task ids.
     log_dir = worker_logs_dir(board=board)
     log_dir.mkdir(parents=True, exist_ok=True)
+    from hermes_cli.worker_git_guard import guarded_worker_env
+
+    env = guarded_worker_env(env, log_dir)
     log_path = log_dir / f"{task.id}.log"
     rotate_bytes, backup_count = worker_log_rotation_config()
     _rotate_worker_log(log_path, rotate_bytes, backup_count)

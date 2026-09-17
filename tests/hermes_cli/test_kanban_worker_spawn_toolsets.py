@@ -77,6 +77,8 @@ agent:
     class FakeProc:
         pid = 4242
 
+    real_popen = subprocess.Popen
+
     def fake_popen(cmd, *args, **kwargs):
         captured["cmd"] = list(cmd)
         captured["env"] = dict(kwargs.get("env") or {})
@@ -96,6 +98,24 @@ agent:
     pinned = captured["cmd"][captured["cmd"].index("--toolsets") + 1].split(",")
     for required in ("terminal", "web", "file", "skills", "code_execution", "delegation"):
         assert required in pinned
+
+    # Exercise the actual spawned environment, not just its configuration keys.
+    monkeypatch.setattr(subprocess, "Popen", real_popen)
+    worker_env = captured["env"]
+    def git(*args):
+        return subprocess.run(
+            ["git", "-C", str(workspace), *args], env=worker_env,
+            text=True, capture_output=True, timeout=20,
+        )
+    assert git("init", "-b", "main").returncode == 0
+    assert git("-c", "user.name=Test", "-c", "user.email=test@example.invalid",
+               "commit", "--allow-empty", "-m", "initial").returncode == 0
+    before = git("rev-parse", "HEAD").stdout
+    assert git("-c", "user.name=Test", "-c", "user.email=test@example.invalid",
+               "commit", "--allow-empty", "-m", "next").returncode == 0
+    current = git("rev-parse", "HEAD").stdout
+    assert git("update-ref", "refs/heads/main", before.strip()).returncode != 0
+    assert git("rev-parse", "HEAD").stdout == current
 
 
 def test_ultimate_builder_specialist_executes_directly_without_delegation(
