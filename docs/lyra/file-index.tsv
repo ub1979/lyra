@@ -1796,6 +1796,7 @@ docs/lyra/changes/2026-09-16-synced-transcript-refs.md	docs	md: 2026 09 16 synce
 docs/lyra/changes/2026-09-16-turn-free-job-updates.md	docs	md: 2026 09 16 turn free job updates
 docs/lyra/changes/2026-09-16-turn-history-persists.md	docs	md: 2026 09 16 turn history persists
 docs/lyra/changes/2026-09-16-worker-usage-accounting.md	docs	md: 2026 09 16 worker usage accounting
+docs/lyra/changes/2026-09-17-bounded-qa-and-budget-handoff.md	docs	md: 2026 09 17 bounded qa and budget handoff
 docs/lyra/changes/2026-09-17-coordinator-context-compaction.md	docs	md: 2026 09 17 coordinator context compaction
 docs/lyra/changes/2026-09-17-coordinator-role-boundary.md	docs	md: 2026 09 17 coordinator role boundary
 docs/lyra/changes/2026-09-17-dispatch-wakeup.md	docs	md: 2026 09 17 dispatch wakeup
