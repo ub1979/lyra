@@ -63,6 +63,36 @@ def test_digest_is_none_without_preview_files(tmp_path):
     assert _load("preview_digest").preview_digest(tmp_path) is None
 
 
+def test_oversized_preview_cannot_reuse_an_approval(project):
+    authorization = _load("preview_authorization")
+    checkpoint = authorization.open_checkpoint(project, "s")
+    authorization.record_answer(checkpoint["question"], "Approve", "s")
+    for i in range(200):
+        (project / ".sdlc" / "preview" / f"asset-{i}.txt").write_text("asset", encoding="utf-8")
+    with pytest.raises(ValueError, match="at most 200 files"):
+        authorization.development_refusal(project)
+
+
+@pytest.mark.parametrize("linked", ["asset", "directory", "root", "sdlc"])
+def test_linked_preview_content_is_not_silently_excluded(project, tmp_path, linked):
+    digest = _load("preview_digest").preview_digest
+    root = project / ".sdlc" / "preview"
+    target = tmp_path / "external"
+    target.mkdir()
+    (target / "index.html").write_text("linked", encoding="utf-8")
+    if linked == "asset":
+        (root / "linked.html").symlink_to(target / "index.html")
+    elif linked == "directory":
+        (root / "assets").symlink_to(target, target_is_directory=True)
+    else:
+        source = root if linked == "root" else root.parent
+        saved = tmp_path / "saved-preview"
+        source.rename(saved)
+        source.symlink_to(saved, target_is_directory=True)
+    with pytest.raises(ValueError, match="symlinks"):
+        digest(project)
+
+
 # --- answer classification -------------------------------------------------
 
 @pytest.mark.parametrize(("answer", "expected"), [

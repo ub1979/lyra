@@ -20,12 +20,19 @@ _MAX_FILES = 200
 def preview_digest(project: Path) -> str | None:
     """Return a stable digest of the preview files, or None when there are none."""
     root = Path(project) / PREVIEW_DIR
+    if root.parent.is_symlink() or root.is_symlink():
+        raise ValueError("Preview approval cannot follow symlinks; copy preview files into .sdlc/preview.")
     if not root.is_dir():
         return None
-    files = sorted(
-        path for path in root.rglob("*")
-        if path.is_file() and not path.is_symlink()
-    )[:_MAX_FILES]
+    files = []
+    for path in root.rglob("*"):
+        if path.is_symlink():
+            raise ValueError("Preview approval cannot follow symlinks; copy linked assets into the preview.")
+        if path.is_file():
+            files.append(path)
+            if len(files) > _MAX_FILES:
+                raise ValueError(f"Preview approval supports at most {_MAX_FILES} files; remove build output first.")
+    files.sort()
     if not files:
         return None
     digest = hashlib.sha256()

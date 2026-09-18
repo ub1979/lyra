@@ -8,6 +8,12 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 
 
+@pytest.fixture(autouse=True)
+def isolated_profile(tmp_path, monkeypatch):
+    """Approval records belong to a profile, not to HERMES_KANBAN_HOME."""
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "profile"))
+
+
 def _load_preview_helper():
     spec = importlib.util.spec_from_file_location(
         "ultimate_builder_preview_approval_helper", Path(__file__).with_name("preview_approval.py")

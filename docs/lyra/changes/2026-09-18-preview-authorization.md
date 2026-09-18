@@ -73,3 +73,10 @@ Rollback / retained recovery data: Revert the commit. Checkpoint records are
 additive and ignored by older code.
 
 Local commit / authorized push: local commit only; not pushed.
+# Independent verification follow-up
+
+Preview hashing now rejects more than 200 files and symlinked preview content
+instead of silently approving a partial digest. Real checkpoint/filesystem
+tests cover both refusal paths. Queue tests now isolate approval storage in a
+temporary profile instead of the real user home. See
+`2026-09-18-revision6-verification-followup.md` for results and limitations.
