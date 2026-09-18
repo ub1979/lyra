@@ -45,6 +45,7 @@ from agent.model_metadata import (
     estimate_messages_tokens_rough,
     estimate_request_tokens_rough,
 )
+from agent.request_token_projection import estimate_provider_request_tokens, projected_request_messages
 
 logger = logging.getLogger(__name__)
 
@@ -646,10 +647,8 @@ def build_turn_context(
         _idle_gap = time.time() - getattr(agent, "_last_activity_ts", time.time())
         if _idle_gap >= _idle_after:
             _compressor = agent.context_compressor
-            _idle_tokens = estimate_request_tokens_rough(
-                messages,
-                system_prompt=active_system_prompt or "",
-                tools=agent.tools or None,
+            _idle_tokens = estimate_provider_request_tokens(
+                agent, messages, active_system_prompt or "", estimate_request_tokens_rough,
             )
             # Post-compression target size: don't summarise a thread already
             # below what compaction would reduce it to.
@@ -719,16 +718,17 @@ def build_turn_context(
     _preflight_compression_blocked = False
     agent._turn_received_provider_response = False
     agent._turn_preflight_display_snapshot = None
+    _projected_preflight = (
+        projected_request_messages(agent, messages) if agent.compression_enabled else []
+    )
     if agent.compression_enabled and _should_run_preflight_estimate(
-        messages,
+        _projected_preflight,
         agent.context_compressor.protect_first_n,
         agent.context_compressor.protect_last_n,
         agent.context_compressor.threshold_tokens,
     ):
-        _preflight_tokens = estimate_request_tokens_rough(
-            messages,
-            system_prompt=active_system_prompt or "",
-            tools=agent.tools or None,
+        _preflight_tokens = estimate_provider_request_tokens(
+            agent, messages, active_system_prompt or "", estimate_request_tokens_rough,
         )
         _compressor = agent.context_compressor
         # getattr guard: minimal compressor doubles (SimpleNamespace in the
@@ -889,10 +889,8 @@ def build_turn_context(
                 # lower token count — e.g. summarising tool outputs) is
                 # recognised as progress instead of being misread as
                 # "Cannot compress further". Fixes #39548.
-                _preflight_tokens = estimate_request_tokens_rough(
-                    messages,
-                    system_prompt=active_system_prompt or "",
-                    tools=agent.tools or None,
+                _preflight_tokens = estimate_provider_request_tokens(
+                    agent, messages, active_system_prompt or "", estimate_request_tokens_rough,
                 )
                 if not _compression_made_progress(
                     _orig_len, len(messages), _orig_tokens, _preflight_tokens
