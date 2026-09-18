@@ -1830,6 +1830,7 @@ docs/lyra/changes/2026-09-18-studio-interim-progress.md	docs	md: 2026 09 18 stud
 docs/lyra/changes/2026-09-18-studio-usage-reconnect.md	docs	md: 2026 09 18 studio usage reconnect
 docs/lyra/changes/2026-09-18-verification-evidence-shell-status.md	docs	md: 2026 09 18 verification evidence shell status
 docs/lyra/changes/2026-09-18-whole-skill-results.md	docs	md: 2026 09 18 whole skill results
+docs/lyra/changes/2026-09-18-worker-ledger-and-test-contract.md	docs	md: 2026 09 18 worker ledger and test contract
 docs/lyra/file-index.tsv	docs	tsv: file index
 docs/middleware/README.md	docs	md: README
 docs/observability/README.md	docs	md: README
@@ -3103,6 +3104,7 @@ plugins/ultimate-builder/preview_authorization.py	plugins	Decide whether Develop
 plugins/ultimate-builder/preview_checkpoint_store.py	plugins	Persist one preview checkpoint record per project workspace.
 plugins/ultimate-builder/preview_clarify_hook.py	plugins	Observe clarify results and hand preview answers to the authorization record.
 plugins/ultimate-builder/preview_digest.py	plugins	Fingerprint the visual preview a user is asked to approve.
+plugins/ultimate-builder/progress_ledger_seed.py	plugins	Create the project progress ledger from Lyra's supported format.
 plugins/ultimate-builder/project_brain.py	plugins	Verified, bounded project memory for Lyra Studio builds.
 plugins/ultimate-builder/project_learnings.py	plugins	Non-destructive reconciliation for Ultimate Builder project learnings.
 plugins/ultimate-builder/project_progress.py	plugins	Parse project progress conservatively and separate reports from evidence.
@@ -3159,8 +3161,10 @@ plugins/ultimate-builder/tests/test_project_status.py	plugins	Behavioral tests: 
 plugins/ultimate-builder/tests/test_project_task_recovery.py	plugins	Behavioral tests: project task recovery
 plugins/ultimate-builder/tests/test_project_work_units.py	plugins	Behavioral tests: project work units
 plugins/ultimate-builder/tests/test_shared_standards_loading.py	plugins	Behavioral tests: shared standards loading
+plugins/ultimate-builder/tests/test_worker_guidance.py	plugins	Behavioral tests: worker guidance
 plugins/ultimate-builder/tests/test_workflow_contract.py	plugins	Behavioral tests: workflow contract
 plugins/ultimate-builder/trivial_change.py	plugins	Conservative Git-diff classifier for change-record exemptions.
+plugins/ultimate-builder/worker_guidance.py	plugins	Instructions every project worker needs before it starts.
 plugins/ultimate-builder/workflow_contract.json	plugins	json: workflow contract
 plugins/ultimate-builder/workflow_contract.py	plugins	Versioned contract and validation for Lyra's Ultimate Builder workflow.
 plugins/video_gen/deepinfra/__init__.py	plugins	DeepInfra video generation backend.

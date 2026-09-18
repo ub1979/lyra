@@ -150,6 +150,23 @@ def _workspace_digest(project: Path) -> str:
     return hashlib.sha256(str(project).encode("utf-8")).hexdigest()[:16]
 
 
+def _plugin_module(name: str) -> Any:
+    """Load a sibling plugin module by file (the plugin is not a package)."""
+    spec = importlib.util.spec_from_file_location(
+        f"lyra_ultimate_builder_{name}_for_jobs",
+        Path(__file__).resolve().with_name(f"{name}.py"),
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Could not load {name}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _worker_guidance(phase: str, build_profile: str | None) -> str:
+    return _plugin_module("worker_guidance").phase_guidance(phase, build_profile)
+
+
 def _task_identity(task: kb.Task) -> tuple[str | None, str | None]:
     key = task.idempotency_key or ""
     if not key.startswith((TASK_KEY_PREFIX, WORK_UNIT_KEY_PREFIX)):
@@ -241,7 +258,7 @@ def _project_tasks(
     return found
 
 
-def _task_body(project: Path, phase: str) -> str:
+def _task_body(project: Path, phase: str, build_profile: str | None = None) -> str:
     info = PHASES[phase]
     return f"""You are Lyra's durable {info["label"]} agent for this project.
 
@@ -264,11 +281,14 @@ Read the repository instructions and `.sdlc/status.json` first when present. It 
 Update `.sdlc/progress.md` to running when work starts; Lyra regenerates `.sdlc/status.json` atomically from that ledger, so do not hand-edit the snapshot. Perform the real work and verification required by the loaded specialist playbook. Save every project change in a local Git commit after verification, staging only files from this task. The project repository is prepared before dispatch; stop and report an isolation error if its root is no longer this workspace. Never push to a remote unless the user separately asks in their main Lyra conversation.
 
 Before finishing, update the ledger to verified or blocked with plain evidence paths. Use the Kanban completion action only when the phase is genuinely complete; otherwise use the Kanban block action with the exact user decision or missing capability needed. Your final summary must be plain language: what the user can do now, whether the whole application is finished, what remains, and any blocker. Do not lead with roadmap codes, schema names, or raw test counts.
+
+{_worker_guidance(phase, build_profile)}
 """
 
 
 def _work_unit_body(
-    project: Path, unit: dict[str, Any], *, source: str, phase: str = "sw-developer"
+    project: Path, unit: dict[str, Any], *, source: str, phase: str = "sw-developer",
+    build_profile: str | None = None,
 ) -> str:
     """Give a worker one independently verifiable unit, never a whole app."""
     label = PHASES[phase]["label"]
@@ -316,6 +336,8 @@ Exact work item:
 Your final summary must be plain language and name this work item: what now
 works, what was verified, whether this item finished, and any exact dependency
 that prevents it from finishing.
+
+{_worker_guidance(phase, build_profile)}
 """
 
 
@@ -435,6 +457,8 @@ def queue_project_run(
             "Could not reconcile project learning history: "
             + str(learning_reconciliation.get("error") or "unknown error")
         )
+    # Workers must never have to discover the ledger format (Trial 3).
+    _plugin_module("progress_ledger_seed").ensure_progress_ledger(project)
     status_snapshot = _ensure_project_status(project)
     existing = _project_tasks(project, include_archived=True)
     existing_qa_units = {
@@ -531,7 +555,7 @@ def queue_project_run(
         if work_unit:
             title = f"{PHASES[phase]['label']} · {work_unit['id']} · {work_unit['title']}"
             body = _work_unit_body(
-                project, work_unit, phase=phase,
+                project, work_unit, phase=phase, build_profile=build_profile,
                 source=str((qa_plan if phase == "qa-engineer" else development_plan)["source"])
             )
             idempotency_key = (
@@ -544,7 +568,7 @@ def queue_project_run(
                               else DEVELOPMENT_GOAL_MAX_TURNS)
         else:
             title = f"Lyra project: {PHASES[phase]['label']}"
-            body = _task_body(project, phase)
+            body = _task_body(project, phase, build_profile)
             idempotency_key = (
                 f"{TASK_KEY_PREFIX}{_workspace_digest(project)}:{phase}:{run_token}"
             )
