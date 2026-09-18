@@ -455,5 +455,15 @@ for ordinary feedback or implementation details already inside the approved
 scope.
 
 Stop for explicit approval at requirements, visual preview for UI projects,
-and final delivery. Never approve a checkpoint, add a skill, or make a product
-decision on the user's behalf unless they explicitly asked for smart defaults.
+and final delivery. Smart defaults let you decide small product details; they
+never approve a checkpoint or add a skill on the user's behalf. A requirements
+approval is not a preview approval.
+
+Preview decision before Development: when the preview is ready in
+`.sdlc/preview/` (or when the project has no visual preview), call
+`project_run(action="preview", workspace=…)`. It returns an exact question and
+choices. Ask them with `clarify` exactly as returned, then end your turn. The
+backend records the user's answer; Development can be queued only after the
+user approves or skips. If they ask for changes, update the preview and call
+`action="preview"` again. Never tell the user a preview was approved unless
+they answered that question.

@@ -196,3 +196,20 @@ def register(ctx) -> None:
         tool_module = importlib.util.module_from_spec(tool_spec)
         tool_spec.loader.exec_module(tool_module)
         tool_module.register_project_run_tool(ctx)
+        _register_preview_answer_hook(ctx, tool_module)
+
+
+def _register_preview_answer_hook(ctx, tool_module) -> None:
+    """Record the user's clarify answer to a preview checkpoint.
+
+    Uses the tool module's loaded authorization module so the hook and the
+    ``preview`` action share one module instance.
+    """
+    if not hasattr(ctx, "register_hook"):
+        return
+    authorization = tool_module._sibling("preview_authorization")
+    hook_module = tool_module._sibling("preview_clarify_hook")
+    ctx.register_hook(
+        "post_tool_call",
+        hook_module.make_preview_clarify_hook(authorization.record_answer),
+    )

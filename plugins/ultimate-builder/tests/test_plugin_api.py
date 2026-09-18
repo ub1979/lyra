@@ -275,12 +275,24 @@ def test_confirmed_model_routing_is_forwarded_to_saved_project_jobs(
     }
 
 
+def _approve_preview(project):
+    """Record the user's preview decision through the real checkpoint API."""
+    spec = importlib.util.spec_from_file_location(
+        "ultimate_builder_preview_approval_helper_api", Path(__file__).with_name("preview_approval.py")
+    )
+    helper = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(helper)
+    return helper.approve_preview(project)
+
+
 def test_whole_studio_team_repairs_real_saved_job(tmp_path, monkeypatch):
     module = load_plugin_api()
     monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
     monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
     project = tmp_path / "project"
     project.mkdir()
+    _approve_preview(project)
     runs = module._project_runs_module()
     queued = runs.queue_project_run(
         project, ["sw-developer"], models={"sw-developer": "glm-5-2:cloud"},

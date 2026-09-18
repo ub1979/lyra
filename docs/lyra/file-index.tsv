@@ -1818,6 +1818,7 @@ docs/lyra/changes/2026-09-17-worker-usage-freshness.md	docs	md: 2026 09 17 worke
 docs/lyra/changes/2026-09-18-coordinator-overlap.md	docs	md: 2026 09 18 coordinator overlap
 docs/lyra/changes/2026-09-18-paste-submission-ownership.md	docs	md: 2026 09 18 paste submission ownership
 docs/lyra/changes/2026-09-18-preapproval-latency-investigation.md	docs	md: 2026 09 18 preapproval latency investigation
+docs/lyra/changes/2026-09-18-preview-authorization.md	docs	md: 2026 09 18 preview authorization
 docs/lyra/changes/2026-09-18-profile-aware-mvp-qa.md	docs	md: 2026 09 18 profile aware mvp qa
 docs/lyra/changes/2026-09-18-provider-facing-context-estimate.md	docs	md: 2026 09 18 provider facing context estimate
 docs/lyra/changes/2026-09-18-recoverable-qa-release.md	docs	md: 2026 09 18 recoverable qa release
@@ -3091,6 +3092,11 @@ plugins/ultimate-builder/dashboard/dist/style.css	plugins	css: style
 plugins/ultimate-builder/dashboard/manifest.json	plugins	json: manifest
 plugins/ultimate-builder/dashboard/plugin_api.py	plugins	Dashboard API for Ultimate Builder project state and local app previews.
 plugins/ultimate-builder/plugin.yaml	plugins	yaml: plugin
+plugins/ultimate-builder/preview_answer.py	plugins	Classify the user's answer to a preview checkpoint.
+plugins/ultimate-builder/preview_authorization.py	plugins	Decide whether Development may start: the user's preview decision.
+plugins/ultimate-builder/preview_checkpoint_store.py	plugins	Persist one preview checkpoint record per project workspace.
+plugins/ultimate-builder/preview_clarify_hook.py	plugins	Observe clarify results and hand preview answers to the authorization record.
+plugins/ultimate-builder/preview_digest.py	plugins	Fingerprint the visual preview a user is asked to approve.
 plugins/ultimate-builder/project_brain.py	plugins	Verified, bounded project memory for Lyra Studio builds.
 plugins/ultimate-builder/project_learnings.py	plugins	Non-destructive reconciliation for Ultimate Builder project learnings.
 plugins/ultimate-builder/project_progress.py	plugins	Parse project progress conservatively and separate reports from evidence.
@@ -3131,9 +3137,11 @@ plugins/ultimate-builder/skills/ultimate-app-builder/references/workflows/task-p
 plugins/ultimate-builder/skills/ultimate-app-builder/references/workflows/tech-writer/SKILL.md	plugins	md: SKILL
 plugins/ultimate-builder/skills/ultimate-app-builder/references/workflows/ui-designer/SKILL.md	plugins	md: SKILL
 plugins/ultimate-builder/skills/ultimate-app-builder/references/workflows/ux-writer/SKILL.md	plugins	md: SKILL
+plugins/ultimate-builder/tests/preview_approval.py	plugins	Behavioral tests: preview approval
 plugins/ultimate-builder/tests/test_plugin.py	plugins	Behavioral tests: plugin
 plugins/ultimate-builder/tests/test_plugin_api.py	plugins	Behavioral tests: plugin api
 plugins/ultimate-builder/tests/test_preview_api.py	plugins	Behavioral tests: preview api
+plugins/ultimate-builder/tests/test_preview_authorization.py	plugins	Behavioral tests: preview authorization
 plugins/ultimate-builder/tests/test_project_brain.py	plugins	Behavioral tests: project brain
 plugins/ultimate-builder/tests/test_project_progress.py	plugins	Behavioral tests: project progress
 plugins/ultimate-builder/tests/test_project_qa_units.py	plugins	Behavioral tests: project qa units
@@ -4161,6 +4169,7 @@ tests/agent/test_external_skills.py	tests	Behavioral tests: external skills
 tests/agent/test_external_skills_dirs_cache.py	tests	Behavioral tests: external skills dirs cache
 tests/agent/test_failover_identity.py	tests	Behavioral tests: failover identity
 tests/agent/test_file_safety.py	tests	Behavioral tests: file safety
+tests/agent/test_file_safety_app_state.py	tests	Behavioral tests: file safety app state
 tests/agent/test_file_safety_container_mirror.py	tests	Behavioral tests: file safety container mirror
 tests/agent/test_file_safety_credentials.py	tests	Behavioral tests: file safety credentials
 tests/agent/test_file_safety_cross_profile.py	tests	Behavioral tests: file safety cross profile

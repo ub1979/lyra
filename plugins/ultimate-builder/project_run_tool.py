@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 _ROOT = Path(__file__).resolve().parent
-_ACTIONS = ("queue", "status", "pause", "resume", "stop", "retry")
+_ACTIONS = ("queue", "status", "pause", "resume", "stop", "retry", "preview")
 _MAX_RESULT_CHARS = 8_000
 _TRUNCATION_NOTE = (
     " …[project_run result truncated; ask for status with summary=true or "
@@ -28,7 +28,10 @@ PROJECT_RUN_TOOL_SCHEMA = {
     "description": (
         "Queue, inspect, pause, resume, stop or retry one failed job in Lyra's durable background project "
         "jobs for one project workspace. This is the only way the coordinating "
-        "conversation starts specialist work; it never edits files itself."
+        "conversation starts specialist work; it never edits files itself. "
+        "Use action=preview when the visual preview is ready (or when there is none): "
+        "it returns the exact question to ask with clarify. Development cannot be "
+        "queued until the user answers that question."
     ),
     "parameters": {
         "type": "object",
@@ -145,6 +148,10 @@ def project_run_tool(args: dict, **_kwargs: Any) -> str:
             result = project_runs.retry_project_task(
                 workspace, str(args.get("task_id") or "").strip(),
                 str(args.get("reason") or "").strip(),
+            )
+        elif action == "preview":
+            result = _sibling("preview_authorization").open_checkpoint(
+                Path(workspace), str(_kwargs.get("session_id") or "")
             )
         elif action == "status":
             result = project_runs.project_run_state(workspace)

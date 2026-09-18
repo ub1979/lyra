@@ -1,0 +1,237 @@
+"""Development starts only after the user's own preview decision.
+
+Regression for Trial 3: the coordinator wrote the preview and queued
+Development in the same turn as a requirements approval, then told the user
+"Preview approved". These tests use the real store, digest, clarify tool,
+plugin hook and SQLite job queue.
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import json
+from pathlib import Path
+
+import pytest
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def _load(name: str):
+    spec = importlib.util.spec_from_file_location(f"ub_preview_test_{name}", ROOT / f"{name}.py")
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.fixture
+def project(tmp_path, monkeypatch):
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "board"))
+    monkeypatch.delenv("HERMES_KANBAN_TASK", raising=False)
+    workspace = tmp_path / "project"
+    (workspace / ".sdlc" / "preview").mkdir(parents=True)
+    (workspace / ".sdlc" / "preview" / "index.html").write_text("<h1>Tasks</h1>", encoding="utf-8")
+    return workspace
+
+
+def _answer_through_clarify(question: str, choices: list[str], user_answer: str, session_id: str):
+    """Run the real clarify tool with a user answer and feed its result to the real hook."""
+    from tools.clarify_tool import clarify_tool
+
+    result = clarify_tool(question, choices, callback=lambda _q, _c: user_answer)
+    authorization = _load("preview_authorization")
+    hook = _load("preview_clarify_hook").make_preview_clarify_hook(authorization.record_answer)
+    hook(tool_name="clarify", args={"question": "model text"}, result=result, session_id=session_id)
+    return authorization
+
+
+# --- digest -----------------------------------------------------------------
+
+def test_digest_changes_when_any_preview_file_changes(project):
+    digest = _load("preview_digest").preview_digest
+    first = digest(project)
+    (project / ".sdlc" / "preview" / "states.html").write_text("<p>empty</p>", encoding="utf-8")
+    second = digest(project)
+    (project / ".sdlc" / "preview" / "index.html").write_text("<h1>Edited</h1>", encoding="utf-8")
+
+    assert first and second and first != second != digest(project)
+
+
+def test_digest_is_none_without_preview_files(tmp_path):
+    assert _load("preview_digest").preview_digest(tmp_path) is None
+
+
+# --- answer classification -------------------------------------------------
+
+@pytest.mark.parametrize(("answer", "expected"), [
+    ("Approve", "approve"), ("approved!", "approve"), ("approve it", "approve"),
+    ("Skip", "skip"), ("Start building", "skip"),
+    ("Change", "change"), ("change the header colour", "change"),
+    ("Make a preview first", "change"),
+    ("approve, but change the colours", "unclear"),
+    ("don't approve yet", "unclear"), ("looks fine I guess", "unclear"), ("", "unclear"),
+])
+def test_only_clear_answers_approve_or_skip(answer, expected):
+    assert _load("preview_answer").classify_preview_answer(answer) == expected
+
+
+# --- checkpoint lifecycle ---------------------------------------------------
+
+def test_button_answer_through_clarify_authorizes_current_preview(project):
+    authorization = _load("preview_authorization")
+    checkpoint = authorization.open_checkpoint(project, "session-1")
+
+    authorization = _answer_through_clarify(
+        checkpoint["question"], checkpoint["choices"], "Approve", "session-1"
+    )
+
+    assert authorization.development_refusal(project) is None
+
+
+def test_typed_skip_through_clarify_authorizes(project):
+    authorization = _load("preview_authorization")
+    checkpoint = authorization.open_checkpoint(project, "session-1")
+
+    authorization = _answer_through_clarify(
+        checkpoint["question"], checkpoint["choices"], "skip", "session-1"
+    )
+
+    assert authorization.development_refusal(project) is None
+
+
+def test_no_checkpoint_pending_answer_change_and_unclear_all_refuse(project):
+    authorization = _load("preview_authorization")
+    assert "preview decision" in authorization.development_refusal(project)
+
+    checkpoint = authorization.open_checkpoint(project, "s")
+    assert "not answered" in authorization.development_refusal(project)
+
+    authorization.record_answer(checkpoint["question"], "Change", "s")
+    assert "changes" in authorization.development_refusal(project)
+
+    checkpoint = authorization.open_checkpoint(project, "s")
+    authorization.record_answer(checkpoint["question"], "hmm, maybe", "s")
+    assert "unclear" in authorization.development_refusal(project)
+
+
+def test_preview_edited_after_approval_needs_a_new_decision(project):
+    authorization = _load("preview_authorization")
+    checkpoint = authorization.open_checkpoint(project, "s")
+    authorization.record_answer(checkpoint["question"], "Approve", "s")
+    (project / ".sdlc" / "preview" / "index.html").write_text("<h1>Other</h1>", encoding="utf-8")
+
+    assert "changed after" in authorization.development_refusal(project)
+
+
+def test_answer_from_another_session_or_old_question_is_ignored(project):
+    authorization = _load("preview_authorization")
+    old = authorization.open_checkpoint(project, "session-1")
+    assert authorization.record_answer(old["question"], "Approve", "session-2") is None
+
+    authorization.open_checkpoint(project, "session-1")
+    assert authorization.record_answer(old["question"], "Approve", "session-1") is None
+    assert authorization.development_refusal(project) is not None
+
+
+def test_model_written_workspace_marker_does_not_authorize(project):
+    authorization = _load("preview_authorization")
+    (project / ".sdlc" / "preview-approved").write_text("approved", encoding="utf-8")
+    (project / ".sdlc" / "progress.md").write_text("Preview: approved", encoding="utf-8")
+
+    assert authorization.development_refusal(project) is not None
+
+
+def test_project_without_preview_needs_user_to_choose_building_without_one(tmp_path, monkeypatch):
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "home"))
+    authorization = _load("preview_authorization")
+    checkpoint = authorization.open_checkpoint(tmp_path, "s")
+
+    assert "Start building" in checkpoint["choices"]
+    assert authorization.development_refusal(tmp_path) is not None
+    authorization.record_answer(checkpoint["question"], "Start building", "s")
+    assert authorization.development_refusal(tmp_path) is None
+
+
+def test_hook_ignores_other_tools_and_malformed_results(project):
+    authorization = _load("preview_authorization")
+    checkpoint = authorization.open_checkpoint(project, "s")
+    hook = _load("preview_clarify_hook").make_preview_clarify_hook(authorization.record_answer)
+
+    hook(tool_name="write_file", result=json.dumps(
+        {"question": checkpoint["question"], "user_response": "Approve"}), session_id="s")
+    hook(tool_name="clarify", result="not json", session_id="s")
+
+    assert "not answered" in authorization.development_refusal(project)
+
+
+# --- queue boundary -----------------------------------------------------------
+
+def test_trial_3_sequence_is_refused_before_any_job_exists(project):
+    runs = _load("project_runs")
+
+    with pytest.raises(PermissionError, match="preview decision"):
+        runs.queue_project_run(project, ["sw-developer"], build_profile="personal")
+
+    assert runs._project_tasks(project) == []
+
+
+def test_tool_and_cli_share_the_refusal(project, capsys):
+    tool = _load("project_run_tool")
+    result = json.loads(tool.project_run_tool(
+        {"action": "queue", "workspace": str(project), "phases": "sw-developer"}
+    ))
+    assert result["ok"] is False and "preview" in result["error"]
+
+    cli = _load("project_run_cli")
+    parser = __import__("argparse").ArgumentParser()
+    cli.setup_parser(parser)
+    args = parser.parse_args(["queue", "--workspace", str(project), "--phases", "sw-developer"])
+    with pytest.raises(PermissionError, match="preview"):
+        cli.handle(args)
+
+
+def test_preview_action_then_user_answer_allows_queueing(project):
+    tool = _load("project_run_tool")
+    opened = json.loads(tool.project_run_tool(
+        {"action": "preview", "workspace": str(project)}, session_id="session-1"
+    ))
+    _answer_through_clarify(opened["question"], opened["choices"], "Approve", "session-1")
+
+    queued = json.loads(tool.project_run_tool(
+        {"action": "queue", "workspace": str(project), "phases": "sw-developer"}
+    ))
+
+    assert queued["tasks"][0]["task_id"]
+
+
+def test_existing_development_and_later_phases_are_not_gated(project):
+    runs = _load("project_runs")
+    authorization = _load("preview_authorization")
+    checkpoint = authorization.open_checkpoint(project, "s")
+    authorization.record_answer(checkpoint["question"], "Approve", "s")
+    runs.queue_project_run(project, ["sw-developer"])
+    # The preview changes later; resumed Development and QA must still queue.
+    (project / ".sdlc" / "preview" / "index.html").write_text("<h1>Later</h1>", encoding="utf-8")
+
+    again = runs.queue_project_run(project, ["sw-developer"])
+    qa = runs.queue_project_run(project, ["qa-engineer"], build_profile="personal")
+
+    assert again["tasks"] and qa["tasks"]
+
+
+def test_plugin_registers_the_answer_hook():
+    plugin = _load("__init__")
+    registered: dict[str, list] = {}
+
+    class Ctx:
+        def __getattr__(self, name):
+            return lambda *a, **k: None
+
+        def register_hook(self, name, callback):
+            registered.setdefault(name, []).append(callback)
+
+    plugin.register(Ctx())
+
+    assert len(registered.get("post_tool_call", [])) == 1

@@ -8,6 +8,21 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def _load_preview_helper():
+    spec = importlib.util.spec_from_file_location(
+        "ultimate_builder_preview_approval_helper", Path(__file__).with_name("preview_approval.py")
+    )
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+    return module
+
+
+def approve_preview(project):
+    """Record the user's preview decision so these tests can queue Development."""
+    return _load_preview_helper().approve_preview(project)
+
+
 def load_project_runs():
     path = ROOT / "project_runs.py"
     spec = importlib.util.spec_from_file_location(
@@ -154,6 +169,7 @@ def test_stalled_saved_job_changes_the_project_state_to_attention(tmp_path, monk
     monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
     project = tmp_path / "project"
     project.mkdir()
+    approve_preview(project)
     module = load_project_runs()
     task_id = module.queue_project_run(project, ["sw-developer"])["tasks"][0]["task_id"]
     now = int(module.time.time())
@@ -218,6 +234,7 @@ def test_queue_reconciles_legacy_debug_lessons_and_loads_only_specialist_skill(
     project = tmp_path / "project"
     sdlc = project / ".sdlc"
     sdlc.mkdir(parents=True)
+    approve_preview(project)
     (sdlc / "debug-learnings.jsonl").write_text(
         '{"date":"2026-09-11","bug":"stale answer","lesson":"fence the request"}\n',
         encoding="utf-8",
@@ -239,6 +256,7 @@ def test_reopening_chat_reuses_existing_phase_job(tmp_path, monkeypatch):
     monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
     project = tmp_path / "project"
     project.mkdir()
+    approve_preview(project)
     module = load_project_runs()
 
     first = module.queue_project_run(project, ["sw-developer"])
@@ -254,6 +272,7 @@ def test_development_phase_materializes_small_dependency_ordered_jobs(
     monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
     project = tmp_path / "project"
     project.mkdir()
+    approve_preview(project)
     (project / "task-graph.md").write_text(
         """# Build plan
 
@@ -317,6 +336,7 @@ def test_development_skips_units_with_latest_accepted_evidence(tmp_path, monkeyp
     monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
     project = tmp_path / "project"
     project.mkdir()
+    approve_preview(project)
     (project / "task-graph.md").write_text(
         """### TG-001 — Finished foundation
 **Depends on:** none.
@@ -344,6 +364,7 @@ def test_unstarted_broad_development_is_replaced_without_bypassing_review(
     monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
     project = tmp_path / "project"
     project.mkdir()
+    approve_preview(project)
     module = load_project_runs()
     legacy = module.queue_project_run(
         project, ["sw-developer", "code-reviewer"]
@@ -390,6 +411,7 @@ def test_reused_phase_replaces_or_clears_stale_model_routing(tmp_path, monkeypat
     monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
     project = tmp_path / "project"
     project.mkdir()
+    approve_preview(project)
     module = load_project_runs()
 
     first = module.queue_project_run(
@@ -450,6 +472,7 @@ def test_confirmed_routing_repairs_existing_blocked_job(tmp_path, monkeypatch):
     monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
     project = tmp_path / "project"
     project.mkdir()
+    approve_preview(project)
     module = load_project_runs()
     queued = module.queue_project_run(
         project,
@@ -490,6 +513,7 @@ def test_reused_phase_repairs_missing_origin_subscription_unless_opted_out(tmp_p
     })
     project = tmp_path / "project"
     project.mkdir()
+    approve_preview(project)
     module = load_project_runs()
     tokens = set_session_vars(session_key="")
     try:
@@ -587,6 +611,7 @@ def test_pause_and_resume_only_touch_user_paused_jobs(tmp_path, monkeypatch):
     monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
     project = tmp_path / "project"
     project.mkdir()
+    approve_preview(project)
     module = load_project_runs()
     queued = module.queue_project_run(project, ["sw-developer"])
     task_id = queued["tasks"][0]["task_id"]
@@ -605,6 +630,7 @@ def test_moving_project_keeps_saved_jobs_attached(tmp_path, monkeypatch):
     monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
     project = tmp_path / "old" / "project"
     project.mkdir(parents=True)
+    approve_preview(project)
     module = load_project_runs()
     queued = module.queue_project_run(project, ["sw-developer"])
     destination = tmp_path / "new" / "project"

@@ -365,6 +365,29 @@ def _assert_dispatch_allowed() -> None:
         raise PermissionError(reason)
 
 
+def _assert_preview_decided(project: Path, requested: list[str]) -> None:
+    """Refuse the first Development job until the user decided on the preview.
+
+    Runs before any project mutation. Projects that already have a Development
+    job are exempt, so resumed, retried and repair work is never blocked.
+    """
+    if "sw-developer" not in requested:
+        return
+    if any(_phase_from_task(task) == "sw-developer" for _, task in _project_tasks(project)):
+        return
+    path = Path(__file__).resolve().with_name("preview_authorization.py")
+    spec = importlib.util.spec_from_file_location(
+        "lyra_ultimate_builder_preview_authorization_for_jobs", path
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Could not load preview authorization")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    refusal = module.development_refusal(project)
+    if refusal:
+        raise PermissionError(refusal)
+
+
 def queue_project_run(
     workspace: str | Path,
     phases: Iterable[str],
@@ -391,6 +414,7 @@ def queue_project_run(
     models = models or {}
     providers = providers or {}
     _validate_routing(set(requested), models, providers)
+    _assert_preview_decided(project, requested)
     origin = _origin()
     worker_profile = assignee or str(origin["profile"] or "default")
     validate_project_worker(worker_profile)

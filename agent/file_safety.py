@@ -130,6 +130,12 @@ def _classify_write_denial(path: str) -> Optional[str]:
             sessions_real = os.path.realpath(os.path.join(base_real, "sessions"))
             if resolved == sessions_real or resolved.startswith(sessions_real + os.sep):
                 return True
+            # Plugin authorization records (for example a user's preview
+            # approval) are application-owned too: an agent that could write
+            # them could approve its own checkpoint.
+            app_state_real = os.path.realpath(os.path.join(base_real, "app-state"))
+            if resolved == app_state_real or resolved.startswith(app_state_real + os.sep):
+                return True
         except Exception:
             pass
         try:
