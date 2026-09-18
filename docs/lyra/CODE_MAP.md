@@ -9,6 +9,10 @@ Current product acceptance plan and resume checkpoint:
 [`END_TO_END_ACCEPTANCE.md`](END_TO_END_ACCEPTANCE.md). Read before resuming the
 small-project reliability trial; generated application repairs belong to Lyra.
 
+Active follow-up: [reliability and workflow plan, revision 3](2026-09-18-reliability-and-workflow-plan-v3.md),
+with [reviewed comparison evidence](2026-09-18-end-to-end-comparison-report.md).
+Code slices are implemented locally; live journey and release guarantees remain unverified.
+
 ```text
 Studio panels → dashboard API → project progress / jobs / memory / recovery
 Studio question → main conversation + shared composer → request-ID answer frame → existing Ink prompt
@@ -31,10 +35,12 @@ Durable project jobs → Hermes Kanban dispatcher → isolated worker sessions
 | Notification delivery busy state | `tui_gateway/notification_turn.py`, `tui_gateway/server.py` | Helper outcome tests and real SQLite rejected/accepted claim poller tests |
 | Coordinator dispatch tool | `plugins/ultimate-builder/project_run_tool.py`, `plugins/ultimate-builder/__init__.py`, `toolsets.py` (`project-guide`) | Real SQLite queue/status/control, worker gate, registry-merge and no-shell toolset tests |
 | Coordinator context budget | `tui_gateway/studio_budget.py`, `tools/budget_config.py` (`inline_caps`), `agent/tool_executor.py` | Budget composition, marked-agent routing, pinned inline truncation, cache preservation, memory-aware compression cap and model-switch tests |
+| Provider-facing preflight sizing | `agent/request_token_projection.py`, `agent/turn_context.py` | Custom-provider reasoning exclusion, echo-provider preservation, API sidecar/image/tool estimates and cache-safe history tests |
 | Whole skill instruction delivery | `tools/budget_config.py`, `tools/tool_result_storage.py` | Real shipped skill-reader results through inline, per-result and aggregate stages; ordinary sibling bounds and historical-prefix preservation in `tests/tools/test_skill_result_integrity.py` |
 | Whole-document batch admission | `tools/inline_result_admission.py`, `tools/tool_result_storage.py` | Many-read budget, intact Brain, explicit omission, source retention, tool-call structure and worker isolation tests |
 | Turn-free job updates | `tui_gateway/notification_policy.py`, `web/src/lib/guided-job-notice.ts`, `tui_gateway/server.py` | Turn-policy table, poller notice-vs-turn tests, workflow integration and notice rendering tests |
 | Studio event fold | `web/src/lib/guided-event-state.ts`, `web/src/lib/guided-event-reducer.ts`, `web/src/lib/guided-tool-events.ts` | Pure state tests, real-frame replay from `tests/fixtures/studio_frames/` (captured by `tests/tui_gateway/frame_fixtures.py`), journey tests |
+| Studio coordinator usage cache | `web/src/lib/guided-usage-cache.ts`, `web/src/pages/ChatPage.tsx` | Same-session reconnect, new-session isolation, unknown versus zero tests |
 | Coordinator invariants | `tests/tui_gateway/test_coordinator_invariants.py` | Each guarantee checked across every stage it crosses: schema → gate → handler → queue; result cap → aggregate cap; rejected claim → next turn; attempts → run-state total |
 | Studio browser smoke | `apps/desktop/e2e-studio/` (`studio-smoke.spec.ts`, `studio-dashboard.ts`, `echo-model.ts`), `apps/desktop/playwright.studio.config.ts` | Real dashboard + node terminal child + gateway + echo model in headless Chromium: two user turns keep both replies, Tokens panel reports (`npm run test:e2e:studio`) |
 | Turn history persistence | `tui_gateway/server.py` (`_run_prompt_submit` baseline re-read after `_sync_agent_model_with_config`), `web/src/lib/guided-reply-warning.ts` | Journey `tests/tui_gateway/test_studio_turn_history_persists.py` (model adoption mid-turn keeps the reply; external edit is reported), frame fixture `reply-not-saved.jsonl` replayed in the reducer, warning-line unit tests |

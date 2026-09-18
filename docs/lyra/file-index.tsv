@@ -171,6 +171,7 @@ agent/reactions.py	agent	Token-free detection of user *reactions* to the agent.
 agent/reasoning_timeouts.py	agent	Per-reasoning-model stale-timeout floor for known reasoning models.
 agent/redact.py	agent	Regex-based secret redaction for logs and tool output.
 agent/replay_cleanup.py	agent	Replay-history sanitization shared across resume code paths.
+agent/request_token_projection.py	agent	Provider-facing message projection for preflight token estimates.
 agent/retry_utils.py	agent	Retry utilities — jittered backoff for decorrelated retries.
 agent/runtime_cwd.py	agent	Single source of truth for the agent working directory.
 agent/secret_scope.py	agent	Profile-scoped credential resolution for multi-profile gateway multiplexing.
@@ -1738,6 +1739,10 @@ docs/chronos-managed-cron-contract.md	docs	md: chronos managed cron contract
 docs/design/profile-builder.md	docs	md: profile builder
 docs/hermes-kanban-v1-spec.pdf	docs	pdf: hermes kanban v1 spec
 docs/kanban/multi-gateway.md	docs	md: multi gateway
+docs/lyra/2026-09-18-end-to-end-comparison-report.md	docs	md: 2026 09 18 end to end comparison report
+docs/lyra/2026-09-18-reliability-and-workflow-plan-v2.md	docs	md: 2026 09 18 reliability and workflow plan v2
+docs/lyra/2026-09-18-reliability-and-workflow-plan-v3.md	docs	md: 2026 09 18 reliability and workflow plan v3
+docs/lyra/2026-09-18-reliability-and-workflow-plan.md	docs	md: 2026 09 18 reliability and workflow plan
 docs/lyra/CHANGE_MANAGEMENT.md	docs	md: CHANGE MANAGEMENT
 docs/lyra/CODE_MAP.md	docs	md: CODE MAP
 docs/lyra/CONTEXT_EFFICIENCY.md	docs	md: CONTEXT EFFICIENCY
@@ -1810,8 +1815,15 @@ docs/lyra/changes/2026-09-17-targeted-job-recovery.md	docs	md: 2026 09 17 target
 docs/lyra/changes/2026-09-17-worker-git-history-guard.md	docs	md: 2026 09 17 worker git history guard
 docs/lyra/changes/2026-09-17-worker-liveness-test.md	docs	md: 2026 09 17 worker liveness test
 docs/lyra/changes/2026-09-17-worker-usage-freshness.md	docs	md: 2026 09 17 worker usage freshness
+docs/lyra/changes/2026-09-18-coordinator-overlap.md	docs	md: 2026 09 18 coordinator overlap
 docs/lyra/changes/2026-09-18-paste-submission-ownership.md	docs	md: 2026 09 18 paste submission ownership
+docs/lyra/changes/2026-09-18-preapproval-latency-investigation.md	docs	md: 2026 09 18 preapproval latency investigation
+docs/lyra/changes/2026-09-18-profile-aware-mvp-qa.md	docs	md: 2026 09 18 profile aware mvp qa
+docs/lyra/changes/2026-09-18-provider-facing-context-estimate.md	docs	md: 2026 09 18 provider facing context estimate
 docs/lyra/changes/2026-09-18-recoverable-qa-release.md	docs	md: 2026 09 18 recoverable qa release
+docs/lyra/changes/2026-09-18-studio-interim-progress.md	docs	md: 2026 09 18 studio interim progress
+docs/lyra/changes/2026-09-18-studio-usage-reconnect.md	docs	md: 2026 09 18 studio usage reconnect
+docs/lyra/changes/2026-09-18-verification-evidence-shell-status.md	docs	md: 2026 09 18 verification evidence shell status
 docs/lyra/changes/2026-09-18-whole-skill-results.md	docs	md: 2026 09 18 whole skill results
 docs/lyra/file-index.tsv	docs	tsv: file index
 docs/middleware/README.md	docs	md: README
@@ -2138,7 +2150,7 @@ hermes_cli/web_dist/assets/RulesCompressed-Regular-BSXFyF4x.woff2	hermes_cli	Gen
 hermes_cli/web_dist/assets/RulesExpanded-Bold-DZA7s8Pa.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Regular-l8uVympt.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/index-BGAdPJZk.css	hermes_cli	Generated asset; edit its source and rebuild
-hermes_cli/web_dist/assets/index-dLnjTEzY.js	hermes_cli	Generated asset; edit its source and rebuild
+hermes_cli/web_dist/assets/index-DfdGwUcw.js	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Bold.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Italic.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Regular.woff2	hermes_cli	Generated asset; edit its source and rebuild
@@ -4236,6 +4248,7 @@ tests/agent/test_reactions.py	tests	Behavioral tests: reactions
 tests/agent/test_reasoning_stale_timeout_floor.py	tests	Behavioral tests: reasoning stale timeout floor
 tests/agent/test_redact.py	tests	Behavioral tests: redact
 tests/agent/test_replay_cleanup.py	tests	Behavioral tests: replay cleanup
+tests/agent/test_request_token_projection.py	tests	Behavioral tests: request token projection
 tests/agent/test_restore_primary_pool_reselect.py	tests	Behavioral tests: restore primary pool reselect
 tests/agent/test_resume_stale_active_task.py	tests	Behavioral tests: resume stale active task
 tests/agent/test_rotation_flush_persisted_boundary_68196.py	tests	Behavioral tests: rotation flush persisted boundary 68196
@@ -7211,6 +7224,8 @@ web/src/lib/guided-tool-events.test.ts	web	Behavioral tests: guided-tool-events.
 web/src/lib/guided-tool-events.ts	web	ts: guided tool events
 web/src/lib/guided-turn-watchdog.test.ts	web	Behavioral tests: guided-turn-watchdog.test
 web/src/lib/guided-turn-watchdog.ts	web	* Silence watchdog for a guided-chat turn.
+web/src/lib/guided-usage-cache.test.ts	web	Behavioral tests: guided-usage-cache.test
+web/src/lib/guided-usage-cache.ts	web	ts: guided usage cache
 web/src/lib/lyra-studio-text-size.test.ts	web	Behavioral tests: lyra-studio-text-size.test
 web/src/lib/lyra-studio-text-size.ts	web	ts: lyra studio text size
 web/src/lib/lyra-studio-theme.test.ts	web	Behavioral tests: lyra-studio-theme.test
