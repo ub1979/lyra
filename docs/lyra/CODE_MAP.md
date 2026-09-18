@@ -11,7 +11,7 @@ small-project reliability trial; generated application repairs belong to Lyra.
 
 Active follow-up: [reliability and workflow plan, revision 3](2026-09-18-reliability-and-workflow-plan-v3.md),
 with [reviewed comparison evidence](2026-09-18-end-to-end-comparison-report.md).
-Code slices are implemented locally; live journey and release guarantees remain unverified.
+Initial code slices are implemented locally; live journey and release guarantees remain unverified.
 
 ```text
 Studio panels → dashboard API → project progress / jobs / memory / recovery
