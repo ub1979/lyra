@@ -48,3 +48,36 @@ full-suite baseline comparison are pending. An initial unrestricted parallel
 Ink run hit EMFILE watchers, three heap-test timeouts and four theme assertions;
 the four theme assertions also fail on the unmodified baseline. No unrelated
 theme code is being changed to hide those failures.
+
+## Subsequent evidence: release still held
+
+Clean repeated browser runs after the patch produced 9/10 and then 8/10 passes;
+failures still sent a collapsed label instead of full setup. A diagnostic build
+with synchronous file logging passed 10/10, but does not invalidate the clean
+failures: instrumentation can alter timing. The patch is not sufficient yet.
+The bounded full Ink run had 1,369 passes, seven failures and one skip. The same
+seven failures reproduced in the three affected suites on the old baseline
+(four theme assertions and three heap-test timeouts). No release acceptance.
+
+Follow docs/lyra/END_TO_END_ACCEPTANCE.md for the agreed project trial, ownership
+rules and resume checkpoint. Resolve the real input boundary before that trial.
+
+## Remaining caller identified
+
+Failure-only trace captured `resetSession` with no existing session, followed
+by `create-complete`, between storing the paste and pressing Enter. Initial
+session.create completion clears metadata for a draft already accepted by Ink.
+Impact: distinguish initial bootstrap from replacing an existing conversation;
+retain startup draft metadata only for the former. Explicit resets, resume and
+live-session switches must still clear old metadata. No context/cache changes.
+Add a real mounted lifecycle/composer/submission regression with a deferred
+session.create reply, plus existing-session isolation coverage, before editing.
+
+That regression failed on startup and passed on existing-session isolation
+before the fix. After preserving draft metadata only when create has no prior
+session, four focused suites passed 22/22, typecheck and targeted lint passed.
+Ten real Studio browser journeys passed with ALL diagnostic logging removed.
+This verifies the input fix within this scope; the project acceptance trial and
+overall release gates remain separate. Root Ink bundle rebuilt; existing user
+processes not restarted. Temporary diagnostic code was removed from the test
+checkout; only the same lifecycle fix remains there.

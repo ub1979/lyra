@@ -1741,6 +1741,7 @@ docs/kanban/multi-gateway.md	docs	md: multi gateway
 docs/lyra/CHANGE_MANAGEMENT.md	docs	md: CHANGE MANAGEMENT
 docs/lyra/CODE_MAP.md	docs	md: CODE MAP
 docs/lyra/CONTEXT_EFFICIENCY.md	docs	md: CONTEXT EFFICIENCY
+docs/lyra/END_TO_END_ACCEPTANCE.md	docs	md: END TO END ACCEPTANCE
 docs/lyra/changes/2026-09-05-live-chat-feedback.md	docs	md: 2026 09 05 live chat feedback
 docs/lyra/changes/2026-09-05-studio-reliability.md	docs	md: 2026 09 05 studio reliability
 docs/lyra/changes/2026-09-06-natural-decisions.md	docs	md: 2026 09 06 natural decisions
@@ -6779,6 +6780,7 @@ ui-tui/src/__tests__/rpc.test.ts	ui-tui	Behavioral tests: rpc.test
 ui-tui/src/__tests__/scroll.test.ts	ui-tui	Behavioral tests: scroll.test
 ui-tui/src/__tests__/slashParity.test.ts	ui-tui	Behavioral tests: slashParity.test
 ui-tui/src/__tests__/spawnHistoryStore.test.ts	ui-tui	Behavioral tests: spawnHistoryStore.test
+ui-tui/src/__tests__/startupPasteOwnership.test.ts	ui-tui	Behavioral tests: startupPasteOwnership.test
 ui-tui/src/__tests__/stateIsolation.test.ts	ui-tui	Behavioral tests: stateIsolation.test
 ui-tui/src/__tests__/statusBarTicker.test.ts	ui-tui	Behavioral tests: statusBarTicker.test
 ui-tui/src/__tests__/statusRule.test.ts	ui-tui	Behavioral tests: statusRule.test

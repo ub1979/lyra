@@ -5,6 +5,10 @@ not a replacement for repository instructions or proof that a feature works.
 
 ## Runtime ownership
 
+Current product acceptance plan and resume checkpoint:
+[`END_TO_END_ACCEPTANCE.md`](END_TO_END_ACCEPTANCE.md). Read before resuming the
+small-project reliability trial; generated application repairs belong to Lyra.
+
 ```text
 Studio panels → dashboard API → project progress / jobs / memory / recovery
 Studio question → main conversation + shared composer → request-ID answer frame → existing Ink prompt

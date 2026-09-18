@@ -179,7 +179,7 @@ export function useSessionLifecycle(opts: UseSessionLifecycleOptions) {
 
   const cancelResumeScrollRef = useRef<null | (() => void)>(null)
 
-  const resetSession = useCallback(() => {
+  const resetSession = useCallback((preserveStartupDraft = false) => {
     cancelResumeScrollRef.current?.()
     cancelResumeScrollRef.current = null
     turnController.fullReset()
@@ -189,7 +189,8 @@ export function useSessionLifecycle(opts: UseSessionLifecycleOptions) {
     setHistoryItems([])
     setLastUserMsg('')
     setStickyPrompt('')
-    composerActions.setPasteSnips([])
+
+    if (!preserveStartupDraft) {composerActions.setPasteSnips([])}
     // Half-prune: new session has new keys, but keep a warm pool in case
     // the user resumes back to the prior session.
     evictInkCaches('half')
@@ -252,7 +253,9 @@ export function useSessionLifecycle(opts: UseSessionLifecycleOptions) {
       const info = r.info ?? null
       const requestedTitle = title?.trim() ?? ''
 
-      resetSession()
+      // Ink accepts draft input while the first create RPC is in flight.
+      // That draft belongs to this new session, not an earlier conversation.
+      resetSession(previousSid === null)
       setSessionStartedAt(Date.now())
 
       writeActiveSessionFile(r.session_id)
