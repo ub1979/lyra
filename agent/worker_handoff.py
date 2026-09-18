@@ -37,7 +37,7 @@ def annotate_handoff_budget(agent, tool_message: dict) -> None:
         "current revision/dirty files, exact checks and evidence paths, unresolved "
         "findings, and the next concrete command. Do not restart broad setup or "
         "expand scope. Save the required report and verified scoped changes. "
-        "Complete only with evidence; otherwise block with the remaining work. "
+        f"{_unfinished_work_instruction()} "
         "A summary is not a passing test or permission to skip verification.]"
     )
     content = tool_message.get("content")
@@ -48,6 +48,48 @@ def annotate_handoff_budget(agent, tool_message: dict) -> None:
     else:
         return
     agent._handoff_notice_stamp = (budget, band)
+
+
+def _goal_mode_worker() -> bool:
+    return bool(os.environ.get("HERMES_KANBAN_GOAL_MAX_TURNS"))
+
+
+def _unfinished_work_instruction() -> str:
+    """What to do if the work will not finish within the budget.
+
+    Goal-mode tasks reject ``kanban_block`` for anything but a dependency or a
+    user decision, so advising a block there wastes a call on a rejected tool
+    (Trial 3). The runtime records the stop and saves the final summary itself.
+    """
+    if _goal_mode_worker():
+        return (
+            "Complete only with evidence. If the work will not finish, do not call "
+            "kanban_block for the call limit: the runtime records the stop and the "
+            "next attempt continues from your handoff."
+        )
+    return "Complete only with evidence; otherwise block with the remaining work."
+
+
+def exhaustion_summary_request() -> str:
+    """The toolless request sent when the call budget runs out.
+
+    For a Kanban worker this summary becomes the retry's handoff, so ask for
+    the facts the next attempt needs instead of a general recap.
+    """
+    base = (
+        "You've reached the maximum number of tool-calling iterations allowed. "
+        "Please provide a final response summarizing what you've found and "
+        "accomplished so far, without calling any more tools."
+    )
+    if not os.environ.get("HERMES_KANBAN_TASK") or is_delegated_child_process_context():
+        return base
+    return base + (
+        " This summary is the handoff for the next attempt at this job. List: "
+        "the files you changed; which acceptance items are done and which are "
+        "still open; the last test command and its result; and the exact next "
+        "action. Do not claim anything is finished or verified unless you "
+        "checked it."
+    )
 
 
 def exhaustion_handoff(summary: object) -> str | None:

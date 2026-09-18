@@ -24,6 +24,7 @@ def _brief(task: dict[str, Any]) -> dict[str, Any]:
             "attention_id",
             "paused_by_user",
             "attempts",
+            "call_limit",
         )
     }
     for key in ("label", "wait_reason", "dispatch_issue", "last_error"):

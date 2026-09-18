@@ -789,6 +789,7 @@ def project_run_state(workspace: str | Path) -> dict[str, Any]:
             usage_by_board[board] = run_usage_totals_by_task(
                 conn, [task.id for item_board, task in latest.values() if item_board == board]
             )
+    call_limit = _plugin_module("call_limit_state")
     items = []
     for (phase, work_unit), (board, task) in latest.items():
         if (
@@ -832,6 +833,7 @@ def project_run_state(workspace: str | Path) -> dict[str, Any]:
             "dispatch_issue": project_job_dispatch_issue(task),
             "attempts": task.consecutive_failures,
             "last_error": task.last_failure_error or "",
+            "call_limit": call_limit.call_limit_state(task.status, task.last_failure_error),
             "block_kind": task.block_kind if task.status in {"blocked", "triage"} else None,
             **attention,
             "paused_by_user": attention["wait_reason"] == PAUSE_REASON,

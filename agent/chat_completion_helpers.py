@@ -1953,11 +1953,9 @@ def handle_max_iterations(agent, messages: list, api_call_count: int) -> str:
     """Request a summary when max iterations are reached. Returns the final response text."""
     print(f"⚠️  Reached maximum iterations ({agent.max_iterations}). Requesting summary...")
 
-    summary_request = (
-        "You've reached the maximum number of tool-calling iterations allowed. "
-        "Please provide a final response summarizing what you've found and accomplished so far, "
-        "without calling any more tools."
-    )
+    from agent.worker_handoff import exhaustion_summary_request
+
+    summary_request = exhaustion_summary_request()
     messages.append({"role": "user", "content": summary_request})
 
     try:

@@ -139,6 +139,8 @@ def _merge_project_run_state(
                 status=(
                     "Waiting for an available worker"
                     if current.get("dispatch_issue")
+                    else current["call_limit"]["message"]
+                    if current.get("call_limit")
                     else "This work item needs attention"
                 ),
             )
@@ -153,6 +155,10 @@ def _merge_project_run_state(
                     else "Working safely in the background"
                 ),
             )
+        elif any(task.get("call_limit") for task in queued):
+            # A job that stopped at its call limit is not a fresh queued job.
+            stopped = next(task for task in queued if task.get("call_limit"))
+            phase.update(state="pending", status=stopped["call_limit"]["message"])
         elif queued:
             phase.update(
                 state="pending",

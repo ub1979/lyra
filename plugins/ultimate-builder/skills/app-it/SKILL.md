@@ -419,7 +419,12 @@ After queueing and before each progress report, read
 `project_run(action="status", …)`. Its `job_runner.state` says whether saved
 jobs can start: when it is not `running`, tell the user the job is saved but
 cannot start yet and point them to **Start job runner** in Agent activity; never
-say it will start shortly or that you nudged the scheduler. The report is a live, small JSON report, not an
+say it will start shortly or that you nudged the scheduler. A job with
+`call_limit.state` `continuing` stopped at its model-call limit and one more
+attempt continues from its saved handoff: say so plainly and do not queue a
+duplicate. With `needs_decision` it stopped twice: its work is saved, and you
+must ask the user whether to continue with a smaller, named remaining scope
+before retrying it. The report is a live, small JSON report, not an
 AI-generated summary. If it reports omitted jobs or truncated reasons relevant
 to the decision, call it again with `summary=false` for the detailed job list.
 Completion reports still need review; never infer whole-application completion

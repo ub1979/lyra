@@ -1818,6 +1818,7 @@ docs/lyra/changes/2026-09-17-targeted-job-recovery.md	docs	md: 2026 09 17 target
 docs/lyra/changes/2026-09-17-worker-git-history-guard.md	docs	md: 2026 09 17 worker git history guard
 docs/lyra/changes/2026-09-17-worker-liveness-test.md	docs	md: 2026 09 17 worker liveness test
 docs/lyra/changes/2026-09-17-worker-usage-freshness.md	docs	md: 2026 09 17 worker usage freshness
+docs/lyra/changes/2026-09-18-call-limit-visibility.md	docs	md: 2026 09 18 call limit visibility
 docs/lyra/changes/2026-09-18-coordinator-overlap.md	docs	md: 2026 09 18 coordinator overlap
 docs/lyra/changes/2026-09-18-job-runner-health.md	docs	md: 2026 09 18 job runner health
 docs/lyra/changes/2026-09-18-paste-submission-ownership.md	docs	md: 2026 09 18 paste submission ownership
@@ -3093,6 +3094,7 @@ plugins/teams_pipeline/store.py	plugins	Durable local state for the Teams pipeli
 plugins/teams_pipeline/subscriptions.py	plugins	Microsoft Graph subscription helpers for the Teams pipeline plugin.
 plugins/ultimate-builder/README.md	plugins	md: README
 plugins/ultimate-builder/__init__.py	plugins	Lyra integration for the Ultimate Application Builder.
+plugins/ultimate-builder/call_limit_state.py	plugins	Explain a project job that stopped at its model-call limit.
 plugins/ultimate-builder/dashboard/app/index.js	plugins	js: index
 plugins/ultimate-builder/dashboard/dist/index.js	plugins	js: index
 plugins/ultimate-builder/dashboard/dist/style.css	plugins	css: style
@@ -3146,6 +3148,7 @@ plugins/ultimate-builder/skills/ultimate-app-builder/references/workflows/tech-w
 plugins/ultimate-builder/skills/ultimate-app-builder/references/workflows/ui-designer/SKILL.md	plugins	md: SKILL
 plugins/ultimate-builder/skills/ultimate-app-builder/references/workflows/ux-writer/SKILL.md	plugins	md: SKILL
 plugins/ultimate-builder/tests/preview_approval.py	plugins	Behavioral tests: preview approval
+plugins/ultimate-builder/tests/test_call_limit_state.py	plugins	Behavioral tests: call limit state
 plugins/ultimate-builder/tests/test_plugin.py	plugins	Behavioral tests: plugin
 plugins/ultimate-builder/tests/test_plugin_api.py	plugins	Behavioral tests: plugin api
 plugins/ultimate-builder/tests/test_preview_api.py	plugins	Behavioral tests: preview api
@@ -4332,6 +4335,7 @@ tests/agent/test_video_gen_registry.py	tests	Behavioral tests: video gen registr
 tests/agent/test_vision_resolved_args.py	tests	Behavioral tests: vision resolved args
 tests/agent/test_vision_routing_31179.py	tests	Behavioral tests: vision routing 31179
 tests/agent/test_worker_handoff.py	tests	Behavioral tests: worker handoff
+tests/agent/test_worker_handoff_goal_mode.py	tests	Behavioral tests: worker handoff goal mode
 tests/agent/transports/__init__.py	tests	Behavioral tests:   init
 tests/agent/transports/test_bedrock_transport.py	tests	Behavioral tests: bedrock transport
 tests/agent/transports/test_chat_completions.py	tests	Behavioral tests: chat completions
