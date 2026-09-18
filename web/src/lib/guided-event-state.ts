@@ -101,7 +101,7 @@ export interface GuidedEventContext {
 /** Decisions the reducer cannot carry out itself; ChatPage runs them. */
 export type GuidedEffect =
   | { kind: "agentReady" }
-  | { kind: "persistSessionId"; sessionId: string }
+  | { kind: "persistSessionId"; sessionId: string; usageReported: boolean }
   | { kind: "openSkillsDialog"; recommended: string[] }
   | { kind: "autoContinue"; phase: string | null; label: string | null };
 

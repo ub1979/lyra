@@ -208,6 +208,7 @@ import {
   selectGuidedProjectSessionId,
   writeGuidedProjectSessionId,
 } from "@/lib/guided-project-session";
+import { readGuidedUsageCache, writeGuidedUsageCache } from "@/lib/guided-usage-cache";
 import {
   PTY_CONNECTING_TIMEOUT_MS,
   PTY_RECONNECT_INPUT_MESSAGE,
@@ -1085,6 +1086,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const [guidedUsage, setGuidedUsage] =
     useState<GuidedUsageSnapshot>(EMPTY_GUIDED_USAGE);
   const guidedUsageRef = useRef<GuidedUsageSnapshot>(EMPTY_GUIDED_USAGE);
+  useEffect(() => {
+    if (!guided || guidedMessageWorkspace !== workspaceParam || !guidedUsage.reported) return;
+    const sessionId = readGuidedProjectSessionId(workspaceParam);
+    if (sessionId) writeGuidedUsageCache(window.localStorage, workspaceParam, sessionId, guidedUsage);
+  }, [guided, guidedMessageWorkspace, guidedUsage, workspaceParam]);
   const [guidedApproval, setGuidedApproval] =
     useState<GuidedApprovalRequest | null>(null);
   const guidedApprovalRef = useRef<GuidedApprovalRequest | null>(null);
@@ -1519,7 +1525,16 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         if (effect.kind === "agentReady") {
           markGuidedAgentReady();
         } else if (effect.kind === "persistSessionId") {
-          if (workspaceParam) writeGuidedProjectSessionId(workspaceParam, effect.sessionId);
+          if (workspaceParam) {
+            const priorId = readGuidedProjectSessionId(workspaceParam);
+            writeGuidedProjectSessionId(workspaceParam, effect.sessionId);
+            if (!effect.usageReported) {
+              const cached = readGuidedUsageCache(window.localStorage, workspaceParam, effect.sessionId);
+              const nextUsage = cached ?? (priorId !== effect.sessionId ? EMPTY_GUIDED_USAGE : guidedUsageRef.current);
+              guidedUsageRef.current = nextUsage;
+              setGuidedUsage(nextUsage);
+            }
+          }
         } else if (effect.kind === "openSkillsDialog") {
           // A marker is a proposal, never permission: the editable dashboard
           // confirmation is the only place a recommendation becomes state.
@@ -1646,6 +1661,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       ...EMPTY_GUIDED_USAGE,
       model: current.model,
     }));
+    guidedUsageRef.current = EMPTY_GUIDED_USAGE;
     setGuidedWorkers([]);
     setGuidedRecommendedSpecialistIds([]);
     setGuidedTeamRecommendationPending(false);

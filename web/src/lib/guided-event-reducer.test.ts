@@ -122,7 +122,7 @@ describe("reduceGuidedEvent — notices, compression, session, errors", () => {
     const { effects, state } = play([
       { type: "session.info", payload: { running: true, stored_session_id: " s-42 ", usage: { input: 10, calls: 1 } } },
     ]);
-    expect(effects).toEqual([{ kind: "agentReady" }, { kind: "persistSessionId", sessionId: "s-42" }]);
+    expect(effects).toEqual([{ kind: "agentReady" }, { kind: "persistSessionId", sessionId: "s-42", usageReported: true }]);
     expect(state.activity.phase).toBe("working");
     expect(state.usage.input).toBe(10);
     expect(state.usage.reported).toBe(true);
@@ -134,6 +134,13 @@ describe("reduceGuidedEvent — notices, compression, session, errors", () => {
       { type: "session.info", payload: { running: true } },
     ]);
     expect(withApproval.state.activity.text).toBe("Waiting for your approval…");
+  });
+
+  it("an empty usage frame keeps known counters until session identity is checked", () => {
+    const known = { ...INITIAL_GUIDED_STATE, usage: { ...INITIAL_GUIDED_STATE.usage, reported: true, input: 42 } };
+    const { state, effects } = play([{ type: "session.info", payload: { stored_session_id: "same", usage: {} } }], ctx(), known);
+    expect(state.usage.input).toBe(42);
+    expect(effects).toContainEqual({ kind: "persistSessionId", sessionId: "same", usageReported: false });
   });
 
   it("an error settles the turn, clears tools and approvals, and is appended once", () => {

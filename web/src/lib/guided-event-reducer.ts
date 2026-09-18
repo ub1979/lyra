@@ -130,9 +130,13 @@ function statusUpdate(state: GuidedEventState, payload: Payload, ctx: GuidedEven
 function sessionInfo(state: GuidedEventState, payload: Payload, ctx: GuidedEventContext): GuidedReduction {
   const effects: GuidedEffect[] = [{ kind: "agentReady" }];
   const storedSessionId = typeof payload.stored_session_id === "string" ? payload.stored_session_id.trim() : "";
-  if (storedSessionId) effects.push({ kind: "persistSessionId", sessionId: storedSessionId });
+  const reportedUsage = payload.usage ? normalizeGuidedUsage(payload.usage, ctx.now) : null;
+  if (storedSessionId) effects.push({
+    kind: "persistSessionId", sessionId: storedSessionId,
+    usageReported: reportedUsage?.reported === true,
+  });
   let next = state;
-  if (payload.usage) next = { ...next, usage: normalizeGuidedUsage(payload.usage, ctx.now) };
+  if (reportedUsage?.reported) next = { ...next, usage: reportedUsage };
   if (
     shouldRestoreGuidedWorkingState({
       backendRunning: payload.running,
