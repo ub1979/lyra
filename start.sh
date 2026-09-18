@@ -67,9 +67,12 @@ uv run hermes plugins enable ultimate-builder
 # users already have a gateway service; local-only Lyra users need the same
 # worker host while this launcher is running. Start one only when no dispatcher
 # is currently healthy, and clean up only the process this launcher owns.
+# "Healthy" means a fresh dispatcher tick, not merely a live gateway PID. A
+# gateway started here stops when this launcher exits; Studio's "Start job
+# runner" installs the persistent service (a LaunchAgent on macOS) instead.
 dispatcher_is_ready() {
   uv run --project "$PROJECT_DIR" python -c \
-    'from hermes_cli.kanban import _check_dispatcher_presence; print("ready" if _check_dispatcher_presence()[0] else "missing")' \
+    'from hermes_cli.kanban_runner_health import job_runner_health; print("ready" if job_runner_health()["state"] == "running" else "missing")' \
     2>/dev/null | tail -n 1 | grep -qx "ready"
 }
 
@@ -82,7 +85,8 @@ if ! dispatcher_is_ready; then
   # spend its lifetime retrying behind that stale process.
   uv run --project "$PROJECT_DIR" hermes gateway run --replace --external-supervisor &
   LYRA_GATEWAY_PID="$!"
-  for _attempt in {1..100}; do
+  # A new dispatcher records its first tick a few seconds after boot.
+  for _attempt in {1..300}; do
     if dispatcher_is_ready; then
       break
     fi

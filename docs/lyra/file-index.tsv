@@ -1739,6 +1739,9 @@ docs/chronos-managed-cron-contract.md	docs	md: chronos managed cron contract
 docs/design/profile-builder.md	docs	md: profile builder
 docs/hermes-kanban-v1-spec.pdf	docs	pdf: hermes kanban v1 spec
 docs/kanban/multi-gateway.md	docs	md: multi gateway
+docs/lyra/2026-09-18-bounded-project-execution-plan-v4.md	docs	md: 2026 09 18 bounded project execution plan v4
+docs/lyra/2026-09-18-bounded-project-execution-plan-v5.md	docs	md: 2026 09 18 bounded project execution plan v5
+docs/lyra/2026-09-18-bounded-project-execution-plan-v6.md	docs	md: 2026 09 18 bounded project execution plan v6
 docs/lyra/2026-09-18-end-to-end-comparison-report.md	docs	md: 2026 09 18 end to end comparison report
 docs/lyra/2026-09-18-reliability-and-workflow-plan-v2.md	docs	md: 2026 09 18 reliability and workflow plan v2
 docs/lyra/2026-09-18-reliability-and-workflow-plan-v3.md	docs	md: 2026 09 18 reliability and workflow plan v3
@@ -1816,6 +1819,7 @@ docs/lyra/changes/2026-09-17-worker-git-history-guard.md	docs	md: 2026 09 17 wor
 docs/lyra/changes/2026-09-17-worker-liveness-test.md	docs	md: 2026 09 17 worker liveness test
 docs/lyra/changes/2026-09-17-worker-usage-freshness.md	docs	md: 2026 09 17 worker usage freshness
 docs/lyra/changes/2026-09-18-coordinator-overlap.md	docs	md: 2026 09 18 coordinator overlap
+docs/lyra/changes/2026-09-18-job-runner-health.md	docs	md: 2026 09 18 job runner health
 docs/lyra/changes/2026-09-18-paste-submission-ownership.md	docs	md: 2026 09 18 paste submission ownership
 docs/lyra/changes/2026-09-18-preapproval-latency-investigation.md	docs	md: 2026 09 18 preapproval latency investigation
 docs/lyra/changes/2026-09-18-preview-authorization.md	docs	md: 2026 09 18 preview authorization
@@ -2001,7 +2005,9 @@ hermes_cli/kanban_db.py	hermes_cli	SQLite-backed Kanban board for multi-profile,
 hermes_cli/kanban_decompose.py	hermes_cli	Kanban decomposer — fan a triage task out into a graph of child tasks.
 hermes_cli/kanban_diagnostics.py	hermes_cli	Kanban diagnostics — structured, actionable distress signals for tasks.
 hermes_cli/kanban_dispatch_wakeup.py	hermes_cli	Best-effort cross-process wake signal; the dispatcher still owns all claims.
+hermes_cli/kanban_dispatcher_tick.py	hermes_cli	Record that the embedded Kanban dispatcher is actually checking for work.
 hermes_cli/kanban_notifications.py	hermes_cli	Shared caller notification policy for Kanban CLI and model-tool creation.
+hermes_cli/kanban_runner_health.py	hermes_cli	Report whether saved project jobs can actually start.
 hermes_cli/kanban_specify.py	hermes_cli	Kanban triage specifier — flesh out a one-liner into a real spec.
 hermes_cli/kanban_swarm.py	hermes_cli	Kanban Swarm v1: thin swarm topology helpers on top of Kanban.
 hermes_cli/kanban_usage.py	hermes_cli	Save and read provider-reported usage for durable Kanban worker runs.
@@ -2151,7 +2157,7 @@ hermes_cli/web_dist/assets/RulesCompressed-Regular-BSXFyF4x.woff2	hermes_cli	Gen
 hermes_cli/web_dist/assets/RulesExpanded-Bold-DZA7s8Pa.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Regular-l8uVympt.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/index-BGAdPJZk.css	hermes_cli	Generated asset; edit its source and rebuild
-hermes_cli/web_dist/assets/index-DfdGwUcw.js	hermes_cli	Generated asset; edit its source and rebuild
+hermes_cli/web_dist/assets/index-DK0i01Zl.js	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Bold.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Italic.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Regular.woff2	hermes_cli	Generated asset; edit its source and rebuild
@@ -3143,6 +3149,7 @@ plugins/ultimate-builder/tests/test_plugin_api.py	plugins	Behavioral tests: plug
 plugins/ultimate-builder/tests/test_preview_api.py	plugins	Behavioral tests: preview api
 plugins/ultimate-builder/tests/test_preview_authorization.py	plugins	Behavioral tests: preview authorization
 plugins/ultimate-builder/tests/test_project_brain.py	plugins	Behavioral tests: project brain
+plugins/ultimate-builder/tests/test_project_job_runner.py	plugins	Behavioral tests: project job runner
 plugins/ultimate-builder/tests/test_project_progress.py	plugins	Behavioral tests: project progress
 plugins/ultimate-builder/tests/test_project_qa_units.py	plugins	Behavioral tests: project qa units
 plugins/ultimate-builder/tests/test_project_repository.py	plugins	Behavioral tests: project repository
@@ -4742,6 +4749,7 @@ tests/gateway/test_internal_event_never_interrupts_busy_session.py	tests	Behavio
 tests/gateway/test_interrupt_key_match.py	tests	Behavioral tests: interrupt key match
 tests/gateway/test_irc_adapter.py	tests	Behavioral tests: irc adapter
 tests/gateway/test_kanban_auto_decompose_live.py	tests	Behavioral tests: kanban auto decompose live
+tests/gateway/test_kanban_dispatcher_tick.py	tests	Behavioral tests: kanban dispatcher tick
 tests/gateway/test_kanban_notifier.py	tests	Behavioral tests: kanban notifier
 tests/gateway/test_kanban_notifier_apiserver_wake.py	tests	Behavioral tests: kanban notifier apiserver wake
 tests/gateway/test_kanban_notifier_watcher_dispatch_gate.py	tests	Behavioral tests: kanban notifier watcher dispatch gate
@@ -5285,6 +5293,7 @@ tests/hermes_cli/test_kanban_per_profile_cap.py	tests	Behavioral tests: kanban p
 tests/hermes_cli/test_kanban_project_link.py	tests	Behavioral tests: kanban project link
 tests/hermes_cli/test_kanban_promote.py	tests	Behavioral tests: kanban promote
 tests/hermes_cli/test_kanban_reclaim_claim_lock_guard.py	tests	Behavioral tests: kanban reclaim claim lock guard
+tests/hermes_cli/test_kanban_runner_health.py	tests	Behavioral tests: kanban runner health
 tests/hermes_cli/test_kanban_specify.py	tests	Behavioral tests: kanban specify
 tests/hermes_cli/test_kanban_specify_db.py	tests	Behavioral tests: kanban specify db
 tests/hermes_cli/test_kanban_swarm.py	tests	Behavioral tests: kanban swarm
@@ -7106,6 +7115,8 @@ web/src/components/GuidedProgressMap.test.tsx	web	Behavioral tests: GuidedProgre
 web/src/components/GuidedProgressMap.tsx	web	tsx: GuidedProgressMap
 web/src/components/GuidedProjectHistory.tsx	web	tsx: GuidedProjectHistory
 web/src/components/HermesConsoleModal.tsx	web	tsx: HermesConsoleModal
+web/src/components/JobRunnerNotice.test.tsx	web	Behavioral tests: JobRunnerNotice.test
+web/src/components/JobRunnerNotice.tsx	web	tsx: JobRunnerNotice
 web/src/components/LanguageSwitcher.tsx	web	tsx: LanguageSwitcher
 web/src/components/Markdown.tsx	web	tsx: Markdown
 web/src/components/ModelInfoCard.tsx	web	tsx: ModelInfoCard
@@ -7235,6 +7246,8 @@ web/src/lib/guided-turn-watchdog.test.ts	web	Behavioral tests: guided-turn-watch
 web/src/lib/guided-turn-watchdog.ts	web	* Silence watchdog for a guided-chat turn.
 web/src/lib/guided-usage-cache.test.ts	web	Behavioral tests: guided-usage-cache.test
 web/src/lib/guided-usage-cache.ts	web	ts: guided usage cache
+web/src/lib/job-runner-notice.test.ts	web	Behavioral tests: job-runner-notice.test
+web/src/lib/job-runner-notice.ts	web	* What Studio says about the background job runner.
 web/src/lib/lyra-studio-text-size.test.ts	web	Behavioral tests: lyra-studio-text-size.test
 web/src/lib/lyra-studio-text-size.ts	web	ts: lyra studio text size
 web/src/lib/lyra-studio-theme.test.ts	web	Behavioral tests: lyra-studio-theme.test

@@ -1333,9 +1333,18 @@ class GatewayKanbanWatchersMixin:
             "kanban dispatcher: embedded in gateway (interval=%.1fs)", interval
         )
         from hermes_cli.kanban_dispatch_wakeup import wait_for_dispatch_async, wake_token
+        from hermes_cli.kanban_dispatcher_tick import record_tick
 
         while self._running:
             observed_wakeup = wake_token()
+            # Evidence for Studio's job-runner health: only the lock holder
+            # reaches this loop, so a fresh tick means ready jobs get claimed.
+            # One tiny file per interval, written inline so the loop's thread
+            # usage (and its tests) stay unchanged.
+            try:
+                record_tick(interval)
+            except Exception:
+                logger.debug("kanban dispatcher: could not record tick", exc_info=True)
             try:
                 # Reap zombie children before per-board work so a board DB
                 # failure cannot block cleanup of unrelated workers.

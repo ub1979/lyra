@@ -88,7 +88,9 @@ export function guidedProjectExecutionTurnDirective(
     "perform a specialist's work. Lyra may inspect concise project_run status and queue or resume " +
     "the bounded job. After the queue accepts it, immediately tell the user which agent owns it, " +
     "what it is checking, whether the whole application is finished, and that work continues in " +
-    "the background, then end this turn. Use only approved_agents. If a required agent is absent, " +
+    "the background, then end this turn. If the result's job_runner.state is not running, say the " +
+    "job is saved but cannot start yet and point the user to Start job runner in Agent activity; " +
+    "never promise it will start shortly. Use only approved_agents. If a required agent is absent, " +
     "ask to add it; never silently activate it or do its work in the main chat."
   );
 }

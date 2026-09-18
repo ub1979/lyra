@@ -1,3 +1,4 @@
+import type { JobRunnerHealth } from "./job-runner-notice";
 import { buildHermesWebSocketUrl } from "@hermes/shared";
 
 // The dashboard can be served either at the root of its host (e.g.
@@ -2025,6 +2026,8 @@ export interface UltimateBuilderRunState {
   task_count: number;
   active_task_count: number;
   last_activity_at: number | null;
+  /** Whether queued jobs can start now; absent from older backends. */
+  job_runner?: JobRunnerHealth;
   tasks: UltimateBuilderRunTask[];
 }
 

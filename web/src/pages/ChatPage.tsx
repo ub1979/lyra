@@ -19,6 +19,7 @@
 import { FitAddon } from "@xterm/addon-fit";
 import { GuidedProgressMap } from '../components/GuidedProgressMap';
 import { GuidedAgentAvatar } from '../components/GuidedAgentAvatar';
+import { JobRunnerNotice } from '../components/JobRunnerNotice';
 import { useProjectLedger } from '../hooks/useProjectLedger';
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebLinksAddon } from "@xterm/addon-web-links";
@@ -673,6 +674,9 @@ export function GuidedRuntimePanel({
           <span>{status}</span>
         </p>
         <div className="mt-2 min-h-0 space-y-2 overflow-y-auto pr-0.5">
+          {!runStateStale && (
+            <JobRunnerNotice runner={runState?.job_runner} tasks={runState?.tasks} />
+          )}
           <ProjectAgentJobs items={jobs} stale={runStateStale} />
           {activeWorkers.map((worker) => (
             <article

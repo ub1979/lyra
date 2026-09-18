@@ -365,6 +365,16 @@ def _assert_dispatch_allowed() -> None:
         raise PermissionError(reason)
 
 
+def _job_runner_health() -> dict[str, Any]:
+    """Whether queued jobs can start now; never reports healthy on a failed check."""
+    try:
+        from hermes_cli.kanban_runner_health import job_runner_health
+    except Exception:
+        return {"state": "unknown", "message": "Lyra could not check the job runner.",
+                "last_tick_at": None}
+    return job_runner_health()
+
+
 def _assert_preview_decided(project: Path, requested: list[str]) -> None:
     """Refuse the first Development job until the user decided on the preview.
 
@@ -675,6 +685,7 @@ def queue_project_run(
         "ok": True,
         "project": str(project),
         "board": board,
+        "job_runner": _job_runner_health(),
         "tasks": created,
         "work_plan": {
             "source": development_plan["source"] or qa_plan["source"],
@@ -827,6 +838,7 @@ def project_run_state(workspace: str | Path) -> dict[str, Any]:
         "last_activity_at": max(
             (int(item["last_activity_at"] or 0) for item in items), default=None
         ),
+        "job_runner": _job_runner_health(),
         "tasks": items,
     }
 
@@ -887,7 +899,10 @@ def control_project_run(workspace: str | Path, action: str) -> dict[str, Any]:
     if changed and action == "resume":
         from hermes_cli.kanban_dispatch_wakeup import request_dispatch
         request_dispatch()
-    return {"ok": True, "action": action, "changed": changed, "project": str(project)}
+    return {
+        "ok": True, "action": action, "changed": changed, "project": str(project),
+        "job_runner": _job_runner_health(),
+    }
 
 
 def relocate_project_runs(

@@ -416,7 +416,10 @@ Queued, working, waiting for review, and waiting for the user are distinct
 states. Never describe a blocked review as still building.
 
 After queueing and before each progress report, read
-`project_run(action="status", …)`. It is a live, small JSON report, not an
+`project_run(action="status", …)`. Its `job_runner.state` says whether saved
+jobs can start: when it is not `running`, tell the user the job is saved but
+cannot start yet and point them to **Start job runner** in Agent activity; never
+say it will start shortly or that you nudged the scheduler. The report is a live, small JSON report, not an
 AI-generated summary. If it reports omitted jobs or truncated reasons relevant
 to the decision, call it again with `summary=false` for the detailed job list.
 Completion reports still need review; never infer whole-application completion
