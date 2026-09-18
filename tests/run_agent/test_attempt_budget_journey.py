@@ -41,7 +41,12 @@ def _agent(tmp_path, monkeypatch, *, attempt_limit):
         "parameters": {"type": "object", "properties": {"path": {"type": "string"}},
                        "required": ["path"]},
     }}
-    with patch("run_agent.get_tool_definitions", return_value=[schema]), patch("run_agent.OpenAI"):
+    code_schema = {"type": "function", "function": {
+        "name": "execute_code",
+        "parameters": {"type": "object", "properties": {"code": {"type": "string"}},
+                       "required": ["code"]},
+    }}
+    with patch("run_agent.get_tool_definitions", return_value=[schema, code_schema]), patch("run_agent.OpenAI"):
         agent = AIAgent(
             model="test/model", provider="openai-compat", api_key="test-only",
             base_url="https://example.invalid/v1", max_iterations=5, quiet_mode=True,
@@ -56,7 +61,7 @@ def _agent(tmp_path, monkeypatch, *, attempt_limit):
     return agent, workspace, task_id
 
 
-def _script(agent, workspace, requests, *, first_turn_calls):
+def _script(agent, workspace, requests, *, first_turn_calls, tool_name="read_file"):
     """First turn: tool calls then a final answer. Later turns: tool calls only."""
     state = {"turn": 1, "in_turn": 0}
 
@@ -70,7 +75,10 @@ def _script(agent, workspace, requests, *, first_turn_calls):
             message = SimpleNamespace(content=None, reasoning=None, tool_calls=[SimpleNamespace(
                 id=f"c{len(requests)}", type="function",
                 function=SimpleNamespace(
-                    name="read_file", arguments=json.dumps({"path": str(workspace / "notes.txt")}),
+                    name=tool_name, arguments=json.dumps(
+                        {"code": "print('budget probe')"} if tool_name == "execute_code"
+                        else {"path": str(workspace / "notes.txt")}
+                    ),
                 ),
             )])
             finish = "tool_calls"
@@ -81,12 +89,13 @@ def _script(agent, workspace, requests, *, first_turn_calls):
 
 
 @pytest.mark.parametrize("attempt_limit", [6, None])
+@pytest.mark.parametrize("tool_name", ["read_file", "execute_code"])
 def test_continuation_turn_gets_only_the_remaining_attempt_budget(
-    tmp_path, monkeypatch, attempt_limit
+    tmp_path, monkeypatch, attempt_limit, tool_name
 ):
     agent, workspace, _task_id = _agent(tmp_path, monkeypatch, attempt_limit=attempt_limit)
     requests: list[int] = []
-    state = _script(agent, workspace, requests, first_turn_calls=2)
+    state = _script(agent, workspace, requests, first_turn_calls=2, tool_name=tool_name)
 
     with patch("hermes_cli.plugins.invoke_hook", return_value=[]):
         agent.run_conversation("Build the first slice.")

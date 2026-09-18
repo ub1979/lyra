@@ -21,6 +21,16 @@ from agent.iteration_budget import IterationBudget
 ATTEMPT_ENV = "HERMES_KANBAN_ATTEMPT_MAX_CALLS"
 
 
+def refund_programmatic_iteration(agent: Any, environ: Mapping[str, str] = os.environ) -> None:
+    """Preserve legacy RPC refunds, but count model requests in bounded workers.
+
+    The model still made a request when its only tool was ``execute_code``.
+    Refunding that request would undercount this attempt on the next turn.
+    """
+    if attempt_limit(environ) is None:
+        agent.iteration_budget.refund()
+
+
 def attempt_limit(environ: Mapping[str, str] = os.environ) -> int | None:
     """Return the attempt budget for this Kanban worker, or None."""
     if not environ.get("HERMES_KANBAN_TASK"):

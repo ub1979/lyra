@@ -2,7 +2,7 @@
 
 from types import SimpleNamespace
 
-from agent.attempt_budget import attempt_limit, turn_call_limit
+from agent.attempt_budget import attempt_limit, refund_programmatic_iteration, turn_call_limit
 from agent.iteration_budget import IterationBudget
 
 WORKER = {"HERMES_KANBAN_TASK": "t_1", "HERMES_KANBAN_ATTEMPT_MAX_CALLS": "10"}
@@ -43,3 +43,18 @@ def test_an_exhausted_attempt_gives_the_next_turn_no_calls():
     _spend(agent.iteration_budget, 10)
 
     assert turn_call_limit(agent, WORKER) == 0
+
+
+def test_programmatic_calls_still_cost_one_model_call_in_a_bounded_attempt():
+    agent = SimpleNamespace(max_iterations=10, iteration_budget=IterationBudget(10))
+    for _ in range(6):
+        assert agent.iteration_budget.consume()
+        refund_programmatic_iteration(agent, WORKER)
+    assert turn_call_limit(agent, WORKER) == 4
+
+
+def test_programmatic_refunds_are_preserved_without_an_attempt_limit():
+    agent = SimpleNamespace(iteration_budget=IterationBudget(10))
+    assert agent.iteration_budget.consume()
+    refund_programmatic_iteration(agent, {})
+    assert agent.iteration_budget.used == 0

@@ -5809,10 +5809,13 @@ def run_conversation(
 
                 # Refund the iteration if the ONLY tool(s) called were
                 # execute_code (programmatic tool calling).  These are
-                # cheap RPC-style calls that shouldn't eat the budget.
+                # cheap RPC-style calls in legacy sessions. A bounded worker
+                # must still count the model request across continuations.
                 _tc_names = {tc.function.name for tc in assistant_message.tool_calls}
                 if _tc_names == {"execute_code"}:
-                    agent.iteration_budget.refund()
+                    from agent.attempt_budget import refund_programmatic_iteration
+
+                    refund_programmatic_iteration(agent)
                 
                 # Use real token counts from the API response to decide
                 # compression.  prompt_tokens + completion_tokens is the

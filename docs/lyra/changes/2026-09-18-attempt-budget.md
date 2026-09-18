@@ -76,3 +76,10 @@ Rollback / retained recovery data: Revert the commit; the extra column is
 harmless to older code.
 
 Local commit / authorized push: local commit only; not pushed.
+# Independent verification follow-up
+
+Successful `execute_code` calls were refunded by the legacy iteration budget,
+so continuations undercounted an attempt. Bounded workers now count those
+model calls; unbounded sessions retain the refund. Real agent-loop tests cover
+both tool types across continuations. See
+`2026-09-18-revision6-verification-followup.md` for scope and release boundaries.
