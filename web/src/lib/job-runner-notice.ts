@@ -13,6 +13,7 @@ export interface JobRunnerHealth {
   state: JobRunnerState;
   message: string;
   last_tick_at: number | null;
+  last_success_tick_at?: number | null;
 }
 
 /** Local progress of the user-initiated start action. */
@@ -37,7 +38,7 @@ export function jobRunnerNotice(
   if (start === "starting") {
     return {
       tone: "info",
-      text: "Starting the job runner… Your queued work will begin once it checks for jobs.",
+      text: "Starting the job runner… Checking whether it can pick up queued work.",
       canStart: false,
     };
   }
@@ -65,9 +66,9 @@ export function nextJobRunnerStart(
 ): JobRunnerStart {
   if (start !== "starting") return start;
   if (runner?.state === "running") return "idle";
-  // A tick recorded after the start means the start worked, even if the
+  // A successful pass after the start means the start worked, even if the
   // runner stops again later; that later stop is a new problem, not a failed start.
-  if (startedAt !== null && runner?.last_tick_at != null && runner.last_tick_at * 1000 >= startedAt) {
+  if (startedAt !== null && runner?.last_success_tick_at != null && runner.last_success_tick_at * 1000 >= startedAt) {
     return "idle";
   }
   if (startedAt !== null && now - startedAt > JOB_RUNNER_START_TIMEOUT_MS) return "failed";

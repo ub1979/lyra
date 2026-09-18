@@ -54,7 +54,7 @@ def test_without_a_dispatcher_queue_status_and_resume_report_it(project, monkeyp
 def test_a_fresh_dispatcher_tick_reports_running(project):
     from hermes_cli.kanban_dispatcher_tick import record_tick
 
-    record_tick(60)
+    record_tick(60, successful=True)
     runs = _load("project_runs")
 
     assert runs.project_run_state(project)["job_runner"]["state"] == "running"

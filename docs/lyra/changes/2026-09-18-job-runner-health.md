@@ -91,3 +91,15 @@ Rollback / retained recovery data: Revert the commit. The tick file is
 ignored by older code.
 
 Local commit / authorized push: local commit only; not pushed.
+# Independent verification follow-up
+
+The dispatcher now records outcomes after a completed pass. Board errors and
+loop errors publish unknown health, and old ticks without completion evidence
+are unknown. Studio no longer treats a fresh failed tick as a successful start;
+last successful pass is tracked separately. This proves checking, not a claim
+on every job. No service was installed or restarted. See
+`2026-09-18-revision6-verification-followup.md` for results and remaining limits.
+
+Cross-platform lint also caught a bare `os.kill(pid, 0)` in the new health
+helper. It now reuses Hermes' existing safe `gateway.status._pid_exists`,
+with a routing regression test; no new process-probing mechanism was added.

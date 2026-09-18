@@ -1337,14 +1337,7 @@ class GatewayKanbanWatchersMixin:
 
         while self._running:
             observed_wakeup = wake_token()
-            # Evidence for Studio's job-runner health: only the lock holder
-            # reaches this loop, so a fresh tick means ready jobs get claimed.
-            # One tiny file per interval, written inline so the loop's thread
-            # usage (and its tests) stay unchanged.
-            try:
-                record_tick(interval)
-            except Exception:
-                logger.debug("kanban dispatcher: could not record tick", exc_info=True)
+            dispatch_successful = False
             try:
                 # Reap zombie children before per-board work so a board DB
                 # failure cannot block cleanup of unrelated workers.
@@ -1400,6 +1393,12 @@ class GatewayKanbanWatchersMixin:
                             bad_ticks,
                         )
                         last_warn_at = now
+                # Per-board failures are contained by _tick_once; do not
+                # mistake that containment for a successful dispatch pass.
+                dispatch_successful = results is not None and all(
+                    res is not None and not getattr(res, "skipped_locked", False)
+                    for _slug, res in results
+                )
             except asyncio.CancelledError:
                 logger.debug("kanban dispatcher: cancelled")
                 _release_singleton_lock(self._kanban_dispatcher_lock_handle)
@@ -1407,6 +1406,11 @@ class GatewayKanbanWatchersMixin:
                 raise
             except Exception:
                 logger.exception("kanban dispatcher: unexpected watcher error")
+            finally:
+                try:
+                    record_tick(interval, successful=dispatch_successful)
+                except Exception:
+                    logger.debug("kanban dispatcher: could not record tick", exc_info=True)
 
             # One-second slices retain quick shutdown and notice committed jobs
             # without launching a second dispatcher or bypassing claim fencing.

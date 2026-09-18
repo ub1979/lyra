@@ -49,10 +49,16 @@ describe("job runner start progress", () => {
   });
 
   it("does not call a later outage a failed start once a tick followed the start", () => {
-    const stoppedAgain: JobRunnerHealth = { ...down, last_tick_at: 200 };
+    const stoppedAgain: JobRunnerHealth = { ...down, last_tick_at: 200, last_success_tick_at: 200 };
     const startedAt = 150_000;
     expect(nextJobRunnerStart("starting", stoppedAgain, startedAt, startedAt + JOB_RUNNER_START_TIMEOUT_MS + 1)).toBe("idle");
     expect(jobRunnerNotice(stoppedAgain, 1, "idle")?.text).toContain("queued but cannot start yet");
+  });
+
+  it("does not accept a fresh failed dispatch pass as a successful start", () => {
+    const failedPass = { ...unsure, last_tick_at: 200, last_success_tick_at: 100 };
+    expect(nextJobRunnerStart("starting", failedPass, 150_000, 200_000)).toBe("starting");
+    expect(nextJobRunnerStart("starting", failedPass, 150_000, 250_000)).toBe("failed");
   });
 
   it("fails after the timeout instead of waiting forever", () => {

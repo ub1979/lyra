@@ -5,8 +5,11 @@ from __future__ import annotations
 import asyncio
 import os
 
+import pytest
 
-def test_dispatcher_loop_records_a_tick_for_health_checks(monkeypatch, tmp_path):
+
+@pytest.mark.parametrize("outcome", ["success", "board_failure", "loop_failure"])
+def test_dispatcher_loop_records_completed_outcomes_for_health_checks(monkeypatch, tmp_path, outcome):
     from gateway.run import GatewayRunner
     import hermes_cli.config as cfg
     import hermes_cli.kanban_db as kb
@@ -24,8 +27,15 @@ def test_dispatcher_loop_records_a_tick_for_health_checks(monkeypatch, tmp_path)
     runner._running = True
 
     async def _to_thread(fn, *args, **kwargs):
+        if fn.__name__ == "_tick_once":
+            # Merely entering the loop must not publish health evidence.
+            assert read_tick() is None
+            if outcome == "loop_failure":
+                raise RuntimeError("dispatch failed")
+            if outcome == "board_failure":
+                return [("broken-board", None)]
         result = fn(*args, **kwargs)
-        # Stop after the first full tick; the tick is written at its start.
+        # Stop after the first full tick, including recording its outcome.
         runner._running = False
         return result
 
@@ -40,4 +50,5 @@ def test_dispatcher_loop_records_a_tick_for_health_checks(monkeypatch, tmp_path)
     tick = read_tick()
     assert tick is not None and tick["pid"] == os.getpid()
     assert tick["interval_seconds"] == 1
-    assert job_runner_health(gateway_pid=lambda: None)["state"] == "running"
+    expected = "running" if outcome == "success" else "unknown"
+    assert job_runner_health(gateway_pid=lambda: None)["state"] == expected

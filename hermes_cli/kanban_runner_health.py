@@ -2,7 +2,7 @@
 
 Three states, never optimistic:
 
-- ``running``: a live process recorded a dispatcher tick within two intervals
+- ``running``: a live process completed a successful dispatcher pass within two intervals
   plus a margin.
 - ``unavailable``: dispatch is turned off, or no gateway and no fresh tick.
 - ``unknown``: a gateway is alive but has not reported dispatching recently
@@ -34,15 +34,19 @@ MESSAGES = {
         "Queued jobs may not start."
     ),
     "error": "Lyra could not check the job runner.",
+    "dispatch_failed": "The job runner could not complete its last dispatch pass. Check the gateway logs.",
 }
 
 
 def _pid_alive(pid: int) -> bool:
+    from gateway.status import _pid_exists
+
     try:
-        os.kill(int(pid), 0)
-    except (OSError, ValueError):
+        # Reuse Hermes' cross-platform probe; a POSIX signal-zero probe is
+        # not safe on Windows and must not be sent from a health check.
+        return _pid_exists(int(pid))
+    except (OSError, TypeError, ValueError):
         return False
-    return True
 
 
 def _dispatch_enabled() -> bool:
@@ -68,6 +72,7 @@ def _result(state: str, key: str, tick: dict[str, Any] | None) -> dict[str, Any]
         "state": state,
         "message": MESSAGES[key],
         "last_tick_at": int(tick["at"]) if tick else None,
+        "last_success_tick_at": tick.get("last_success_at") if tick else None,
     }
 
 
@@ -92,7 +97,9 @@ def job_runner_health(
         current = time.time() if now is None else float(now)
         if tick and pid_alive(tick["pid"]):
             window = 2 * tick["interval_seconds"] + TICK_MARGIN_SECONDS
-            if current - tick["at"] <= window:
+            if 0 <= current - tick["at"] <= window:
+                if tick.get("successful") is not True:
+                    return _result("unknown", "dispatch_failed", tick)
                 return _result("running", "running", tick)
             return _result("unknown", "stale", tick)
         if gateway_pid():
