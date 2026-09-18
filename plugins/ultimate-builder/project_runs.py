@@ -168,7 +168,7 @@ def _phase_from_task(task: kb.Task) -> str | None:
     return _task_identity(task)[0]
 
 
-def _work_plan(project: Path, phase: str = "sw-developer") -> dict[str, Any]:
+def _work_plan(project: Path, phase: str = "sw-developer", build_profile: str | None = None) -> dict[str, Any]:
     path = Path(__file__).resolve().with_name("project_work_units.py")
     spec = importlib.util.spec_from_file_location(
         "lyra_ultimate_builder_project_work_units_for_jobs", path
@@ -177,7 +177,7 @@ def _work_plan(project: Path, phase: str = "sw-developer") -> dict[str, Any]:
         raise RuntimeError("Could not load the project work plan")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return (module.load_qa_work_units() if phase == "qa-engineer"
+    return (module.load_qa_work_units(build_profile) if phase == "qa-engineer"
             else module.load_development_work_units(project))
 
 
@@ -274,7 +274,7 @@ def _work_unit_body(
     label = PHASES[phase]["label"]
     completion_rule = (
         "Only this final QA stage may mark the QA phase complete, after checking all stage evidence."
-        if phase == "qa-engineer" and unit["id"] == "QA-004" else
+        if phase == "qa-engineer" and unit.get("final") else
         f"Do not mark the whole {label} phase or application complete; later jobs and independent review remain."
     )
     return f"""You are Lyra's {label} agent completing one bounded project work item.
@@ -373,6 +373,7 @@ def queue_project_run(
     models: dict[str, str] | None = None,
     providers: dict[str, str] | None = None,
     force_new: bool = False,
+    build_profile: str | None = None,
 ) -> dict[str, Any]:
     _assert_dispatch_allowed()
     project = _workspace(workspace)
@@ -384,6 +385,8 @@ def queue_project_run(
     unknown = [phase for phase in requested if phase not in PHASES]
     if unknown:
         raise ValueError(f"Unknown project phase: {', '.join(unknown)}")
+    if build_profile not in {None, "personal", "reusable", "production"}:
+        raise ValueError("Unknown build profile")
 
     models = models or {}
     providers = providers or {}
@@ -399,13 +402,25 @@ def queue_project_run(
             + str(learning_reconciliation.get("error") or "unknown error")
         )
     status_snapshot = _ensure_project_status(project)
+    existing = _project_tasks(project, include_archived=True)
+    existing_qa_units = {
+        unit_id for _, task in existing
+        for phase_id, unit_id in [_task_identity(task)]
+        if phase_id == "qa-engineer" and unit_id
+    }
+    # Resume the QA shape already on the board, even if an older coordinator
+    # omits the profile or a reopened browser supplies a newer one.
+    qa_profile = (
+        "personal" if "QA-MVP-001" in existing_qa_units else
+        None if any(unit_id.startswith("QA-00") for unit_id in existing_qa_units)
+        else build_profile
+    )
     development_plan = (
         _work_plan(project) if "sw-developer" in requested else {"source": None, "units": []}
     )
-    qa_plan = (_work_plan(project, "qa-engineer") if "qa-engineer" in requested
+    qa_plan = (_work_plan(project, "qa-engineer", qa_profile) if "qa-engineer" in requested
                else {"source": None, "units": []})
     board = kb.get_current_board()
-    existing = _project_tasks(project, include_archived=True)
     latest_by_identity: dict[tuple[str, str | None], tuple[str, kb.Task]] = {}
     for item in existing:
         identity = _task_identity(item[1])

@@ -63,6 +63,16 @@ def test_queue_status_and_control_round_trip(project):
     assert resumed["action"] == "resume"
 
 
+def test_tool_carries_selected_personal_profile_to_qa_queue(project):
+    tool = load_tool()
+    queued = json.loads(tool.project_run_tool({
+        "action": "queue", "workspace": str(project), "phases": "qa-engineer",
+        "build_profile": "personal",
+    }))
+    assert queued["ok"] is True
+    assert [task["work_item_id"] for task in queued["tasks"]] == ["QA-MVP-001"]
+
+
 def test_rejects_bad_action_relative_workspace_and_missing_phases(project):
     tool = load_tool()
     assert "Unknown action" in json.loads(

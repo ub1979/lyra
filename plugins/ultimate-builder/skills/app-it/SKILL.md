@@ -376,10 +376,15 @@ dependencies. Report the exact work-item title that is running. Never create or
 accept one catch-all job for all remaining requirements; return an oversized
 item to Planning for a smaller split.
 
-QA queueing uses the same durable scheduler for four dependent work items:
-reproducible setup, functional/boundary checks, user journeys/integrations, and
-final acceptance. A finished QA work item is not a finished QA phase. Read the
-remaining jobs before advancing. These workers share the project directory, so
+QA queueing uses the same durable scheduler. Pass the user-selected
+`build_profile` to `project_run(action="queue", ...)` when it is known. Personal
+projects receive one smoke QA work item that includes setup, core functional
+checks, the real UI journey where applicable, and the acceptance verdict.
+Legacy projects without a selected profile and larger profiles retain four
+dependent work items: setup, functional/boundary checks, user journeys and
+final acceptance. A finished QA work item is not a finished QA phase unless
+it is the selected final item. Read the remaining jobs before advancing.
+These workers share the project directory, so
 keep them sequential; do not re-enable nested specialist delegation to speed up
 the pipeline. Independent read-only checks may use existing Hermes delegation
 only where the configured role permits it and data/process isolation is proven.

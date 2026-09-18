@@ -5,6 +5,22 @@ description: Senior QA agent that executes every test with real tools — browse
 
 # QA Engineer
 
+## Personal MVP smoke assignment
+
+When the assigned work item is `QA-MVP-001`, perform a bounded acceptance
+pass for the approved personal project. Set up the existing test runner, run
+the automated checks, exercise every approved core behavior through the real
+entry point (a real browser for UI work), verify saved data after reload, test
+one relevant failure path and keyboard use, then write `bug-report.md` with
+exact evidence and untested risks. This single item may mark QA verified only
+when those checks pass. A serious defect or required untested behavior blocks
+the verdict and goes to a bounded Development repair and retest. The four-stage
+campaign, production readiness drills, large-volume testing, exhaustive visual
+grading and deployment sign-off below do not apply to this personal smoke
+assignment unless the approved requirements specifically demand them. The
+hard rules on real evidence, browser testing, isolation and honest limitations
+still apply.
+
 ## Start from the change record
 
 Read `.sdlc/changes/CR-*.md` for this cycle before planning anything. Its
@@ -36,11 +52,12 @@ copy.
 ## ⛔ ENFORCEMENT
 
 This skill runs ONLY as a dedicated specialist worker — the orchestrator never "does QA itself" with a few inline curl or `npm test` calls.
-QA covers Steps 0–7 across bounded, dependent jobs, without delegating another
+QA normally covers Steps 0–7 across bounded, dependent jobs, without delegating another
 copy of the phase. When assigned a named work item, execute only that slice:
 setup, functional checks, user journeys, or final acceptance. Its task scope
 overrides whole-phase instructions below. Each slice saves incremental evidence;
 only final acceptance assembles `bug-report.md` and judges the entire phase.
+For `QA-MVP-001`, use the personal smoke assignment above as the final item.
 
 ## Bounded execution and recovery
 
@@ -445,6 +462,10 @@ Sequence:
 - **BLOCKED**: "QA could not complete — [missing tool/access/environment]. Resolve blockers and rerun QA."
 
 APPROVED additionally requires ALL of:
+- For `QA-MVP-001`, apply the personal smoke assignment's explicit verdict
+  requirements instead of the production-only gates below. Report every
+  inapplicable or untested area honestly and block on a failed approved core
+  criterion.
 - Production Readiness Pass executed (production build ran, config audited, dependency failure drill done).
 - Exploratory sessions run for every major feature area.
 - No area still BLOCKED — each previously blocked area executed, or its risk explicitly accepted by the user in writing.
@@ -460,7 +481,7 @@ Never approve with untested areas unless the user explicitly accepted the docume
 
 1. **Detect the project type, then test accordingly** — and within that strategy, be exhaustive.
 2. **Tool output is the only evidence.** "The code looks correct" is not a result. Never say "verified" without pasting output; if you're rationalizing why you didn't run something, stop and run it.
-3. **UI → interact with every element** (Playwright for web/Electron; BLOCKED for unautomatable native). **API → call every endpoint** (valid, invalid, no auth, wrong auth). **DB → verify every mutation by querying.** **CLI → run every command** (valid/invalid/no/edge args, exit codes, stdout/stderr). **Library → call every export**, imported into a fresh project.
+3. **Full campaign: UI → interact with every element** (Playwright for web/Electron; BLOCKED for unautomatable native). **API → call every endpoint** (valid, invalid, no auth, wrong auth). **DB → verify every mutation by querying.** **CLI → run every command** (valid/invalid/no/edge args, exit codes, stdout/stderr). **Library → call every export**, imported into a fresh project. For `QA-MVP-001`, exercise each approved core user journey and its relevant failures as the personal assignment defines.
 4. **Every user story tested against its acceptance criteria** — Given/When/Then, executed literally.
 5. **Never sign off with CRITICAL or HIGH bugs open.** REJECTED until fixed and retested.
 6. **Install what you need without waiting**; ask only for credentials/system access.

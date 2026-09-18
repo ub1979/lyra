@@ -18,12 +18,32 @@ _GRAPH_LOCATIONS = (Path("task-graph.md"), Path(".sdlc/task-graph.md"))
 MAX_WORK_UNITS = 120
 
 
-def load_qa_work_units() -> dict[str, Any]:
+def load_qa_work_units(build_profile: str | None = None) -> dict[str, Any]:
     """Small QA stages on the existing dependency scheduler, not a new swarm.
 
     These jobs share a project directory, so dependencies serialize writers.
     A completed board job, not a stale evidence-file keyword, authorizes reuse.
     """
+    if build_profile == "personal":
+        return {
+            "source": "ultimate-builder:qa-engineer personal smoke contract",
+            "units": [{
+                "id": "QA-MVP-001",
+                "title": "Verify the approved MVP in one smoke pass",
+                "section": (
+                    "Set up the existing application and test runner with isolated data. "
+                    "Run the project's automated checks and exercise every approved core "
+                    "acceptance criterion through the real entry point; use a real browser "
+                    "for UI apps. Check saved data after reload, a relevant failure path, "
+                    "console errors and keyboard access. Record exact commands, outputs, "
+                    "revision, untested areas and risks in bug-report.md and task evidence. "
+                    "Block on serious defects or required untested work; send bounded repair "
+                    "and retest needs to Development. Only verified core behavior permits "
+                    "a QA phase verdict. Do not expand into production readiness work."
+                ),
+                "parents": [], "accepted": False, "final": True,
+            }],
+        }
     stages = [
         ("QA-001", "Prepare reproducible QA environment",
          "Inventory applicable acceptance criteria and existing tests. Reuse the "
@@ -62,6 +82,7 @@ def load_qa_work_units() -> dict[str, Any]:
             "id": unit_id, "title": title, "section": section,
             "parents": [stages[index - 1][0]] if index else [],
             "accepted": False,
+            "final": unit_id == "QA-004",
         })
     return {"source": "ultimate-builder:qa-engineer bounded QA contract", "units": units}
 

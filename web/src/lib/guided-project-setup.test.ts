@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { guidedSetupSeed } from "./guided-project-setup";
+import { guidedSetupSeed, profileFromBuilderSeed } from "./guided-project-setup";
 import { guidedProjectTurnDirectives } from "./guided-agent-routing";
 import { recoverGuidedUserContent } from "./guided-session-recovery";
 
@@ -17,5 +17,17 @@ describe("first user turn setup", () => {
 
   it("keeps old automatic setup messages hidden", () => {
     expect(recoverGuidedUserContent(guidedSetupSeed("/old", [], {}, {}, {}))).toBe("");
+  });
+
+  it("carries the user-selected build profile into a later setup seed", () => {
+    const launch = `IDRAK_INTERNAL_SETUP_BEGIN ${JSON.stringify({ build_profile: "personal" })} IDRAK_INTERNAL_SETUP_END`;
+    const profile = profileFromBuilderSeed(launch);
+    expect(profile).toBe("personal");
+    const seed = guidedSetupSeed("/project", ["qa-engineer"], {}, {}, {}, profile);
+    const payload = JSON.parse(seed.replace(/^IDRAK_INTERNAL_SETUP_BEGIN /, "").replace(/ IDRAK_INTERNAL_SETUP_END$/, ""));
+    expect(payload.build_profile).toBe("personal");
+    expect(payload.build_profile_gate).toContain("one real smoke QA work item");
+    expect(payload.build_profile_gate).not.toContain("no build scale has been selected");
+    expect(profileFromBuilderSeed("broken setup")).toBeNull();
   });
 });

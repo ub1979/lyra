@@ -83,7 +83,7 @@ import {
   unavailableGuidedModelAssignments,
   type GuidedUnavailableModelAssignment,
 } from "@/lib/guided-agent-routing";
-import { guidedSetupSeed } from "@/lib/guided-project-setup";
+import { guidedSetupSeed, profileFromBuilderSeed, type GuidedBuildProfile } from "@/lib/guided-project-setup";
 import {
   guidedModelProviders,
   readGuidedModelPreferences,
@@ -378,6 +378,29 @@ const APP_IT_SPECIALIST: GuidedSpecialist = { id: "app-it", label: "Lyra" };
 
 function guidedSpecialistStorageKey(workspace: string): string {
   return `idrak-it.guided-specialists.v1:${workspace || "default"}`;
+}
+
+function guidedBuildProfileStorageKey(workspace: string): string {
+  return `idrak-it.guided-build-profile.v1:${workspace || "default"}`;
+}
+
+function selectedBuildProfile(seed: string | null, workspace: string): GuidedBuildProfile | null {
+  const selected = profileFromBuilderSeed(seed);
+  if (selected) {
+    try {
+      window.localStorage.setItem(guidedBuildProfileStorageKey(workspace), selected);
+    } catch {
+      // Private browsing can disable storage; the current launcher choice
+      // still reaches this turn even if later resume cannot recover it.
+    }
+    return selected;
+  }
+  try {
+    const stored = window.localStorage.getItem(guidedBuildProfileStorageKey(workspace));
+    return stored === "personal" || stored === "reusable" || stored === "production" ? stored : null;
+  } catch {
+    return null;
+  }
 }
 
 function specialistIdsFromBuilderSeed(
@@ -1352,6 +1375,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       searchParams.get("builder"),
       workspaceParam,
     );
+    selectedBuildProfile(searchParams.get("builder"), workspaceParam);
     applyGuidedSpecialistIds(selected);
   }, [applyGuidedSpecialistIds, guided, searchParams, workspaceParam]);
   // Counts model turns (message.start) so a completed reply can refine only
@@ -2251,6 +2275,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       guidedSkillModelsRef.current,
       guidedModelProviders(guidedSkillModelsRef.current, guidedModelProviderRef.current),
       GUIDED_SPECIALIST_LABELS,
+      selectedBuildProfile(searchParams.get("builder"), workspaceParam),
     ) : "";
     const routedText = [...routing, setup, text].filter(Boolean).join("\n");
     // Bracketed paste, not raw typing: a multi-line prompt written straight to
@@ -2263,7 +2288,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     });
     if (!options.preserveDraft) setGuidedInput("");
     },
-    [respondToGuidedClarification, guidedClarificationRef, setGuidedActivitySynced, setGuidedMessagesSynced, workspaceParam],
+    [respondToGuidedClarification, guidedClarificationRef, searchParams, setGuidedActivitySynced, setGuidedMessagesSynced, workspaceParam],
   );
 
   const sendGuidedProjectState = useCallback(

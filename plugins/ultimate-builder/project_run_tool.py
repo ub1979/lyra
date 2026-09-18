@@ -57,6 +57,10 @@ PROJECT_RUN_TOOL_SCHEMA = {
                 "description": "Optional phase → provider overrides (queue only).",
             },
             "force_new": {"type": "boolean"},
+            "build_profile": {
+                "type": "string", "enum": ["personal", "reusable", "production"],
+                "description": "User-selected project scale for QA queueing. Omit for a legacy project.",
+            },
             "task_id": {"type": "string", "description": "retry only: exact failed job id from status."},
             "reason": {"type": "string", "description": "retry only: why another attempt can succeed and the bounded remaining work. Never retry review/input waits or unchanged exhausted quota."},
             "summary": {
@@ -135,6 +139,7 @@ def project_run_tool(args: dict, **_kwargs: Any) -> str:
                 models=_string_map(args.get("models")),
                 providers=_string_map(args.get("providers")),
                 force_new=bool(args.get("force_new")),
+                build_profile=str(args.get("build_profile") or "").strip() or None,
             )
         elif action == "retry":
             result = project_runs.retry_project_task(

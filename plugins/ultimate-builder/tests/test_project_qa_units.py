@@ -64,6 +64,29 @@ def test_qa_reuses_hermes_gates_and_survives_reconnect(setup):
         )
 
 
+def test_personal_profile_queues_one_real_smoke_stage_and_can_finish(setup):
+    module, project = setup
+    first = module.queue_project_run(project, ["qa-engineer"], build_profile="personal")
+    qa = first["tasks"]
+    assert [task["work_item_id"] for task in qa] == ["QA-MVP-001"]
+    with module.kb.connect_closing() as conn:
+        task = module.kb.get_task(conn, qa[0]["task_id"])
+        assert "real browser" in task.body
+        assert "mark the QA phase complete" in task.body
+        assert module.kb.claim_task(conn, task.id)
+    # A reopened coordinator that omits the profile adopts the same work item.
+    reopened = module.queue_project_run(project, ["qa-engineer"])
+    assert reopened["tasks"][0]["task_id"] == qa[0]["task_id"]
+    assert reopened["tasks"][0]["reused"] is True
+
+
+def test_existing_four_stage_campaign_keeps_its_shape_when_personal_is_passed(setup):
+    module, project = setup
+    legacy = module.queue_project_run(project, ["qa-engineer"])["tasks"]
+    reopened = module.queue_project_run(project, ["qa-engineer"], build_profile="personal")
+    assert [task["task_id"] for task in reopened["tasks"]] == [task["task_id"] for task in legacy]
+
+
 def test_failed_stage_does_not_unlock_later_checks(setup):
     module, project = setup
     qa = module.queue_project_run(project, ["qa-engineer"])["tasks"]
