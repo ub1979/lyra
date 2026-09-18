@@ -29,7 +29,6 @@ _MAX_EVENTS_PER_SESSION_ROOT = 100
 _MAX_TOTAL_UNREFERENCED_EVENTS = 10_000
 _AD_HOC_SCRIPT_NAME_PREFIXES = ("hermes-verify-", "hermes-ad-hoc-")
 _VERIFY_SCHEMA_VERSION = 1
-_SHELL_SPLIT_RE = re.compile(r"\s*(?:&&|\|\||;)\s*")
 
 
 @dataclass(frozen=True)
@@ -151,17 +150,52 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
 
 
 def _split_segment_tokens(command: str, *, posix: bool = True) -> list[list[str]]:
+    """Split real shell separators, never operator characters inside quotes."""
     segments: list[list[str]] = []
-    for segment in _SHELL_SPLIT_RE.split(command.strip()):
-        if not segment:
-            continue
-        try:
-            tokens = shlex.split(segment, posix=posix)
-        except ValueError:
-            continue
-        if tokens:
-            segments.append(tokens)
+    try:
+        lexer = shlex.shlex(command, posix=posix, punctuation_chars=";&|")
+        lexer.whitespace_split = True
+        lexer.commenters = ""
+        tokens = list(lexer)
+    except ValueError:
+        return []
+    current: list[str] = []
+    for token in tokens:
+        if token in {"&&", "||", ";"}:
+            if current:
+                segments.append(current)
+            current = []
+        else:
+            current.append(token)
+    if current:
+        segments.append(current)
     return segments
+
+
+def _has_shell_control(command: str) -> bool:
+    """True when the reported exit may belong to something other than the test.
+
+    Scan quotes rather than searching strings: `-k "foo|bar"` is an argument,
+    while `test | tail` is a pipeline. Double quotes still allow command
+    substitution, so those forms remain uncertain.
+    """
+    quote: str | None = None
+    index = 0
+    while index < len(command):
+        char = command[index]
+        if char == "\\" and quote != "'":
+            index += 2
+            continue
+        if char == quote:
+            quote = None
+        elif quote is None and char in {"'", '"'}:
+            quote = char
+        elif quote != "'" and (command.startswith("$(", index) or char == "`"):
+            return True
+        elif quote is None and char in "|&;<>()\n\r":
+            return True
+        index += 1
+    return quote is not None
 
 
 def _clean_token(token: str) -> str:
@@ -449,7 +483,8 @@ def classify_verification_command(
         canonical_command=canonical,
         kind="ad_hoc" if is_ad_hoc else _kind_for_command(canonical),
         scope="targeted" if is_ad_hoc else _scope_for_args(trailing_args),
-        status="passed" if int(exit_code) == 0 else "failed",
+        status=("failed" if int(exit_code) != 0 else
+                "unverified" if _has_shell_control(command) else "passed"),
         exit_code=int(exit_code),
         cwd=str(Path(cwd or ".").resolve()),
         root=str(facts.get("root") or Path(cwd or ".").resolve()),
@@ -636,6 +671,10 @@ def verification_status(
         }
 
     evidence = dict(event)
+    # Past zero-exit compound commands were recorded as passed. Reinterpret
+    # them on read so a cached false pass cannot still satisfy verify-on-stop.
+    if evidence["status"] == "passed" and _has_shell_control(evidence["command"]):
+        evidence["status"] = "unverified"
     if state["last_edit_at"] and state["last_edit_at"] > evidence["created_at"]:
         status = "stale"
     else:

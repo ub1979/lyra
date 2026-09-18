@@ -1,8 +1,12 @@
 import json
+import os
 import sqlite3
+import subprocess
 import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+import pytest
 
 from agent.verification_evidence import (
     classify_verification_command,
@@ -43,6 +47,65 @@ def test_classifies_targeted_project_verify_command(tmp_path, monkeypatch):
     assert evidence.kind == "test"
     assert evidence.scope == "targeted"
     assert evidence.status == "passed"
+
+
+def test_zero_exit_compound_commands_never_prove_test_success(tmp_path, monkeypatch):
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".hermes"))
+    _node_project(tmp_path)
+    for command in (
+        "pnpm run test | tail -10",
+        "pnpm run test | tee results.txt",
+        "pnpm run test || true",
+        "pnpm run test; echo done",
+        "pnpm run test > results.txt",
+        "pnpm run test &",
+        "pnpm run test && echo success",
+        "pnpm run test | tail -10; set -o pipefail",
+        "pnpm run test & echo Windows-cmd-separator",
+        "pnpm run test > NUL 2>&1",
+    ):
+        evidence = classify_verification_command(command, cwd=tmp_path, exit_code=0)
+        assert evidence is not None, command
+        assert evidence.status == "unverified", command
+
+    quoted = classify_verification_command('pnpm run test -- -k "foo|bar"', cwd=tmp_path, exit_code=0)
+    assert quoted is not None and quoted.status == "passed"
+    failed = classify_verification_command("pnpm run test | tail -10", cwd=tmp_path, exit_code=1)
+    assert failed is not None and failed.status == "failed"
+    quoted_only = classify_verification_command('echo "word; pnpm run test"', cwd=tmp_path, exit_code=0)
+    assert quoted_only is None
+
+
+def test_old_masked_pass_is_unverified_on_read(tmp_path, monkeypatch):
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".hermes"))
+    _node_project(tmp_path)
+    record_terminal_result(
+        command="pnpm run test | tail", cwd=tmp_path, session_id="s1", exit_code=0,
+    )
+    assert verification_status(session_id="s1", cwd=tmp_path)["status"] == "unverified"
+
+
+@pytest.mark.skipif(os.name == "nt", reason="uses a POSIX shell fixture")
+def test_real_failed_pipeline_cannot_be_recorded_as_passed(tmp_path, monkeypatch):
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".hermes"))
+    _node_project(tmp_path)
+    command = "pnpm run test | tail -n 1"
+    # A local script makes the test independent of pnpm installation while
+    # exercising the same shell exit-status behavior as a real masked suite.
+    script = tmp_path / "pnpm"
+    script.write_text("#!/bin/sh\nexit 7\n", encoding="utf-8")
+    script.chmod(0o755)
+    result = subprocess.run(
+        ["sh", "-c", command], cwd=tmp_path,
+        env={"PATH": f"{tmp_path}:/usr/bin:/bin"}, capture_output=True, text=True,
+        check=False,
+    )
+    assert result.returncode == 0
+    event = record_terminal_result(
+        command=command, cwd=tmp_path, session_id="masked", exit_code=result.returncode,
+        output=result.stdout,
+    )
+    assert event is not None and event["status"] == "unverified"
 
 
 def test_classifies_python_module_pytest_as_detected_pytest(tmp_path, monkeypatch):
