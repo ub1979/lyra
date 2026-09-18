@@ -9,9 +9,13 @@ Current product acceptance plan and resume checkpoint:
 [`END_TO_END_ACCEPTANCE.md`](END_TO_END_ACCEPTANCE.md). Read before resuming the
 small-project reliability trial; generated application repairs belong to Lyra.
 
-Active follow-up: [reliability and workflow plan, revision 3](2026-09-18-reliability-and-workflow-plan-v3.md),
+Active follow-up: [bounded project execution plan, revision 6](2026-09-18-bounded-project-execution-plan-v6.md),
 with [reviewed comparison evidence](2026-09-18-end-to-end-comparison-report.md).
-Initial code slices are implemented locally; live journey and release guarantees remain unverified.
+Revision 6 corrects revision 5's budget, runner-health, test and approval
+details. Both supersede the prior proposed task-map approach: they are based on the
+Trial 3 worker trace and keep a Personal project as one lean, bounded worker
+until measured acceptance proves a split is necessary. Product implementation,
+live journey, and release guarantees remain unverified.
 
 ```text
 Studio panels → dashboard API → project progress / jobs / memory / recovery
