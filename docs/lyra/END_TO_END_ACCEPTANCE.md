@@ -109,3 +109,58 @@ its displayed version reads current files and does not prove all loaded Python
 code is current. Use a fresh controlled runtime for acceptance or explicitly
 classify observations from that process as exploratory, not frozen-candidate
 acceptance. No user process was restarted.
+
+### Trial 1 started — 2026-09-18 04:01:47 UTC
+
+- Frozen source: local commit `0fb3566e2` (0.19.63 candidate); no push.
+- Fresh dashboard PID 73924, localhost:9121, exec session 54051; existing user
+  dashboard on 9119 untouched. Root Ink bundle rebuilt after the startup fix.
+- Project created through Studio: `/Users/u/funcoding/lyra/my_projects/Pocket Tasks`.
+- UI URL: `http://127.0.0.1:9121/chat?guided=1&workspace=%2FUsers%2Fu%2Ffuncoding%2Flyra%2Fmy_projects%2FPocket+Tasks`.
+- Personal/one-off, initial team “Let Lyra guide me”, model `glm-5.3-flash:cloud`.
+- Brief submitted through Message Lyra, covering the acceptance criteria above.
+  UI showed the user message and “Lyra is working”. No app files authored by
+  supervisor. Await the first actual response; do not claim a finished build.
+- Visible browser controller remains exec session 49159, script
+  `/private/tmp/lyra-visible-project-control.mjs`; reacquire if expired.
+
+### Trial 1 FAILED at skill loading; interrupted safely
+
+Session: `20260918_050128_fdf119`. Agent log at 05:01:46 local confirms the first
+turn contains the setup block, not the collapsed label. No specialist job was
+queued. Source stayed frozen throughout this trial.
+
+Confirmed failure chain (read-only inspection of tool calls/results in state.db;
+private model reasoning was not inspected):
+
+1. Coordinator requested `skill_view(ultimate-builder:req-engineer)`.
+2. The 21,209-character result became a 1,500-character persisted-output preview.
+   `tui_gateway/studio_budget.py` imposes an 8,000-character default result cap;
+   skill_view has no exemption. That budget originated in `e8542a434` (Sep 16).
+3. Saved output is JSON on one physical line. The initial `read_file` returned
+   only 2,164 characters; subsequent offset 25, 24, and 23 reads returned empty
+   content. Search was also shortened. The model then navigated a browser to
+   the local saved tool result and attempted browser-based recovery.
+4. Fourteen tool turns occurred before any useful first reply. At 05:04:42 local,
+   supervisor sent Ctrl+C via the existing terminal input. Agent log confirms
+   `interrupted_during_api_call`, 15/90 calls; no app source was written.
+
+Classification: confirmed Lyra context-budget/instruction-delivery integration
+failure, compounded by file-result line truncation. This trial did NOT test
+background-job completion and cannot blame Kanban for the observed first-turn
+delay. It also does not establish the cause of every earlier slow turn.
+
+Separate UI observation: during actual calls, side panel said “Lyra available”
+and Tokens 0 while transcript said working. After interruption tokens became
+357K (cumulative usage, NOT 357K unique context or necessarily uncached billing);
+the immediate snapshot still said working. Investigate event delivery/state
+separately; do not silently patch the UI during this failed trial.
+
+Next required change: behavioral regression using the REAL requirements skill
+through per-result and aggregate budgets, then a minimal instruction-preserving
+fix that retains required skill content without removing ordinary output bounds.
+Check whole-document handling, multiple skills, small windows, worker isolation,
+and prompt-cache invariants. Do not merely raise all caps or teach the model to
+recover truncated instructional tools. Repeat the same project journey on a new
+identified candidate, preserving this failed trial as evidence. Project remains
+unfinished; no release sign-off or push. This supersedes “await first response”.

@@ -33,6 +33,7 @@ from tools.budget_config import (
     DEFAULT_PREVIEW_SIZE_CHARS,
     BudgetConfig,
     DEFAULT_BUDGET,
+    WHOLE_INSTRUCTION_TOOLS,
 )
 from tools.inline_result_admission import admit_inline_results
 
@@ -167,6 +168,8 @@ def maybe_persist_tool_result(
     Returns:
         Original content if small, or <persisted-output> replacement.
     """
+    if tool_name in WHOLE_INSTRUCTION_TOOLS:
+        return content
     inline_cap = config.resolve_inline_cap(tool_name)
     if inline_cap is not None and len(content) > inline_cap:
         # Applies even to pinned tools: nothing is written, so no persist->read loop.
@@ -232,6 +235,11 @@ def enforce_turn_budget(
         content = msg.get("content", "")
         size = len(content)
         total_size += size
+        # Count instructions toward pressure on ordinary results, but never
+        # replace a loaded playbook with a partial preview. This soft budget
+        # may be exceeded by instructions; model capacity/compression is separate.
+        if str(msg.get("name") or msg.get("tool_name") or "") in WHOLE_INSTRUCTION_TOOLS:
+            continue
         if PERSISTED_OUTPUT_TAG in content:
             continue
         # A result already bounded by an inline cap was admitted whole on

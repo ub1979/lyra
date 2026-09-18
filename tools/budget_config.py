@@ -6,6 +6,10 @@ Per-tool resolution: pinned > config overrides > registry > default.
 from dataclasses import dataclass, field
 from typing import Dict
 
+# Instruction loaders are not pageable data. A successful load must include
+# the entire playbook; normal context compression still owns model capacity.
+WHOLE_INSTRUCTION_TOOLS = frozenset({"skill_view"})
+
 # Tools whose thresholds must never be overridden.
 # read_file=inf prevents infinite persist->read->persist loops.
 PINNED_THRESHOLDS: Dict[str, float] = {
@@ -42,6 +46,8 @@ class BudgetConfig:
 
     def resolve_inline_cap(self, tool_name: str) -> int | None:
         """Return the inline character cap for a tool, or None when uncapped."""
+        if tool_name in WHOLE_INSTRUCTION_TOOLS:
+            return None
         cap = self.inline_caps.get(tool_name)
         return int(cap) if cap is not None and cap > 0 else None
 
@@ -57,6 +63,8 @@ class BudgetConfig:
         equal 100K; for a scaled-down budget it prevents a per-tool registry
         value from re-inflating the cap past the model's window (#23767).
         """
+        if tool_name in WHOLE_INSTRUCTION_TOOLS:
+            return float("inf")
         if tool_name in PINNED_THRESHOLDS:
             return PINNED_THRESHOLDS[tool_name]
         if tool_name in self.tool_overrides:

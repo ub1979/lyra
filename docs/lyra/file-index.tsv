@@ -1812,6 +1812,7 @@ docs/lyra/changes/2026-09-17-worker-liveness-test.md	docs	md: 2026 09 17 worker 
 docs/lyra/changes/2026-09-17-worker-usage-freshness.md	docs	md: 2026 09 17 worker usage freshness
 docs/lyra/changes/2026-09-18-paste-submission-ownership.md	docs	md: 2026 09 18 paste submission ownership
 docs/lyra/changes/2026-09-18-recoverable-qa-release.md	docs	md: 2026 09 18 recoverable qa release
+docs/lyra/changes/2026-09-18-whole-skill-results.md	docs	md: 2026 09 18 whole skill results
 docs/lyra/file-index.tsv	docs	tsv: file index
 docs/middleware/README.md	docs	md: README
 docs/observability/README.md	docs	md: README
@@ -6259,6 +6260,7 @@ tests/tools/test_skill_env_passthrough.py	tests	Behavioral tests: skill env pass
 tests/tools/test_skill_improvements.py	tests	Behavioral tests: skill improvements
 tests/tools/test_skill_manager_tool.py	tests	Behavioral tests: skill manager tool
 tests/tools/test_skill_provenance.py	tests	Behavioral tests: skill provenance
+tests/tools/test_skill_result_integrity.py	tests	Behavioral tests: skill result integrity
 tests/tools/test_skill_size_limits.py	tests	Behavioral tests: skill size limits
 tests/tools/test_skill_usage.py	tests	Behavioral tests: skill usage
 tests/tools/test_skill_view_path_check.py	tests	Behavioral tests: skill view path check
