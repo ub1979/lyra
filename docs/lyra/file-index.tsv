@@ -1809,6 +1809,7 @@ docs/lyra/changes/2026-09-17-targeted-job-recovery.md	docs	md: 2026 09 17 target
 docs/lyra/changes/2026-09-17-worker-git-history-guard.md	docs	md: 2026 09 17 worker git history guard
 docs/lyra/changes/2026-09-17-worker-liveness-test.md	docs	md: 2026 09 17 worker liveness test
 docs/lyra/changes/2026-09-17-worker-usage-freshness.md	docs	md: 2026 09 17 worker usage freshness
+docs/lyra/changes/2026-09-18-recoverable-qa-release.md	docs	md: 2026 09 18 recoverable qa release
 docs/lyra/file-index.tsv	docs	tsv: file index
 docs/middleware/README.md	docs	md: README
 docs/observability/README.md	docs	md: README

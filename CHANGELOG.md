@@ -9,6 +9,22 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.63] - 2026-09-18 — recoverable bounded QA
+
+### Fixed
+
+- Preserve budget-exhaustion handoffs in existing Kanban attempt history;
+  warn workers before exhaustion, fence late finalizers by run ID, and prevent
+  delegated helper exhaustion from failing the parent job.
+- Queue QA as dependent setup, functional, journey and final-verdict work units
+  using the existing scheduler. Reuse existing test runners and retain legacy
+  active/completed jobs; do not enable recursive specialist delegation.
+- Load shared engineering standards through their owning umbrella skill rather
+  than a nonexistent specialist-relative file.
+- Beta limitation: live testing proved retry recovery, not full autonomous
+  acceptance or faster completion. Restart idle runtimes to use these changes;
+  existing jobs are not automatically restarted or marked successful.
+
 ## [0.19.62] - 2026-09-17 — worker Git history protection
 
 ### Fixed
