@@ -778,3 +778,37 @@ Decisions taken during implementation:
 Next: restart the dashboard and gateway on the new commits, then run Slice 5a
 (two clean Personal Pocket Tasks journeys) against the revision 6 thresholds.
 
+### Independent verification follow-up — 2026-09-18
+
+See [complete follow-up](changes/2026-09-18-revision6-verification-followup.md).
+Three confirmed gaps were corrected locally: execute-code budget refunds,
+partial preview hashes, and pre-dispatch health ticks. Tests also no longer
+write preview approval records into the real profile.
+
+Correction: Trial 4's screenshot shows the requirements question. Its harness
+waited for a clarify placeholder rather than answering the ordinary chat
+question. SQLite disk-I/O errors continued after the folder move. Thus that
+trial did not prove either a stalled model or recurrence of the old
+history-version defect. The failed trial remains failed, not retroactively green.
+
+Clean isolated evidence: mock-provider two-turn SQLite/reload/backend-restart
+smoke passed in 16.9s. The first real-model test returned green but inspection
+found it accepted an introduction before a clarification, not a completed turn.
+It was strengthened before handoff. That introductory text took 42.403s,
+including a 41.1s model request, and existed in SQLite. No speculative change
+to persistence code was justified by that run. It is NOT full-build acceptance.
+The existing user's dashboard/gateway were not touched; no push or release.
+
+The strengthened live check then passed: actual clarify answer, completed
+`text_response`, durable SQLite write, backend restart, restored reply AND
+usable composer. Session `20260918_235502_a73845`. Exchange 84.629s, of which
+83.0s was logged model-request time across three calls. This is evidence
+against a deterministic lost-first-turn bug, not proof that the earlier disk
+error cannot recur or that latency is acceptable.
+
+Automated verification: 312 Python tests / 33 files passed; 485 web tests
+passed; web typecheck and build passed; lint zero errors, 30 warnings. This is
+focused integration coverage, not a repeat of the entire 19,600-test suite.
+One additional cross-platform PID-probe test passed after this combined run;
+the final runner-health subset passed 18 tests. Implementation commits:
+`a80fea6e8`, `8c31bd8a6`, `7466b0ef9`. All local, no version bump.

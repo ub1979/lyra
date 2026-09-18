@@ -283,6 +283,7 @@ apps/desktop/assets/icon.png	apps	png: icon
 apps/desktop/components.json	apps	json: components
 apps/desktop/e2e-studio/echo-model.ts	apps	* A tiny OpenAI-compatible model that echoes the last user message.
 apps/desktop/e2e-studio/studio-dashboard.ts	apps	* Start the real Lyra dashboard for a browser test.
+apps/desktop/e2e-studio/studio-live-persistence.spec.ts	apps	Opt-in real-model check: first requirements question survives a restart.
 apps/desktop/e2e-studio/studio-smoke.spec.ts	apps	* Studio smoke: the only test that sees ChatPage's wiring.
 apps/desktop/e2e/boot-failure.spec.ts	apps	* E2E boot-failure tests — verify the app shows an error overlay when the
 apps/desktop/e2e/boot.spec.ts	apps	* E2E smoke tests for the dev-mode desktop app.
@@ -1829,6 +1830,7 @@ docs/lyra/changes/2026-09-18-preview-authorization.md	docs	md: 2026 09 18 previe
 docs/lyra/changes/2026-09-18-profile-aware-mvp-qa.md	docs	md: 2026 09 18 profile aware mvp qa
 docs/lyra/changes/2026-09-18-provider-facing-context-estimate.md	docs	md: 2026 09 18 provider facing context estimate
 docs/lyra/changes/2026-09-18-recoverable-qa-release.md	docs	md: 2026 09 18 recoverable qa release
+docs/lyra/changes/2026-09-18-revision6-verification-followup.md	docs	md: 2026 09 18 revision6 verification followup
 docs/lyra/changes/2026-09-18-studio-interim-progress.md	docs	md: 2026 09 18 studio interim progress
 docs/lyra/changes/2026-09-18-studio-usage-reconnect.md	docs	md: 2026 09 18 studio usage reconnect
 docs/lyra/changes/2026-09-18-verification-evidence-shell-status.md	docs	md: 2026 09 18 verification evidence shell status
@@ -2161,7 +2163,7 @@ hermes_cli/web_dist/assets/RulesCompressed-Regular-BSXFyF4x.woff2	hermes_cli	Gen
 hermes_cli/web_dist/assets/RulesExpanded-Bold-DZA7s8Pa.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Regular-l8uVympt.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/index-BGAdPJZk.css	hermes_cli	Generated asset; edit its source and rebuild
-hermes_cli/web_dist/assets/index-DK0i01Zl.js	hermes_cli	Generated asset; edit its source and rebuild
+hermes_cli/web_dist/assets/index-dYu2d-L8.js	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Bold.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Italic.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Regular.woff2	hermes_cli	Generated asset; edit its source and rebuild

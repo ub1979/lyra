@@ -11,12 +11,13 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import { execFileSync } from 'node:child_process'
 
 import { expect, test } from '@playwright/test'
 
 import { createSandbox, writeEnvFile, writeMockProviderConfig, type Sandbox } from '../e2e/fixtures'
 import { startEchoModel, type EchoModel } from './echo-model'
-import { startStudioDashboard, type StudioDashboard } from './studio-dashboard'
+import { REPO_ROOT, startStudioDashboard, type StudioDashboard } from './studio-dashboard'
 
 const FIRST = 'hello from the studio smoke'
 const SECOND = 'second message, please keep the first reply'
@@ -110,4 +111,32 @@ test('a user turn, a second turn, and the token panel all render in Studio', asy
   await expect(secondReply).toHaveCount(1)
   await expect(bubbles.filter({ hasText: 'Echo:' })).toHaveCount(2) // only actual user turns
   expect(echo.prompts.length).toBe(promptsBeforeReload)
+
+  // A browser reload can reuse a live PTY child. Prove durability separately:
+  // read SQLite using a new process, then restart the entire test dashboard.
+  const savedMessages = () => JSON.parse(execFileSync('uv', [
+    'run', '--active', '--no-sync', 'python', '-c',
+    'import json,sqlite3,sys; c=sqlite3.connect("file:"+sys.argv[1]+"?mode=ro",uri=True); print(json.dumps(c.execute("select role,content from messages order by id").fetchall()))',
+    path.join(sandbox.hermesHome, 'state.db'),
+  ], { cwd: REPO_ROOT, encoding: 'utf8' })) as [string, string][]
+  await expect.poll(() => savedMessages().filter(([role, content]) =>
+    role === 'assistant' && content.startsWith('Echo:')).length).toBe(2)
+
+  const previousUrl = new URL(page.url())
+  const savedSessionId = await page.evaluate((workspace) =>
+    localStorage.getItem(`idrak-it.guided-session.v1:${workspace}`), project)
+  expect(savedSessionId).toBeTruthy()
+  previousUrl.searchParams.set('resume', savedSessionId!)
+  await page.goto('about:blank')
+  await dashboard.close()
+  dashboard = await startStudioDashboard(sandbox.hermesHome)
+  // The ephemeral test port changed. localStorage is origin-bound; carry only the existing session/workspace
+  // URL, not the old page's in-memory transcript, into the new server origin.
+  await page.goto(`${dashboard.url}${previousUrl.pathname}${previousUrl.search}`)
+  await expect(composer).toHaveAttribute('placeholder', /Describe your idea/, { timeout: 120_000 })
+  // A fresh origin intentionally restores the latest reply only; older
+  // bubbles live in the history view/browser cache. Both must remain in DB.
+  await expect(secondReply).toHaveCount(1, { timeout: 60_000 })
+  expect(echo.prompts.length).toBe(promptsBeforeReload)
+  expect(savedMessages().filter(([role, content]) => role === 'assistant' && content.startsWith('Echo:'))).toHaveLength(2)
 })

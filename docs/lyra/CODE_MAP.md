@@ -9,6 +9,11 @@ Current product acceptance plan and resume checkpoint:
 [`END_TO_END_ACCEPTANCE.md`](END_TO_END_ACCEPTANCE.md). Read before resuming the
 small-project reliability trial; generated application repairs belong to Lyra.
 
+Latest independent verification:
+[`revision 6 follow-up`](changes/2026-09-18-revision6-verification-followup.md).
+Distinguish the failed Trial 4 harness/storage environment from the clean
+real-model save/restart check. Full-project acceptance remains outstanding.
+
 Active follow-up: [bounded project execution plan, revision 6](2026-09-18-bounded-project-execution-plan-v6.md),
 with [reviewed comparison evidence](2026-09-18-end-to-end-comparison-report.md).
 Revision 6 corrects revision 5's budget, runner-health, test and approval
