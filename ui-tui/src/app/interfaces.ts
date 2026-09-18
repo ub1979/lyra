@@ -2,6 +2,7 @@ import type { MouseTrackingMode, ScrollBoxHandle } from '@hermes/ink'
 import type { MutableRefObject, ReactNode, RefObject, SetStateAction } from 'react'
 
 import type { PasteEvent } from '../components/textInput.js'
+import type { QueuedPrompt } from '../domain/queuedPrompt.js'
 import type { GatewayClient } from '../gatewayClient.js'
 import type {
   BillingCardInfo,
@@ -359,13 +360,13 @@ export type MaybePromise<T> = Promise<T> | T
 
 export interface ComposerActions {
   clearIn: () => void
-  dequeue: () => string | undefined
-  enqueue: (text: string) => void
+  dequeue: () => QueuedPrompt | undefined
+  enqueue: (text: QueuedPrompt) => void
   handleTextPaste: (event: PasteEvent) => MaybePromise<ComposerPasteResult | null>
   openEditor: () => Promise<void>
   pushHistory: (text: string) => void
   removeQueue: (index: number) => void
-  replaceQueue: (index: number, text: string) => void
+  replaceQueue: (index: number, text: QueuedPrompt) => void
   setCompIdx: StateSetter<number>
   setHistoryIdx: StateSetter<null | number>
   setInput: StateSetter<string>
@@ -376,10 +377,11 @@ export interface ComposerActions {
 }
 
 export interface ComposerRefs {
+  pasteSnipsRef: MutableRefObject<PasteSnippet[]>
   historyDraftRef: MutableRefObject<string>
   historyRef: MutableRefObject<string[]>
   queueEditRef: MutableRefObject<null | number>
-  queueRef: MutableRefObject<string[]>
+  queueRef: MutableRefObject<QueuedPrompt[]>
   submitRef: MutableRefObject<(value: string) => void>
 }
 
@@ -412,7 +414,7 @@ export interface InputHandlerActions {
   answerClarify: (answer: string) => void
   appendMessage: (msg: Msg) => void
   die: () => void
-  dispatchSubmission: (full: string) => void
+  dispatchSubmission: (full: QueuedPrompt) => void
   guardBusySessionSwitch: (what?: string) => boolean
   newSession: (msg?: string, title?: string) => void
   sys: (text: string) => void
@@ -493,7 +495,7 @@ export interface SlashHandlerContext {
     hasSelection: boolean
     openEditor: () => Promise<void>
     paste: (quiet?: boolean) => void
-    queueRef: MutableRefObject<string[]>
+    queueRef: MutableRefObject<QueuedPrompt[]>
     selection: SelectionApi
     setInput: StateSetter<string>
   }

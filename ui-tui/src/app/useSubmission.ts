@@ -1,6 +1,7 @@
 import { type MutableRefObject, useCallback, useEffect, useRef } from 'react'
 
 import { TYPING_IDLE_MS } from '../config/timing.js'
+import { promptText, type QueuedPrompt } from '../domain/queuedPrompt.js'
 import { completionToApplyOnSubmit, looksLikeSlashCommand } from '../domain/slash.js'
 import type { GatewayClient } from '../gatewayClient.js'
 import type { SessionSteerResponse, ShellExecResponse } from '../gatewayTypes.js'
@@ -68,13 +69,13 @@ export function useSubmission(opts: UseSubmissionOptions) {
 
   const send = useCallback(
     (text: string, showUserMessage = true) => {
-      const expand = expandSnips(composerState.pasteSnips)
+      const expand = (value: string) => value // Input ownership expands once, before clearing.
 
       submitPrompt(
         text,
         {
           appendMessage,
-          enqueue: composerActions.enqueue,
+          enqueue: value => composerActions.enqueue({ text: value }),
           expand,
           gw,
           setLastUserMsg,
@@ -83,7 +84,7 @@ export function useSubmission(opts: UseSubmissionOptions) {
         showUserMessage
       )
     },
-    [appendMessage, composerActions, composerState.pasteSnips, gw, setLastUserMsg, sys]
+    [appendMessage, composerActions, gw, setLastUserMsg, sys]
   )
 
   const shellExec = useCallback(
@@ -137,7 +138,11 @@ export function useSubmission(opts: UseSubmissionOptions) {
   )
 
   const sendQueued = useCallback(
-    (text: string) => {
+    (queued: QueuedPrompt) => {
+      const text = promptText(queued)
+
+      if (typeof queued !== 'string') {return send(text)}
+
       if (text.startsWith('!')) {
         return shellExec(text.slice(1).trim())
       }
@@ -165,16 +170,17 @@ export function useSubmission(opts: UseSubmissionOptions) {
   // `opts.fallbackToFront` re-inserts at the queue head (queue-edit picks keep
   // their position); the mainline submit path appends.
   const handleBusyInput = useCallback(
-    (full: string, opts: { fallbackToFront?: boolean } = {}) => {
+    (queued: QueuedPrompt, opts: { fallbackToFront?: boolean } = {}) => {
+      const full = promptText(queued)
       const live = getUiState()
       const mode = live.busyInputMode
 
       const enqueueText = () => {
         if (opts.fallbackToFront) {
-          composerRefs.queueRef.current.unshift(full)
+          composerRefs.queueRef.current.unshift(queued)
           composerActions.syncQueue()
         } else {
-          composerActions.enqueue(full)
+          composerActions.enqueue(queued)
         }
       }
 
@@ -184,7 +190,7 @@ export function useSubmission(opts: UseSubmissionOptions) {
       }
 
       if (mode === 'queue') {
-        return composerActions.enqueue(full)
+        return composerActions.enqueue(queued)
       }
 
       if (mode === 'steer' && live.sid) {
@@ -211,7 +217,16 @@ export function useSubmission(opts: UseSubmissionOptions) {
   )
 
   const dispatchSubmission = useCallback(
-    (full: string) => {
+    (input: QueuedPrompt) => {
+      const raw = promptText(input)
+      const snips = composerRefs.pasteSnipsRef.current
+      const full = expandSnips(snips)(raw)
+      const edit = composerRefs.queueEditRef.current
+      const editingLiteral = edit !== null && typeof composerRefs.queueRef.current[edit] !== 'string'
+      const literal = typeof input !== 'string' || full !== raw || editingLiteral
+
+      // Resolve before clear/queue/steer, using input ownership rather than a
+      // potentially stale React render. Queued/history text is self-contained.
       if (!full.trim()) {
         return
       }
@@ -219,9 +234,9 @@ export function useSubmission(opts: UseSubmissionOptions) {
       // History stores expanded paste content, not the `[[…]]` label: snips
       // are cleared on submit, so recall must be self-contained. Idempotent on
       // label-free text, so re-submitting a recalled entry stays stable.
-      const toHistory = expandSnips(composerState.pasteSnips)(full)
+      const toHistory = full
 
-      if (looksLikeSlashCommand(full)) {
+      if (typeof input === 'string' && !editingLiteral && looksLikeSlashCommand(raw)) {
         appendMessage({ kind: 'slash', role: 'system', text: full })
         composerActions.pushHistory(toHistory)
         slashRef.current(full)
@@ -230,7 +245,7 @@ export function useSubmission(opts: UseSubmissionOptions) {
         return
       }
 
-      if (full.startsWith('!')) {
+      if (typeof input === 'string' && !editingLiteral && raw.startsWith('!')) {
         composerActions.clearIn()
 
         return shellExec(full.slice(1).trim())
@@ -240,7 +255,7 @@ export function useSubmission(opts: UseSubmissionOptions) {
 
       if (!live.sid) {
         composerActions.pushHistory(toHistory)
-        composerActions.enqueue(full)
+        composerActions.enqueue(literal ? { text: full } : full)
         composerActions.clearIn()
 
         return
@@ -250,7 +265,7 @@ export function useSubmission(opts: UseSubmissionOptions) {
       composerActions.clearIn()
 
       if (editIdx !== null) {
-        composerActions.replaceQueue(editIdx, full)
+        composerActions.replaceQueue(editIdx, literal ? { text: full } : full)
         const picked = composerRefs.queueRef.current.splice(editIdx, 1)[0]
         composerActions.syncQueue()
         composerActions.setQueueEdit(null)
@@ -278,10 +293,10 @@ export function useSubmission(opts: UseSubmissionOptions) {
       composerActions.pushHistory(toHistory)
 
       if (getUiState().busy) {
-        return handleBusyInput(full)
+        return handleBusyInput(literal ? { text: full } : full)
       }
 
-      if (hasInterpolation(full)) {
+      if (!literal && hasInterpolation(full)) {
         patchUiState({ busy: true })
 
         return interpolate(full, send)
@@ -289,18 +304,7 @@ export function useSubmission(opts: UseSubmissionOptions) {
 
       send(full)
     },
-    [
-      appendMessage,
-      composerActions,
-      composerRefs,
-      composerState.pasteSnips,
-      handleBusyInput,
-      interpolate,
-      send,
-      sendQueued,
-      shellExec,
-      slashRef
-    ]
+    [appendMessage, composerActions, composerRefs, handleBusyInput, interpolate, send, sendQueued, shellExec, slashRef]
   )
 
   const submit = useCallback(

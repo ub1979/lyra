@@ -1809,6 +1809,7 @@ docs/lyra/changes/2026-09-17-targeted-job-recovery.md	docs	md: 2026 09 17 target
 docs/lyra/changes/2026-09-17-worker-git-history-guard.md	docs	md: 2026 09 17 worker git history guard
 docs/lyra/changes/2026-09-17-worker-liveness-test.md	docs	md: 2026 09 17 worker liveness test
 docs/lyra/changes/2026-09-17-worker-usage-freshness.md	docs	md: 2026 09 17 worker usage freshness
+docs/lyra/changes/2026-09-18-paste-submission-ownership.md	docs	md: 2026 09 18 paste submission ownership
 docs/lyra/changes/2026-09-18-recoverable-qa-release.md	docs	md: 2026 09 18 recoverable qa release
 docs/lyra/file-index.tsv	docs	tsv: file index
 docs/middleware/README.md	docs	md: README
@@ -6741,6 +6742,7 @@ ui-tui/src/__tests__/bundleNoAsyncEsmDeadlock.test.ts	ui-tui	Behavioral tests: b
 ui-tui/src/__tests__/charts.test.ts	ui-tui	Behavioral tests: charts.test
 ui-tui/src/__tests__/clipboard.test.ts	ui-tui	Behavioral tests: clipboard.test
 ui-tui/src/__tests__/completionApply.test.ts	ui-tui	Behavioral tests: completionApply.test
+ui-tui/src/__tests__/composerPasteSubmission.test.ts	ui-tui	Behavioral tests: composerPasteSubmission.test
 ui-tui/src/__tests__/constants.test.ts	ui-tui	Behavioral tests: constants.test
 ui-tui/src/__tests__/createGatewayEventHandler.test.ts	ui-tui	Behavioral tests: createGatewayEventHandler.test
 ui-tui/src/__tests__/createSlashHandler.test.ts	ui-tui	Behavioral tests: createSlashHandler.test
@@ -6913,6 +6915,7 @@ ui-tui/src/domain/details.ts	ui-tui	ts: details
 ui-tui/src/domain/messages.ts	ui-tui	ts: messages
 ui-tui/src/domain/paths.ts	ui-tui	ts: paths
 ui-tui/src/domain/providers.ts	ui-tui	ts: providers
+ui-tui/src/domain/queuedPrompt.ts	ui-tui	Expanded pastes stay literal when queued; explicit /queue commands remain strings.
 ui-tui/src/domain/roles.ts	ui-tui	ts: roles
 ui-tui/src/domain/slash.ts	ui-tui	Appended by TUI pickers; converted to the backend's `--session` flag before `config.set`.
 ui-tui/src/domain/usage.ts	ui-tui	ts: usage

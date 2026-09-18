@@ -5,7 +5,7 @@ import { join } from 'node:path'
 
 import { useStdin, withInkSuspended } from '@hermes/ink'
 import { useStore } from '@nanostores/react'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 
 import type { PasteEvent } from '../components/textInput.js'
 import type { ImageAttachResponse, InputDetectDropResponse } from '../gatewayTypes.js'
@@ -105,7 +105,16 @@ export function useComposerState({
 }: UseComposerStateOptions): UseComposerStateResult {
   const [input, setInput] = useState('')
   const [inputBuf, setInputBuf] = useState<string[]>([])
-  const [pasteSnips, setPasteSnips] = useState<PasteSnippet[]>([])
+  const [pasteSnips, publishPasteSnips] = useState<PasteSnippet[]>([])
+  const pasteSnipsRef = useRef<PasteSnippet[]>([])
+
+  const setPasteSnips = useCallback((update: React.SetStateAction<PasteSnippet[]>) => {
+    // Input can submit before React publishes its next render. Own the data
+    // synchronously, like the existing queue, and use state only for rendering.
+    pasteSnipsRef.current = typeof update === 'function' ? update(pasteSnipsRef.current) : update
+    publishPasteSnips(pasteSnipsRef.current)
+  }, [])
+
   const isBlocked = useStore($isBlocked)
   const { querier } = useStdin() as { querier: Parameters<typeof readOsc52Clipboard>[0] }
 
@@ -132,7 +141,7 @@ export function useComposerState({
     setQueueEdit(null)
     setHistoryIdx(null)
     historyDraftRef.current = ''
-  }, [historyDraftRef, setQueueEdit, setHistoryIdx])
+  }, [historyDraftRef, setQueueEdit, setHistoryIdx, setPasteSnips])
 
   const handleResolvedPaste = useCallback(
     async ({
@@ -221,7 +230,7 @@ export function useComposerState({
 
       return inserted
     },
-    [gw, onClipboardPaste, onImageAttached]
+    [gw, onClipboardPaste, onImageAttached, setPasteSnips]
   )
 
   const handleTextPaste = useCallback(
@@ -328,6 +337,7 @@ export function useComposerState({
       replaceQ,
       setCompIdx,
       setHistoryIdx,
+      setPasteSnips,
       setQueueEdit,
       syncQueue
     ]
@@ -337,6 +347,7 @@ export function useComposerState({
     () => ({
       historyDraftRef,
       historyRef,
+      pasteSnipsRef,
       queueEditRef,
       queueRef,
       submitRef

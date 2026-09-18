@@ -13,6 +13,10 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ### Fixed
 
+- Fix an existing Ink/Studio paste race: expand full input before clearing or
+  queueing the composer, retaining literal pasted content across queue drains.
+  Explicit queued commands remain supported; pasted examples are not promoted
+  into shell commands. Requires a fresh TUI process, not just a tab reload.
 - Preserve budget-exhaustion handoffs in existing Kanban attempt history;
   warn workers before exhaustion, fence late finalizers by run ID, and prevent
   delegated helper exhaustion from failing the parent job.

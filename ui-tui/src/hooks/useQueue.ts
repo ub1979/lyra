@@ -1,5 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 
+import { promptText, type QueuedPrompt } from '../domain/queuedPrompt.js'
+
 // Mutates `arr` in place; returned reference is the same input array, kept
 // so callers can chain. Use `Array.prototype.toSpliced` if you need a copy.
 export function removeAtInPlace<T>(arr: T[], i: number): T[] {
@@ -13,12 +15,12 @@ export function removeAtInPlace<T>(arr: T[], i: number): T[] {
 }
 
 export function useQueue() {
-  const queueRef = useRef<string[]>([])
+  const queueRef = useRef<QueuedPrompt[]>([])
   const [queuedDisplay, setQueuedDisplay] = useState<string[]>([])
   const queueEditRef = useRef<number | null>(null)
   const [queueEditIdx, setQueueEditIdx] = useState<number | null>(null)
 
-  const syncQueue = useCallback(() => setQueuedDisplay([...queueRef.current]), [])
+  const syncQueue = useCallback(() => setQueuedDisplay(queueRef.current.map(promptText)), [])
 
   const setQueueEdit = useCallback((idx: number | null) => {
     queueEditRef.current = idx
@@ -26,7 +28,7 @@ export function useQueue() {
   }, [])
 
   const enqueue = useCallback(
-    (text: string) => {
+    (text: QueuedPrompt) => {
       queueRef.current.push(text)
       syncQueue()
     },
@@ -41,7 +43,7 @@ export function useQueue() {
   }, [syncQueue])
 
   const replaceQ = useCallback(
-    (i: number, text: string) => {
+    (i: number, text: QueuedPrompt) => {
       queueRef.current[i] = text
       syncQueue()
     },

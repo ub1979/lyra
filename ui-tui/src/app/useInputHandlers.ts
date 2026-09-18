@@ -239,7 +239,8 @@ export function useInputHandlers(ctx: InputHandlerContext): InputHandlerResult {
 
     cActions.setQueueEdit(index)
     cActions.setHistoryIdx(null)
-    cActions.setInput(cRefs.queueRef.current[index] ?? '')
+    const queued = cRefs.queueRef.current[index] ?? ''
+    cActions.setInput(typeof queued === 'string' ? queued : queued.text)
 
     return true
   }

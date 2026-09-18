@@ -67,6 +67,12 @@ Durable project jobs → Hermes Kanban dispatcher → isolated worker sessions
 
 ## Complete file inventory
 
+Paste ownership: `ui-tui/src/app/useComposerState.ts`, `useSubmission.ts` and
+`ui-tui/src/domain/queuedPrompt.ts`; real mounted-hook regressions in
+`ui-tui/src/__tests__/composerPasteSubmission.test.ts` cover stale renders,
+literal queue drains and shell-command boundaries. Studio browser smoke covers
+the actual PTY-to-model path.
+
 [`file-index.tsv`](file-index.tsv) lists maintained repository files with an
 area and short mechanical summary. Search it; do not load thousands of entries
 into every AI context. Generated assets are labelled, not interpreted.
