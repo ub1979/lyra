@@ -3,6 +3,8 @@ export interface GuidedMergeMessage {
   role: "user" | "assistant" | "error";
   content: string;
   plain?: boolean;
+  /** Mid-turn assistant text already shown before the final response. */
+  interim?: boolean;
   /** A quiet line that needs attention (e.g. "this reply was not saved"). */
   tone?: "warning";
   createdAt?: number;

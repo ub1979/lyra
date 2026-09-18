@@ -42,6 +42,51 @@ const start: GatewayEvent = { type: "message.start" };
 const complete = (text: string): GatewayEvent => ({ type: "message.complete", payload: { status: "complete", text } });
 
 describe("reduceGuidedEvent — replies", () => {
+  it("shows interim assistant text without settling or advancing the turn", () => {
+    const { state, effects } = play([
+      start,
+      { type: "message.delta", payload: { text: "Planning now." } },
+      { type: "message.interim", payload: { text: "[APP_IT_PHASE:researcher] Planning now.", already_streamed: true } },
+      { type: "message.interim", payload: { text: "[APP_IT_PHASE:researcher] Planning now.", already_streamed: true } },
+    ]);
+    expect(state.messages.map((m) => m.content)).toEqual(["Planning now."]);
+    expect(state.messages[0]).toMatchObject({ interim: true, plain: true, turn: 1 });
+    expect(state.turnSettled).toBe(false);
+    expect(state.phasesCompleted).toEqual([]);
+    expect(state.phaseCurrent).toBeNull();
+    expect(state.streamedText).toBe("");
+    expect(effects).toEqual([]);
+  });
+
+  it("keeps interim commentary and the distinct final answer", () => {
+    const { state } = play([
+      start,
+      { type: "message.interim", payload: { text: "I have enough to plan." } },
+      { type: "message.delta", payload: { text: "Here is the plan." } },
+      complete("Here is the plan."),
+    ]);
+    expect(state.messages.map((m) => m.content)).toEqual(["I have enough to plan.", "Here is the plan."]);
+  });
+
+  it("settles an identical preview on one final reply", () => {
+    const { state } = play([
+      start,
+      { type: "message.interim", payload: { text: "Ready." } },
+      { type: "message.complete", payload: { text: "Ready.", response_previewed: true } },
+    ]);
+    expect(state.messages.map((m) => m.content)).toEqual(["Ready."]);
+    expect(state.messages[0].interim).toBeUndefined();
+  });
+
+  it("does not repeat identical commentary when the final frame lacks a preview flag", () => {
+    const { state } = play([
+      start,
+      { type: "message.interim", payload: { text: "Ready." } },
+      complete("Ready."),
+    ]);
+    expect(state.messages.map((message) => message.content)).toEqual(["Ready."]);
+  });
+
   it("keeps both replies when a notification turn follows a user turn", () => {
     // The bug the 0.19.41 user saw: this sequence used to show one message.
     const { state } = play([start, complete("Queue restarted."), start, complete("That was the completion notice.")]);

@@ -74,6 +74,7 @@ export function reduceGuidedEvent(
     const text = typeof payload.text === "string" ? payload.text : "";
     return unchanged({ ...state, lastSignalAt: ctx.now, streamedText: state.streamedText + text });
   }
+  if (type === "message.interim") return messageInterim(state, payload, ctx);
   if (type === "thinking.delta" || type === "reasoning.delta") {
     let next = state;
     if (isGuidedModelActivityEvent(type, payload)) next = { ...next, lastSignalAt: ctx.now };
@@ -153,6 +154,26 @@ function sessionInfo(state: GuidedEventState, payload: Payload, ctx: GuidedEvent
   return { effects, state: next };
 }
 
+function messageInterim(state: GuidedEventState, payload: Payload, ctx: GuidedEventContext): GuidedReduction {
+  if (typeof payload.text !== "string" || !payload.text.trim()) return unchanged(state);
+  const visible = sanitizeGuidedResponse(
+    parseGuidedPhaseMarkers(payload.text, ctx.selectableSpecialistIds).content,
+  );
+  // This frame seals an assistant segment. Streaming deltas for it are already
+  // in the gateway's text, but are not themselves a completed reply.
+  const next = { ...state, streamedText: "", lastSignalAt: ctx.now, turnSettled: false };
+  if (!visible || state.messages.some((message) =>
+    message.interim && message.turn === state.turnSeq && message.content === visible
+  )) return unchanged(next);
+  return unchanged({
+    ...next,
+    messages: [...state.messages, {
+      id: ctx.newId("interim"), role: "assistant", content: visible,
+      createdAt: ctx.now, turn: state.turnSeq, plain: true, interim: true,
+    }],
+  });
+}
+
 function messageComplete(state: GuidedEventState, payload: Payload, ctx: GuidedEventContext): GuidedReduction {
   // A completed parent message is a definitive boundary for any child phase,
   // even when a provider omitted subagent.complete.
@@ -178,6 +199,12 @@ function messageComplete(state: GuidedEventState, payload: Payload, ctx: GuidedE
   const teamRecommendation = extractAppItSkillSelection(response, ctx.selectableSpecialistIds);
   const finished = applyGuidedResponse(next, response, ctx);
   next = finished.state;
+  // An interim segment may also be the terminal answer (verify-on-stop is
+  // one path). Keep the final reply and remove only its identical segment.
+  const preview = state.messages.findLast((message) =>
+    message.interim && message.turn === state.turnSeq && message.content === sanitizeGuidedResponse(response)
+  );
+  if (preview) next = { ...next, messages: next.messages.filter((message) => message.id !== preview.id) };
   // The gateway's "shown but not saved" word rides on the same frame; it must
   // be seen, not dropped, and must never overwrite or be overwritten by a reply.
   const warning = guidedReplyWarning(payload, state.turnSeq, ctx.now);
