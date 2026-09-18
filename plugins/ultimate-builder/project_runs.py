@@ -397,27 +397,21 @@ def _job_runner_health() -> dict[str, Any]:
     return job_runner_health()
 
 
-def _assert_preview_decided(project: Path, requested: list[str]) -> None:
-    """Refuse the first Development job until the user decided on the preview.
-
-    Runs before any project mutation. Projects that already have a Development
-    job are exempt, so resumed, retried and repair work is never blocked.
-    """
+def _assert_queue_allowed(
+    project: Path, requested: list[str], build_profile: str | None
+) -> None:
+    """Task-plan and preview checks; pure reads before any project mutation."""
     if "sw-developer" not in requested:
         return
-    if any(_phase_from_task(task) == "sw-developer" for _, task in _project_tasks(project)):
-        return
-    path = Path(__file__).resolve().with_name("preview_authorization.py")
-    spec = importlib.util.spec_from_file_location(
-        "lyra_ultimate_builder_preview_authorization_for_jobs", path
+    _plugin_module("project_queue_guards").assert_queue_allowed(
+        project,
+        requested,
+        build_profile,
+        has_existing_development=any(
+            _phase_from_task(task) == "sw-developer" for _, task in _project_tasks(project)
+        ),
+        has_work_units=bool(_work_plan(project)["units"]),
     )
-    if spec is None or spec.loader is None:
-        raise RuntimeError("Could not load preview authorization")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    refusal = module.development_refusal(project)
-    if refusal:
-        raise PermissionError(refusal)
 
 
 def queue_project_run(
@@ -446,7 +440,8 @@ def queue_project_run(
     models = models or {}
     providers = providers or {}
     _validate_routing(set(requested), models, providers)
-    _assert_preview_decided(project, requested)
+    _assert_queue_allowed(project, requested, build_profile)
+    development_calls = _plugin_module("attempt_ceilings").development_attempt_calls(build_profile)
     origin = _origin()
     worker_profile = assignee or str(origin["profile"] or "default")
     validate_project_worker(worker_profile)
@@ -530,6 +525,13 @@ def queue_project_run(
                             task.id,
                         ),
                     )
+                    # A legacy call without a profile leaves the saved ceiling alone.
+                    if phase == "sw-developer" and development_calls is not None:
+                        origin_conn.execute(
+                            "UPDATE tasks SET max_agent_iterations=? "
+                            "WHERE id=? AND status != 'done'",
+                            (development_calls, task.id),
+                        )
         created.append(
             {
                 "task_id": task.id,
@@ -591,6 +593,7 @@ def queue_project_run(
             provider_override=provider,
             goal_mode=True,
             goal_max_turns=goal_max_turns,
+            max_agent_iterations=development_calls if phase == "sw-developer" else None,
             session_id=origin["session_id"],
         )
         subscribed = subscribe_task_origin(conn, task_id)

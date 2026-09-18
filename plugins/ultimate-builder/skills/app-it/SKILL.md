@@ -381,7 +381,11 @@ Development is queued after planning approval, the queue reads the project's
 task graph and creates one saved job per named work item with the same
 dependencies. Report the exact work-item title that is running. Never create or
 accept one catch-all job for all remaining requirements; return an oversized
-item to Planning for a smaller split.
+item to Planning for a smaller split. For Reusable and Production projects the queue
+refuses Development until a task plan exists: queue `task-planner` on its own,
+get the plan approved, then queue Development. Each Development work item has
+its own call ceiling (90 for Reusable, 180 for Production); Personal keeps one
+whole-app worker with a 90-call limit.
 
 QA queueing uses the same durable scheduler. Pass the user-selected
 `build_profile` to `project_run(action="queue", ...)` when it is known. Personal

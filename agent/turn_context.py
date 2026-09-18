@@ -485,7 +485,10 @@ def build_turn_context(
         agent._compression_warning = None  # send once
 
     # NOTE: _turns_since_memory and _iters_since_skill are NOT reset here.
-    agent.iteration_budget = IterationBudget(agent.max_iterations)
+    # A Kanban worker with an attempt budget carries spent calls across its
+    # goal-loop turns; every other agent gets a fresh per-turn budget.
+    from agent.attempt_budget import turn_call_limit
+    agent.iteration_budget = IterationBudget(turn_call_limit(agent))
 
     # Log conversation turn start for debugging/observability.
     _preview_text = summarize_user_message_for_log(user_message)

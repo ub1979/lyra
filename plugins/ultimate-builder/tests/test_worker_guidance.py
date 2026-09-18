@@ -113,6 +113,12 @@ def test_personal_development_job_carries_ledger_testing_and_personal_guidance(p
 def test_reusable_development_keeps_its_procedure_without_the_personal_block(project):
     runs = _load("project_runs")
     _approve(project)
+    # Reusable Development builds from a task plan (one job per work item).
+    (project / "task-graph.md").write_text(
+        "# Plan\n\n### TG-001 — Storage\n**Depends on:** none.\n\n"
+        "### TG-002 — Screen\n**Depends on:** TG-001.\n",
+        encoding="utf-8",
+    )
 
     queued = runs.queue_project_run(project, ["sw-developer"], build_profile="reusable")
 

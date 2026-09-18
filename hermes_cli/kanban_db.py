@@ -949,6 +949,10 @@ class Task:
     # Goal-loop turn budget for ``goal_mode`` workers. ``None`` falls
     # through to the goals engine default (``goals.DEFAULT_MAX_TURNS``).
     goal_max_turns: Optional[int] = None
+    # Model calls allowed across one worker attempt, including goal-loop
+    # continuation turns. ``None`` keeps the classic per-turn limit
+    # (``agent.max_turns``, default 90) for every turn.
+    max_agent_iterations: Optional[int] = None
     # Originating chat/agent session id, when the task was created from
     # within an agent loop that propagated ``HERMES_SESSION_ID``. NULL for
     # tasks created from the CLI, the dashboard, or any path that doesn't
@@ -1039,6 +1043,10 @@ class Task:
             ),
             goal_max_turns=(
                 row["goal_max_turns"] if "goal_max_turns" in keys and row["goal_max_turns"] else None
+            ),
+            max_agent_iterations=(
+                row["max_agent_iterations"]
+                if "max_agent_iterations" in keys and row["max_agent_iterations"] else None
             ),
             session_id=(
                 row["session_id"] if "session_id" in keys else None
@@ -1229,6 +1237,9 @@ CREATE TABLE IF NOT EXISTS tasks (
     -- Goal-loop turn budget for ``goal_mode`` workers. NULL = use the
     -- goals-engine default.
     goal_max_turns       INTEGER,
+    -- Model calls allowed across one worker attempt, including goal-loop
+    -- continuations. NULL = classic per-turn limit.
+    max_agent_iterations INTEGER,
     -- Originating chat/agent session id when the task was created from
     -- inside an agent loop that propagated ``HERMES_SESSION_ID``. NULL
     -- for tasks created from the CLI, dashboard, or any path that doesn't
@@ -2376,6 +2387,12 @@ def _migrate_add_optional_columns(conn: sqlite3.Connection) -> None:
             conn, "tasks", "goal_max_turns", "goal_max_turns INTEGER"
         )
 
+    if "max_agent_iterations" not in cols:
+        # Per-attempt model-call budget. NULL = classic per-turn limit.
+        _add_column_if_missing(
+            conn, "tasks", "max_agent_iterations", "max_agent_iterations INTEGER"
+        )
+
     if "session_id" not in cols:
         # Originating agent/chat session id, populated when the task is
         # created from within an agent loop that propagated
@@ -2848,6 +2865,7 @@ def create_task(
     provider_override: Optional[str] = None,
     goal_mode: bool = False,
     goal_max_turns: Optional[int] = None,
+    max_agent_iterations: Optional[int] = None,
     initial_status: str = "running",
     session_id: Optional[str] = None,
     board: Optional[str] = None,
@@ -3145,8 +3163,8 @@ def create_task(
                         branch_name, project_id, tenant, idempotency_key,
                         max_runtime_seconds,
                         skills, max_retries, model_override, provider_override,
-                        goal_mode, goal_max_turns, session_id
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        goal_mode, goal_max_turns, session_id, max_agent_iterations
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         task_id,
@@ -3171,6 +3189,7 @@ def create_task(
                         1 if goal_mode else 0,
                         int(goal_max_turns) if goal_max_turns is not None else None,
                         session_id,
+                        int(max_agent_iterations) if max_agent_iterations is not None else None,
                     ),
                 )
                 for pid in parents:
@@ -9120,6 +9139,10 @@ def _default_spawn(
         env["HERMES_KANBAN_GOAL_MODE"] = "1"
         if task.goal_max_turns is not None:
             env["HERMES_KANBAN_GOAL_MAX_TURNS"] = str(int(task.goal_max_turns))
+    # Attempt-wide call budget: the worker counts calls across every goal
+    # continuation turn of this attempt (agent/attempt_budget.py).
+    if task.max_agent_iterations:
+        env["HERMES_KANBAN_ATTEMPT_MAX_CALLS"] = str(int(task.max_agent_iterations))
     terminal_timeout = _worker_terminal_timeout_env(
         task.max_runtime_seconds,
         env.get("TERMINAL_TIMEOUT"),
@@ -9208,6 +9231,10 @@ def _default_spawn(
         "chat",
         "-q", prompt,
     ])
+    if task.max_agent_iterations:
+        # One turn may use the whole attempt budget; later continuation turns
+        # receive only what remains.
+        cmd.extend(["--max-turns", str(int(task.max_agent_iterations))])
     if task.goal_mode:
         # Goal-mode workers must take the fully-quiet single-query path:
         # the kanban goal-loop hook (_run_kanban_goal_loop_q) only runs in

@@ -72,6 +72,7 @@ agent/agent_init.py	agent	Implementation of :meth:`AIAgent.__init__` — extract
 agent/agent_runtime_helpers.py	agent	Assorted AIAgent runtime helpers — moved out of run_agent.py for clarity.
 agent/anthropic_adapter.py	agent	Anthropic Messages API adapter for Hermes Agent.
 agent/async_utils.py	agent	Async/sync bridging helpers.
+agent/attempt_budget.py	agent	Carry a Kanban worker's model-call budget across goal-loop turns.
 agent/aux_accounting.py	agent	Ambient session-accounting context for auxiliary LLM calls.
 agent/auxiliary_client.py	agent	Shared auxiliary client router for side tasks.
 agent/azure_identity_adapter.py	agent	Microsoft Entra ID adapter for Microsoft Foundry.
@@ -1818,6 +1819,7 @@ docs/lyra/changes/2026-09-17-targeted-job-recovery.md	docs	md: 2026 09 17 target
 docs/lyra/changes/2026-09-17-worker-git-history-guard.md	docs	md: 2026 09 17 worker git history guard
 docs/lyra/changes/2026-09-17-worker-liveness-test.md	docs	md: 2026 09 17 worker liveness test
 docs/lyra/changes/2026-09-17-worker-usage-freshness.md	docs	md: 2026 09 17 worker usage freshness
+docs/lyra/changes/2026-09-18-attempt-budget.md	docs	md: 2026 09 18 attempt budget
 docs/lyra/changes/2026-09-18-call-limit-visibility.md	docs	md: 2026 09 18 call limit visibility
 docs/lyra/changes/2026-09-18-coordinator-overlap.md	docs	md: 2026 09 18 coordinator overlap
 docs/lyra/changes/2026-09-18-job-runner-health.md	docs	md: 2026 09 18 job runner health
@@ -3094,6 +3096,7 @@ plugins/teams_pipeline/store.py	plugins	Durable local state for the Teams pipeli
 plugins/teams_pipeline/subscriptions.py	plugins	Microsoft Graph subscription helpers for the Teams pipeline plugin.
 plugins/ultimate-builder/README.md	plugins	md: README
 plugins/ultimate-builder/__init__.py	plugins	Lyra integration for the Ultimate Application Builder.
+plugins/ultimate-builder/attempt_ceilings.py	plugins	Per-profile call ceilings for Development jobs, and the task-plan requirement.
 plugins/ultimate-builder/call_limit_state.py	plugins	Explain a project job that stopped at its model-call limit.
 plugins/ultimate-builder/dashboard/app/index.js	plugins	js: index
 plugins/ultimate-builder/dashboard/dist/index.js	plugins	js: index
@@ -3110,6 +3113,7 @@ plugins/ultimate-builder/progress_ledger_seed.py	plugins	Create the project prog
 plugins/ultimate-builder/project_brain.py	plugins	Verified, bounded project memory for Lyra Studio builds.
 plugins/ultimate-builder/project_learnings.py	plugins	Non-destructive reconciliation for Ultimate Builder project learnings.
 plugins/ultimate-builder/project_progress.py	plugins	Parse project progress conservatively and separate reports from evidence.
+plugins/ultimate-builder/project_queue_guards.py	plugins	Checks that must pass before any project job is created.
 plugins/ultimate-builder/project_repository.py	plugins	Create and verify project-local Git repositories without touching Lyra Git.
 plugins/ultimate-builder/project_run_cli.py	plugins	CLI adapter for durable Lyra project jobs.
 plugins/ultimate-builder/project_run_tool.py	plugins	Let the Studio coordinator queue and inspect durable project jobs without a shell.
@@ -3148,6 +3152,7 @@ plugins/ultimate-builder/skills/ultimate-app-builder/references/workflows/tech-w
 plugins/ultimate-builder/skills/ultimate-app-builder/references/workflows/ui-designer/SKILL.md	plugins	md: SKILL
 plugins/ultimate-builder/skills/ultimate-app-builder/references/workflows/ux-writer/SKILL.md	plugins	md: SKILL
 plugins/ultimate-builder/tests/preview_approval.py	plugins	Behavioral tests: preview approval
+plugins/ultimate-builder/tests/test_attempt_ceilings.py	plugins	Behavioral tests: attempt ceilings
 plugins/ultimate-builder/tests/test_call_limit_state.py	plugins	Behavioral tests: call limit state
 plugins/ultimate-builder/tests/test_plugin.py	plugins	Behavioral tests: plugin
 plugins/ultimate-builder/tests/test_plugin_api.py	plugins	Behavioral tests: plugin api
@@ -4063,6 +4068,7 @@ tests/agent/test_anthropic_whitespace_text_blocks.py	tests	Behavioral tests: ant
 tests/agent/test_api_content_sidecar.py	tests	Behavioral tests: api content sidecar
 tests/agent/test_arcee_trinity_overrides.py	tests	Behavioral tests: arcee trinity overrides
 tests/agent/test_async_utils.py	tests	Behavioral tests: async utils
+tests/agent/test_attempt_budget.py	tests	Behavioral tests: attempt budget
 tests/agent/test_aux_progress_streaming.py	tests	Behavioral tests: aux progress streaming
 tests/agent/test_auxiliary_anthropic_pool_fallback_regression.py	tests	Behavioral tests: auxiliary anthropic pool fallback regression
 tests/agent/test_auxiliary_client.py	tests	Behavioral tests: auxiliary client
@@ -5276,6 +5282,7 @@ tests/hermes_cli/test_inventory.py	tests	Behavioral tests: inventory
 tests/hermes_cli/test_inventory_pricing.py	tests	Behavioral tests: inventory pricing
 tests/hermes_cli/test_jobs_json_utf8_bom.py	tests	Behavioral tests: jobs json utf8 bom
 tests/hermes_cli/test_journey_render.py	tests	Behavioral tests: journey render
+tests/hermes_cli/test_kanban_attempt_budget.py	tests	Behavioral tests: kanban attempt budget
 tests/hermes_cli/test_kanban_block_kinds.py	tests	Behavioral tests: kanban block kinds
 tests/hermes_cli/test_kanban_blocked_sticky.py	tests	Behavioral tests: kanban blocked sticky
 tests/hermes_cli/test_kanban_boards.py	tests	Behavioral tests: kanban boards
@@ -5733,6 +5740,7 @@ tests/run_agent/test_anthropic_third_party_oauth_guard.py	tests	Behavioral tests
 tests/run_agent/test_anthropic_truncation_continuation.py	tests	Behavioral tests: anthropic truncation continuation
 tests/run_agent/test_api_max_retries_config.py	tests	Behavioral tests: api max retries config
 tests/run_agent/test_async_httpx_del_neuter.py	tests	Behavioral tests: async httpx del neuter
+tests/run_agent/test_attempt_budget_journey.py	tests	Behavioral tests: attempt budget journey
 tests/run_agent/test_auth_provider_failover.py	tests	Behavioral tests: auth provider failover
 tests/run_agent/test_background_review.py	tests	Behavioral tests: background review
 tests/run_agent/test_background_review_cache_parity.py	tests	Behavioral tests: background review cache parity
