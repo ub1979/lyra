@@ -65,6 +65,11 @@ export function nextJobRunnerStart(
 ): JobRunnerStart {
   if (start !== "starting") return start;
   if (runner?.state === "running") return "idle";
+  // A tick recorded after the start means the start worked, even if the
+  // runner stops again later; that later stop is a new problem, not a failed start.
+  if (startedAt !== null && runner?.last_tick_at != null && runner.last_tick_at * 1000 >= startedAt) {
+    return "idle";
+  }
   if (startedAt !== null && now - startedAt > JOB_RUNNER_START_TIMEOUT_MS) return "failed";
   return "starting";
 }

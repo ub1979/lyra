@@ -79,6 +79,11 @@ predate this change. Web: typecheck clean, 483 tests passed, ESLint clean on
 changed files, production build succeeded. Not yet verified in a live Studio
 journey or with a real LaunchAgent start.
 
+Follow-up fix: a tick recorded after the start now ends the "starting" state
+for good, so a runner that stops again later shows the ordinary "queued but
+cannot start" notice instead of a false "could not start" message. Web: 484
+tests passed, typecheck clean, bundle rebuilt.
+
 Compatibility / restart: Restart the gateway to start writing ticks, and reload
 Studio for the new panel. Until the gateway restarts, health shows `unknown`.
 
