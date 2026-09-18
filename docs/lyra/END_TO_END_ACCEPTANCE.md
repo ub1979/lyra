@@ -742,3 +742,39 @@ supersedes revision 5 and the repair order above:
   decision in revision 6.
 
 No product code was changed by these corrections.
+
+### Revision 6 implementation — local commits, 2026-09-18
+
+Implemented as separate local commits, each with a change record under
+`docs/lyra/changes/`. Nothing was pushed and no live journey has been run.
+
+| Slice | Commit | Change record |
+|---|---|---|
+| 1 Preview authorization | `43802f530` | `2026-09-18-preview-authorization.md` |
+| 2 Job runner health and start | `ddb79c319`, `736883f35` | `2026-09-18-job-runner-health.md` |
+| 3 Worker ledger and test contract | `b975f1674` | `2026-09-18-worker-ledger-and-test-contract.md` |
+| 4a Call-limit visibility, retry policy A | `e0f2b43ae` | `2026-09-18-call-limit-visibility.md` |
+| 4b Attempt-wide budgets and ceilings | `359597f6f` | `2026-09-18-attempt-budget.md` |
+
+Verification boundary: focused and wide automated suites pass. The wide run
+has 29 failures, and the same 29 fail on the pre-change checkout `1e44460c6`
+(credential, provider and service-manager tests that pass when run alone).
+Web typecheck, tests and bundle build pass. Not yet verified: a live Studio
+preview checkpoint, a real LaunchAgent start from Studio, and worker call
+counts under the new instructions.
+
+Decisions taken during implementation:
+- A project without preview files asks the user "Start building without
+  one?" instead of skipping automatically; the backend cannot tell UI from
+  non-UI projects.
+- Retry policy A: the existing breaker gives each project job one automatic
+  continuation that receives the saved handoff.
+- Root cause of the dead gateway: `start.sh` runs it as a launcher-owned child
+  and stops it when the launcher exits. Studio's Start job runner uses
+  `hermes gateway start`, which installs the KeepAlive LaunchAgent on macOS.
+- Known gap: judge and exhaustion-summary calls do not consume the worker
+  budget but are not reported as separate usage lines.
+
+Next: restart the dashboard and gateway on the new commits, then run Slice 5a
+(two clean Personal Pocket Tasks journeys) against the revision 6 thresholds.
+

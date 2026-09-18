@@ -1,6 +1,8 @@
 # Lyra bounded project execution plan — revision 6
 
-Date: 2026-09-18. Status: proposed; supersedes revision 5 as the active plan.
+Date: 2026-09-18. Status: slices 1, 2, 3, 4a and 4b implemented as local
+commits (not pushed); live acceptance (Slice 5) not yet run. Supersedes
+revision 5 as the active plan.
 [Revision 5](2026-09-18-bounded-project-execution-plan-v5.md) remains a
 reference. Evidence: the Trial 3 worker trace and run records in the
 [trial log](END_TO_END_ACCEPTANCE.md), plus the source checks named below.
@@ -239,7 +241,7 @@ The real gaps are:
 - **Retry policy (decision below).** Enforce it at the database/dispatcher
   boundary, not in the display check.
 
-### Decision required before implementation
+### Decision required before implementation (resolved: A)
 
 The earlier review proposed preventing automatic retry after exhaustion. The
 run record shows the retry is not blind: it carries the saved handoff. Choose
