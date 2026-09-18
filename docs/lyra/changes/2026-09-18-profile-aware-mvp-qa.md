@@ -6,4 +6,4 @@ Affected modules and data: Launcher seed, Studio setup, project_run tool, queue 
 Tests and observed results: 140 plugin tests and 472 web tests passed; web typecheck and Ruff passed. The browser-to-model-to-queue choice has not been verified in a live project. The profile is carried in the setup seed and restored from workspace browser storage; no cross-browser settings authority was added.
 Compatibility / restart: New frontend and plugin code required. Existing active jobs keep their current task graph.
 Rollback / retained recovery data: Revert code and keep existing Kanban tasks; do not downgrade during an active new MVP QA job.
-Local commit / authorized push: Pending.
+Local commit / authorized push: `fa04e4709`; not pushed.

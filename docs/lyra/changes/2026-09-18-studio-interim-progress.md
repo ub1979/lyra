@@ -6,4 +6,4 @@ Affected modules and data: Studio event reducer and its behavioral tests; persis
 Tests and observed results: 472 full web tests passed, including interim reducer/frame cases; web typecheck passed; web lint had 0 errors and 30 existing warnings. Browser event-to-render timing remains to be measured on a controlled delayed-model journey.
 Compatibility / restart: Reload the rebuilt Studio frontend; gateway protocol is unchanged.
 Rollback / retained recovery data: Revert this focused change; existing transcript lines remain ordinary assistant messages.
-Local commit / authorized push: Pending; no push authority inferred from plan approval.
+Local commit / authorized push: `cd5a5e742`; not pushed.

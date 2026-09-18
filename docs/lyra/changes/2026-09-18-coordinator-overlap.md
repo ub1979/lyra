@@ -7,4 +7,4 @@ Affected modules and data: App-it skill guidance only; no data migration.
 Tests and observed results: Trial log reviewed. Controlled journey is reserved for the user's acceptance pass; no runtime guard is claimed.
 Compatibility / restart: New conversations load the updated skill; active prompt caching must not be rewritten mid-conversation.
 Rollback / retained recovery data: Revert wording if it suppresses necessary foreground decisions; existing tasks remain.
-Local commit / authorized push: Pending.
+Local commit / authorized push: `ae61a3bf2`; not pushed.

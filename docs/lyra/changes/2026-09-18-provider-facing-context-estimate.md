@@ -6,4 +6,4 @@ Affected modules and data: `agent/turn_context.py` and a focused projection help
 Tests and observed results: 22 focused projection/context tests passed; Ruff clean. The configured provider's reported input tokens have not yet been compared with this estimate.
 Compatibility / restart: Agent process restart required.
 Rollback / retained recovery data: Revert helper and call sites; stored messages are untouched.
-Local commit / authorized push: Pending.
+Local commit / authorized push: `fe183b24b`; not pushed.

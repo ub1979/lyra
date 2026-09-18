@@ -1,6 +1,6 @@
 # Lyra reliability and workflow plan — revision 3
 
-Date: 2026-09-18. Status: code changes implemented locally; live acceptance
+Date: 2026-09-18. Status: initial code slices implemented locally; live acceptance
 and release sign-off remain open. The user will run the end-to-end journeys.
 Supersedes [revision 2](2026-09-18-reliability-and-workflow-plan-v2.md), which
 remains the detailed reference. Evidence is in the [comparison report](2026-09-18-end-to-end-comparison-report.md)
@@ -17,6 +17,13 @@ cross-process selection protocol, or QA architecture redesign.
 The UI remains the authority for profile and agent choice. Lyra may explain a
 risk, but cannot silently add roles or approve its own team. A user may permit
 simple defaults; that permission should be acknowledged visibly before planning.
+
+Implementation boundary: the selected profile currently travels through the
+Studio setup seed and workspace-scoped browser storage into `project_run`. The
+queue validates the value and preserves an existing QA task shape, but no
+server-side immutable selection record was added. The live acceptance run must
+check that Lyra actually passes the selected profile; a cross-browser mismatch
+or model omission remains a reason to revisit the deferred settings authority.
 
 ## Implementation order
 
@@ -127,6 +134,12 @@ work. The chosen remedy and evidence are recorded before implementation.
 
 The user will perform this journey after the local changes are delivered. Unit,
 integration and build checks cannot substitute for the two clean live runs.
+Local verification passed 472 web tests, 140 builder-plugin tests, focused
+context/evidence tests, typecheck, lint (warnings only), and the locked-dependency
+web build. A wider Python sweep did not pass: 39 tests failed across unrelated
+agent/gateway suites, including sandbox-denied writes to `~/.hermes` and tests
+dependent on local credentials/configuration. Those failures were not fully
+baseline-classified. Clean CI and the live journey remain release gates.
 
 Run at least two clean, independent Pocket Tasks journeys with one coordinator
 per project. Verify the unchanged acceptance criteria directly: local browser

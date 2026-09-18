@@ -6,4 +6,4 @@ Affected modules and data: Studio usage cache keyed by workspace/session and eve
 Tests and observed results: Full web suite (472 tests) and typecheck passed; same-session and cross-session cache behavior has focused unit coverage. Live browser reload remains for the user's acceptance journey.
 Compatibility / restart: Reload rebuilt Studio.
 Rollback / retained recovery data: Revert client usage cache; entries can be ignored and are not project data.
-Local commit / authorized push: Pending.
+Local commit / authorized push: `69511b43b`; not pushed.
