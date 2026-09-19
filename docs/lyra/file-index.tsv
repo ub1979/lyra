@@ -1847,6 +1847,7 @@ docs/lyra/changes/2026-09-19-coordinator-verification.md	docs	md: 2026 09 19 coo
 docs/lyra/changes/2026-09-19-cron-outcome.md	docs	md: 2026 09 19 cron outcome
 docs/lyra/changes/2026-09-19-focused-qa-skills.md	docs	md: 2026 09 19 focused qa skills
 docs/lyra/changes/2026-09-19-node-evidence.md	docs	md: 2026 09 19 node evidence
+docs/lyra/changes/2026-09-19-notes-trial-reliability-repairs.md	docs	md: 2026 09 19 notes trial reliability repairs
 docs/lyra/changes/2026-09-19-personal-qa-execution.md	docs	md: 2026 09 19 personal qa execution
 docs/lyra/changes/2026-09-19-skill-resources.md	docs	md: 2026 09 19 skill resources
 docs/lyra/changes/2026-09-19-startup-submit-lifecycle.md	docs	md: 2026 09 19 startup submit lifecycle
@@ -6134,6 +6135,7 @@ tests/tools/test_browser_headed_mode.py	tests	Behavioral tests: browser headed m
 tests/tools/test_browser_homebrew_paths.py	tests	Behavioral tests: browser homebrew paths
 tests/tools/test_browser_hybrid_routing.py	tests	Behavioral tests: browser hybrid routing
 tests/tools/test_browser_lightpanda.py	tests	Behavioral tests: browser lightpanda
+tests/tools/test_browser_local_dialog.py	tests	Behavioral tests: browser local dialog
 tests/tools/test_browser_open_timeout.py	tests	Behavioral tests: browser open timeout
 tests/tools/test_browser_orphan_reaper.py	tests	Behavioral tests: browser orphan reaper
 tests/tools/test_browser_private_page_action_guard.py	tests	Behavioral tests: browser private page action guard
@@ -6516,7 +6518,8 @@ tools/blueprints.py	tools	Blueprints: shareable plain-language automations layer
 tools/browser_camofox.py	tools	Camofox browser backend — local anti-detection browser via REST API.
 tools/browser_camofox_state.py	tools	Hermes-managed Camofox state helpers.
 tools/browser_cdp_tool.py	tools	py: browser cdp tool
-tools/browser_dialog_tool.py	tools	Agent-facing tool: respond to a native JS dialog captured by the CDP supervisor.
+tools/browser_dialog_support.py	tools	Keep pending browser dialogs observable without blocking the command queue.
+tools/browser_dialog_tool.py	tools	Respond to dialogs through the existing supervisor, including local browsers.
 tools/browser_supervisor.py	tools	Persistent CDP supervisor for browser dialog + frame detection.
 tools/browser_tool.py	tools	py: browser tool
 tools/budget_config.py	tools	Configurable budget constants for tool result persistence.

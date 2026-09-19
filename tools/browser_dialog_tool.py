@@ -1,13 +1,11 @@
-"""Agent-facing tool: respond to a native JS dialog captured by the CDP supervisor.
+"""Respond to dialogs through the existing supervisor, including local browsers.
 
 This tool is response-only — the agent first reads ``pending_dialogs`` from
 ``browser_snapshot`` output, then calls ``browser_dialog(action=...)`` to
 accept or dismiss.
 
-Gated on the same ``_browser_cdp_check`` as ``browser_cdp`` so it only
-appears when a CDP endpoint is reachable (Browserbase with a
-``connectUrl``, local Chromium-family browser via ``/browser connect``, or
-``browser.cdp_url`` set in config).
+Local Chromium is discovered on its task-owned endpoint after navigation;
+the raw CDP tool's availability and the user's browser configuration are unchanged.
 
 See ``website/docs/developer-guide/browser-supervisor.md`` for the full
 design.
@@ -39,11 +37,9 @@ BROWSER_DIALOG_SCHEMA: Dict[str, Any] = {
         "**Multiple dialogs:** if more than one dialog is queued (rare — "
         "happens when a second dialog fires while the first is still open), "
         "pass ``dialog_id`` from the snapshot to disambiguate.\n\n"
-        "**Availability:** only present when a CDP-capable backend is "
-        "attached — Browserbase sessions, local Chromium-family browser via "
-        "``/browser connect``, or ``browser.cdp_url`` in config.yaml. "
-        "Not available on Camofox (REST-only) or the default Playwright "
-        "local browser (CDP port is hidden)."
+        "**Availability:** supported local Chromium and CDP-capable backends. "
+        "Not available on Camofox (REST-only). A pending dialog can also appear "
+        "in an action's result. Respond before repeating the original action."
     ),
     "parameters": {
         "type": "object",
@@ -86,7 +82,9 @@ def browser_dialog(
     task_id: Optional[str] = None,
 ) -> str:
     """Respond to a pending dialog on the active task's CDP supervisor."""
-    effective_task_id = task_id or "default"
+    from tools.browser_tool import _last_session_key
+
+    effective_task_id = _last_session_key(task_id or "default")
     supervisor = SUPERVISOR_REGISTRY.get(effective_task_id)
     if supervisor is None:
         return json.dumps(
@@ -94,8 +92,8 @@ def browser_dialog(
                 "success": False,
                 "error": (
                     "No CDP supervisor is attached to this task. Either the "
-                    "browser backend doesn't expose CDP (Camofox, default "
-                    "Playwright) or no browser session has been started yet. "
+                    "browser backend doesn't expose CDP or its dialog "
+                    "connection is unavailable. "
                     "Call browser_navigate or /browser connect first."
                 ),
             }
@@ -118,19 +116,18 @@ def browser_dialog(
 
 
 def _browser_dialog_check() -> bool:
-    """Gate: same as ``browser_cdp`` — only offered when CDP is reachable.
-
-    Kept identical so the two tools appear and disappear together. The
-    supervisor itself is started lazily by ``browser_navigate`` /
-    ``/browser connect`` / Browserbase session creation, so a reachable
-    CDP URL is enough to commit to showing the tool.
-    """
+    """Advertise local Chromium at session creation, without probing or spawning."""
     try:
         from tools.browser_cdp_tool import _browser_cdp_check  # type: ignore[import-not-found]
     except Exception as exc:  # pragma: no cover — defensive
         logger.debug("browser_dialog check: browser_cdp_tool import failed: %s", exc)
         return False
-    return _browser_cdp_check()
+    if _browser_cdp_check():
+        return True
+    from tools import browser_tool as bt
+
+    return (not bt._is_camofox_mode() and bt._is_local_mode()
+            and not bt._using_lightpanda_engine() and bt.check_browser_requirements())
 
 
 registry.register(

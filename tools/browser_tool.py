@@ -521,7 +521,7 @@ def _get_dialog_policy_config() -> Tuple[str, float]:
         return DEFAULT_DIALOG_POLICY, DEFAULT_DIALOG_TIMEOUT_S
 
 
-def _ensure_cdp_supervisor(task_id: str) -> None:
+def _ensure_cdp_supervisor(task_id: str, local_cdp_url: str = "", target_url: str | None = None) -> None:
     """Start a CDP supervisor for ``task_id`` if an endpoint is reachable.
 
     Idempotent — delegates to ``SupervisorRegistry.get_or_start`` which skips
@@ -540,7 +540,7 @@ def _ensure_cdp_supervisor(task_id: str) -> None:
     the browser session itself.  The agent simply won't see
     ``pending_dialogs`` / ``frame_tree`` fields in snapshots.
     """
-    cdp_url = _get_cdp_override()
+    cdp_url = local_cdp_url or _get_cdp_override()
     if not cdp_url:
         # Fallback: active session may carry a per-session CDP URL from a
         # cloud provider (Browserbase sets this).
@@ -560,6 +560,8 @@ def _ensure_cdp_supervisor(task_id: str) -> None:
             cdp_url=cdp_url,
             dialog_policy=policy,
             dialog_timeout_s=timeout_s,
+            **({"bridge_dialogs": False} if local_cdp_url else {}),
+            **({"target_url": target_url} if target_url is not None else {}),
         )
     except Exception as exc:
         logger.debug(
@@ -1023,6 +1025,11 @@ def _annotate_lightpanda_fallback(result: Dict[str, Any], reason: str) -> Dict[s
 
 def _copy_fallback_warning(target: Dict[str, Any], result: Dict[str, Any]) -> Dict[str, Any]:
     """Copy browser fallback metadata from an internal result into a tool response."""
+    # Dialogs and other backend warnings are operational information, not a
+    # successful action's payload. Preserve them across all response wrappers.
+    for key in ("warning", "pending_dialogs"):
+        if result.get(key):
+            target[key] = _redact_browser_output(result[key])
     if result.get("fallback_warning"):
         target["fallback_warning"] = result["fallback_warning"]
         target["browser_engine"] = result.get("browser_engine")
@@ -2324,6 +2331,14 @@ def _run_browser_command(
         timeout = _safe_command_timeout()
     args = args or []
 
+    from tools.browser_dialog_support import (
+        PendingBrowserDialog, pending_dialog_response, wait_for_command,
+    )
+    if command not in {"close", "dialog"}:
+        pending = pending_dialog_response(task_id)
+        if pending:
+            return pending
+
     # Build the command
     try:
         browser_cmd = _find_agent_browser()
@@ -2499,7 +2514,15 @@ def _run_browser_command(
             os.close(stderr_fd)
 
         try:
-            proc.wait(timeout=timeout)
+            if command in {"close", "dialog"}:
+                proc.wait(timeout=timeout)
+            else:
+                wait_for_command(proc, timeout, task_id)
+        except PendingBrowserDialog as pending:
+            proc.kill()
+            proc.wait()
+            _unlink_command_output_files(stdout_path, stderr_path)
+            result = pending.response
         except subprocess.TimeoutExpired:
             proc.kill()
             proc.wait()
@@ -2930,6 +2953,10 @@ def browser_navigate(url: str, task_id: Optional[str] = None) -> str:
         title = data.get("title", "")
         final_url = data.get("url", url)
 
+        from tools.browser_dialog_support import attach_local_supervisor
+
+        attach_local_supervisor(nav_session_key, final_url)
+
         # Post-redirect SSRF check — if the browser followed a redirect to a
         # private/internal address, block the result so the model can't read
         # internal content via subsequent browser_snapshot calls.
@@ -3015,17 +3042,16 @@ def browser_navigate(url: str, task_id: Optional[str] = None) -> str:
                     snapshot_text = _truncate_snapshot(snapshot_text)
                 response["snapshot"] = _redact_browser_output(snapshot_text)
                 response["element_count"] = len(refs) if refs else 0
-                if snap_result.get("fallback_warning") and not response.get("fallback_warning"):
-                    _copy_fallback_warning(response, snap_result)
+            _copy_fallback_warning(response, snap_result)
         except Exception as e:
             logger.debug("Auto-snapshot after navigate failed: %s", e)
 
         return json.dumps(response, ensure_ascii=False)
     else:
-        return json.dumps({
+        return json.dumps(_copy_fallback_warning({
             "success": False,
             "error": result.get("error", "Navigation failed")
-        }, ensure_ascii=False)
+        }, result), ensure_ascii=False)
 
 
 def browser_snapshot(
@@ -3698,6 +3724,12 @@ def _browser_eval(expression: str, task_id: Optional[str] = None) -> str:
     # agent-browser session key.  The literal pre-scan above already ran.
     if _is_camofox_mode():
         return _camofox_eval(expression, task_id)
+
+    from tools.browser_dialog_support import pending_dialog_response
+
+    pending = pending_dialog_response(effective_task_id)
+    if pending:
+        return json.dumps(pending, ensure_ascii=False)
 
     # ── Private-network guard (eval return-value path) ──────────────────────
     # The literal pre-scan above closes the direct-fetch sub-path

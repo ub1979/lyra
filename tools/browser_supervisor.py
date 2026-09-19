@@ -306,6 +306,8 @@ class CDPSupervisor:
         *,
         dialog_policy: str = DEFAULT_DIALOG_POLICY,
         dialog_timeout_s: float = DEFAULT_DIALOG_TIMEOUT_S,
+        bridge_dialogs: bool = True,
+        target_url: Optional[str] = None,
     ) -> None:
         if dialog_policy not in _VALID_POLICIES:
             raise ValueError(
@@ -316,6 +318,9 @@ class CDPSupervisor:
         self.cdp_url = cdp_url
         self.dialog_policy = dialog_policy
         self.dialog_timeout_s = float(dialog_timeout_s)
+        self.bridge_dialogs = bridge_dialogs
+        self.target_url = target_url
+        self._target_id: Optional[str] = None
 
         # State protected by ``_state_lock`` for cross-thread reads.
         self._state_lock = threading.Lock()
@@ -737,12 +742,21 @@ class CDPSupervisor:
         """Find a page target, attach flattened session, enable domains, install dialog bridge."""
         resp = await self._cdp("Target.getTargets")
         targets = resp.get("result", {}).get("targetInfos", [])
-        page_target = next((t for t in targets if t.get("type") == "page"), None)
+        pages = [t for t in targets if t.get("type") == "page"]
+        if self.target_url is not None:
+            pages = [t for t in pages if (
+                t.get("targetId") == self._target_id if self._target_id
+                else t.get("url") == self.target_url
+            )]
+            if len(pages) != 1:
+                raise RuntimeError("Cannot uniquely identify the task's browser page")
+        page_target = next(iter(pages), None)
         if page_target is None:
             created = await self._cdp("Target.createTarget", {"url": "about:blank"})
             target_id = created["result"]["targetId"]
         else:
             target_id = page_target["targetId"]
+        self._target_id = target_id
 
         attach = await self._cdp(
             "Target.attachToTarget",
@@ -776,6 +790,11 @@ class CDPSupervisor:
         Idempotent at the CDP level: Chromium de-duplicates identical
         add-script calls by source, and Fetch.enable replaces prior patterns.
         """
+        # Local Chromium exposes native dialog events. The XHR bridge is for
+        # CDP proxies which auto-dismiss native dialogs; do not rewrite local
+        # page functions or compete with agent-browser's Fetch interception.
+        if not self.bridge_dialogs:
+            return
         try:
             await self._cdp(
                 "Page.addScriptToEvaluateOnNewDocument",
@@ -1441,6 +1460,8 @@ class _SupervisorRegistry:
         dialog_policy: str = DEFAULT_DIALOG_POLICY,
         dialog_timeout_s: float = DEFAULT_DIALOG_TIMEOUT_S,
         start_timeout: float = 15.0,
+        bridge_dialogs: bool = True,
+        target_url: Optional[str] = None,
     ) -> CDPSupervisor:
         """Idempotently ensure a supervisor is running for ``(task_id, cdp_url)``.
 
@@ -1450,7 +1471,7 @@ class _SupervisorRegistry:
         with self._lock:
             existing = self._by_task.get(task_id)
             if existing is not None:
-                if existing.cdp_url == cdp_url:
+                if existing.cdp_url == cdp_url and getattr(existing, "bridge_dialogs", True) == bridge_dialogs:
                     thread_ok = existing._thread is not None and existing._thread.is_alive()
                     loop_ok = existing._loop is not None and existing._loop.is_running()
                     if thread_ok and loop_ok:
@@ -1466,6 +1487,8 @@ class _SupervisorRegistry:
             cdp_url=cdp_url,
             dialog_policy=dialog_policy,
             dialog_timeout_s=dialog_timeout_s,
+            **({"bridge_dialogs": False} if not bridge_dialogs else {}),
+            **({"target_url": target_url} if target_url is not None else {}),
         )
         supervisor.start(timeout=start_timeout)
         with self._lock:

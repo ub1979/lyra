@@ -31,6 +31,8 @@ def _patch_supervisor(monkeypatch, supervisor):
     """Wire SUPERVISOR_REGISTRY.get to return ``supervisor`` for any task_id."""
     import tools.browser_supervisor as bs
 
+    if supervisor is not None:
+        supervisor.snapshot.return_value.pending_dialogs = ()
     registry = MagicMock()
     registry.get.return_value = supervisor
     monkeypatch.setattr(bs, "SUPERVISOR_REGISTRY", registry)
