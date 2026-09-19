@@ -5516,10 +5516,15 @@ def block_task(
     recurrences = 0
     with write_txn(conn):
         cur_row = conn.execute(
-            "SELECT status, block_kind, block_recurrences FROM tasks WHERE id = ?",
+            "SELECT status, block_kind, block_recurrences, current_run_id FROM tasks WHERE id = ?",
             (task_id,),
         ).fetchone()
         if cur_row is None:
+            return False
+        if cur_row["status"] not in {"running", "ready"} or (
+            expected_run_id is not None
+            and cur_row["current_run_id"] != int(expected_run_id)
+        ):
             return False
         prev_kind = cur_row["block_kind"] if "block_kind" in cur_row.keys() else None
         prev_recurrences = (
@@ -5534,6 +5539,9 @@ def block_task(
         # here (rather than ``blocked``) is what keeps a cron from ever seeing
         # a dependency-wait as something to "unblock".
         if kind == "dependency":
+            from hermes_cli.kanban_dependencies import require_unfinished_prerequisite
+
+            require_unfinished_prerequisite(conn, task_id)
             cur = conn.execute(
                 """
                 UPDATE tasks

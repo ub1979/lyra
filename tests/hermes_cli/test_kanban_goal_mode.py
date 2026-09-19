@@ -371,6 +371,8 @@ def test_quiet_goal_loop_cannot_mutate_a_successor_run(
         # dispatcher promotes it, and run two starts before run one's process
         # reaches this outer-loop status check.
         with kb.connect() as conn:
+            prerequisite = kb.create_task(conn, title="repair", assignee="default")
+            kb.link_tasks(conn, prerequisite, tid)
             assert kb.block_task(
                 conn,
                 tid,
@@ -378,7 +380,9 @@ def test_quiet_goal_loop_cannot_mutate_a_successor_run(
                 kind="dependency",
                 expected_run_id=run_one,
             )
-            assert kb.recompute_ready(conn) == 1
+            assert kb.claim_task(conn, prerequisite)
+            assert kb.complete_task(conn, prerequisite, result="repaired")
+            kb.recompute_ready(conn)
             run_two_task = kb.claim_task(conn, tid)
             assert run_two_task is not None
             observed["run_two"] = run_two_task.current_run_id

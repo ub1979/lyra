@@ -1852,6 +1852,8 @@ docs/lyra/changes/2026-09-19-focused-qa-skills.md	docs	md: 2026 09 19 focused qa
 docs/lyra/changes/2026-09-19-node-evidence.md	docs	md: 2026 09 19 node evidence
 docs/lyra/changes/2026-09-19-notes-trial-reliability-repairs.md	docs	md: 2026 09 19 notes trial reliability repairs
 docs/lyra/changes/2026-09-19-personal-qa-execution.md	docs	md: 2026 09 19 personal qa execution
+docs/lyra/changes/2026-09-19-qa-browser-automation-policy.md	docs	md: 2026 09 19 qa browser automation policy
+docs/lyra/changes/2026-09-19-qa-dependency-routing.md	docs	md: 2026 09 19 qa dependency routing
 docs/lyra/changes/2026-09-19-qa-reliability-repairs.md	docs	md: 2026 09 19 qa reliability repairs
 docs/lyra/changes/2026-09-19-skill-resources.md	docs	md: 2026 09 19 skill resources
 docs/lyra/changes/2026-09-19-startup-submit-lifecycle.md	docs	md: 2026 09 19 startup submit lifecycle
@@ -2031,6 +2033,7 @@ hermes_cli/journey.py	hermes_cli	``hermes journey`` — what Hermes has learned,
 hermes_cli/kanban.py	hermes_cli	CLI for the Hermes Kanban board — ``hermes kanban …`` subcommand.
 hermes_cli/kanban_db.py	hermes_cli	SQLite-backed Kanban board for multi-profile, multi-project collaboration.
 hermes_cli/kanban_decompose.py	hermes_cli	Kanban decomposer — fan a triage task out into a graph of child tasks.
+hermes_cli/kanban_dependencies.py	hermes_cli	Validate a dependency wait against the board's actual prerequisite edges.
 hermes_cli/kanban_diagnostics.py	hermes_cli	Kanban diagnostics — structured, actionable distress signals for tasks.
 hermes_cli/kanban_dispatch_wakeup.py	hermes_cli	Best-effort cross-process wake signal; the dispatcher still owns all claims.
 hermes_cli/kanban_dispatcher_tick.py	hermes_cli	Record that the embedded Kanban dispatcher is actually checking for work.
@@ -5352,6 +5355,7 @@ tests/hermes_cli/test_kanban_db_repair.py	tests	Behavioral tests: kanban db repa
 tests/hermes_cli/test_kanban_decompose.py	tests	Behavioral tests: kanban decompose
 tests/hermes_cli/test_kanban_decompose_db.py	tests	Behavioral tests: kanban decompose db
 tests/hermes_cli/test_kanban_default_assignee.py	tests	Behavioral tests: kanban default assignee
+tests/hermes_cli/test_kanban_dependency_wait.py	tests	Behavioral tests: kanban dependency wait
 tests/hermes_cli/test_kanban_diagnostics.py	tests	Behavioral tests: kanban diagnostics
 tests/hermes_cli/test_kanban_dispatch_lock.py	tests	Behavioral tests: kanban dispatch lock
 tests/hermes_cli/test_kanban_dispatch_wakeup.py	tests	Behavioral tests: kanban dispatch wakeup
