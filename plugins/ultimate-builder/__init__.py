@@ -200,6 +200,10 @@ def register(ctx) -> None:
         tool_spec.loader.exec_module(tool_module)
         tool_module.register_project_run_tool(ctx)
         _register_preview_answer_hook(ctx, tool_module)
+        if hasattr(ctx, "register_hook"):
+            ctx.register_hook(
+                "pre_tool_call", tool_module._sibling("qa_worker_policy").guard_qa_tool,
+            )
 
 
 def _register_preview_answer_hook(ctx, tool_module) -> None:

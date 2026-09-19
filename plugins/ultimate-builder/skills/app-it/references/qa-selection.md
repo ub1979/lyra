@@ -31,7 +31,13 @@ Jobs share the directory and remain sequential. Functional saves
 serious findings block approval. Read the remaining jobs before advancing.
 
 When a job reports defects, route bounded Development repair and the affected
-QA retest within the approved scope. Resume using task comments and saved
+QA retest within the approved scope. A QA-only request authorizes reporting;
+ask before expanding it into Development. QA saves evidence and waits with
+`needs_input`; it must not schedule or perform repairs itself. In an authorized
+full build, use the project's bounded Development queue, keep failed QA parked,
+and return to the affected QA checks only after the repair has evidence. A real
+dependency is repair -> QA, never QA -> repair. Do not bypass an input/review
+gate with the failed-job retry action. Resume using task comments and saved
 evidence after checking revision/dirty files; never run another copy of QA in
 parallel in the same directory. Do not claim Experience or production assurance
 for a Functional-only pass. No job-count reduction guarantees faster model

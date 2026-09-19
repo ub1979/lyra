@@ -3157,6 +3157,7 @@ plugins/ultimate-builder/project_status.py	plugins	Maintain Lyra's small, valida
 plugins/ultimate-builder/project_task_recovery.py	plugins	Recover one failed project task without bypassing its dependency/review gates.
 plugins/ultimate-builder/project_work_units.py	plugins	Load bounded project work units for the existing Kanban dependency queue.
 plugins/ultimate-builder/qa_acceptance.py	plugins	Read-only coverage checks for newly queued, focused QA campaigns.
+plugins/ultimate-builder/qa_worker_policy.py	plugins	Keep Lyra QA tool calls within testing and evidence responsibilities.
 plugins/ultimate-builder/requirement_ids.py	plugins	Extract declared requirement IDs without treating narrative references as scope.
 plugins/ultimate-builder/scripts/evaluate_candidates.py	plugins	py: evaluate candidates
 plugins/ultimate-builder/skills/app-it/SKILL.md	plugins	md: SKILL
@@ -3214,6 +3215,7 @@ plugins/ultimate-builder/tests/test_project_status.py	plugins	Behavioral tests: 
 plugins/ultimate-builder/tests/test_project_task_recovery.py	plugins	Behavioral tests: project task recovery
 plugins/ultimate-builder/tests/test_project_work_units.py	plugins	Behavioral tests: project work units
 plugins/ultimate-builder/tests/test_qa_acceptance.py	plugins	Behavioral tests: qa acceptance
+plugins/ultimate-builder/tests/test_qa_worker_policy.py	plugins	Behavioral tests: qa worker policy
 plugins/ultimate-builder/tests/test_requirement_ids.py	plugins	Behavioral tests: requirement ids
 plugins/ultimate-builder/tests/test_shared_standards_loading.py	plugins	Behavioral tests: shared standards loading
 plugins/ultimate-builder/tests/test_worker_guidance.py	plugins	Behavioral tests: worker guidance

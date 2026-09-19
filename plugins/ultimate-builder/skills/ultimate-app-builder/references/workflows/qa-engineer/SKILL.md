@@ -54,3 +54,8 @@ command succeeded. DOM attributes alone do not verify screen-reader behaviour.
 Only the saved final work item may mark the overall QA phase complete.
 Record actual coverage and untested areas in `bug-report.md`; preserve prior
 evidence and task comments.
+QA must not create workers, rewire dependencies or repair application source,
+including through terminal commands. Record failures and affected retest commands
+in a `kanban_comment`, then use `kanban_block(kind="needs_input")` for coordinator
+routing. Use a dependency wait only for an existing unfinished parent prerequisite.
+This role rule overrides generic follow-up-task advice and legacy repair guidance.

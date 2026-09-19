@@ -49,8 +49,25 @@ the goal-loop race test finishes its prerequisite before claiming the successor.
 One new test initially used the wrong comment-call signature (corrected); local
 HTTP fixture tests needed sandbox permission and pass with it.
 
-Pending: plugin delivery, project isolation and stop/claim races. Focused tests
-do not establish release stability.
+Stage 2: the existing plugin hook identifies QA from saved task skills. It
+vetoes scheduling/rewiring and application writes through file tools, including
+multi-file patches, moves and symlink targets. File paths use the existing
+session-cwd resolver. Tests and evidence remain writable and terminal test
+commands remain available. This is a workflow guard, not a shell sandbox;
+the mandatory skill rule also forbids application repairs through terminal.
+Generic follow-up guidance now distinguishes successors from prerequisites
+and respects role authority. QA-only findings stay parked pending repair
+authorization; full-build coordinators route Development then affected retests.
+
+Stage 2 verification: 221 passed (one skipped) across QA policy, plugin,
+focused-skill/workflow and prompt-builder suites. Coverage includes the actual
+file-tool cwd resolver and the agent-loop delegation hook as well as ordinary
+tool dispatch. The first test run incorrectly sent `delegate_task` through the
+ordinary dispatcher; it is agent-loop-intercepted, so that test now exercises
+its shared hook entry point.
+
+Pending: project isolation and stop/claim races.
+Focused tests do not establish release stability.
 
 ## Deployment and rollback
 

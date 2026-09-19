@@ -139,8 +139,21 @@ replaying the whole campaign. Browser assertion counts are not journey counts.
 
 Report PASS, FAIL or BLOCKED for each in-scope criterion and link its evidence.
 Open serious defects or required untested behaviour prevent an approved verdict.
-Use `kanban_block` with the supported `dependency` or `needs_input` reason kind
-and an exact handoff when the assignment cannot pass; do not use
+QA must not create repair tasks, schedule workers, rewire dependencies or repair
+application source (including through `terminal`). This role boundary takes
+precedence over generic follow-up-task advice. QA may write or repair tests and
+evidence. The coordinator owns Development routing in the approved scope.
+
+For a new defect, save a `kanban_comment` naming failed criteria, revision,
+reproduction, evidence, repair scope and exact affected retest commands. Then
+call `kanban_block(kind="needs_input", reason="Coordinator: route the saved repair and retest")`.
+A QA-only request ends here until repair is authorized. Do not complete a failed
+QA job to unlock a child. Use `kind="dependency"` only when the coordinator has
+already linked an unfinished repair as a **parent prerequisite of this QA task**.
+A child of QA waits for QA, so it cannot unblock QA. A rejected dependency block
+must become a saved coordinator handoff with `needs_input`, never inline repair.
+After a properly routed repair, verify changed revision and rerun affected or
+invalid checks, reusing still-valid evidence. Do not use
 `kanban_complete` merely to let the next job start despite failed checks.
 Only the final selected QA work item may assemble `bug-report.md` and mark the
 Quality assurance phase verified. For two jobs, the final worker must inspect
