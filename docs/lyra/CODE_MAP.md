@@ -9,12 +9,15 @@ Current product acceptance plan and resume checkpoint:
 [`END_TO_END_ACCEPTANCE.md`](END_TO_END_ACCEPTANCE.md). Read before resuming the
 small-project reliability trial; generated application repairs belong to Lyra.
 
-Latest independent verification:
-[`revision 6 follow-up`](changes/2026-09-18-revision6-verification-followup.md).
-Distinguish the failed Trial 4 harness/storage environment from the clean
-real-model save/restart check. Full-project acceptance remains outstanding.
+Latest independent verification: [frozen calculator trial](2026-09-19-calculator-live-trial.md)
+completed functionally but failed clean acceptance. Current follow-up:
+[contract repair analysis](2026-09-19-reliability-synthesis-and-action-plan.md) and
+[implementation/testing record](changes/2026-09-19-workflow-contract-repairs.md).
+The user reserved the next live journeys for their own testing. Earlier
+[revision 6 verification](changes/2026-09-18-revision6-verification-followup.md)
+remains evidence, including the unresolved Trial 4 storage incident.
 
-Active follow-up: [bounded project execution plan, revision 6](2026-09-18-bounded-project-execution-plan-v6.md),
+Previous implementation plan: [bounded project execution plan, revision 6](2026-09-18-bounded-project-execution-plan-v6.md),
 with [reviewed comparison evidence](2026-09-18-end-to-end-comparison-report.md).
 Revision 6 corrects revision 5's budget, runner-health, test and approval
 details. Both supersede the prior proposed task-map approach: they are based on the
@@ -86,6 +89,23 @@ Durable project jobs → Hermes Kanban dispatcher → isolated worker sessions
 | Release gates | `.github/workflows/ci.yml`, `scripts/run_tests_parallel.py` | CI classification/discovery tests |
 
 ## Complete file inventory
+
+Calculator follow-up boundaries:
+
+- Capability-aware finish verification: `agent/verification_stop.py`; real agent
+  regression in `tests/run_agent/test_verification_continuation_budget.py`.
+- Trusted selected-preview handoff: `plugins/ultimate-builder/preview_selection.py`,
+  `preview_authorization.py`; actual clarify/queue tests in the plugin suite.
+- Personal Documentation: `worker_guidance.py` and the Technical Writer skill;
+  real per-profile queued-body regressions in `test_worker_guidance.py`.
+- Manifest-free Node evidence: `agent/node_test_command.py` and
+  `tests/agent/test_node_test_evidence.py`.
+- One-shot outcomes: existing `cron/executions.py` ledger, `tools/cronjob_tools.py`,
+  `tests/tools/test_cronjob_run_outcome.py`.
+- Installed design-resource ownership: shared `skills/ui-ux/design-quality/`
+  resource packages and `tests/skills/test_design_resource_install.py`.
+- Coordinator status: `web/src/lib/coordinator-status.ts`; Studio reuses existing
+  turn and connection signals, not an additional event system.
 
 Paste ownership: `ui-tui/src/app/useComposerState.ts`, `useSubmission.ts` and
 `ui-tui/src/domain/queuedPrompt.ts`; real mounted-hook regressions in

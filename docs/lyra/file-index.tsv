@@ -146,6 +146,7 @@ agent/moa_trace.py	agent	Full MoA turn trace persistence (opt-in via config ``mo
 agent/model_metadata.py	agent	Model metadata, context lengths, and token estimation utilities.
 agent/models_dev.py	agent	Models.dev registry integration — primary database for providers and models.
 agent/moonshot_schema.py	agent	Helpers for translating OpenAI-style tool schemas to Moonshot's schema subset.
+agent/node_test_command.py	agent	Discover dependency-free Node tests without scanning dependency trees.
 agent/nous_rate_guard.py	agent	Cross-session rate limit guard for Nous Portal.
 agent/onboarding.py	agent	Contextual first-touch onboarding hints.
 agent/oneshot.py	agent	Shared one-off LLM requests for non-conversational helpers.
@@ -1748,6 +1749,8 @@ docs/lyra/2026-09-18-end-to-end-comparison-report.md	docs	md: 2026 09 18 end to 
 docs/lyra/2026-09-18-reliability-and-workflow-plan-v2.md	docs	md: 2026 09 18 reliability and workflow plan v2
 docs/lyra/2026-09-18-reliability-and-workflow-plan-v3.md	docs	md: 2026 09 18 reliability and workflow plan v3
 docs/lyra/2026-09-18-reliability-and-workflow-plan.md	docs	md: 2026 09 18 reliability and workflow plan
+docs/lyra/2026-09-19-calculator-live-trial.md	docs	md: 2026 09 19 calculator live trial
+docs/lyra/2026-09-19-reliability-synthesis-and-action-plan.md	docs	md: 2026 09 19 reliability synthesis and action plan
 docs/lyra/CHANGE_MANAGEMENT.md	docs	md: CHANGE MANAGEMENT
 docs/lyra/CODE_MAP.md	docs	md: CODE MAP
 docs/lyra/CONTEXT_EFFICIENCY.md	docs	md: CONTEXT EFFICIENCY
@@ -1836,6 +1839,13 @@ docs/lyra/changes/2026-09-18-studio-usage-reconnect.md	docs	md: 2026 09 18 studi
 docs/lyra/changes/2026-09-18-verification-evidence-shell-status.md	docs	md: 2026 09 18 verification evidence shell status
 docs/lyra/changes/2026-09-18-whole-skill-results.md	docs	md: 2026 09 18 whole skill results
 docs/lyra/changes/2026-09-18-worker-ledger-and-test-contract.md	docs	md: 2026 09 18 worker ledger and test contract
+docs/lyra/changes/2026-09-19-coordinator-verification.md	docs	md: 2026 09 19 coordinator verification
+docs/lyra/changes/2026-09-19-cron-outcome.md	docs	md: 2026 09 19 cron outcome
+docs/lyra/changes/2026-09-19-node-evidence.md	docs	md: 2026 09 19 node evidence
+docs/lyra/changes/2026-09-19-skill-resources.md	docs	md: 2026 09 19 skill resources
+docs/lyra/changes/2026-09-19-studio-status.md	docs	md: 2026 09 19 studio status
+docs/lyra/changes/2026-09-19-worker-handoff.md	docs	md: 2026 09 19 worker handoff
+docs/lyra/changes/2026-09-19-workflow-contract-repairs.md	docs	md: 2026 09 19 workflow contract repairs
 docs/lyra/file-index.tsv	docs	tsv: file index
 docs/middleware/README.md	docs	md: README
 docs/observability/README.md	docs	md: README
@@ -2162,8 +2172,8 @@ hermes_cli/web_dist/assets/RulesCompressed-Medium-CA76_CrB.woff2	hermes_cli	Gene
 hermes_cli/web_dist/assets/RulesCompressed-Regular-BSXFyF4x.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Bold-DZA7s8Pa.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Regular-l8uVympt.woff2	hermes_cli	Generated asset; edit its source and rebuild
+hermes_cli/web_dist/assets/index-BB7RTdwN.js	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/index-BGAdPJZk.css	hermes_cli	Generated asset; edit its source and rebuild
-hermes_cli/web_dist/assets/index-dYu2d-L8.js	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Bold.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Italic.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Regular.woff2	hermes_cli	Generated asset; edit its source and rebuild
@@ -3111,6 +3121,7 @@ plugins/ultimate-builder/preview_authorization.py	plugins	Decide whether Develop
 plugins/ultimate-builder/preview_checkpoint_store.py	plugins	Persist one preview checkpoint record per project workspace.
 plugins/ultimate-builder/preview_clarify_hook.py	plugins	Observe clarify results and hand preview answers to the authorization record.
 plugins/ultimate-builder/preview_digest.py	plugins	Fingerprint the visual preview a user is asked to approve.
+plugins/ultimate-builder/preview_selection.py	plugins	Validate preview alternatives and preserve the user's selected artifact.
 plugins/ultimate-builder/progress_ledger_seed.py	plugins	Create the project progress ledger from Lyra's supported format.
 plugins/ultimate-builder/project_brain.py	plugins	Verified, bounded project memory for Lyra Studio builds.
 plugins/ultimate-builder/project_learnings.py	plugins	Non-destructive reconciliation for Ultimate Builder project learnings.
@@ -3958,12 +3969,14 @@ skills/ui-ux/LICENSE-taste-skill-MIT.txt	skills	txt: LICENSE taste skill MIT
 skills/ui-ux/brutalist-skill/SKILL.md	skills	md: SKILL
 skills/ui-ux/design-quality/LICENSE-NOTE.md	skills	md: LICENSE NOTE
 skills/ui-ux/design-quality/a11y-audit/SKILL.md	skills	md: SKILL
+skills/ui-ux/design-quality/accessibility/SKILL.md	skills	md: SKILL
 skills/ui-ux/design-quality/accessibility/aria-patterns.md	skills	md: aria patterns
 skills/ui-ux/design-quality/accessibility/cognitive.md	skills	md: cognitive
 skills/ui-ux/design-quality/accessibility/i18n-rtl.md	skills	md: i18n rtl
 skills/ui-ux/design-quality/accessibility/vision.md	skills	md: vision
 skills/ui-ux/design-quality/accessibility/wcag-aaa.md	skills	md: wcag aaa
 skills/ui-ux/design-quality/accessibility/wcag-checklist.md	skills	md: wcag checklist
+skills/ui-ux/design-quality/components/SKILL.md	skills	md: SKILL
 skills/ui-ux/design-quality/components/atoms.md	skills	md: atoms
 skills/ui-ux/design-quality/components/data-display.md	skills	md: data display
 skills/ui-ux/design-quality/components/data-viz.md	skills	md: data viz
@@ -3978,14 +3991,17 @@ skills/ui-ux/design-quality/components/templates.md	skills	md: templates
 skills/ui-ux/design-quality/design-component/SKILL.md	skills	md: SKILL
 skills/ui-ux/design-quality/design-review/SKILL.md	skills	md: SKILL
 skills/ui-ux/design-quality/design-tokens/SKILL.md	skills	md: SKILL
+skills/ui-ux/design-quality/scripts/SKILL.md	skills	md: SKILL
 skills/ui-ux/design-quality/scripts/axe_audit.mjs	skills	mjs: axe audit
 skills/ui-ux/design-quality/scripts/contrast.py	skills	py: contrast
 skills/ui-ux/design-quality/scripts/lint_taste.py	skills	py: lint taste
 skills/ui-ux/design-quality/scripts/measure_render.mjs	skills	mjs: measure render
 skills/ui-ux/design-quality/scripts/verify_states.mjs	skills	mjs: verify states
+skills/ui-ux/design-quality/taste/SKILL.md	skills	md: SKILL
 skills/ui-ux/design-quality/taste/aesthetic-systems.md	skills	md: aesthetic systems
 skills/ui-ux/design-quality/taste/design-taste.md	skills	md: design taste
 skills/ui-ux/design-quality/taste/motion-choreography.md	skills	md: motion choreography
+skills/ui-ux/design-quality/tokens/SKILL.md	skills	md: SKILL
 skills/ui-ux/design-quality/tokens/blur.json	skills	json: blur
 skills/ui-ux/design-quality/tokens/borders.json	skills	json: borders
 skills/ui-ux/design-quality/tokens/breakpoints.json	skills	json: breakpoints
@@ -4249,6 +4265,7 @@ tests/agent/test_model_metadata_local_ctx.py	tests	Behavioral tests: model metad
 tests/agent/test_model_metadata_ssl.py	tests	Behavioral tests: model metadata ssl
 tests/agent/test_models_dev.py	tests	Behavioral tests: models dev
 tests/agent/test_moonshot_schema.py	tests	Behavioral tests: moonshot schema
+tests/agent/test_node_test_evidence.py	tests	Behavioral tests: node evidence
 tests/agent/test_non_stream_stale_timeout.py	tests	Behavioral tests: non stream stale timeout
 tests/agent/test_none_deref_guards.py	tests	Behavioral tests: none deref guards
 tests/agent/test_nous_credits_gauge.py	tests	Behavioral tests: nous credits gauge
@@ -4333,6 +4350,7 @@ tests/agent/test_turn_retry_state.py	tests	Behavioral tests: turn retry state
 tests/agent/test_unsupported_parameter_retry.py	tests	Behavioral tests: unsupported parameter retry
 tests/agent/test_unsupported_temperature_retry.py	tests	Behavioral tests: unsupported temperature retry
 tests/agent/test_usage_pricing.py	tests	Behavioral tests: usage pricing
+tests/agent/test_verification_capabilities.py	tests	Behavioral tests: verification capabilities
 tests/agent/test_verification_evidence.py	tests	Behavioral tests: verification evidence
 tests/agent/test_verification_evidence_fd_leak.py	tests	Behavioral tests: verification evidence fd leak
 tests/agent/test_verification_stop.py	tests	Behavioral tests: verification stop
@@ -5894,6 +5912,7 @@ tests/secret_sources/test_secret_source_registry.py	tests	Behavioral tests: secr
 tests/skills/test_builder_dashboard_roster.py	tests	Behavioral tests: builder dashboard roster
 tests/skills/test_cloudflare_temporary_deploy_skill.py	tests	Behavioral tests: cloudflare temporary deploy skill
 tests/skills/test_darwinian_evolver_skill.py	tests	Behavioral tests: darwinian evolver skill
+tests/skills/test_design_resource_install.py	tests	Behavioral tests: design resource install
 tests/skills/test_engineering_standards.py	tests	Behavioral tests: engineering standards
 tests/skills/test_fetch_transcript.py	tests	Behavioral tests: fetch transcript
 tests/skills/test_google_workspace_api.py	tests	Behavioral tests: google workspace api
@@ -6131,6 +6150,7 @@ tests/tools/test_credential_pool_env_fallback.py	tests	Behavioral tests: credent
 tests/tools/test_cron_approval_mode.py	tests	Behavioral tests: cron approval mode
 tests/tools/test_cron_prompt_injection.py	tests	Behavioral tests: cron prompt injection
 tests/tools/test_cronjob_run_immediate.py	tests	Behavioral tests: cronjob run immediate
+tests/tools/test_cronjob_run_outcome.py	tests	Behavioral tests: cronjob run outcome
 tests/tools/test_cronjob_tools.py	tests	Behavioral tests: cronjob tools
 tests/tools/test_cross_profile_guard.py	tests	Behavioral tests: cross profile guard
 tests/tools/test_daemon_pool.py	tests	Behavioral tests: daemon pool
@@ -7212,6 +7232,8 @@ web/src/lib/chatImagePaste.test.ts	web	Behavioral tests: chatImagePaste.test
 web/src/lib/chatImagePaste.ts	web	ts: chatImagePaste
 web/src/lib/clipboard.test.ts	web	Behavioral tests: clipboard.test
 web/src/lib/clipboard.ts	web	ts: clipboard
+web/src/lib/coordinator-status.test.ts	web	Behavioral tests: coordinator-status.test
+web/src/lib/coordinator-status.ts	web	ts: coordinator status
 web/src/lib/cron-job.test.ts	web	Behavioral tests: cron-job.test
 web/src/lib/cron-job.ts	web	ts: cron job
 web/src/lib/dashboard-flags.ts	web	ts: dashboard flags
@@ -7312,7 +7334,7 @@ web/src/lib/utils.ts	web	ts: utils
 web/src/main.tsx	web	tsx: main
 web/src/pages/AnalyticsPage.tsx	web	tsx: AnalyticsPage
 web/src/pages/ChannelsPage.tsx	web	tsx: ChannelsPage
-web/src/pages/ChatPage.tsx	web	* ChatPage — embeds `hermes --tui` inside the dashboard.
+web/src/pages/ChatPage.tsx	web	tsx: ChatPage
 web/src/pages/ConfigPage.tsx	web	tsx: ConfigPage
 web/src/pages/CronPage.tsx	web	tsx: CronPage
 web/src/pages/EnvPage.tsx	web	tsx: EnvPage
