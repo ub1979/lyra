@@ -1,3 +1,5 @@
+import { coordinatorStatusLabel, type CoordinatorStatus } from "@/lib/coordinator-status";
+
 /**
  * ChatPage — embeds `hermes --tui` inside the dashboard.
  *
@@ -561,6 +563,7 @@ export function GuidedRuntimePanel({
   onStopWorker,
   paused,
   usage,
+  coordinatorState,
 }: {
   activeWorkers: readonly GuidedWorkerRuntime[];
   runState: UltimateBuilderRunState | null;
@@ -569,6 +572,7 @@ export function GuidedRuntimePanel({
   onStopWorker: (id: string) => void;
   paused: boolean;
   usage: GuidedUsageSnapshot;
+  coordinatorState: CoordinatorStatus;
 }) {
   const model = usage.model || defaultModelLabel;
   const allJobs = projectAgentActivity(runState, runStateStale);
@@ -600,7 +604,7 @@ export function GuidedRuntimePanel({
       <div className="mt-3 rounded-lg border border-emerald-500/25 bg-emerald-500/[0.07] p-2.5">
         <div className="flex items-center gap-2 font-semibold text-emerald-400">
           <Bot className="h-3.5 w-3.5" />
-          <span>Lyra available</span>
+          <span>{coordinatorStatusLabel(coordinatorState)}</span>
         </div>
         <p
           className="mt-1 truncate text-[10px] text-text-secondary"
@@ -627,22 +631,22 @@ export function GuidedRuntimePanel({
           <strong className="text-right text-midground">Lyra only</strong>
           <span className="text-text-secondary">Fresh</span>
           <strong className="text-right text-midground">
-            {formatGuidedTokens(usage.input)}
+            {usage.reported ? formatGuidedTokens(usage.input) : "—"}
           </strong>
           <span className="text-text-secondary">Cached</span>
           <strong className="text-right text-midground">
-            {formatGuidedTokens(usage.cacheRead)}
+            {usage.reported ? formatGuidedTokens(usage.cacheRead) : "—"}
           </strong>
           <span className="text-text-secondary">Output</span>
           <strong className="text-right text-midground">
-            {formatGuidedTokens(usage.output)}
+            {usage.reported ? formatGuidedTokens(usage.output) : "—"}
           </strong>
           <span className="text-text-secondary">Reasoning</span>
           <strong className="text-right text-midground">
-            {formatGuidedTokens(usage.reasoning)}
+            {usage.reported ? formatGuidedTokens(usage.reasoning) : "—"}
           </strong>
           <span className="text-text-secondary">Calls</span>
-          <strong className="text-right text-midground">{usage.calls}</strong>
+          <strong className="text-right text-midground">{usage.reported ? usage.calls : "—"}</strong>
           {usage.costUsd > 0 && (
             <>
               <span className="text-text-secondary">Cost</span>
@@ -651,7 +655,7 @@ export function GuidedRuntimePanel({
               </strong>
             </>
           )}
-          <span className="text-text-secondary">Updated</span>
+          <span className="text-text-secondary">Updated · last reported</span>
           <strong className="text-right text-midground">
             {usage.reported ? formatStudioDateTime(usage.updatedAt) : "—"}
           </strong>
@@ -666,6 +670,9 @@ export function GuidedRuntimePanel({
                 : "None"}
           </strong>
         </div>
+        <p className="px-2.5 pb-2 text-[10px] text-text-secondary">
+          Reported usage only; auxiliary judge and summary calls are not included.
+        </p>
       </details>
 
       <div className="mt-3 flex min-h-0 flex-1 flex-col">
@@ -1022,6 +1029,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   // The terminal fallback exists only for legacy backends that never establish
   // the structured feed at all.
   const guidedStructuredFeedEstablishedRef = useRef(false);
+  const [guidedEventConnection, setGuidedEventConnection] = useState({ scope: "", connected: false });
   // Epoch ms until which a specialist phase may stay silent, or 0 when no
   // phase is running. A boolean flag here used to disable the silence watchdog
   // outright, and it was set by `subagent.spawn_requested` — a spawn *request*.
@@ -1822,6 +1830,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     [resumeParam, scopedProfile],
   );
   const titleScope = `${channel}\0${reconnectNonce}`;
+  const guidedEventsConnected = guidedEventConnection.scope === titleScope && guidedEventConnection.connected;
   const sessionTitle =
     sessionTitleState.scope === titleScope ? sessionTitleState.title : null;
   const handleSessionTitleChange = useCallback(
@@ -1868,6 +1877,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         const socket = new WebSocket(url);
         ws = socket;
         socket.addEventListener("open", () => {
+          if (unmounting || ws !== socket) return;
+          setGuidedEventConnection({ scope: titleScope, connected: true });
           reconnectAttempt = 0;
         guidedStructuredFeedEstablishedRef.current =
           guidedStructuredFeedEstablished(
@@ -1877,6 +1888,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       });
         socket.addEventListener("close", () => {
           if (ws !== socket) return;
+          if (!unmounting) setGuidedEventConnection({ scope: titleScope, connected: false });
           guidedStructuredFeedEstablishedRef.current =
             guidedStructuredFeedEstablished(
               guidedStructuredFeedEstablishedRef.current,
@@ -1973,6 +1985,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     handleGuidedClarificationEvent,
     runGuidedEffects,
     snapshotGuidedState,
+    titleScope,
     workspaceParam,
     setGuidedActivitySynced,
     setGuidedMessagesSynced,
@@ -4434,6 +4447,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                     defaultModelLabel={guidedDefaultModelLabel}
                     paused={guidedPaused}
                     usage={guidedUsage}
+                    coordinatorState={{ connection: ptyState, eventsConnected: guidedEventsConnected, working: guidedActivity.phase === "working" }}
                     onStopWorker={(id) => stopGuidedWorkers(id)}
                   />
                 </div>
@@ -4687,6 +4701,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                 defaultModelLabel={guidedDefaultModelLabel}
                 paused={guidedPaused}
                 usage={guidedUsage}
+                coordinatorState={{ connection: ptyState, eventsConnected: guidedEventsConnected, working: guidedActivity.phase === "working" }}
                 onStopWorker={(id) => stopGuidedWorkers(id)}
               />
             </aside>

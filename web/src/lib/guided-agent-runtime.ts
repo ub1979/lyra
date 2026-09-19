@@ -80,7 +80,9 @@ export function normalizeGuidedUsage(
   const usage = value as Record<string, unknown>;
   // An empty payload (compute-host mirror missing, agent not attached) is
   // "unknown", not "zero"; only real counters may claim to be a measurement.
-  const reported = USAGE_COUNTER_KEYS.some((key) => key in usage);
+  const reported = USAGE_COUNTER_KEYS.some((key) =>
+    typeof usage[key] === "number" && Number.isFinite(usage[key]),
+  );
   if (!reported) return EMPTY_GUIDED_USAGE;
   return {
     cacheRead: numberValue(usage.cache_read),
@@ -156,7 +158,8 @@ export function updateGuidedWorkers(
     output: numberValue(payload.output_tokens) || previous?.output || 0,
     reasoning:
       numberValue(payload.reasoning_tokens) || previous?.reasoning || 0,
-    reported: true,
+    reported: previous?.reported || [payload.input_tokens, payload.output_tokens, payload.api_calls]
+      .some((value) => typeof value === "number" && Number.isFinite(value)),
     startedAt:
       previous?.startedAt ||
       Math.max(0, now - numberValue(payload.duration_seconds) * 1000),

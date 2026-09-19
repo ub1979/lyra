@@ -19,6 +19,7 @@ describe("GuidedRuntimePanel", () => {
         onStopWorker={() => undefined}
         paused={false}
         usage={EMPTY_GUIDED_USAGE}
+        coordinatorState={{ connection: "open", eventsConnected: true, working: false }}
       />,
     );
     expect(unknown).toContain("Not reported yet");
@@ -51,6 +52,7 @@ describe("GuidedRuntimePanel", () => {
         onStopWorker={() => undefined}
         paused={false}
         usage={normalizeGuidedUsage({ input: 100, output: 50, calls: 1 }, 5_000)}
+        coordinatorState={{ connection: "open", eventsConnected: true, working: false }}
       />,
     );
     expect(reported).toContain("Lyra only");
@@ -75,11 +77,12 @@ describe("GuidedRuntimePanel", () => {
         onStopWorker={() => undefined}
         paused={false}
         usage={EMPTY_GUIDED_USAGE}
+        coordinatorState={{ connection: "open", eventsConnected: true, working: false }}
       />,
     );
 
     expect(html).toContain("Agent activity");
-    expect(html).toContain("Lyra available");
+    expect(html).toContain("Lyra ready");
     expect(html).toContain("Reliability review");
     expect(html).not.toContain("Lyra is handling your message");
     expect(html).not.toContain("Stop &amp; retry");
