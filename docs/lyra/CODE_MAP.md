@@ -8,6 +8,8 @@ not a replacement for repository instructions or proof that a feature works.
 Current product acceptance plan and resume checkpoint:
 [`END_TO_END_ACCEPTANCE.md`](END_TO_END_ACCEPTANCE.md). Read before resuming the
 small-project reliability trial; generated application repairs belong to Lyra.
+Use [`Studio test preflight`](STUDIO_TEST_GUIDE.md) to establish runner readiness,
+single-submit testing and evidence attribution before a live project journey.
 
 Latest independent verification: [frozen calculator trial](2026-09-19-calculator-live-trial.md)
 completed functionally but failed clean acceptance. Current follow-up:

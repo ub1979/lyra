@@ -41,6 +41,7 @@ Results:
 - Focused guidance/QA suites: 24 passed, including actual SQLite queued bodies,
   profile isolation, existing-job reuse and QA completion/dependency contracts.
 - Ruff: both changed Python files pass. Guidance file is 127 lines; tests 196.
+- Windows-footgun lint also passed for both changed Python files.
 - No budget increase, coverage gate removal, worker role change or core edit.
   The full QA skill remains intact; this Personal assignment narrows execution
   strategy, not the evidence required to approve the core behavior.

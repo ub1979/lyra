@@ -179,3 +179,22 @@ were changed by the supervisor.
 Raw browser observations: `/private/tmp/lyra-calculator-retest-20260919/ui-events.jsonl`.
 This file mixes prior controllers; use timestamps and the project/session above.
 Do not include credentials or private model reasoning in reports.
+
+## Subsequent fixes (local commits; not a new full-project trial)
+
+- `864a03b59`: preserve the new-project connection through paste and Enter;
+  scope all delayed guided writes to their original socket. The actual form
+  regression failed before the fix (zero provider requests), then passed with
+  one submission, reload and follow-up. Existing two-turn/backend restart smoke
+  also passes. 491 web tests and 6 Ink paste tests passed; build/typecheck pass.
+- `8cc6c8144`: Personal QA assignment reuses batched real-browser journeys,
+  avoids redundant criteria/report work, and retains independent coverage gates,
+  failure exit codes and the 90-call budget. All 210 builder tests pass.
+  Actual live-model efficiency improvement is not yet measured.
+- `STUDIO_TEST_GUIDE.md` now separates full-project runner preflight from
+  transport-only CI smoke, and documents the observed testing pitfalls.
+
+No remote push or version bump. User services were not restarted. New frontend
+assets require a browser reload; new QA guidance applies to newly queued tasks,
+not existing saved task bodies. The macOS warning's exact operation remains
+unresolved; no permission changes were made.

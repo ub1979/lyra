@@ -36,6 +36,7 @@ Results:
 - Fixed build: 2 Studio browser tests passed, including the existing two-turn,
   reload and full dashboard restart test; 1 opt-in live-provider test skipped.
   New Project submission/reload/follow-up test completed in 3.8s.
+- Two additional fresh-fixture startup repetitions passed (10.1s each).
 - 491 web tests, 6 real mounted Ink paste tests passed; TypeScript/build passed.
   ESLint: 0 errors, 30 existing warnings. Production assets rebuilt.
 - Harness corrections are explicit: normalize macOS /var → /private/var fixture
