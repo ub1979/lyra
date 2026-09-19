@@ -62,8 +62,8 @@ def final_instructions(project: Path, run_token: str) -> str:
         '"evidence":["project-relative raw evidence file"]}]}.'
         "\nAccount for every pinned criterion, including explicit requirements normally "
         "outside this profile. Do not mark untested/omitted checks PASS. Reuse valid "
-        "evidence for parent FRs and child ACs without repeating the same checks. "
-        "evidence across scopes. A readable file is not proof that its claim is true. "
+        "evidence across scopes and for parent FRs and child ACs without repeating "
+        "the same checks. A readable file is not proof that its claim is true. "
         "Before testing, if criteria are empty or inputs changed, stop at preflight, "
         "report needs-review and the exact "
         "missing requirement mapping; do not invent approval or rewrite requirements. "

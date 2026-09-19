@@ -120,3 +120,10 @@ helpers all remain under 400 lines; large legacy integration files are unchanged
 in size materially or reduced. Broader core request-path verification follows.
 No automated suite establishes that the live model will follow every skill or
 meet the proposed call/time target. Those remain user-run acceptance checks.
+
+Final coverage review: bullet declarations now use the same ID vocabulary as
+tables, rather than recognizing only FR/AC/NFR. This prevents a mixed document
+from silently dropping security, user-story or other explicitly labelled
+requirements. Three format-parity regressions plus the real queue/report suite
+pass (31 tests). Narrative references remain excluded. No job repinning, change
+to stage count or expansion beyond the document's declared requirements.

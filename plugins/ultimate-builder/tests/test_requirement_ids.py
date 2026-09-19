@@ -47,6 +47,13 @@ def test_examples_and_reference_tables_do_not_invent_criteria():
 """) == ["FR-001"]
 
 
+@pytest.mark.parametrize("criterion", ["SEC-001", "US-27", "DATA_RETENTION-4"])
+def test_table_and_bullet_declarations_have_the_same_id_vocabulary(criterion):
+    table = f"| ID | Requirement |\n| --- | --- |\n| {criterion} | Real check |"
+    bullet = f"- **{criterion}**: Real check\n- See {criterion} in the other report."
+    assert parse(table) == parse(bullet) == [criterion]
+
+
 @pytest.mark.parametrize("document", [
     "Plain prose without declarations",
     "- FR-001: One\n- FR-001: Duplicate",
