@@ -65,6 +65,45 @@ def personal_development_guidance() -> str:
     )
 
 
+def personal_qa_guidance() -> str:
+    """Reduce model round trips, not the independently verified acceptance scope."""
+    return (
+        "Personal QA execution contract (takes precedence over the full campaign): "
+        "independently run the existing automated test command, then map every "
+        "approved core criterion to a small set of real user journeys. One recorded "
+        "journey may cover several criteria; do not repeat the same passing flow "
+        "only to give each story a separate test. Unit-tested numeric permutations "
+        "stay in the automated suite after the real UI wiring is exercised. "
+        "Retain real keyboard interaction, relevant invalid input, saved-state "
+        "reload (or reset behavior for a stateless app), console and narrow-layout "
+        "checks. Developer reports alone are not independent QA evidence.\n\n"
+        "Browser execution: reuse the project's existing browser test command. "
+        "If none exists but an installed browser automation runtime is available "
+        "(for example Playwright), save one small project-local smoke script and "
+        "run it through terminal. Drive actual sequential browser fill/click/key "
+        "actions with assertions and bounded waits; collect console errors and "
+        "results together. A failed assertion must make the command exit non-zero. "
+        "Do not assign DOM values, call app functions, or fabricate events as a "
+        "substitute for real keyboard/user actions. Do not spend a separate model "
+        "turn inspecting the page after every keystroke or replay all logic tests "
+        "through individual browser calls. Use an isolated browser context and "
+        "temporary data, and close only your own processes.\n\n"
+        "If no suitable runner is available, use the existing browser tools for "
+        "the mapped journeys; gather related read-only assertions together after "
+        "each journey. Do not loop through installs or invent a test framework. "
+        "Missing required coverage stays BLOCKED, never silently skipped. Do not "
+        "modify installed applications, grant broader OS permissions or bypass "
+        "macOS protection for screenshots; record the blocker instead.\n\n"
+        "Save evidence incrementally, reserve room in the existing call budget "
+        "for the report and terminal job update, and use the existing handoff "
+        "protocol if required checks cannot finish. After a repair rerun the "
+        "automated suite and affected browser journeys. Write one concise "
+        "bug-report.md plus raw task evidence, not repeated full reports in "
+        "the Brain, ledger and class map; those should link to the evidence. "
+        "Only passing approved core checks permit QA completion."
+    )
+
+
 def phase_guidance(phase: str, build_profile: str | None = None) -> str:
     """Return the guidance blocks for one phase job, separated by blank lines."""
     blocks = [ledger_guidance()]
@@ -72,6 +111,8 @@ def phase_guidance(phase: str, build_profile: str | None = None) -> str:
         blocks.append(testing_guidance())
     if phase == "sw-developer" and build_profile == "personal":
         blocks.append(personal_development_guidance())
+    if phase == "qa-engineer" and build_profile == "personal":
+        blocks.append(personal_qa_guidance())
     if phase == "tech-writer" and build_profile == "personal":
         blocks.append(
             "Personal documentation outcome: deliver one concise README with how "

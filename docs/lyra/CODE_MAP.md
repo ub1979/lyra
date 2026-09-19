@@ -98,6 +98,10 @@ Calculator follow-up boundaries:
   `preview_authorization.py`; actual clarify/queue tests in the plugin suite.
 - Personal Documentation: `worker_guidance.py` and the Technical Writer skill;
   real per-profile queued-body regressions in `test_worker_guidance.py`.
+- Personal QA execution: `worker_guidance.py` directs repeatable real-browser
+  journeys instead of per-keystroke model round trips; the same queue tests
+  preserve other profiles, coverage gates and existing-job bodies. See
+  [`QA execution change`](changes/2026-09-19-personal-qa-execution.md).
 - Manifest-free Node evidence: `agent/node_test_command.py` and
   `tests/agent/test_node_test_evidence.py`.
 - One-shot outcomes: existing `cron/executions.py` ledger, `tools/cronjob_tools.py`,

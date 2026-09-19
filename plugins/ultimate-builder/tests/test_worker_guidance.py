@@ -157,3 +157,40 @@ def test_documentation_scope_follows_profile_in_real_queue(project, profile):
         body = runs.kb.get_task(conn, queued["tasks"][0]["task_id"]).body
     assert ("one concise README" in body) == (profile == "personal")
     assert "| Phase | Status | Evidence |" in body
+
+
+@pytest.mark.parametrize("profile", ["personal", "reusable", "production", None])
+def test_qa_execution_contract_reaches_only_personal_jobs(project, profile):
+    runs = _load("project_runs")
+    queued = runs.queue_project_run(project, ["qa-engineer"], build_profile=profile)
+    with runs.kb.connect_closing() as conn:
+        bodies = [runs.kb.get_task(conn, row["task_id"]).body for row in queued["tasks"]]
+    for body in bodies:
+        assert ("Personal QA execution contract" in body) == (profile == "personal")
+        assert "never pipe it through" in body
+        assert "| Phase | Status | Evidence |" in body
+    if profile == "personal":
+        assert len(bodies) == 1
+        body = bodies[0]
+        for guarantee in (
+            "actual sequential browser fill/click/key",
+            "A failed assertion must make the command exit non-zero",
+            "Developer reports alone are not independent QA evidence",
+            "Missing required coverage stays BLOCKED",
+            "After a repair rerun",
+            "mark the QA phase complete",
+        ):
+            assert guarantee in body
+
+
+def test_qa_guidance_does_not_rewrite_existing_job_or_duplicate_it(project):
+    runs = _load("project_runs")
+    first = runs.queue_project_run(project, ["qa-engineer"], build_profile="personal")
+    task_id = first["tasks"][0]["task_id"]
+    with runs.kb.connect_closing() as conn:
+        before = runs.kb.get_task(conn, task_id).body
+    repeated = runs.queue_project_run(project, ["qa-engineer"])
+    assert repeated["tasks"][0]["task_id"] == task_id
+    assert repeated["tasks"][0]["reused"] is True
+    with runs.kb.connect_closing() as conn:
+        assert runs.kb.get_task(conn, task_id).body == before
