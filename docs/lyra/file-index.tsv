@@ -6149,6 +6149,7 @@ tests/tools/test_browser_local_dialog.py	tests	Behavioral tests: browser local d
 tests/tools/test_browser_open_timeout.py	tests	Behavioral tests: browser open timeout
 tests/tools/test_browser_orphan_reaper.py	tests	Behavioral tests: browser orphan reaper
 tests/tools/test_browser_private_page_action_guard.py	tests	Behavioral tests: browser private page action guard
+tests/tools/test_browser_request_lifetime.py	tests	Behavioral tests: browser request lifetime
 tests/tools/test_browser_secret_exfil.py	tests	Behavioral tests: browser secret exfil
 tests/tools/test_browser_snapshot_ssrf.py	tests	Behavioral tests: browser snapshot ssrf
 tests/tools/test_browser_ssrf_local.py	tests	Behavioral tests: browser ssrf local
@@ -6531,6 +6532,7 @@ tools/browser_camofox_state.py	tools	Hermes-managed Camofox state helpers.
 tools/browser_cdp_tool.py	tools	py: browser cdp tool
 tools/browser_dialog_support.py	tools	Keep pending browser dialogs observable without blocking the command queue.
 tools/browser_dialog_tool.py	tools	Respond to dialogs through the existing supervisor, including local browsers.
+tools/browser_request_lifetime.py	tools	Retain browsers during bounded provider requests, not arbitrary heartbeats.
 tools/browser_supervisor.py	tools	Persistent CDP supervisor for browser dialog + frame detection.
 tools/browser_tool.py	tools	py: browser tool
 tools/budget_config.py	tools	Configurable budget constants for tool result persistence.

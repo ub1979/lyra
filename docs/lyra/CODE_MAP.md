@@ -99,6 +99,8 @@ Shared `qa-evidence` owns execution-method preflight independently of selected
 Functional/Experience scope. The user retains the next live acceptance run.
 `requirement_ids.py` parses actual requirements declarations for `qa_acceptance.py`;
 real queue/report tests keep parent, child and explicit nonfunctional coverage.
+`tools/browser_request_lifetime.py` coordinates browser idle cleanup with bounded
+provider requests; the browser daemon retains a separate finite crash fallback.
 
 Calculator follow-up boundaries:
 

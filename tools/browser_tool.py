@@ -1554,10 +1554,12 @@ def _cleanup_inactive_browser_sessions():
     """
     current_time = time.time()
     sessions_to_cleanup = []
+    from tools.browser_request_lifetime import request_protects_browser
 
     with _cleanup_lock:
         for task_id, last_time in list(_session_last_activity.items()):
-            if current_time - last_time > BROWSER_SESSION_INACTIVITY_TIMEOUT:
+            if (current_time - last_time > BROWSER_SESSION_INACTIVITY_TIMEOUT
+                    and not request_protects_browser(task_id, BROWSER_SESSION_INACTIVITY_TIMEOUT)):
                 sessions_to_cleanup.append(task_id)
 
     for task_id in sessions_to_cleanup:
@@ -2445,14 +2447,11 @@ def _run_browser_command(
         browser_env["PATH"] = _merge_browser_path(browser_env.get("PATH", ""))
         browser_env["AGENT_BROWSER_SOCKET_DIR"] = task_socket_dir
 
-        # Tell the agent-browser daemon to self-terminate after being idle
-        # for our configured inactivity timeout.  This is the daemon-side
-        # counterpart to our Python-side _cleanup_inactive_browser_sessions
-        # — the daemon kills itself and its Chrome children when no CLI
-        # commands arrive within the window.  Added in agent-browser 0.24.
+        # Python owns ordinary idle cleanup and knows about in-flight requests.
+        # The daemon cannot see them: its timer is a finite crash fallback.
         if "AGENT_BROWSER_IDLE_TIMEOUT_MS" not in browser_env:
-            idle_ms = str(BROWSER_SESSION_INACTIVITY_TIMEOUT * 1000)
-            browser_env["AGENT_BROWSER_IDLE_TIMEOUT_MS"] = idle_ms
+            from tools.browser_request_lifetime import daemon_idle_timeout_ms
+            browser_env["AGENT_BROWSER_IDLE_TIMEOUT_MS"] = daemon_idle_timeout_ms(BROWSER_SESSION_INACTIVITY_TIMEOUT)
 
         # Inject --no-sandbox when needed (issue #15765):
         # - Running as root: Chromium always refuses to start without it

@@ -61,5 +61,20 @@ the existing 1100-character ceiling rather than weakening that test.
 No retroactive job repinning or scheduler semantics change. Completion wording
 is model guidance, not a claim that arbitrary model text is mechanically censored;
 the existing structured UI/status overlay remains the authoritative warning.
+
+Stage 3: `browser_request_lifetime.py` protects the owning task (including its
+local sidecar) only during an actual streaming/nonstreaming provider call,
+bounded by the existing finite request timeout. Cancellation, exception and
+expired ownership release protection; successful return gets ordinary idle
+grace to reach the next browser action. No heartbeat claims progress and no
+keepalive tool calls are generated. Normal Python idle cleanup remains active.
+The daemon's independent timer becomes a finite crash fallback, using its
+one-hour floor plus configured provider/model request bounds and idle grace.
+Explicit external daemon-timeout overrides remain respected. Temporary screenshot
+fallback browsers are scoped to one command and retain their short timer.
+61 tests passed across real cleanup/agent forwarders, browser hardening and
+orphan cleanup; headed and Lightpanda compatibility tests also passed (56).
+Clock-controlled delay exceeds the former 120s expiry without a live provider.
+No real user browser is opened for acceptance testing; user owns that run.
 No automated suite establishes that the live model will follow every skill or
 meet the proposed call/time target. Those remain user-run acceptance checks.
