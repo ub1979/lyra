@@ -99,6 +99,10 @@ Calculator follow-up boundaries:
 - Restarted coordinator usage: `tui_gateway/session_usage.py` adds a fixed saved
   baseline for display only. `tests/tui_gateway/test_session_usage_resume.py`
   covers actual SQLite/compression, restart, reconnect and worker isolation.
+- Final focused-QA coverage: `plugins/ultimate-builder/qa_acceptance.py` checks
+  pinned criteria/report consistency after selected jobs finish. The existing
+  phase map and project-run summary show review gaps without changing dependencies.
+  It checks reported coverage, not product truth or independent approval.
 
 - Capability-aware finish verification: `agent/verification_stop.py`; real agent
   regression in `tests/run_agent/test_verification_continuation_budget.py`.

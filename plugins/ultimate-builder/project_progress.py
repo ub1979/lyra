@@ -197,6 +197,12 @@ def _merge_project_run_state(
         else:
             phase["status"] = "Reported complete — evidence available"
 
+    acceptance = run_state.get("qa_acceptance") or {}
+    qa_phase = by_id.get("qa-engineer")
+    if qa_phase and acceptance.get("status") == "needs_review":
+        qa_phase.update(state="pending", status=acceptance["summary"])
+        qa_phase["acceptance_checks"] = acceptance
+
     return {
         "available": bool(phases),
         "source": (

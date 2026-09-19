@@ -97,3 +97,14 @@ Functional evidence against the current revision before combining verdicts.
 Earlier jobs save their scoped report and leave the overall phase in progress.
 The final report names selected scopes, actual coverage and remaining risks;
 it never claims universal reliability or deployment readiness from a smoke pass.
+
+For newly queued focused QA, the final job also carries a pinned coverage
+contract and a small JSON report template. Fill that exact report from the
+actual results. A Personal profile does not waive an explicit requirement: if
+body-text contrast is required, measure it or report BLOCKED, even when deeper
+Experience QA was not selected. “Not selected” is not a PASS for that criterion.
+Only the final job assembles this matrix; a non-final Functional worker can
+finish its assigned passing checks and hand remaining Experience checks to the
+dependent job. Missing coverage makes project acceptance need review, not an
+endless worker retry. Readable evidence and completed jobs are not independent
+proof of correctness or user approval.

@@ -577,6 +577,8 @@ def queue_project_run(
             )
             max_runtime_seconds = PHASE_MAX_RUNTIME_SECONDS
             goal_max_turns = PHASE_GOAL_MAX_TURNS
+        if phase == "qa-engineer" and work_unit and work_unit.get("skills") and work_unit.get("final"):
+            body += _plugin_module("qa_acceptance").final_instructions(project, run_token)
         task_id = kb.create_task(
             conn,
             title=title[:200],
@@ -858,7 +860,12 @@ def project_run_state(workspace: str | Path) -> dict[str, Any]:
         or item["activity_health"] == "stalled"
     ]
     running = any(item["status"] == "running" for item in items)
+    qa_acceptance = _plugin_module("qa_acceptance").acceptance_state(
+        project, [task for (phase, _unit), (_board, task) in latest.items() if phase == "qa-engineer"]
+    )
     state = "needs_attention" if blocked else "working" if running else "queued" if active else "idle"
+    if qa_acceptance and qa_acceptance["status"] == "needs_review" and not active:
+        state = "needs_attention"
     return {
         "available": bool(items),
         "state": state,
@@ -869,6 +876,7 @@ def project_run_state(workspace: str | Path) -> dict[str, Any]:
             (int(item["last_activity_at"] or 0) for item in items), default=None
         ),
         "job_runner": _job_runner_health(),
+        "qa_acceptance": qa_acceptance,
         "tasks": items,
     }
 

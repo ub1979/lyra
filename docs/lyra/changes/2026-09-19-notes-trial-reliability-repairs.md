@@ -100,4 +100,37 @@ separation and construction wiring. Billing counters and stored deltas are
 asserted unchanged. Ruff passed. Revert the display helper/wiring and read-only
 lineage correction to roll back; no migration is needed.
 
+### Stage 3 — final QA coverage, distinct from worker completion
+
+Only newly created focused final-QA jobs receive a small pinned contract in
+their existing job body: requirement IDs/digest and a unique JSON report path.
+The final worker fills the supplied criterion/status/evidence template. No new
+tool, judge, scheduler, schema, settings store or task-completion veto was added.
+The contract cannot change on reopen; a fresh pass gets a fresh report path.
+
+The read-only builder status checks missing/non-PASS rows, changed requirements,
+missing revision notes, malformed reports and unavailable/outside-project
+evidence. Shared evidence is inspected once per poll with bounded file counts.
+Incomplete coverage becomes needs-review in the phase map and project-run
+summary, even when a Markdown heading says PASS. Worker status remains done.
+The recovery message asks for specific gaps to be resolved and a fresh bounded
+QA pass, never an automatic retry. Functional completion still unlocks Experience
+through the unchanged Hermes dependency mechanism; only final coverage is judged.
+
+This is consistency checking, NOT independent proof of correctness or a security
+boundary against falsified evidence. The status explicitly says reported coverage,
+and retains the worker's tested-revision notes. It does not assert that a later
+source change was retested. Criteria come from explicit ID/requirement tables;
+unknown formats require human review rather than guessed obligations or an empty
+PASS. Existing jobs without a pinned contract retain their original behaviour.
+No historical job body, report, requirement or conversation was rewritten.
+
+Verification: 252 tests passed across 23 plugin/skill/summary suites, including
+19 new real-filesystem/SQLite cases: explicit Personal contrast requirement,
+omitted/blocked/failed/skip results, contradictory PASS heading, dependency release,
+reopen, fresh recovery, stopped jobs, old campaigns, unsafe paths and UI/summary
+projection. New helper and tests are 183 and 194 lines. Ruff/diff checks passed.
+Rollback: revert this stage; new report files remain harmless evidence and
+existing jobs continue through the unchanged Kanban lifecycle.
+
 Other stages remain in progress; no overall completion claim yet.
