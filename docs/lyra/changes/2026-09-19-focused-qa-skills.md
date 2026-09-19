@@ -87,3 +87,21 @@ original references for old Personal jobs, preserving their saved procedure.
 No new-style scope is substituted into an already queued legacy job. Release
 metadata and generated labels are synchronized; live results will be recorded
 separately without rewriting the historical observations above.
+
+### Release-candidate and live verification outcome
+
+Candidate `6c434c77a` passed 281 focused Python tests, 491 web tests,
+typecheck, lint (zero errors) and two isolated real-browser Studio smokes from
+a clean checkout using installed dependencies. Publication was blocked by the
+approval check pending explicit confirmation of the full pending commit set
+to `ub1979/lyra` main; no push or new CI success is claimed.
+
+The [Tiny Notes live trial](../2026-09-19-focused-qa-notes-e2e.md) verified one
+Personal Functional QA item loading both complete skills, finishing in 4m11
+and correctly unblocking Documentation. The app passed 54 unit tests, 40
+worker browser checks and 11 independent acceptance groups after assisted
+recovery. Development first stalled on a native dialog in the existing default
+browser backend, so this is not a clean autonomous journey. Cold restart also
+reset displayed coordinator usage despite intact saved usage and conversation;
+QA's verdict overstated coverage of an approved contrast requirement. These
+findings and narrower follow-ups are recorded without further product edits.

@@ -109,7 +109,10 @@ Calculator follow-up boundaries:
   and Experience skills with a shared evidence contract. Personal defaults to
   Functional; Reusable/Production use both. Existing jobs keep their saved shape;
   new jobs avoid the old whole-campaign guidance. See
-  [`focused QA split`](changes/2026-09-19-focused-qa-skills.md).
+  [`focused QA split`](changes/2026-09-19-focused-qa-skills.md). The
+  [`Tiny Notes live trial`](2026-09-19-focused-qa-notes-e2e.md) completed after
+  assisted recovery, not a clean autonomous pass; it records browser-dialog,
+  restart-usage and approved-QA-criteria follow-ups.
 - Manifest-free Node evidence: `agent/node_test_command.py` and
   `tests/agent/test_node_test_evidence.py`.
 - One-shot outcomes: existing `cron/executions.py` ledger, `tools/cronjob_tools.py`,
