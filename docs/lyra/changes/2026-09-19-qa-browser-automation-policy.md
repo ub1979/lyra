@@ -46,6 +46,38 @@ plugins/ultimate-builder/tests/test_focused_qa_workflow.py` passed all 21 tests.
 This exercises real plugin registration, whole-skill delivery, budget retention,
 profile selection, dependencies, reopening and control behavior.
 
+### Existing-project QA-only verification
+
+A fresh Functional-only task (`t_01e85095`) reused the existing Tiny Counter
+project and loaded the revised contract. It explicitly recorded that raw CDP
+was prohibited, rejected the prior raw-CDP artifact as invalid evidence, and
+used Python Playwright 1.61.0 with bundled Chromium instead. No requirements or
+Development phase was re-run before QA.
+
+The authoritative first pass used 33 model calls. Its Playwright result was
+56/59: all three failures represented the same confirmed FR-006 defect. A
+strict-privacy browser can throw while merely reading `window.localStorage`,
+but `js/app.js` read that accessor outside a guard. QA correctly wrote a FAIL
+report and committed project evidence as `e9fcc39`; it did not promote the
+application to approved. The Playwright smoke script was 365 lines, below the
+400-line ceiling but still larger and more verbose than desirable for this
+Personal project. Provider calls also remained slow and verbose independently
+of the browser method.
+
+The live run exposed a separate lifecycle defect. After QA created a bounded
+Development repair task and called `kanban_block`, the QA task returned to
+`todo` and was immediately claimed for a second attempt. That attempt modified
+the generated project's `js/app.js` and evidence before it was stopped. The
+repair child was created without the project workspace, so project-level Stop
+did not find it; the dispatcher started it in an isolated Kanban worktree. Both
+tasks were archived and the exact remaining worker process was terminated. No
+repair worktree was merged. The post-evidence project edits remain uncommitted
+and visible for explicit review; they were not silently discarded.
+
+This lifecycle observation is not fixed by the browser-policy change. Its root
+cause and intended dependency semantics need a separate reproduction and
+change record before modifying Kanban behavior.
+
 ## Compatibility / restart
 
 New QA jobs receive the rule automatically from plugin skill loading. Existing
