@@ -39,10 +39,13 @@ def _sibling(name: str) -> Any:
     return _modules[name]
 
 
-def open_checkpoint(project: Path, session_id: str) -> dict[str, Any]:
+def open_checkpoint(
+    project: Path, session_id: str, preview_options: dict[str, str] | None = None,
+) -> dict[str, Any]:
     """Create the pending checkpoint and return what the coordinator must ask."""
     project = Path(project).resolve()
     digest = _sibling("preview_digest").preview_digest(project)
+    options = _sibling("preview_selection").validated_options(project, preview_options)
     # The token makes each question unique, so an answer to an older question
     # can never resolve a newer checkpoint.
     token = secrets.token_hex(3)
@@ -52,6 +55,16 @@ def open_checkpoint(project: Path, session_id: str) -> dict[str, Any]:
             ".sdlc/preview/index.html. Does it look right before building starts?"
         )
         choices = PREVIEW_CHOICES
+        if options:
+            from tools.clarify_tool import MAX_CHOICES
+
+            question += " Choose the design to approve: " + "; ".join(
+                f"{name}: {path}" for name, path in options.items()
+            )
+            question += ". You can type Approve followed by any listed design's exact name."
+            # Preserve Change/Skip even when the clarify UI has fewer buttons
+            # than designs. All listed designs remain selectable as free text.
+            choices = [f"Approve {name}" for name in options][:MAX_CHOICES - 2] + ["Change", "Skip"]
     else:
         question = (
             f"Preview check {token}: no visual preview was made for this project. "
@@ -65,6 +78,7 @@ def open_checkpoint(project: Path, session_id: str) -> dict[str, Any]:
         "digest": digest,
         "session_id": str(session_id or ""),
         "opened_at": int(time.time()),
+        "preview_options": options,
     })
     return {
         "ok": True,
@@ -89,7 +103,13 @@ def record_answer(question: str, answer: str, session_id: str) -> str | None:
     if expected_session and str(session_id or "") != expected_session:
         return None
     decision = _sibling("preview_answer").classify_preview_answer(answer)
-    record.update({"status": decision, "answered_at": int(time.time())})
+    selection = _sibling("preview_selection").selected_option(record, answer)
+    if decision == "approve" and record.get("preview_options") and not selection:
+        decision = "unclear"
+    record.update({
+        "status": decision, "answered_at": int(time.time()),
+        "user_answer": str(answer), "selected_preview": selection,
+    })
     store.save_checkpoint(project, record)
     return decision
 

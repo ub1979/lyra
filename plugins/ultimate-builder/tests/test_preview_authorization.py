@@ -49,6 +49,62 @@ def _answer_through_clarify(question: str, choices: list[str], user_answer: str,
 
 # --- digest -----------------------------------------------------------------
 
+def test_user_selected_design_reaches_real_worker_body(project):
+    for name in ("light", "dark"):
+        (project / ".sdlc" / "preview" / f"{name}.html").write_text(name, encoding="utf-8")
+    tool = _load("project_run_tool").project_run_tool
+    options = {"Look A": ".sdlc/preview/light.html", "Look B": ".sdlc/preview/dark.html"}
+    checkpoint = json.loads(tool({"action": "preview", "workspace": str(project),
+                                  "preview_options": options}, session_id="chosen"))
+    authorization = _answer_through_clarify(
+        checkpoint["question"], checkpoint["choices"], "Approve Look A", "chosen"
+    )
+    assert authorization.development_refusal(project) is None
+    queued = json.loads(tool({"action": "queue", "workspace": str(project),
+                              "phases": "sw-developer", "build_profile": "personal"}))
+    runs = _load("project_runs")
+    with runs.kb.connect_closing() as conn:
+        body = runs.kb.get_task(conn, queued["tasks"][0]["task_id"]).body
+    assert '"selected_preview": ".sdlc/preview/light.html"' in body
+    assert '"user_answer": "Approve Look A"' in body
+    assert "Do not search conversation history" in body
+
+
+def test_ambiguous_design_choice_does_not_authorize_queue(project):
+    auth = _load("preview_authorization")
+    (project / ".sdlc" / "preview" / "other.html").write_text("Other", encoding="utf-8")
+    checkpoint = auth.open_checkpoint(project, "s", {
+        "A": ".sdlc/preview/index.html", "B": ".sdlc/preview/other.html",
+    })
+    assert auth.record_answer(checkpoint["question"], "Approve", "s") == "unclear"
+    assert auth.development_refusal(project)
+
+
+def test_preview_option_cannot_escape_digest_directory(project):
+    outside = project / "requirements.md"
+    outside.write_text("Not previewed", encoding="utf-8")
+    with pytest.raises(ValueError, match="inside .sdlc/preview"):
+        _load("preview_authorization").open_checkpoint(project, "s", {"A": "requirements.md"})
+
+
+def test_more_designs_than_buttons_keeps_skip_and_typed_selection(project):
+    from tools.clarify_tool import MAX_CHOICES
+
+    options = {}
+    for index in range(MAX_CHOICES + 1):
+        path = f".sdlc/preview/design-{index}.html"
+        (project / path).write_text(str(index), encoding="utf-8")
+        options[f"Look {index}"] = path
+    auth = _load("preview_authorization")
+    checkpoint = auth.open_checkpoint(project, "s", options)
+    assert len(checkpoint["choices"]) <= MAX_CHOICES
+    assert checkpoint["choices"][-2:] == ["Change", "Skip"]
+    _answer_through_clarify(checkpoint["question"], checkpoint["choices"],
+                           f"Approve Look {MAX_CHOICES}", "s")
+    record = _load("preview_checkpoint_store").load_checkpoint(project)
+    assert record["selected_preview"] == options[f"Look {MAX_CHOICES}"]
+    assert auth.development_refusal(project) is None
+
 def test_digest_changes_when_any_preview_file_changes(project):
     digest = _load("preview_digest").preview_digest
     first = digest(project)

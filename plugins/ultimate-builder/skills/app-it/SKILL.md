@@ -94,6 +94,11 @@ reported complete or the next implementation phase starts. This includes a new
 project's initial scaffold and later edits, fixes, generated artifacts, and
 deletions.
 
+Requirements and pre-build visual previews are planning artifacts: inspect the
+preview visually for the user's decision, then pass the approved artifacts to
+the first worker for its project commit. Do not delay dispatch to run Git or
+application tests in the coordinator. Preview approval is not an app test pass.
+
 Lyra's own conversation has no shell and does not edit application files or run
 Git. Each durable specialist job stages only the files belonging to its work and
 commits them with a clear message inside the selected project repository, which
@@ -474,7 +479,10 @@ approval is not a preview approval.
 Preview decision before Development: when the preview is ready in
 `.sdlc/preview/` (or when the project has no visual preview), call
 `project_run(action="preview", workspace=…)`. It returns an exact question and
-choices. Ask them with `clarify` exactly as returned, then end your turn. The
+choices. Include `preview_options` mapping design names to project-relative
+files when offering alternatives; the user's choice is saved for the worker.
+Do not collect an informal preview approval before this checkpoint.
+Ask with `clarify` exactly as returned, then end your turn. The
 backend records the user's answer; Development can be queued only after the
 user approves or skips. If they ask for changes, update the preview and call
 `action="preview"` again. Never tell the user a preview was approved unless

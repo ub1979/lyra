@@ -72,4 +72,15 @@ def phase_guidance(phase: str, build_profile: str | None = None) -> str:
         blocks.append(testing_guidance())
     if phase == "sw-developer" and build_profile == "personal":
         blocks.append(personal_development_guidance())
+    if phase == "tech-writer" and build_profile == "personal":
+        blocks.append(
+            "Personal documentation outcome: deliver one concise README with how "
+            "to run and test the approved app, essential usage, and known limitations. "
+            "This phase scope overrides the playbook's default full documentation "
+            "suite; still load the whole playbook and apply its relevant quality checks. "
+            "Verify the documented commands and relevant examples. Reuse existing "
+            "verified evidence where applicable. Do not add separate deployment, "
+            "architecture, developer or troubleshooting guides, new runtime modes, "
+            "screenshots or infrastructure unless the approved requirements need them."
+        )
     return "\n\n".join(blocks)

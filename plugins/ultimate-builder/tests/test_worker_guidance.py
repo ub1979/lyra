@@ -147,3 +147,13 @@ def test_queueing_seeds_the_ledger_before_any_worker_starts(project):
     ledger = project / ".sdlc" / "progress.md"
     assert ledger.is_file()
     assert "| Phase | Status | Evidence |" in ledger.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("profile", ["personal", "reusable", "production", None])
+def test_documentation_scope_follows_profile_in_real_queue(project, profile):
+    runs = _load("project_runs")
+    queued = runs.queue_project_run(project, ["tech-writer"], build_profile=profile)
+    with runs.kb.connect_closing() as conn:
+        body = runs.kb.get_task(conn, queued["tasks"][0]["task_id"]).body
+    assert ("one concise README" in body) == (profile == "personal")
+    assert "| Phase | Status | Evidence |" in body

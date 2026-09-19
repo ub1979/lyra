@@ -26,6 +26,10 @@ describe("first user turn setup", () => {
     const seed = guidedSetupSeed("/project", ["qa-engineer"], {}, {}, {}, profile);
     const payload = JSON.parse(seed.replace(/^IDRAK_INTERNAL_SETUP_BEGIN /, "").replace(/ IDRAK_INTERNAL_SETUP_END$/, ""));
     expect(payload.build_profile).toBe("personal");
+    expect(payload.preview_gate).toContain("project_run action=preview");
+    expect(payload.preview_gate).toContain("preview_options");
+    expect(payload.preview_gate).toContain("do not collect a separate informal approval");
+    expect(payload.preview_gate).toContain("including Documentation");
     expect(payload.build_profile_gate).toContain("one real smoke QA work item");
     expect(payload.build_profile_gate).not.toContain("no build scale has been selected");
     expect(profileFromBuilderSeed("broken setup")).toBeNull();

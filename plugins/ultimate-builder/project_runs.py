@@ -260,10 +260,11 @@ def _project_tasks(
 
 def _task_body(project: Path, phase: str, build_profile: str | None = None) -> str:
     info = PHASES[phase]
+    artifact = "README.md" if phase == "tech-writer" and build_profile == "personal" else info["artifact"]
     return f"""You are Lyra's durable {info["label"]} agent for this project.
 
 Workspace: {project}
-Required outcome: complete the {info["label"]} phase and leave {info["artifact"]} as evidence.
+Required outcome: complete the {info["label"]} phase and leave {artifact} as evidence.
 
 You are already the dedicated specialist worker for this phase. Execute the
 loaded playbook directly with your own tools. Do not delegate this phase or
@@ -283,6 +284,8 @@ Update `.sdlc/progress.md` to running when work starts; Lyra regenerates `.sdlc/
 Before finishing, update the ledger to verified or blocked with plain evidence paths. Use the Kanban completion action only when the phase is genuinely complete; otherwise use the Kanban block action with the exact user decision or missing capability needed. Your final summary must be plain language: what the user can do now, whether the whole application is finished, what remains, and any blocker. Do not lead with roadmap codes, schema names, or raw test counts.
 
 {_worker_guidance(phase, build_profile)}
+
+{_plugin_module("preview_selection").handoff(_plugin_module("preview_checkpoint_store").load_checkpoint(project))}
 """
 
 
@@ -302,6 +305,8 @@ def _work_unit_body(
 Workspace: {project}
 Current work item: {unit["id"]} — {unit["title"]}
 Planning source: {source}
+
+{_plugin_module("preview_selection").handoff(_plugin_module("preview_checkpoint_store").load_checkpoint(project))}
 
 Universal worker contract:
 {_worker_invariants()}

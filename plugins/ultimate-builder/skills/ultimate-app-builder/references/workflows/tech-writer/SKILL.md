@@ -1,20 +1,28 @@
 ---
 name: tech-writer
-description: Reads the finished codebase and plans, then generates the complete verified documentation suite — README, API docs, user/developer/deployment guides, changelog, troubleshooting. Use when the user mentions: write docs, documentation, README, API docs, user guide, developer guide, deployment guide, changelog, troubleshooting, onboarding.
+description: Write and verify appropriately scoped documentation.
 ---
 
 # Technical Writer
 
 > ⛔ MUST be executed by its dedicated specialist worker. The orchestrator does not get to "write a quick README" and call it documentation. Once loaded by that worker, execute directly and do not delegate another copy of the phase.
-> A dedicated specialist worker following every step below directly, without delegating another copy of the phase, testing all examples, and producing `README.md` + `docs/`, counts. Anything less does not.
+> The dedicated worker follows the steps applicable to its assigned documentation scope and tests its examples. A verified concise README satisfies a Personal assignment; `README.md` + `docs/` is required only for a full-suite assignment.
 
 > ⛔ IRON LAW: no doc section is complete without fresh tool-execution evidence from THIS session. "Should work" is forbidden.
 > Gate for EVERY section: IDENTIFY the verification command → RUN it → READ the output → VERIFY it matches the doc → only then mark complete.
 > If a documented example fails when tested → fix the docs (or the code, if that's the root cause) before publishing.
+> One current execution can support multiple relevant claims; do not repeat the same command merely because another section cites its result.
 
 ---
 
 ## Step 0 — Detect Input Mode
+
+The job's approved scope takes precedence over the full-suite checklist below.
+For Personal, use **Specific doc** mode: one concise README covering local run,
+test, essential usage and known limitations. Apply only relevant verification;
+a dependency-free local page does not need a container, deployment guide or new
+server mode. Do not create screenshots or extra guides unless requested. Load
+this entire skill, but do not turn reference sections into additional work.
 
 1. **Full pipeline** — codebase path + `plan.md` + `requirements.md` + `task-graph.md` → generate the complete suite.
 2. **Codebase only** — read the code, generate docs from what's discovered.
@@ -99,7 +107,11 @@ Mapping: README Quick Start = Tutorial · user-guide = How-to (+ Getting Started
 
 ---
 
-## Step 4 — Generate the Documentation Suite
+## Step 4 — Generate the Assigned Documentation
+
+The templates below describe a full-suite assignment. For a Personal README,
+use Step 0's concise contents; do not add documents or Docker merely to fill
+these templates. Mark irrelevant checks not applicable, never passed.
 
 Write to `<project-root>/docs/` (or `--output`). EVERY document starts with a metadata header:
 
@@ -218,8 +230,13 @@ Screenshots:    X captured from running app (if UI)
 
 ## Completion Checklist
 
+Personal/Specific doc mode: the requested document exists, its actual commands
+and examples were checked, links resolve, and limitations are explicit. Save
+verification evidence in the existing phase ledger/evidence path. The full-suite
+list below applies only when that suite was assigned.
+
 ```
-ALL PROJECTS:
+FULL-SUITE ASSIGNMENTS:
 □ README.md — tested Quick Start
 □ docs/api.md — every endpoint tested (docs/cli-reference.md for CLI tools)
 □ docs/developer-guide.md — tested setup

@@ -30,6 +30,7 @@ PROJECT_RUN_TOOL_SCHEMA = {
         "jobs for one project workspace. This is the only way the coordinating "
         "conversation starts specialist work; it never edits files itself. "
         "Use action=preview when the visual preview is ready (or when there is none): "
+        "pass preview_options for alternative designs so the user's choice reaches the worker. "
         "it returns the exact question to ask with clarify. Development cannot be "
         "queued until the user answers that question."
     ),
@@ -48,6 +49,10 @@ PROJECT_RUN_TOOL_SCHEMA = {
                     "'researcher,sw-architect' (queue only)."
                 ),
             },
+            "preview_options": {
+                "type": "object", "additionalProperties": {"type": "string"},
+                "description": "preview only: design name to project-relative file inside .sdlc/preview. Include all alternatives before asking for approval.",
+            },
             "assignee": {"type": "string"},
             "models": {
                 "type": "object",
@@ -62,7 +67,7 @@ PROJECT_RUN_TOOL_SCHEMA = {
             "force_new": {"type": "boolean"},
             "build_profile": {
                 "type": "string", "enum": ["personal", "reusable", "production"],
-                "description": "User-selected project scale for QA queueing. Omit for a legacy project.",
+                "description": "User-selected project scale for every queued phase. Omit for a legacy project.",
             },
             "task_id": {"type": "string", "description": "retry only: exact failed job id from status."},
             "reason": {"type": "string", "description": "retry only: why another attempt can succeed and the bounded remaining work. Never retry review/input waits or unchanged exhausted quota."},
@@ -151,7 +156,7 @@ def project_run_tool(args: dict, **_kwargs: Any) -> str:
             )
         elif action == "preview":
             result = _sibling("preview_authorization").open_checkpoint(
-                Path(workspace), str(_kwargs.get("session_id") or "")
+                Path(workspace), str(_kwargs.get("session_id") or ""), args.get("preview_options"),
             )
         elif action == "status":
             result = project_runs.project_run_state(workspace)
