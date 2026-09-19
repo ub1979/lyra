@@ -6493,6 +6493,7 @@ tests/tui_gateway/test_render.py	tests	Behavioral tests: render
 tests/tui_gateway/test_review_summary_callback.py	tests	Behavioral tests: review summary callback
 tests/tui_gateway/test_session_id_injection.py	tests	Behavioral tests: session id injection
 tests/tui_gateway/test_session_platform_resolution.py	tests	Behavioral tests: session platform resolution
+tests/tui_gateway/test_session_usage_resume.py	tests	Behavioral tests: session usage resume
 tests/tui_gateway/test_slash_worker_ansi.py	tests	Behavioral tests: slash worker ansi
 tests/tui_gateway/test_slash_worker_mcp_discovery.py	tests	Behavioral tests: slash worker mcp discovery
 tests/tui_gateway/test_slash_worker_profile_home.py	tests	Behavioral tests: slash worker profile home
@@ -6649,6 +6650,7 @@ tui_gateway/project_tree.py	tui_gateway	Authoritative project -> repo -> lane ->
 tui_gateway/provider_identity.py	tui_gateway	Is the agent already running the provider config.yaml names?
 tui_gateway/render.py	tui_gateway	Rendering bridge — routes TUI content through Python-side renderers.
 tui_gateway/server.py	tui_gateway	py: server
+tui_gateway/session_usage.py	tui_gateway	Read-only lifetime usage for a gateway agent resumed from saved history.
 tui_gateway/slash_worker.py	tui_gateway	Persistent slash-command worker — one HermesCLI per TUI session.
 tui_gateway/studio_budget.py	tui_gateway	Bound Studio context through tool budgets and normal Hermes compression.
 tui_gateway/studio_context.py	tui_gateway	Choose Studio's coordinator capabilities once, at agent construction.

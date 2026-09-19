@@ -78,4 +78,26 @@ The new capability is picked up on a fresh agent process; no live toolset or
 historical prompt is rewritten. Revert this stage to restore old browser paths;
 there is no persisted data migration.
 
+### Stage 2 — coordinator lifetime usage across restart
+
+Gateway agent construction snapshots persisted usage before any new calls.
+Display events add only that fixed baseline to the new agent's runtime counters.
+They do not add a growing database total, seed billing counters, rewrite prompts,
+or modify per-call persistence. Unknown persistence omits lifetime numbers rather
+than claiming zero; context occupancy and worker totals remain separate.
+
+An actual SQLite regression exposed a second read-path defect: the existing
+compression-lineage helper excluded branches but not delegated/tool children.
+It could select a worker as the parent's continuation. The helper now uses the
+same exclusions as the existing live-compression-child lookup. No stored rows or
+write semantics change; lineage exports also stop absorbing independent workers.
+
+Verification: 565 tests passed across ten gateway/state suites (including all
+461 SessionDB tests). Six new regressions cover SQLite close/reopen, the next
+turn, repeated reconnects, independent chats/workers/branches, actual compression
+publication, live compression followed by resume, unknown reads, context-window
+separation and construction wiring. Billing counters and stored deltas are
+asserted unchanged. Ruff passed. Revert the display helper/wiring and read-only
+lineage correction to roll back; no migration is needed.
+
 Other stages remain in progress; no overall completion claim yet.

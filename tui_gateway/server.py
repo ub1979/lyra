@@ -4153,6 +4153,8 @@ def _sync_session_key_after_compress(
 
 
 def _get_usage(agent) -> dict:
+    from tui_gateway.session_usage import lifetime_usage
+
     g = lambda k, fb=None: getattr(agent, k, 0) or (getattr(agent, fb, 0) if fb else 0)
     usage = {
         "model": getattr(agent, "model", "") or "",
@@ -4215,7 +4217,7 @@ def _get_usage(agent) -> dict:
                 usage["dev_credits_spent_micros"] = int(spent)
         except Exception:
             pass
-    return usage
+    return lifetime_usage(agent, usage)
 
 
 def _probe_credentials(agent) -> str:
@@ -5780,6 +5782,10 @@ def _make_agent(
                 raise RuntimeError("Auth fallback resolved without a model")
             model = resolution.selected_model
     _pr = _load_provider_routing()
+    from tui_gateway.session_usage import saved_usage_baseline
+
+    agent_db = session_db if session_db is not None else _get_db()
+    usage_baseline = saved_usage_baseline(agent_db, session_id or key)
     agent = AIAgent(
         model=model,
         max_iterations=_cfg_max_turns(cfg, 90),
@@ -5823,7 +5829,7 @@ def _make_agent(
         provider_data_collection=_pr.get("data_collection"),
         platform=_resolve_agent_platform(platform_override),
         session_id=session_id or key,
-        session_db=session_db if session_db is not None else _get_db(),
+        session_db=agent_db,
         ephemeral_system_prompt=system_prompt or None,
         checkpoints_enabled=is_truthy_value(os.environ.get("HERMES_TUI_CHECKPOINTS")),
         pass_session_id=is_truthy_value(os.environ.get("HERMES_TUI_PASS_SESSION_ID")),
@@ -5842,6 +5848,7 @@ def _make_agent(
     from tui_gateway.studio_budget import apply_coordinator_context_policy
 
     apply_coordinator_context_policy(agent, startup_skills)
+    agent._gateway_usage_baseline = usage_baseline
     return agent
 
 

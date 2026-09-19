@@ -96,6 +96,10 @@ Durable project jobs → Hermes Kanban dispatcher → isolated worker sessions
 
 Calculator follow-up boundaries:
 
+- Restarted coordinator usage: `tui_gateway/session_usage.py` adds a fixed saved
+  baseline for display only. `tests/tui_gateway/test_session_usage_resume.py`
+  covers actual SQLite/compression, restart, reconnect and worker isolation.
+
 - Capability-aware finish verification: `agent/verification_stop.py`; real agent
   regression in `tests/run_agent/test_verification_continuation_budget.py`.
 - Trusted selected-preview handoff: `plugins/ultimate-builder/preview_selection.py`,

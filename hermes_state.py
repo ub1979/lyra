@@ -8609,7 +8609,14 @@ class SessionDB:
     # Export and cleanup
     # =========================================================================
 
-    def _is_branch_child_row(self, session: Dict[str, Any]) -> bool:
+    def _is_independent_child_row(self, session: Dict[str, Any]) -> bool:
+        """Match find_live_compression_child's branch/delegate/tool exclusion.
+
+        A parent ending in compression does not turn its pre-existing workers
+        into continuation chats. This is read-only lineage classification.
+        """
+        if session.get("source") == "tool":
+            return True
         raw = session.get("model_config")
         if not raw:
             return False
@@ -8617,11 +8624,13 @@ class SessionDB:
             cfg = json.loads(raw) if isinstance(raw, str) else raw
         except (TypeError, json.JSONDecodeError):
             return False
-        return isinstance(cfg, dict) and cfg.get("_branched_from") is not None
+        return isinstance(cfg, dict) and any(
+            cfg.get(marker) is not None for marker in ("_branched_from", "_delegate_from")
+        )
 
     def _is_compression_child_row(self, child: Dict[str, Any]) -> bool:
         parent_id = child.get("parent_session_id")
-        if not parent_id or self._is_branch_child_row(child):
+        if not parent_id or self._is_independent_child_row(child):
             return False
         parent = self.get_session(parent_id)
         return bool(parent and parent.get("end_reason") == "compression")
@@ -8629,7 +8638,7 @@ class SessionDB:
     def get_compression_lineage(self, session_id: str) -> List[str]:
         """Return compression ancestors through tip in chronological order."""
         session = self.get_session(session_id)
-        if not session or self._is_branch_child_row(session):
+        if not session or self._is_independent_child_row(session):
             return [session_id] if session else []
 
         root = session
@@ -8657,7 +8666,7 @@ class SessionDB:
             next_child = None
             for row in rows:
                 candidate = dict(row)
-                if not self._is_branch_child_row(candidate):
+                if not self._is_independent_child_row(candidate):
                     next_child = candidate
                     break
             if not next_child or next_child["id"] in seen:
