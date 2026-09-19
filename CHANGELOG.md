@@ -9,6 +9,32 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.64] - 2026-09-19 — focused QA and project recovery
+
+### Changed
+
+- Split new QA work into complete Functional and Experience skills with a shared
+  evidence contract. Personal projects run Functional QA, including real browser,
+  keyboard, narrow-layout and persistence checks; Experience is an explicit
+  opt-in. Reusable and Production run both, serially. Existing jobs retain their
+  saved scope, instructions and recovery identities.
+
+### Fixed
+
+- Keep the new-project transport alive until its brief is submitted; preserve
+  pasted instructions across initial session creation. Display interim progress
+  and session-scoped usage without presenting unknown worker values as zero.
+- Preserve complete skill delivery, estimate provider-facing context rather than
+  duplicated stored reasoning, and reject masked shell-test success evidence.
+- Enforce user-owned preview approval, expose job-runner health and a supported
+  start action, and give workers the ledger format and repeatable test contract.
+- Apply attempt-wide call budgets with retained handoffs and bounded recovery;
+  use collision-free identifiers when explicitly starting a fresh job batch.
+- Beta limitation: automated checks and earlier focused live retests are not
+  overall reliability or speed guarantees. A fresh small-project journey with
+  the new QA skills is pending. Restart idle Lyra processes to load the changes;
+  browser reload alone does not upgrade an existing coordinator.
+
 ## [0.19.63] - 2026-09-18 — recoverable bounded QA
 
 ### Fixed

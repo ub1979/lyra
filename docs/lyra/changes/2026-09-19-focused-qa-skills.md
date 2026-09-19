@@ -77,3 +77,13 @@ queue batch. Ordinary reopen still resolves existing work-item identities first.
 This also covers the shared new-job creation path for other phases; no saved
 keys are changed. A fixed-clock regression checks fresh parent, dependency gate,
 retained original body, and subsequent reopen adopting the fresh tasks.
+
+### Authorized release preparation
+
+The user subsequently requested a GitHub push and a new small-project journey.
+Prepare 0.19.64 beta, including the earlier local reliability commits, with one
+patch increment for this push. The legacy wrapper also explicitly loads both
+original references for old Personal jobs, preserving their saved procedure.
+No new-style scope is substituted into an already queued legacy job. Release
+metadata and generated labels are synchronized; live results will be recorded
+separately without rewriting the historical observations above.

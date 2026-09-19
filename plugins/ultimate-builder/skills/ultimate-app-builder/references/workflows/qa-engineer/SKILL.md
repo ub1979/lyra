@@ -27,11 +27,11 @@ instructions. Do not truncate it or load only its first page.
 
 | Saved assignment | Complete instructions to load |
 |---|---|
-| `QA-MVP-001` | `ultimate-builder:qa-evidence` and `ultimate-builder:qa-functional` |
+| `QA-MVP-001` | Both legacy references, with their Personal MVP override |
 | `QA-001` through `QA-004`, or an older broad QA job | Both legacy references below |
 
-For `QA-MVP-001`, apply the Personal profile and the saved final-item rule.
-For the four-stage/broad legacy campaign, load both files completely:
+For every legacy assignment, preserve the saved final-item rule and load both
+files completely (the Personal override remains in the original procedure):
 `skill_view(name="ultimate-builder:qa-engineer", file_path="references/legacy-testing.md")`
 and
 `skill_view(name="ultimate-builder:qa-engineer", file_path="references/legacy-verdict.md")`.
