@@ -68,6 +68,9 @@ def test_internal_envelope_stays_short_because_it_repeats_per_job_update():
     preamble = internal.split("\nJob data: ", 1)[0]
     assert len(preamble) <= 1100
     assert "project_run status" in preamble
+    assert "qa_acceptance outranks Brain/prose" in preamble
+    assert "needs_review means open gaps" in preamble
+    assert "self-authored resolution cannot waive" in preamble
 
 
 def test_review_notification_has_exact_reference_and_no_implied_approval():

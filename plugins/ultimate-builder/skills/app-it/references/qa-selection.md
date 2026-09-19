@@ -36,3 +36,14 @@ evidence after checking revision/dirty files; never run another copy of QA in
 parallel in the same directory. Do not claim Experience or production assurance
 for a Functional-only pass. No job-count reduction guarantees faster model
 responses; report measured timings and actual coverage.
+
+Before announcing completion, call `project_run` status and inspect
+`qa_acceptance`. `needs_review` remains an open acceptance gap even when a job
+is done or the Brain says verified. `reported_complete` reports coverage and
+available evidence, not independent approval. A self-authored resolution note
+cannot clear it. Check raw results and rerun only missing/invalid checks through
+the existing bounded QA recovery; do not repeat valid unchanged journeys.
+Unverified compound-command results need a direct run, not a prose PASS.
+User waivers must actually come from the user and remain disclosed as limitations;
+never invent approval, silently edit requirements, or present a waiver as a
+passed test. Required NFRs still apply when Experience QA is unselected.

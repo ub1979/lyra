@@ -97,6 +97,8 @@ Durable project jobs → Hermes Kanban dispatcher → isolated worker sessions
 Active repair set: [calculator QA reliability repairs](changes/2026-09-19-qa-reliability-repairs.md).
 Shared `qa-evidence` owns execution-method preflight independently of selected
 Functional/Experience scope. The user retains the next live acceptance run.
+`requirement_ids.py` parses actual requirements declarations for `qa_acceptance.py`;
+real queue/report tests keep parent, child and explicit nonfunctional coverage.
 
 Calculator follow-up boundaries:
 

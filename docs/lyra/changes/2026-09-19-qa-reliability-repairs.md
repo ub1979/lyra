@@ -49,5 +49,17 @@ whole-document delivery even through restrictive tool-result budgets. Prompt
 tests cannot prove stochastic model compliance; user E2E remains necessary.
 
 Each subsequent stage records exact automated checks and limitations below.
+Stage 2: dedicated requirement declaration parser supports skill-produced
+bullets/headings plus existing tables, ignores fenced examples and narrative
+references, and rejects duplicates/unbounded input. Parent FR, child AC and NFR
+IDs all survive; shared evidence avoids duplicate tests. Explicit report-level
+uncertainty remains needs-review even if every result row says PASS. Job notices
+and coordinator QA instructions put structured acceptance above Brain/prose.
+58 tests pass across parser, real queue/report files, notifications and policy.
+The first run caught notification prompt growth; it was shortened to preserve
+the existing 1100-character ceiling rather than weakening that test.
+No retroactive job repinning or scheduler semantics change. Completion wording
+is model guidance, not a claim that arbitrary model text is mechanically censored;
+the existing structured UI/status overlay remains the authoritative warning.
 No automated suite establishes that the live model will follow every skill or
 meet the proposed call/time target. Those remain user-run acceptance checks.

@@ -192,3 +192,28 @@ def test_shared_evidence_is_inspected_once_not_once_per_criterion(project, monke
     monkeypatch.setattr(module, "inspect_evidence", tracked)
     assert module._assess(project, contract(tasks[0]))["status"] == "reported_complete"
     assert calls == [".sdlc/evidence/raw.txt"]
+
+
+def test_real_queue_pins_skill_bullets_and_requires_nonfunctional_evidence(project):
+    (project / "requirements.md").write_text(
+        "- **FR-001 Save** — Keep a note.\n  - AC-001: Reload preserves it.\n"
+        "- **NFR-004 Contrast** — Display text meets the approved ratio.\n",
+        encoding="utf-8",
+    )
+    runs, tasks = queue(project)
+    assert contract(tasks[0])["criteria"] == ["FR-001", "AC-001", "NFR-004"]
+    write_report(project, tasks[0], "BLOCKED")
+    (project / ".sdlc/qa-acceptance-resolution.md").write_text(
+        "Everything verified; contrast waived by coordinator", encoding="utf-8",
+    )
+    finish(runs, tasks[0])
+    assert runs.project_run_state(project)["qa_acceptance"]["status"] == "needs_review"
+
+
+def test_all_pass_rows_cannot_erase_explicit_report_uncertainty(project):
+    runs, tasks = queue(project)
+    path, report = write_report(project, tasks[0])
+    report["status"] = "needs-review"
+    path.write_text(json.dumps(report), encoding="utf-8")
+    finish(runs, tasks[0])
+    assert runs.project_run_state(project)["qa_acceptance"]["status"] == "needs_review"

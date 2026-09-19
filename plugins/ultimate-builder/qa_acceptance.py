@@ -7,8 +7,8 @@ product is correct. Kanban completion/dependency semantics stay in Hermes.
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
-import re
 from pathlib import Path
 
 from hermes_cli.project_evidence import inspect_evidence
@@ -30,28 +30,13 @@ def _read(project: Path, relative: str) -> bytes:
 
 
 def _criteria(markdown: str) -> list[str]:
-    """Read explicit ID/requirement tables, not references in narrative prose.
-
-    Unknown requirements formats remain a review item rather than silently
-    producing an empty, allegedly passing matrix.
-    """
-    found = []
-    id_column = None
-    for line in markdown.splitlines():
-        if not line.lstrip().startswith("|"):
-            id_column = None
-            continue
-        cells = [cell.strip().strip("`* ") for cell in line.strip().strip("|").split("|")]
-        header = [cell.lower() for cell in cells]
-        if "id" in header and any("requirement" in cell or "criterion" in cell for cell in header):
-            id_column = header.index("id")
-        elif id_column is not None and len(cells) > id_column:
-            value = cells[id_column]
-            if re.fullmatch(r"[A-Z][A-Z0-9_-]{0,30}-[0-9]{1,6}", value):
-                found.append(value)
-    if len(found) != len(set(found)) or len(found) > _MAX_CRITERIA:
-        return []
-    return found
+    """Use the plugin-local declaration parser (plugin modules are path-loaded)."""
+    spec = importlib.util.spec_from_file_location(
+        "lyra_requirement_ids", Path(__file__).with_name("requirement_ids.py")
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.declared_requirement_ids(markdown)
 
 
 def final_instructions(project: Path, run_token: str) -> str:
@@ -77,10 +62,13 @@ def final_instructions(project: Path, run_token: str) -> str:
         '"evidence":["project-relative raw evidence file"]}]}.'
         "\nAccount for every pinned criterion, including explicit requirements normally "
         "outside this profile. Do not mark untested/omitted checks PASS. Reuse valid "
+        "evidence for parent FRs and child ACs without repeating the same checks. "
         "evidence across scopes. A readable file is not proof that its claim is true. "
-        "If criteria are empty or inputs changed, report needs-review and the exact "
+        "Before testing, if criteria are empty or inputs changed, stop at preflight, "
+        "report needs-review and the exact "
         "missing requirement mapping; do not invent approval or rewrite requirements. "
         "The coordinator must resolve this and queue a fresh QA pass if needed. "
+        "A separate prose resolution cannot clear this structured coverage state. "
         "Job completion alone does not establish project acceptance.\n"
     )
 
@@ -104,7 +92,7 @@ def _assess(project: Path, contract: dict) -> dict:
     expected = contract.get("criteria")
     if (not isinstance(expected, list) or not 1 <= len(expected) <= _MAX_CRITERIA
             or not all(isinstance(key, str) and len(key) <= 38 for key in expected)):
-        return _review(report_path, ["No unambiguous requirement ID table was captured; human review needed."])
+        return _review(report_path, ["No unambiguous requirement ID declarations were captured; review needed."])
     try:
         current = hashlib.sha256(_read(project, "requirements.md")).hexdigest()
         if current != contract.get("requirements_sha256"):
@@ -116,6 +104,10 @@ def _assess(project: Path, contract: dict) -> dict:
         if not isinstance(rows, list) or len(rows) > _MAX_CRITERIA:
             return _review(report_path, ["Missing or malformed criterion results."])
         issues = []
+        # A report can have passing rows and still declare an unresolved gap.
+        # Never erase that explicit uncertainty with a heading or sidecar note.
+        if report.get("status") not in (None, "PASS", "reported_complete"):
+            issues.append("Coverage report explicitly remains failed, blocked, or under review.")
         if not isinstance(report.get("tested_revision"), str) or not report["tested_revision"].strip():
             issues.append("Tested revision/dirty-file notes are missing.")
         mapped = {}
