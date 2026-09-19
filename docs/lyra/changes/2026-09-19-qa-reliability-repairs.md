@@ -105,5 +105,18 @@ The 42 focused tests across power, browser request ownership, worker spawning an
 Studio policy pass. The first test run caught an over-broad subprocess mock in
 the new test; replaced it with a module-local OS boundary before rerunning.
 No real macOS power setting or live Lyra process was changed.
+
+Stage 6: extracted the terminal-paint merge decision into a 14-line helper.
+The previous phase expression reproduced ready/idle during a structured active
+first request and reconnect (two failing regressions). Structured ownership now
+blocks all terminal phase overrides, not only a terminal response; raw terminal
+errors cannot settle a structured turn either. Terminal-only fallback remains,
+and authoritative completion still settles normally. No submission, PTY lifetime,
+watchdog deadline, token-accounting or profile routing change.
+All 495 web tests, typecheck and production build pass. Lint: 0 errors, 30
+warnings. Bundle rebuilt for the existing dashboard delivery path. Combined
+Python plugin/runtime regression run: 477 passed across 38 files. New tests and
+helpers all remain under 400 lines; large legacy integration files are unchanged
+in size materially or reduced. Broader core request-path verification follows.
 No automated suite establishes that the live model will follow every skill or
 meet the proposed call/time target. Those remain user-run acceptance checks.

@@ -1,4 +1,5 @@
 import { coordinatorStatusLabel, type CoordinatorStatus } from "@/lib/coordinator-status";
+import { terminalPresentation } from "@/lib/guided-terminal-authority";
 
 /**
  * ChatPage — embeds `hermes --tui` inside the dashboard.
@@ -3630,7 +3631,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             guidedTurnStartLineRef.current,
           );
           setGuidedOutput(snapshot.output);
-          if (snapshot.errorMessage) {
+          if (snapshot.errorMessage && canUseGuidedTerminalFallback(guidedStructuredFeedEstablishedRef.current)) {
             setGuidedLastSignalAt(Date.now());
             guidedTurnSettledRef.current = true;
             appendGuidedError(snapshot.errorMessage);
@@ -3646,25 +3647,15 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
               guidedSelectedSpecialistIdsRef.current.includes(detected.id)
                 ? detected
                 : null;
-            setGuidedActivitySynced((current) => ({
-              phase:
-                guidedStructuredFeedEstablishedRef.current &&
-                snapshot.presentation.phase === "response"
-                  ? "working"
-                  : snapshot.presentation.phase,
-              // The PTY may briefly contain a provider's narrated handoff,
-              // tool chrome, or model statistics before the structured
-              // message.complete event arrives. Structured events are the
-              // authoritative guided feed, so never copy that raw terminal
-              // text into the friendly live-status card.
-              text: guidedStructuredFeedEstablishedRef.current
-                ? current.text || "Continuing with the next step…"
-                : snapshot.presentation.text,
-              specialist:
-                selected ??
-                current.specialist ??
-                guidedDefaultSpecialistRef.current,
-            }));
+            setGuidedActivitySynced((current) => terminalPresentation(
+              current,
+              {
+                ...snapshot.presentation,
+                specialist: selected ?? current.specialist ?? guidedDefaultSpecialistRef.current,
+              },
+              guidedStructuredFeedEstablishedRef.current,
+              guidedTurnSettledRef.current,
+            ));
           }
           if (
             canUseGuidedTerminalFallback(

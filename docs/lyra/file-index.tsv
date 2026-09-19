@@ -2185,7 +2185,7 @@ hermes_cli/web_dist/assets/RulesCompressed-Regular-BSXFyF4x.woff2	hermes_cli	Gen
 hermes_cli/web_dist/assets/RulesExpanded-Bold-DZA7s8Pa.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Regular-l8uVympt.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/index-BGAdPJZk.css	hermes_cli	Generated asset; edit its source and rebuild
-hermes_cli/web_dist/assets/index-DNV_9Ae1.js	hermes_cli	Generated asset; edit its source and rebuild
+hermes_cli/web_dist/assets/index-CCgEwi21.js	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Bold.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Italic.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Regular.woff2	hermes_cli	Generated asset; edit its source and rebuild
@@ -2197,6 +2197,8 @@ hermes_cli/web_dist/fonts/RulesCompressed-Regular.woff2	hermes_cli	Generated ass
 hermes_cli/web_dist/fonts/RulesExpanded-Bold.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts/RulesExpanded-Regular.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/index.html	hermes_cli	Generated asset; edit its source and rebuild
+hermes_cli/web_dist/skill-avatars/a11y-auditor-sad.webp	hermes_cli	Generated asset; edit its source and rebuild
+hermes_cli/web_dist/skill-avatars/a11y-auditor.webp	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/skill-avatars/app-it.webp	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/skill-avatars/benchmark-sad.webp	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/skill-avatars/benchmark.webp	hermes_cli	Generated asset; edit its source and rebuild
@@ -2236,6 +2238,10 @@ hermes_cli/web_dist/skill-avatars/task-planner-sad.webp	hermes_cli	Generated ass
 hermes_cli/web_dist/skill-avatars/task-planner.webp	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/skill-avatars/tech-writer-sad.webp	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/skill-avatars/tech-writer.webp	hermes_cli	Generated asset; edit its source and rebuild
+hermes_cli/web_dist/skill-avatars/ui-designer-sad.webp	hermes_cli	Generated asset; edit its source and rebuild
+hermes_cli/web_dist/skill-avatars/ui-designer.webp	hermes_cli	Generated asset; edit its source and rebuild
+hermes_cli/web_dist/skill-avatars/ux-writer-sad.webp	hermes_cli	Generated asset; edit its source and rebuild
+hermes_cli/web_dist/skill-avatars/ux-writer.webp	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_git.py	hermes_cli	Backend git operations for the desktop coding rail + Codex-style review pane.
 hermes_cli/web_server.py	hermes_cli	Hermes Agent — Web UI server.
 hermes_cli/webhook.py	hermes_cli	hermes webhook — manage dynamic webhook subscriptions from the CLI.
@@ -7317,6 +7323,8 @@ web/src/lib/guided-session-recovery.test.ts	web	Behavioral tests: guided-session
 web/src/lib/guided-session-recovery.ts	web	ts: guided session recovery
 web/src/lib/guided-specialists-dialog.test.ts	web	Behavioral tests: guided-specialists-dialog.test
 web/src/lib/guided-specialists-dialog.ts	web	ts: guided specialists dialog
+web/src/lib/guided-terminal-authority.test.ts	web	Behavioral tests: guided-terminal-authority.test
+web/src/lib/guided-terminal-authority.ts	web	ts: guided terminal authority
 web/src/lib/guided-tool-events.test.ts	web	Behavioral tests: guided-tool-events.test
 web/src/lib/guided-tool-events.ts	web	ts: guided tool events
 web/src/lib/guided-turn-watchdog.test.ts	web	Behavioral tests: guided-turn-watchdog.test

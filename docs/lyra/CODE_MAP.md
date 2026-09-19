@@ -106,6 +106,8 @@ remaining compatible with existing deny-only consumers; headless workers do not
 wait on an absent prompt_toolkit UI.
 `agent/request_power.py` covers active macOS Studio provider requests with bounded
 idle-system assertions, separate from existing worker and desktop protection.
+`web/src/lib/guided-terminal-authority.ts` keeps terminal repaints subordinate
+after the structured feed takes ownership, including startup and reconnect.
 
 Calculator follow-up boundaries:
 
