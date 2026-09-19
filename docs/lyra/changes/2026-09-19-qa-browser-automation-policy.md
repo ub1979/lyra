@@ -78,6 +78,14 @@ This lifecycle observation is not fixed by the browser-policy change. Its root
 cause and intended dependency semantics need a separate reproduction and
 change record before modifying Kanban behavior.
 
+Follow-up: [QA dependency routing repairs](2026-09-19-qa-dependency-routing.md)
+records the reproduction, local fixes and regression results. The incorrect
+dependency was QA -> repair: the child waited for QA, not the reverse. Accepting
+a dependency block without an unfinished parent released QA for another run.
+Scratch isolation itself was intentional; project Stop's incomplete task scope
+and non-atomic cancellation were the related control defects. The generated
+application edits remain untouched by these Lyra fixes.
+
 ## Compatibility / restart
 
 New QA jobs receive the rule automatically from plugin skill loading. Existing

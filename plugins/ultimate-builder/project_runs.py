@@ -231,22 +231,16 @@ def _validate_routing(
 def _project_tasks(
     project: Path, *, include_archived: bool = True
 ) -> list[tuple[str, kb.Task]]:
-    """Find every job belonging to this exact workspace, regardless of creator."""
+    """Find exact workspace jobs and exclusively related isolated descendants."""
     found: list[tuple[str, kb.Task]] = []
+    scope = _plugin_module("project_task_scope")
     for board_meta in kb.list_boards(include_archived=False):
         board = str(board_meta.get("slug") or board_meta.get("id") or "default")
         try:
             with kb.connect_closing(board=board) as conn:
-                for task in kb.list_tasks(
-                    conn, include_archived=include_archived, workspace_path=str(project)
-                ):
-                    if not task.workspace_path:
-                        continue
-                    candidate = (
-                        Path(task.workspace_path).expanduser().resolve(strict=False)
-                    )
-                    if candidate == project:
-                        found.append((board, task))
+                found.extend((board, task) for task in scope.project_tasks(
+                    conn, project, include_archived=include_archived,
+                ))
         except (OSError, ValueError):
             continue
     return found
@@ -901,6 +895,23 @@ def control_project_run(workspace: str | Path, action: str) -> dict[str, Any]:
     action = action.strip().lower()
     if action not in {"pause", "resume", "stop"}:
         raise ValueError("Action must be pause, resume, or stop")
+    if action == "stop":
+        changed, unconfirmed = [], []
+        stopper = _plugin_module("project_run_stop")
+        scope = _plugin_module("project_task_scope")
+        for meta in kb.list_boards(include_archived=False):
+            board = str(meta.get("slug") or meta.get("id") or "default")
+            with kb.connect_closing(board=board) as conn:
+                result = stopper.stop_project_tasks(conn, project, scope)
+                changed.extend(result["changed"])
+                unconfirmed.extend(result["unconfirmed_workers"])
+        return {
+            "ok": not unconfirmed, "action": action, "changed": changed,
+            "project": str(project), "job_runner": _job_runner_health(),
+            "unconfirmed_workers": unconfirmed,
+            **({"error": "Jobs cancelled, but worker exit is unconfirmed: " + ", ".join(unconfirmed)}
+               if unconfirmed else {}),
+        }
     changed: list[str] = []
     for board, snapshot in _project_tasks(project, include_archived=False):
         with kb.connect_closing(board=board) as conn:
@@ -927,13 +938,6 @@ def control_project_run(workspace: str | Path, action: str) -> dict[str, Any]:
                 )
                 if reason == PAUSE_REASON and kb.unblock_task(conn, task.id):
                     changed.append(task.id)
-            elif action == "stop" and task.status in ACTIVE_STATUSES:
-                if task.status == "running" and not kb.reclaim_task(
-                    conn, task.id, reason="Stopped by user"
-                ):
-                    continue
-                if kb.archive_task(conn, task.id):
-                    changed.append(task.id)
     if changed and action == "resume":
         from hermes_cli.kanban_dispatch_wakeup import request_dispatch
         request_dispatch()
@@ -956,10 +960,13 @@ def relocate_project_runs(
             if task is None:
                 continue
             body = (task.body or "").replace(str(old), str(new))
+            # Isolated descendants move logically, not into the shared checkout.
+            path = (str(new) if _plugin_module("project_task_scope").same_workspace(
+                task.workspace_path, old) else task.workspace_path)
             with kb.write_txn(conn):
                 conn.execute(
                     "UPDATE tasks SET workspace_path = ?, body = ? WHERE id = ?",
-                    (str(new), body, task.id),
+                    (path, body, task.id),
                 )
             changed.append(task.id)
     return {

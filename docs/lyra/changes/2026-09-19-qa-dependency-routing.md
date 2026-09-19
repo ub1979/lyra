@@ -66,8 +66,40 @@ tool dispatch. The first test run incorrectly sent `delegate_task` through the
 ordinary dispatcher; it is agent-loop-intercepted, so that test now exercises
 its shared hook entry point.
 
-Pending: project isolation and stop/claim races.
-Focused tests do not establish release stability.
+The broad regression run caught one change-induced failure: the expanded
+Kanban guidance exceeded its existing 5,500-character ceiling. Shortened the
+new rule to retain authority/dependency semantics without raising the ceiling
+(5,483 characters now). No mid-conversation prompt mutation was introduced.
+
+Stage 3: project controls now include isolated descendants only when creation
+provenance and all current prerequisites remain within the project; later links
+alone do not establish ownership. Explicit other directories/projects and shared
+dependencies are excluded. Archived roots remain discoverable anchors. A
+relocation preserves scratch/worktree paths instead of merging them into the
+shared checkout. Existing failed-job retry still requires the exact project
+workspace and cannot bypass input/review waits.
+
+Stop selects and archives the full related active set in one per-board SQLite
+write transaction, reusing the same archive implementation as single-card
+archive. Workers are terminated only after the set is committed, using Hermes'
+existing host-local termination helper. A denied signal or remote PID returns
+`ok=false` with `unconfirmed_workers` and an audit event; repeated Stop preserves
+that warning rather than blindly signalling a potentially reused PID. Such an
+OS/remote termination failure still needs operator inspection. Completed
+evidence remains done; normal archive semantics for unselected dependents remain
+unchanged. No cross-board transaction or new process supervisor is introduced.
+
+Verification: 1,418 passed, zero failures (two skipped) across 67 files via
+`scripts/run_tests.sh plugins/ultimate-builder/tests tests/hermes_cli/test_kanban*.py
+tests/tools/test_kanban_tools.py tests/agent/test_prompt_builder.py
+tests/skills/test_focused_qa_skill.py`. Tests include real concurrent dispatcher
+claims, archive rollback, a real temporary worker process, repeated Stop,
+cross-board/project/shared-link isolation, worktrees, relocation and all existing
+Kanban archive/dependency/tool contracts. Ruff and Windows-footgun checks pass
+for all new modules/tests. No web/Ink source changed; no bundle rebuild required.
+New files are below 400 lines; legacy large integration files remain large and
+receive only narrow wiring/extraction. No full Studio journey or live QA rerun
+was performed for this repair; these checks do not establish release stability.
 
 ## Deployment and rollback
 
