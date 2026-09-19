@@ -30,11 +30,13 @@ let dashboard: StudioDashboard
 test.beforeAll(async () => {
   sandbox = createSandbox('studio-smoke')
   // Outside the Lyra checkout: the project API rejects workspaces inside it.
-  project = fs.mkdtempSync(path.join(os.tmpdir(), 'lyra-studio-smoke-project-'))
+  project = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'lyra-studio-smoke-project-')))
   echo = await startEchoModel()
   // Studio pins model.provider + model.default from this file, and the
   // ultimate-builder plugin is opt-in — without it there is no coordinator.
-  writeMockProviderConfig(sandbox.hermesHome, echo.url, undefined, 'plugins:\n  enabled:\n    - ultimate-builder')
+  // Count conversation requests, not the independent background title request.
+  writeMockProviderConfig(sandbox.hermesHome, echo.url, undefined,
+    'plugins:\n  enabled:\n    - ultimate-builder\nauxiliary:\n  title_generation:\n    enabled: false')
   writeEnvFile(sandbox.hermesHome)
   dashboard = await startStudioDashboard(sandbox.hermesHome)
 })
@@ -93,7 +95,7 @@ test('a user turn, a second turn, and the token panel all render in Studio', asy
   // Runtime panel: two instances mount (mobile + desktop); scope to the aside.
   const panel = page.locator('aside[aria-label="Live agents and token usage"]')
   await expect(panel).toBeVisible()
-  await expect(panel.getByText('Lyra available')).toBeVisible()
+  await expect(panel.getByText('Lyra ready', { exact: true })).toBeVisible()
   const tokens = panel.locator('details').filter({ has: page.locator('summary', { hasText: 'Tokens' }) })
   await tokens.locator('summary').click()
   await expect(tokens.locator('summary strong')).not.toHaveText('Not reported yet', { timeout: 30_000 })
@@ -139,4 +141,49 @@ test('a user turn, a second turn, and the token panel all render in Studio', asy
   await expect(secondReply).toHaveCount(1, { timeout: 60_000 })
   expect(echo.prompts.length).toBe(promptsBeforeReload)
   expect(savedMessages().filter(([role, content]) => role === 'assistant' && content.startsWith('Echo:'))).toHaveLength(2)
+})
+
+test('New Project submits its brief once without reconnecting between paste and Enter', async ({ page }) => {
+  const brief = 'Acknowledge the startup lifecycle probe. Do not create code or jobs.'
+  const baseline = echo.prompts.length
+  const frames: Array<{ socket: number; text: string }> = []
+  let sockets = 0
+  page.on('websocket', socket => {
+    if (!socket.url().includes('/api/pty')) return
+    const id = sockets++
+    socket.on('framesent', frame => frames.push({ socket: id, text: String(frame.payload) }))
+  })
+  await page.goto(`${dashboard.url}/ultimate-builder`)
+  await page.getByRole('button', { name: /Fast first version/ }).click()
+  await page.getByRole('button', { name: 'Browse', exact: true }).click()
+  const picker = page.getByRole('dialog')
+  await picker.getByLabel('Folder path').fill(project)
+  await picker.getByRole('button', { name: 'Go', exact: true }).click()
+  await expect(picker.getByText(project, { exact: true })).toBeVisible()
+  await picker.getByRole('button', { name: 'Choose this folder', exact: true }).click()
+  await page.getByPlaceholder('My new app', { exact: true }).fill('Startup probe')
+  await page.locator('textarea').fill(brief)
+  await page.getByRole('button', { name: 'Enter project studio →', exact: true }).click()
+
+  // No composer fill, forced Enter, manual recovery or second submission.
+  await expect.poll(() => echo.prompts.length, { timeout: 30_000 }).toBe(baseline + 1)
+  const prompt = echo.prompts[baseline]
+  expect(prompt.split(brief)).toHaveLength(2)
+  expect(prompt.match(/IDRAK_INTERNAL_SETUP_BEGIN/g)).toHaveLength(1)
+  const paste = frames.find(frame => frame.text.startsWith('\x1b[200~'))!
+  expect(paste).toBeTruthy()
+  expect(frames.some(frame => frame.socket === paste.socket && frame.text === '\r')).toBe(true)
+  const replies = page.locator('.lyra-studio-message').filter({ hasText: 'Echo:' })
+  await expect(replies).toHaveCount(1, { timeout: 30_000 })
+
+  await page.reload()
+  const composer = page.getByLabel('Message Lyra')
+  await expect(composer).toHaveAttribute('placeholder', /Describe your idea/, { timeout: 60_000 })
+  await expect(replies).toHaveCount(1)
+  expect(echo.prompts).toHaveLength(baseline + 1)
+  await composer.fill('Follow-up after startup reload')
+  await page.getByRole('button', { name: 'Send message', exact: true }).click()
+  await expect(replies).toHaveCount(2, { timeout: 30_000 })
+  expect(echo.prompts).toHaveLength(baseline + 2)
+  expect(echo.prompts[baseline + 1]).not.toContain(brief)
 })

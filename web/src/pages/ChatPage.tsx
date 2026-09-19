@@ -37,7 +37,7 @@ import {
   GUIDED_SPECIALISTS_SCROLL_LAYER_STYLE,
   guidedSpecialistModelRowClass,
 } from "@/lib/guided-specialists-dialog";
-import { writeGuidedPrompt } from "@/lib/guided-composer-paste";
+import { guidedSocketIsOpen, writeGuidedPrompt } from "@/lib/guided-composer-paste";
 import {
   CHAT_ATTACHMENT_ACCEPT,
   attachmentPromptBlock,
@@ -1521,7 +1521,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         writeGuidedPrompt(
           `${routing.join("\n")}\n${guidedPhaseContinuationDirective(phase, label)}`,
           {
-            isOpen: () => wsRef.current?.readyState === WebSocket.OPEN,
+            isOpen: () => guidedSocketIsOpen(active, wsRef.current),
             schedule: (run, delayMs) => window.setTimeout(run, delayMs),
             send: (data) => active.send(data),
           },
@@ -2315,7 +2315,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     // the PTY submits at its first newline, so only the opening line became the
     // turn and the rest arrived as interruptions mid-answer.
     writeGuidedPrompt(routedText, {
-      isOpen: () => wsRef.current?.readyState === WebSocket.OPEN,
+      isOpen: () => guidedSocketIsOpen(ws, wsRef.current),
       schedule: (run, delayMs) => window.setTimeout(run, delayMs),
       send: (data) => ws.send(data),
     });
@@ -2586,7 +2586,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     const socket = wsRef.current;
     if (!socket || socket.readyState !== WebSocket.OPEN) return false;
     writeGuidedPrompt(command, {
-      isOpen: () => wsRef.current?.readyState === WebSocket.OPEN,
+      isOpen: () => guidedSocketIsOpen(socket, wsRef.current),
       schedule: (run, delayMs) => window.setTimeout(run, delayMs),
       send: (data) => socket.send(data),
     });
@@ -2672,7 +2672,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     telegramHandoffRequestedRef.current = true;
     setTelegramHandoffStatus("sending");
     writeGuidedPrompt("/handoff telegram", {
-      isOpen: () => wsRef.current?.readyState === WebSocket.OPEN,
+      isOpen: () => guidedSocketIsOpen(socket, wsRef.current),
       schedule: (run, delayMs) => window.setTimeout(run, delayMs),
       send: (data) => socket.send(data),
     });
@@ -2781,7 +2781,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       writeGuidedPrompt(
         `${routing.join("\n")}\n${lastUserMessage.content}`,
         {
-        isOpen: () => wsRef.current?.readyState === WebSocket.OPEN,
+        isOpen: () => guidedSocketIsOpen(active, wsRef.current),
         schedule: (run, delayMs) => window.setTimeout(run, delayMs),
         send: (data) => active.send(data),
         },
@@ -3396,6 +3396,10 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           }
           markGuidedAgentReady();
           guidedWelcomeStartedRef.current = true;
+          // This is a new workspace, not a saved-session lookup. Keep readiness
+          // true when consuming builder; otherwise the effect closes this PTY
+          // between the paste below and its delayed Enter.
+          setGuidedSessionLookupWorkspace(workspaceParam);
           const next = new URLSearchParams(searchParams);
           next.delete("builder");
           setSearchParams(next, { replace: true });
@@ -3411,7 +3415,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           });
           setGuidedLastSignalAt(Date.now());
           writeGuidedPrompt(builderSeed, {
-            isOpen: () => wsRef.current?.readyState === WebSocket.OPEN,
+            isOpen: () => guidedSocketIsOpen(active, wsRef.current),
             schedule: (run, delayMs) => window.setTimeout(run, delayMs),
             send: (data) => active.send(data),
           });

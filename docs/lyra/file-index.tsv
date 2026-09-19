@@ -1749,6 +1749,7 @@ docs/lyra/2026-09-18-end-to-end-comparison-report.md	docs	md: 2026 09 18 end to 
 docs/lyra/2026-09-18-reliability-and-workflow-plan-v2.md	docs	md: 2026 09 18 reliability and workflow plan v2
 docs/lyra/2026-09-18-reliability-and-workflow-plan-v3.md	docs	md: 2026 09 18 reliability and workflow plan v3
 docs/lyra/2026-09-18-reliability-and-workflow-plan.md	docs	md: 2026 09 18 reliability and workflow plan
+docs/lyra/2026-09-19-calculator-e2e-followup.md	docs	md: 2026 09 19 calculator e2e followup
 docs/lyra/2026-09-19-calculator-live-trial.md	docs	md: 2026 09 19 calculator live trial
 docs/lyra/2026-09-19-reliability-synthesis-and-action-plan.md	docs	md: 2026 09 19 reliability synthesis and action plan
 docs/lyra/CHANGE_MANAGEMENT.md	docs	md: CHANGE MANAGEMENT
@@ -1843,6 +1844,7 @@ docs/lyra/changes/2026-09-19-coordinator-verification.md	docs	md: 2026 09 19 coo
 docs/lyra/changes/2026-09-19-cron-outcome.md	docs	md: 2026 09 19 cron outcome
 docs/lyra/changes/2026-09-19-node-evidence.md	docs	md: 2026 09 19 node evidence
 docs/lyra/changes/2026-09-19-skill-resources.md	docs	md: 2026 09 19 skill resources
+docs/lyra/changes/2026-09-19-startup-submit-lifecycle.md	docs	md: 2026 09 19 startup submit lifecycle
 docs/lyra/changes/2026-09-19-studio-status.md	docs	md: 2026 09 19 studio status
 docs/lyra/changes/2026-09-19-worker-handoff.md	docs	md: 2026 09 19 worker handoff
 docs/lyra/changes/2026-09-19-workflow-contract-repairs.md	docs	md: 2026 09 19 workflow contract repairs
@@ -2172,8 +2174,8 @@ hermes_cli/web_dist/assets/RulesCompressed-Medium-CA76_CrB.woff2	hermes_cli	Gene
 hermes_cli/web_dist/assets/RulesCompressed-Regular-BSXFyF4x.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Bold-DZA7s8Pa.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Regular-l8uVympt.woff2	hermes_cli	Generated asset; edit its source and rebuild
-hermes_cli/web_dist/assets/index-BB7RTdwN.js	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/index-BGAdPJZk.css	hermes_cli	Generated asset; edit its source and rebuild
+hermes_cli/web_dist/assets/index-DNV_9Ae1.js	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Bold.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Italic.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Regular.woff2	hermes_cli	Generated asset; edit its source and rebuild

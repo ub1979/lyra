@@ -113,6 +113,13 @@ Paste ownership: `ui-tui/src/app/useComposerState.ts`, `useSubmission.ts` and
 literal queue drains and shell-command boundaries. Studio browser smoke covers
 the actual PTY-to-model path.
 
+New-project submission lifetime: `web/src/lib/guided-composer-paste.ts` owns
+connection identity checks; `ChatPage.tsx` keeps lookup readiness stable while
+consuming the builder seed. The Studio smoke now creates a project through the
+actual form, checks one submission, reload and a follow-up turn. See
+[`startup lifecycle repair`](changes/2026-09-19-startup-submit-lifecycle.md) and
+[`calculator follow-up evidence`](2026-09-19-calculator-e2e-followup.md).
+
 [`file-index.tsv`](file-index.tsv) lists maintained repository files with an
 area and short mechanical summary. Search it; do not load thousands of entries
 into every AI context. Generated assets are labelled, not interpreted.

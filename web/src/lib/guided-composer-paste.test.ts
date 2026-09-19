@@ -4,6 +4,7 @@ import {
   guidedComposerEnterDelayMs,
   guidedComposerPayload,
   guidedNeedsBracketedPaste,
+  guidedSocketIsOpen,
   sanitizeGuidedComposerText,
   writeGuidedPrompt,
 } from "./guided-composer-paste";
@@ -99,6 +100,28 @@ describe("guidedComposerEnterDelayMs", () => {
 });
 
 describe("writeGuidedPrompt", () => {
+  it.each(["closed", "replaced", "unmounted"])("does not submit a delayed paste after the socket is %s", reason => {
+    const owner: { readyState: WebSocket["readyState"] } = { readyState: 1 };
+    let current: typeof owner | null = owner;
+    const { scheduled, sent, transport } = fakeTransport();
+    transport.isOpen = () => guidedSocketIsOpen(owner, current);
+    writeGuidedPrompt("hello", transport);
+    if (reason === "closed") owner.readyState = 3;
+    if (reason === "replaced") current = { readyState: 1 };
+    if (reason === "unmounted") current = null;
+    scheduled[0].run();
+    expect(sent).toEqual(["hello"]);
+  });
+
+  it("submits when the original socket is still active", () => {
+    const owner: Pick<WebSocket, "readyState"> = { readyState: 1 };
+    const { scheduled, sent, transport } = fakeTransport();
+    transport.isOpen = () => guidedSocketIsOpen(owner, owner);
+    writeGuidedPrompt("hello", transport);
+    scheduled[0].run();
+    expect(sent).toEqual(["hello", "\r"]);
+  });
+
   it("writes the payload, then Enter, in that order", () => {
     const { scheduled, sent, transport } = fakeTransport();
     const payload = writeGuidedPrompt("line one\nline two", transport);

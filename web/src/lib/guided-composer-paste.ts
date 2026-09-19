@@ -90,6 +90,14 @@ export type GuidedComposerTransport = {
   schedule: (run: () => void, delayMs: number) => void;
 };
 
+/** Delayed Enter belongs to the connection that received the paste, never its replacement. */
+export function guidedSocketIsOpen(
+  owner: Pick<WebSocket, "readyState">,
+  current: Pick<WebSocket, "readyState"> | null,
+): boolean {
+  return owner === current && owner.readyState === 1; // WebSocket.OPEN
+}
+
 /**
  * Write *text* into the composer and submit it.
  *
