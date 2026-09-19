@@ -192,3 +192,28 @@ will run the application acceptance journey after intentionally restarting idle
 Lyra processes to load these commits. A browser reload alone does not replace an
 already-running Python agent. Start fresh work for the new QA contract; do not
 expect historical completed jobs to acquire it retroactively.
+
+Final combined candidate check: **1,225 Python tests passed, 0 failed across
+61 files** in 55.4s. This combines the ten browser suites, eight gateway suites,
+SessionDB/compression guard, all builder plugin tests, focused skill/summary
+checks, all LSP suites and file-tool cwd-resolution tests. The separately run
+three baseline-confirmed file-tool path assertion failures remain as documented
+above; this is not a claim that the entire repository suite is green.
+Final new-file Ruff, Windows-footgun, file-index and diff checks passed.
+The clean temporary baseline worktree was removed after comparison; its source
+remains available at `a1b7a2581`. Unrelated untracked user files were preserved.
+
+Local implementation commits (none pushed):
+
+- `b5af6bfd9` — task-owned native browser dialog recovery.
+- `2bd4f8899` — coordinator usage across cold resume, isolated from workers.
+- `50c322c27` — final QA coverage distinct from finished work.
+- `1d0dd5090` — preview questions name the actual artifact.
+- `b09a9ec9b` — fresh TypeScript diagnostics when notifications are silent.
+
+Suggested user acceptance: restart idle Lyra processes, then use a fresh small
+Personal project. Include a native confirm action and an explicit readability
+criterion. Observe preview approval, Development and selected QA; a required
+untested check must remain review-needed. Resume the conversation after an idle
+restart and confirm coordinator totals persist while worker totals stay separate.
+Record actual results; do not replace the assisted trial with a pass in advance.
