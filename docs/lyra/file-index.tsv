@@ -134,6 +134,7 @@ agent/lsp/protocol.py	agent	Minimal LSP JSON-RPC 2.0 framer over async streams.
 agent/lsp/range_shift.py	agent	Diff-aware line-shift map for cross-edit LSP delta filtering.
 agent/lsp/reporter.py	agent	Format LSP diagnostics for inclusion in tool output.
 agent/lsp/servers.py	agent	Server registry — per-language LSP server definitions.
+agent/lsp/typescript_diagnostics.py	agent	Pull fresh diagnostics through TypeScript's advertised server command.
 agent/lsp/workspace.py	agent	Workspace and project-root resolution for LSP.
 agent/manual_compression_feedback.py	agent	User-facing summaries for manual compression commands.
 agent/markdown_tables.py	agent	CJK/wide-character-aware re-alignment of model-emitted markdown tables.
@@ -4075,6 +4076,7 @@ tests/acp_adapter/test_detect_provider_entra.py	tests	Behavioral tests: detect p
 tests/agent/__init__.py	tests	Behavioral tests:   init
 tests/agent/lsp/__init__.py	tests	Behavioral tests:   init
 tests/agent/lsp/_mock_lsp_server.py	tests	Behavioral tests:  mock lsp server
+tests/agent/lsp/_typescript_lsp_server.py	tests	Behavioral tests:  typescript lsp server
 tests/agent/lsp/test_backend_gate.py	tests	Behavioral tests: backend gate
 tests/agent/lsp/test_broken_set.py	tests	Behavioral tests: broken set
 tests/agent/lsp/test_client_e2e.py	tests	Behavioral tests: client e2e
@@ -4089,6 +4091,7 @@ tests/agent/lsp/test_reporter.py	tests	Behavioral tests: reporter
 tests/agent/lsp/test_service.py	tests	Behavioral tests: service
 tests/agent/lsp/test_shell_linter_lsp_skip.py	tests	Behavioral tests: shell linter lsp skip
 tests/agent/lsp/test_stale_diagnostics.py	tests	Behavioral tests: stale diagnostics
+tests/agent/lsp/test_typescript_diagnostics.py	tests	Behavioral tests: typescript diagnostics
 tests/agent/lsp/test_workspace.py	tests	Behavioral tests: workspace
 tests/agent/test_account_usage.py	tests	Behavioral tests: account usage
 tests/agent/test_anthropic_adapter.py	tests	Behavioral tests: anthropic adapter

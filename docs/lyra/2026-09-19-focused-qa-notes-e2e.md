@@ -239,3 +239,12 @@ closed the supervisor browser and stopped only its test dashboard on port 9125
 and app HTTP server on port 9135. The normal dashboard on port 9121 and managed
 gateway remain running. Project files, saved conversation, task evidence and
 the external acceptance artifacts are retained. No project was deleted.
+
+## Follow-up repair evidence (not another acceptance run)
+
+The reproduced dialog, restart-usage, QA coverage and preview-copy findings,
+plus the subsequently reproduced TypeScript diagnostic wait, are addressed in
+[the focused repair record](changes/2026-09-19-notes-trial-reliability-repairs.md).
+That record includes impact/rollback notes, regression results and limitations.
+The original assisted trial result above is unchanged: no new live project
+journey has been run, and the user reserved the next acceptance test.

@@ -145,4 +145,50 @@ single/multiple/unregistered custom-filename cases that also assert approval
 works and later preview changes invalidate it. Ruff/diff checks passed. Revert
 this copy-only stage to roll back; no saved decision or project was changed.
 
-Diagnostic investigation and final regression review remain in progress.
+### Stage 5 — actual TypeScript diagnostic wait cause
+
+The installed TypeScript language server reproduced the trial's delay on a
+temporary JavaScript file: first clean result and clean-to-clean check each
+timed out at 5.000s, whereas error/fix notifications arrived in about 0.35s.
+Protocol observation and the installed server's source showed why: it has no
+standard document-diagnostic pull capability, drops repeated empty diagnostic
+notifications, and Lyra conservatively treats the first push as a seed. Waiting
+for another notification cannot produce a verdict for these clean-file cases.
+
+The fix uses that same server's advertised `typescript.tsserverRequest` command
+for syntax/semantic/suggestion diagnostics. A 67-line adapter converts only
+complete successful responses to standard diagnostic items. The existing client
+retains send-time version tags, cancellation, deadlines, seed protection and
+stale-result filtering. No empty-result assumption, cache shortcut, timeout
+increase, extra server, install, global disable or model tool was added. Other
+servers and a future standard TypeScript pull capability keep their prior path.
+
+The real installed-server probe used the repository's installed TypeScript SDK
+explicitly because the temporary workspace has none; this matches the SDK
+resolvable by the trial project under this checkout. No user's configuration or
+project was edited. After the fix: new clean file 0.281s, unchanged clean 0.005s,
+syntax error 0.004s (correct error retained), fixed file 0.003s. These are local
+component timings, not a claim about whole-project or model response latency.
+
+Verification: all 176 LSP tests pass, including 11 new cases for real stdio,
+synchronous service/baseline/delta integration, error→fix, malformed/missing
+results, in-flight edit races, capability selection and deadline preservation.
+The first sandboxed run could not inspect test-owned subprocesses during cleanup;
+rerunning with process inspection available passed without weakening the guard.
+Ruff and Windows-footgun checks pass for every new file.
+
+The broader file-tool run has three unchanged macOS test failures: literal
+`/tmp` mock expectations versus normalized `/private/tmp` paths. Confirmed the
+identical three failures (48 pass / 3 fail) in an isolated checkout of the
+pre-repair commit `a1b7a2581`. They are not claimed green or fixed by this stage.
+Revert this stage to restore the old pull path; no data migration is needed.
+
+### Verification boundary
+
+Web: typecheck, 491 tests and build passed; lint reports 0 errors / 30 existing
+warnings. The rebuilt tracked assets are unchanged. No live Studio journey,
+service restart, provider change, version bump or push was performed. The user
+will run the application acceptance journey after intentionally restarting idle
+Lyra processes to load these commits. A browser reload alone does not replace an
+already-running Python agent. Start fresh work for the new QA contract; do not
+expect historical completed jobs to acquire it retroactively.

@@ -103,6 +103,10 @@ Calculator follow-up boundaries:
   pinned criteria/report consistency after selected jobs finish. The existing
   phase map and project-run summary show review gaps without changing dependencies.
   It checks reported coverage, not product truth or independent approval.
+- Fresh TypeScript diagnostics: `agent/lsp/typescript_diagnostics.py` reuses
+  the server's advertised command when standard diagnostic pull is absent;
+  `tests/agent/lsp/test_typescript_diagnostics.py` covers stdio/service integration,
+  stale versions, malformed responses and existing deadlines.
 
 - Capability-aware finish verification: `agent/verification_stop.py`; real agent
   regression in `tests/run_agent/test_verification_continuation_budget.py`.

@@ -822,15 +822,20 @@ class LSPClient:
         doc = self._docs.get(abs_path)
         sent_version = doc.version if doc else -1
         try:
+            from agent.lsp.typescript_diagnostics import supports_pull, pull_diagnostics
+
             params: Dict[str, Any] = {
                 "textDocument": {"uri": file_uri(abs_path)}
             }
-            result = await self._send_request_with_retry(
-                "textDocument/diagnostic",
-                params,
-                timeout=DIAGNOSTICS_REQUEST_TIMEOUT,
-            )
-        except (LSPRequestError, LSPProtocolError, asyncio.TimeoutError) as e:
+            if supports_pull(self.server_id, self._initialize_result):
+                result = await pull_diagnostics(
+                    self._send_request_with_retry, abs_path, DIAGNOSTICS_REQUEST_TIMEOUT
+                )
+            else:
+                result = await self._send_request_with_retry(
+                    "textDocument/diagnostic", params, timeout=DIAGNOSTICS_REQUEST_TIMEOUT,
+                )
+        except (LSPRequestError, LSPProtocolError, asyncio.TimeoutError, ValueError) as e:
             logger.debug("[%s] document diagnostic pull failed: %s", self.server_id, e)
             return
         if not isinstance(result, dict):
