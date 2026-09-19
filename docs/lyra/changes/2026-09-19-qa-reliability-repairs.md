@@ -117,7 +117,7 @@ All 495 web tests, typecheck and production build pass. Lint: 0 errors, 30
 warnings. Bundle rebuilt for the existing dashboard delivery path. Combined
 Python plugin/runtime regression run: 477 passed across 38 files. New tests and
 helpers all remain under 400 lines; large legacy integration files are unchanged
-in size materially or reduced. Broader core request-path verification follows.
+in size materially or reduced. Broader core request-path verification is below.
 No automated suite establishes that the live model will follow every skill or
 meet the proposed call/time target. Those remain user-run acceptance checks.
 
@@ -127,3 +127,74 @@ from silently dropping security, user-story or other explicitly labelled
 requirements. Three format-parity regressions plus the real queue/report suite
 pass (31 tests). Narrative references remain excluded. No job repinning, change
 to stage count or expansion beyond the document's declared requirements.
+
+## Broader verification and test-environment finding
+
+Core request-path run: **2,380 passed, zero failed, 160 files**, using the canonical
+runner over `tests/run_agent/`, `tests/agent/test_turn_context.py`,
+`tests/agent/test_cron_inline_api_call_62151.py` and
+`tests/cron/test_cron_direct_api_call_62151.py` (8 workers, 42.6s).
+Includes streaming, cancellation, retries, provider switching, compression and
+conversation persistence. This does not mean the entire repository suite ran.
+
+The initial broad run was not green: the runner reported 1,484 passed / 473
+failed, plus fixture/collection errors. Two first-failure reproductions showed
+agent initialization trying to open the real `~/.hermes/logs/agent.log` before
+reaching the changed request forwarders. `run_agent._hermes_home` is captured
+during collection; the per-test HERMES_HOME fixture is too late for that cache.
+That logging path is unchanged from baseline. Do not give tests access to the
+live installation to hide this isolation problem.
+
+For the successful rerun, a temporary pytest plugin set HERMES_HOME to a
+`tempfile.TemporaryDirectory(prefix="lyra-core-audit-", dir="/private/tmp")`
+at plugin import, before test collection, and registered its cleanup with
+`atexit`. It was loaded via `-p lyra_audit_isolation_probe` through
+`scripts/run_tests.sh`; no test assertions or product behavior were mocked by
+this probe. Per-test isolation remained active. The temporary probe was removed
+after the run and is not shipped. Permanent collection-time test isolation is
+still a harness follow-up; the unmodified sandbox invocation remains affected.
+
+Final checks: Python lint and diff whitespace clean; searchable tracked-file
+inventory current. The separate Mac approval-test baseline failure remains as
+documented above. No claimed clean full-repository or live acceptance result.
+
+## Local commits and user handoff
+
+| Commit | Stage |
+|---|---|
+| `2d89980b5` | Shared efficient, truthful QA execution contract |
+| `983106bfc` | Requirement coverage and unresolved acceptance |
+| `dfbe7bf97` | Browser ownership during bounded provider requests |
+| `6d4ff1d0b` | Headless approval fails closed without unreachable modal wait |
+| `711ccc95d` | Active Studio coordinator request idle-sleep protection |
+| `d49f45aa4` | Structured status remains authoritative over terminal paint |
+| `ff40ed32e` | Requirement-ID vocabulary parity across tables and bullets |
+
+All are local. Version remains 0.19.64; no release or push. Production frontend
+assets are rebuilt. No live services, settings, saved conversations, queued job
+bodies or generated calculator source were changed.
+
+For the user's test, after existing work is safely stopped, restart dashboard
+and gateway from this checkout and reload Studio. Start a fresh small Personal
+project so its jobs receive the new immutable instructions. Check:
+
+1. Submit once. Accepted work must stay visibly active until an authoritative
+   completion/input request; terminal repaint or reconnect must not say ready.
+2. Approve the preview normally; one coordinator and no duplicate worker jobs.
+3. QA records its execution method before repetitive browser actions, reuses
+   available automation and tests real actions. It must preserve failed runs
+   and report untested requirements, not fabricate a clean verdict.
+4. Compare QA call count and active time with the previous 129-call trace,
+   separating human wait, provider time and actual sleep. No speed claim is
+   established by unit tests. A required check may legitimately need input.
+5. Browser state survives a model wait over 120 seconds. A genuinely blocked
+   approval fails closed and requests help rather than waiting invisibly.
+6. Display sleep may occur during work; ordinary system idle sleep is guarded
+   during active worker/coordinator requests. Forced sleep/lid closure is not
+   prevented, and a conversation waiting for the user should not hold a guard.
+7. Inspect the generated app directly against its requirements. A completed job
+   and available evidence are not independent proof that the app is correct.
+
+Rollback uses focused revert commits; no data migration or project deletion is
+needed. Review dependencies when reverting browser or power stages because both
+have thin hooks in the same AIAgent request forwarders.
