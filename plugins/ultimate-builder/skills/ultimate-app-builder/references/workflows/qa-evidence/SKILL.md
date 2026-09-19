@@ -22,6 +22,20 @@ Use native `read_file`, `search_files`, `terminal` and available browser tools.
 No MCP server is required; use an already configured one only when appropriate.
 Browser checks require a real browser runtime or the native browser tools.
 
+### Mandatory browser-automation rule
+
+Project QA must never create, invoke or repair raw Chrome DevTools Protocol
+(CDP) automation. This prohibition includes direct DevTools WebSocket clients,
+`chrome-remote-interface`, hand-written `Runtime.evaluate` / `Input.dispatch*`
+drivers and project-local CDP harnesses. Hermes may use CDP internally behind
+its supported browser tools; QA workers must not bypass those tools or build on
+that internal protocol.
+
+Use, in order: the project's working Playwright command, an already available
+Playwright runner/MCP, or Hermes' native browser tools. If none can perform a
+required check, record that check as **BLOCKED** with the missing capability.
+Never replace the missing capability with a custom browser driver.
+
 ## How to Run
 
 Work only in the assigned project. Read the saved task and prior-attempt handoff,
@@ -36,9 +50,9 @@ method, missing capabilities and checks owned by a later selected QA scope.
 Choose the method now, not after exhausting the call budget:
 
 - Reuse a working project browser command first. Otherwise use `terminal` once
-  to check available installed automation and its browser (for example
-  Playwright). If available, save one small project-local smoke script and run
-  it directly. Do not install a framework or launch a second QA worker.
+  to check available Playwright automation and its browser. If available, save
+  one small Playwright smoke test and run it directly. Do not install a
+  framework, write a raw-CDP fallback or launch a second QA worker.
 - Use actual sequential click/fill/key actions with bounded assertions, console
   capture and cleanup. Reset state between independent cases; preserve state
   intentionally within a journey. Expected answers come from approved
@@ -52,6 +66,8 @@ Choose the method now, not after exhausting the call budget:
   test-state reset before blaming the app or browser. Record harness failures
   separately, rerun the affected checks, and stop repeated identical recovery
   attempts when they produce no new evidence: save the exact blocker/handoff.
+- A broken or unavailable Playwright/browser-tool path is a harness blocker,
+  not permission to switch to CDP. Preserve the failure and stop cleanly.
 
 This execution method applies to both QA scopes and every profile. It does not
 reduce approved coverage or change which worker may complete the QA phase.
@@ -82,8 +98,9 @@ replaying the whole campaign. Browser assertion counts are not journey counts.
 3. Run checks with tools. Use actual browser navigation, fill, click and key
    actions; DOM inspection can support assertions, not replace user interaction.
    Existing automation can batch a journey into one command. Write only a small
-   missing smoke test; do not construct a new framework or duplicate the logic
-   suite in the browser. If setup is unavailable, name the exact blocker.
+   missing Playwright smoke test; do not construct a new framework, use raw CDP
+   or duplicate the logic suite in the browser. If setup is unavailable, name
+   the exact blocker.
 4. Preserve the test command's exit status. Run it directly. If capturing output,
    the shell must return the saved test exit code; printing `EXIT=1` is not enough.
    A later successful reporting command does not erase the failed test. Do not
@@ -114,6 +131,9 @@ replaying the whole campaign. Browser assertion counts are not journey counts.
   it as passed. A Personal functional approval is not production sign-off.
 - A missing required check blocks approval. An inapplicable check needs a reason;
   an applicable untested requirement needs a blocker or explicit user acceptance.
+- Raw CDP evidence produced by a QA worker is invalid project evidence. Rerun
+  the affected check through Playwright or supported browser tools, or mark it
+  BLOCKED.
 
 ## Verification
 

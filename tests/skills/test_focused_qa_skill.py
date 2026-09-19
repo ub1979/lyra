@@ -74,6 +74,9 @@ def test_queued_skills_are_registered_loaded_whole_and_budget_safe(manager, tmp_
             assert "Do not" in shared and "every keystroke" in shared
             assert "unselected scope is not a user waiver" in shared
             assert "Run version/diagnostic/report commands separately" in shared
+            assert "must never create, invoke or repair raw Chrome DevTools Protocol" in shared
+            assert "Raw CDP evidence produced by a QA worker is invalid" in shared
+            assert "record that check as **BLOCKED**" in shared
             # Restoring execution advice must not restore conflicting legacy scope.
             assert "Personal QA execution contract" not in task.body
 

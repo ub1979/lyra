@@ -141,6 +141,10 @@ Calculator follow-up boundaries:
   [`Tiny Notes live trial`](2026-09-19-focused-qa-notes-e2e.md) completed after
   assisted recovery, not a clean autonomous pass; it records browser-dialog,
   restart-usage and approved-QA-criteria follow-ups.
+- Focused QA's shared evidence contract prohibits worker-authored raw CDP
+  harnesses. New QA jobs must use existing Playwright or supported Hermes
+  browser tools and report unavailable required checks as blocked. See
+  [`QA browser automation policy`](changes/2026-09-19-qa-browser-automation-policy.md).
 - Manifest-free Node evidence: `agent/node_test_command.py` and
   `tests/agent/test_node_test_evidence.py`.
 - One-shot outcomes: existing `cron/executions.py` ledger, `tools/cronjob_tools.py`,
