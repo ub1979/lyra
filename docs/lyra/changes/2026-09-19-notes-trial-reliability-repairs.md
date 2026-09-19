@@ -133,4 +133,16 @@ projection. New helper and tests are 183 and 194 lines. Ruff/diff checks passed.
 Rollback: revert this stage; new report files remain harmless evidence and
 existing jobs continue through the unchanged Kanban lifecycle.
 
-Other stages remain in progress; no overall completion claim yet.
+### Stage 4 — preview copy names the registered artifact
+
+The approval question now names a single validated option's real path. Multiple
+options list their actual paths; callers without named options refer only to the
+preview directory, not an invented index.html. The token, selected-design
+handoff, typed-answer handling and digest fence are unchanged.
+
+Verification: 43 preview authorization/API tests passed, including three new
+single/multiple/unregistered custom-filename cases that also assert approval
+works and later preview changes invalidate it. Ruff/diff checks passed. Revert
+this copy-only stage to roll back; no saved decision or project was changed.
+
+Diagnostic investigation and final regression review remain in progress.

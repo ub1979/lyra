@@ -3188,6 +3188,7 @@ plugins/ultimate-builder/tests/test_plugin.py	plugins	Behavioral tests: plugin
 plugins/ultimate-builder/tests/test_plugin_api.py	plugins	Behavioral tests: plugin api
 plugins/ultimate-builder/tests/test_preview_api.py	plugins	Behavioral tests: preview api
 plugins/ultimate-builder/tests/test_preview_authorization.py	plugins	Behavioral tests: preview authorization
+plugins/ultimate-builder/tests/test_preview_question_paths.py	plugins	Behavioral tests: preview question paths
 plugins/ultimate-builder/tests/test_project_brain.py	plugins	Behavioral tests: project brain
 plugins/ultimate-builder/tests/test_project_job_runner.py	plugins	Behavioral tests: project job runner
 plugins/ultimate-builder/tests/test_project_progress.py	plugins	Behavioral tests: project progress

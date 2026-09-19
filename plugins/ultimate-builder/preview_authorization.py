@@ -50,9 +50,12 @@ def open_checkpoint(
     # can never resolve a newer checkpoint.
     token = secrets.token_hex(3)
     if digest:
+        # Name only validated choices. Older callers register no option; the
+        # digest proves the directory has content, not that index.html exists.
+        location = next(iter(options.values())) if len(options) == 1 else ".sdlc/preview/"
         question = (
-            f"Preview check {token}: the visual preview is ready at "
-            ".sdlc/preview/index.html. Does it look right before building starts?"
+            f"Preview check {token}: the visual preview is ready at {location}. "
+            "Does it look right before building starts?"
         )
         choices = PREVIEW_CHOICES
         if options:
