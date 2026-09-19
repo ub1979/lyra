@@ -94,6 +94,10 @@ Durable project jobs → Hermes Kanban dispatcher → isolated worker sessions
 
 ## Complete file inventory
 
+Active repair set: [calculator QA reliability repairs](changes/2026-09-19-qa-reliability-repairs.md).
+Shared `qa-evidence` owns execution-method preflight independently of selected
+Functional/Experience scope. The user retains the next live acceptance run.
+
 Calculator follow-up boundaries:
 
 - Restarted coordinator usage: `tui_gateway/session_usage.py` adds a fixed saved

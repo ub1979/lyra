@@ -47,6 +47,8 @@ is normally optional at this profile. Do not change profile or invent features.
    Reuse Development's test command and setup, but execute independently. A
    missing change record for an existing-code change is a process finding, not
    permission to start a new planning exercise.
+   Apply the shared QA Evidence execution preflight before browser interaction;
+   choose installed automation early rather than after manual clicking stalls.
 2. Run the automated suite. Review failures and any critical coverage gaps.
    For a dependency-free Node project, the built-in `node --test` runner is
    sufficient. Do not install another framework merely because no config exists.

@@ -30,6 +30,34 @@ Project Brain for the existing test command and setup. Inspect Git status and
 revision before relying on earlier evidence. Changed inputs invalidate affected
 checks even if a previous report says PASS.
 
+Before the first interactive browser check, record a short execution plan in
+the assigned evidence file: criterion groups, existing test command, browser
+method, missing capabilities and checks owned by a later selected QA scope.
+Choose the method now, not after exhausting the call budget:
+
+- Reuse a working project browser command first. Otherwise use `terminal` once
+  to check available installed automation and its browser (for example
+  Playwright). If available, save one small project-local smoke script and run
+  it directly. Do not install a framework or launch a second QA worker.
+- Use actual sequential click/fill/key actions with bounded assertions, console
+  capture and cleanup. Reset state between independent cases; preserve state
+  intentionally within a journey. Expected answers come from approved
+  behaviour, not from calling the same app function being tested.
+- If no suitable runner exists, use native browser tools for the mapped
+  journeys, gathering related read-only assertions after each journey. Do not
+  spend a model round trip inspecting every keystroke or replay all unit-tested
+  numeric permutations. Inspect current labels/references before acting; after
+  navigation or lost browser state reacquire them instead of retrying stale IDs.
+- On failure, isolate the smallest failing journey. Check input sequence and
+  test-state reset before blaming the app or browser. Record harness failures
+  separately, rerun the affected checks, and stop repeated identical recovery
+  attempts when they produce no new evidence: save the exact blocker/handoff.
+
+This execution method applies to both QA scopes and every profile. It does not
+reduce approved coverage or change which worker may complete the QA phase.
+Keep passing evidence reusable; a retry continues missing checks rather than
+replaying the whole campaign. Browser assertion counts are not journey counts.
+
 ## Quick Reference
 
 | Evidence | Permitted claim |
@@ -61,6 +89,9 @@ checks even if a previous report says PASS.
    A later successful reporting command does not erase the failed test. Do not
    accept a pipeline's final status as proof of the test result. Failed assertions,
    exceptions, missing expected results and incomplete runs cannot become PASS.
+   Run version/diagnostic/report commands separately from the test. Preserve
+   existing machine evidence labelled unverified; prose cannot promote it to
+   PASS. Rerun that check directly to obtain a trustworthy result.
 5. Diagnose a failed check before attributing it to the app. Confirm expected
    values against requirements and real behaviour. Repair a faulty test, rerun
    it, and retain the earlier failure as a harness error. App defects go to a
@@ -108,3 +139,8 @@ finish its assigned passing checks and hand remaining Experience checks to the
 dependent job. Missing coverage makes project acceptance need review, not an
 endless worker retry. Readable evidence and completed jobs are not independent
 proof of correctness or user approval.
+If the pinned mapping is empty, stop at preflight and report the mapping problem
+before a browser campaign. Do not replace the contract with a self-approved
+resolution note. Required checks outside the default scope remain required;
+perform them here when this is the final selected job, or explicitly hand them
+to the selected dependent scope. An unselected scope is not a user waiver.

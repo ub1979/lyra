@@ -65,6 +65,18 @@ def test_queued_skills_are_registered_loaded_whole_and_budget_safe(manager, tmp_
             enforce_turn_budget(messages, config=budget)
             assert [m["content"] for m in messages] == originals
 
+            # Test the registered, queued and fully delivered instruction contract,
+            # not a second copy of prose that bypasses actual worker skill loading.
+            shared = json.loads(skill_view(name="ultimate-builder:qa-evidence", preprocess=False))["content"]
+            assert "ultimate-builder:qa-evidence" in task.skills
+            assert "Before the first interactive browser check" in shared
+            assert "Reset state between independent cases" in shared
+            assert "Do not" in shared and "every keystroke" in shared
+            assert "unselected scope is not a user waiver" in shared
+            assert "Run version/diagnostic/report commands separately" in shared
+            # Restoring execution advice must not restore conflicting legacy scope.
+            assert "Personal QA execution contract" not in task.body
+
 
 def test_legacy_entry_and_both_complete_references_remain_loadable(manager):
     from tools.skills_tool import skill_view

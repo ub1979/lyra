@@ -46,6 +46,8 @@ follow its applicable checks, reporting unavailable checks honestly.
 1. Read approved design and experience criteria. Reuse current Functional
    evidence. Rerun affected checks only when source or inputs changed, or the
    evidence is missing. Do not reinstall a working test environment.
+   Apply the shared QA Evidence execution preflight to the remaining experience
+   journeys; reuse Functional's browser script/setup without repeating its suite.
 2. For UI apps, check representative pages at the supported narrow and desktop
    sizes. Inspect clipped content, hierarchy, typography, spacing, alignment and
    essential controls. Record visual problems against the approved design;
