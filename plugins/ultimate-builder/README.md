@@ -39,6 +39,23 @@ The selected project folder becomes the runtime working directory, and the
 selected skill list constrains the workflow. A planning-only conversation does
 not modify application code.
 
+## QA scope
+
+New Personal projects use **Functional QA**: automated tests plus real core user
+journeys, relevant errors, saving/reloading, keyboard and narrow-screen checks.
+Reusable and Production projects also run **Experience QA** for deeper layout,
+usability and accessibility checks. Production adds its required readiness checks.
+Both reuse the project's setup and report actual coverage separately.
+
+Ask Lyra to include Experience QA for a Personal project before QA starts, or
+use `hermes project-run queue --workspace /path/to/project --phases qa-engineer
+--build-profile personal --qa-experience` (one command). A completed new-style
+Personal pass can be expanded with a fresh `--force-new --qa-experience` pass.
+Queued legacy projects retain their saved procedure and cannot expand in place.
+Studio keeps the existing QA phase and model selection; no new UI setting is
+needed. Functional-only approval does not claim deeper Experience or production
+verification. Fewer jobs/instructions do not guarantee a particular completion time.
+
 ## Controlled improvement
 
 The workflow can record candidate lessons under

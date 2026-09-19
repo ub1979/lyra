@@ -97,7 +97,7 @@ skill does not count as running a specialist.
 | Development | `sw-developer` | working code + task evidence |
 | Debugging | `debugger` | root-cause evidence + regression test |
 | Review | `code-reviewer` | `review-report.md` |
-| QA | `qa-engineer` | `bug-report.md` |
+| QA | `qa-engineer` phase; queue selects `qa-functional` / `qa-experience` skills | `bug-report.md` |
 | Security | `security-auditor` | `security-report.md` |
 | DevOps | `devops-engineer` | `DEPLOYMENT.md` |
 | Documentation | `tech-writer` | `README.md`, `docs/` |
@@ -285,6 +285,12 @@ After parallel work, run one integration delegate over the combined state.
 ## Step 4: independent verification loop
 
 Development tests are not independent QA. Run review and QA after integration.
+The selected profile determines QA: Personal gets Functional only (including
+real UI/keyboard/error/reload checks); Reusable and Production get Functional
+then Experience. Production also requires its approved readiness checks.
+Personal may opt into Experience with `qa_experience=true` on `project_run`.
+Existing jobs keep their saved shape. Only the final selected QA item may mark
+the phase complete; report scopes not tested rather than implying full coverage.
 For Production, run security as a separate delegate. Route concrete findings
 back to a development or debugging delegate, then have the original verifier
 rerun the exact reproduction.

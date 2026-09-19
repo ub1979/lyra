@@ -393,24 +393,15 @@ its own call ceiling (90 for Reusable, 180 for Production); Personal keeps one
 whole-app worker with a 90-call limit.
 
 QA queueing uses the same durable scheduler. Pass the user-selected
-`build_profile` to `project_run(action="queue", ...)` when it is known. Personal
-projects receive one smoke QA work item that includes setup, core functional
-checks, the real UI journey where applicable, and the acceptance verdict.
-Legacy projects without a selected profile and larger profiles retain four
-dependent work items: setup, functional/boundary checks, user journeys and
-final acceptance. A finished QA work item is not a finished QA phase unless
-it is the selected final item. Read the remaining jobs before advancing.
-These workers share the project directory, so
-keep them sequential; do not re-enable nested specialist delegation to speed up
-the pipeline. Independent read-only checks may use existing Hermes delegation
-only where the configured role permits it and data/process isolation is proven.
-When QA records a defect, route a bounded developer repair and matching retest
-within the approved scope; do not ask the user to do engineering review. Never
-repair the generated application in this coordinating conversation. Reuse task
-comments, saved evidence and prior-attempt summaries after interruption, checking
-the current revision before accepting old results. Four stages can incur more
-startup context than one job: do not promise lower cost or latency without a
-measured end-to-end run.
+`build_profile` to `project_run(action="queue", phases="qa-engineer", ...)`.
+Before queueing QA, read `references/qa-selection.md` completely. Personal uses
+Functional QA; Reusable and Production use Functional then Experience QA.
+The queue loads the complete selected skills and shared evidence contract.
+Keep the existing QA phase/model choice; these are work items, not extra team
+members. A finished work item is not a finished phase unless it is the final
+selected item. Existing jobs retain their saved scope. Explain selected coverage
+to the user, and route concrete findings to bounded Development repair/retest.
+Never repair the generated application in this coordinating conversation.
 
 Technical review is Lyra's responsibility, not a new user approval checkpoint.
 When a worker blocks with `review-required:`, inspect its evidence, use the

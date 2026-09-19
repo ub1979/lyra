@@ -69,6 +69,10 @@ PROJECT_RUN_TOOL_SCHEMA = {
                 "type": "string", "enum": ["personal", "reusable", "production"],
                 "description": "User-selected project scale for every queued phase. Omit for a legacy project.",
             },
+            "qa_experience": {
+                "type": "boolean",
+                "description": "Queue only: user-requested deeper Experience QA for a Personal project. Reusable/Production include it by default. Set before the first QA pass; expanding a completed Personal pass requires force_new=true.",
+            },
             "task_id": {"type": "string", "description": "retry only: exact failed job id from status."},
             "reason": {"type": "string", "description": "retry only: why another attempt can succeed and the bounded remaining work. Never retry review/input waits or unchanged exhausted quota."},
             "summary": {
@@ -148,6 +152,7 @@ def project_run_tool(args: dict, **_kwargs: Any) -> str:
                 providers=_string_map(args.get("providers")),
                 force_new=bool(args.get("force_new")),
                 build_profile=str(args.get("build_profile") or "").strip() or None,
+                qa_experience=args.get("qa_experience", False),
             )
         elif action == "retry":
             result = project_runs.retry_project_task(

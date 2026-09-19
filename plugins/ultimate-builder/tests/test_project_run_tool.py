@@ -70,7 +70,7 @@ def test_tool_carries_selected_personal_profile_to_qa_queue(project):
         "build_profile": "personal",
     }))
     assert queued["ok"] is True
-    assert [task["work_item_id"] for task in queued["tasks"]] == ["QA-MVP-001"]
+    assert [task["work_item_id"] for task in queued["tasks"]] == ["QA-PERSONAL-FUNCTIONAL-001"]
 
 
 def test_rejects_bad_action_relative_workspace_and_missing_phases(project):

@@ -7,6 +7,7 @@ import importlib.util
 import json
 import os
 import time
+import uuid
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
@@ -185,17 +186,10 @@ def _phase_from_task(task: kb.Task) -> str | None:
     return _task_identity(task)[0]
 
 
-def _work_plan(project: Path, phase: str = "sw-developer", build_profile: str | None = None) -> dict[str, Any]:
-    path = Path(__file__).resolve().with_name("project_work_units.py")
-    spec = importlib.util.spec_from_file_location(
-        "lyra_ultimate_builder_project_work_units_for_jobs", path
-    )
-    if spec is None or spec.loader is None:
-        raise RuntimeError("Could not load the project work plan")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return (module.load_qa_work_units(build_profile) if phase == "qa-engineer"
-            else module.load_development_work_units(project))
+def _work_plan(project: Path, phase: str = "sw-developer", build_profile: str | None = None, **qa_options: Any) -> dict[str, Any]:
+    if phase == "qa-engineer":
+        return _plugin_module("project_qa_workflow").load_qa_work_units(build_profile, **qa_options)
+    return _plugin_module("project_work_units").load_development_work_units(project)
 
 
 def _iteration_exhausted(task: kb.Task) -> bool:
@@ -300,6 +294,9 @@ def _work_unit_body(
         if phase == "qa-engineer" and unit.get("final") else
         f"Do not mark the whole {label} phase or application complete; later jobs and independent review remain."
     )
+    # Focused QA skills own their scope; the legacy Personal block would make
+    # Experience rerun Functional work and tell a non-final worker to report.
+    guidance_profile = None if unit.get("skills") else build_profile
     return f"""You are Lyra's {label} agent completing one bounded project work item.
 
 Workspace: {project}
@@ -342,7 +339,7 @@ Your final summary must be plain language and name this work item: what now
 works, what was verified, whether this item finished, and any exact dependency
 that prevents it from finishing.
 
-{_worker_guidance(phase, build_profile)}
+{_worker_guidance(phase, guidance_profile)}
 """
 
 
@@ -428,6 +425,7 @@ def queue_project_run(
     providers: dict[str, str] | None = None,
     force_new: bool = False,
     build_profile: str | None = None,
+    qa_experience: bool = False,
 ) -> dict[str, Any]:
     _assert_dispatch_allowed()
     project = _workspace(workspace)
@@ -441,6 +439,8 @@ def queue_project_run(
         raise ValueError(f"Unknown project phase: {', '.join(unknown)}")
     if build_profile not in {None, "personal", "reusable", "production"}:
         raise ValueError("Unknown build profile")
+    if not isinstance(qa_experience, bool) or (qa_experience and "qa-engineer" not in requested):
+        raise ValueError("qa_experience must be a boolean used with the qa-engineer phase")
 
     models = models or {}
     providers = providers or {}
@@ -461,22 +461,16 @@ def queue_project_run(
     _plugin_module("progress_ledger_seed").ensure_progress_ledger(project)
     status_snapshot = _ensure_project_status(project)
     existing = _project_tasks(project, include_archived=True)
-    existing_qa_units = {
-        unit_id for _, task in existing
+    existing_qa_units = [
+        (unit_id, task.status) for _, task in existing
         for phase_id, unit_id in [_task_identity(task)]
         if phase_id == "qa-engineer" and unit_id
-    }
-    # Resume the QA shape already on the board, even if an older coordinator
-    # omits the profile or a reopened browser supplies a newer one.
-    qa_profile = (
-        "personal" if "QA-MVP-001" in existing_qa_units else
-        None if any(unit_id.startswith("QA-00") for unit_id in existing_qa_units)
-        else build_profile
-    )
+    ]
     development_plan = (
         _work_plan(project) if "sw-developer" in requested else {"source": None, "units": []}
     )
-    qa_plan = (_work_plan(project, "qa-engineer", qa_profile) if "qa-engineer" in requested
+    qa_plan = (_work_plan(project, "qa-engineer", build_profile, existing_units=existing_qa_units,
+                          qa_experience=qa_experience, force_new=force_new) if "qa-engineer" in requested
                else {"source": None, "units": []})
     board = kb.get_current_board()
     latest_by_identity: dict[tuple[str, str | None], tuple[str, kb.Task]] = {}
@@ -492,7 +486,9 @@ def queue_project_run(
     skipped_work_units: list[str] = []
     superseded_tasks: list[str] = []
     parent_ids: list[str] = []
-    run_token = f"{int(time.time())}-{os.getpid()}"
+    # Explicit fresh passes must not collide with a completed pass queued in
+    # the same second by this process. Normal reopen still reuses task identity.
+    run_token = uuid.uuid4().hex
 
     def reuse_task(
         previous: tuple[str, kb.Task], phase: str, *, work_unit: dict[str, Any] | None = None
@@ -562,7 +558,7 @@ def queue_project_run(
         if work_unit:
             title = f"{PHASES[phase]['label']} · {work_unit['id']} · {work_unit['title']}"
             body = _work_unit_body(
-                project, work_unit, phase=phase, build_profile=build_profile,
+                project, work_unit, phase=phase, build_profile=work_unit.get("build_profile", build_profile),
                 source=str((qa_plan if phase == "qa-engineer" else development_plan)["source"])
             )
             idempotency_key = (
@@ -593,7 +589,7 @@ def queue_project_run(
             idempotency_key=idempotency_key,
             max_runtime_seconds=max_runtime_seconds,
             max_retries=PROJECT_JOB_MAX_RETRIES,
-            skills=(f"ultimate-builder:{phase}",),
+            skills=tuple(work_unit.get("skills", (f"ultimate-builder:{phase}",))) if work_unit else (f"ultimate-builder:{phase}",),
             model_override=model,
             provider_override=provider,
             goal_mode=True,

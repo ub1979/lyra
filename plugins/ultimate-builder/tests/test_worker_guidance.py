@@ -160,27 +160,24 @@ def test_documentation_scope_follows_profile_in_real_queue(project, profile):
 
 
 @pytest.mark.parametrize("profile", ["personal", "reusable", "production", None])
-def test_qa_execution_contract_reaches_only_personal_jobs(project, profile):
+def test_focused_qa_jobs_use_selected_skills_without_legacy_campaign_guidance(project, profile):
     runs = _load("project_runs")
     queued = runs.queue_project_run(project, ["qa-engineer"], build_profile=profile)
     with runs.kb.connect_closing() as conn:
-        bodies = [runs.kb.get_task(conn, row["task_id"]).body for row in queued["tasks"]]
-    for body in bodies:
-        assert ("Personal QA execution contract" in body) == (profile == "personal")
+        tasks = [runs.kb.get_task(conn, row["task_id"]) for row in queued["tasks"]]
+    for task in tasks:
+        body = task.body
+        assert "Personal QA execution contract" not in body
         assert "never pipe it through" in body
         assert "| Phase | Status | Evidence |" in body
+        if profile:
+            assert "ultimate-builder:qa-evidence" in task.skills
     if profile == "personal":
-        assert len(bodies) == 1
-        body = bodies[0]
-        for guarantee in (
-            "actual sequential browser fill/click/key",
-            "A failed assertion must make the command exit non-zero",
-            "Developer reports alone are not independent QA evidence",
-            "Missing required coverage stays BLOCKED",
-            "After a repair rerun",
-            "mark the QA phase complete",
-        ):
-            assert guarantee in body
+        assert len(tasks) == 1
+        assert "ultimate-builder:qa-functional" in tasks[0].skills
+        assert "ultimate-builder:qa-experience" not in tasks[0].skills
+        assert "real browser" in tasks[0].body
+        assert "mark the QA phase complete" in tasks[0].body
 
 
 def test_qa_guidance_does_not_rewrite_existing_job_or_duplicate_it(project):

@@ -37,6 +37,7 @@ def setup_parser(parser: argparse.ArgumentParser) -> None:
     queue.add_argument("--workspace", required=True)
     queue.add_argument("--phases", required=True, help="Comma-separated specialist ids")
     queue.add_argument("--build-profile", choices=("personal", "reusable", "production"))
+    queue.add_argument("--qa-experience", action="store_true", help="Add Experience QA to a Personal QA pass")
     queue.add_argument("--assignee", default=None)
     queue.add_argument("--model", action="append", default=[], help="phase=model")
     queue.add_argument("--provider", action="append", default=[], help="phase=provider")
@@ -92,6 +93,7 @@ def handle(args: argparse.Namespace) -> None:
             providers=_mapping(args.provider),
             force_new=args.force_new,
             build_profile=args.build_profile,
+            qa_experience=args.qa_experience,
         )
     elif args.project_run_command == "retry":
         result = project_runs.retry_project_task(args.workspace, args.task_id, args.reason)

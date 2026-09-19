@@ -1844,6 +1844,7 @@ docs/lyra/changes/2026-09-18-whole-skill-results.md	docs	md: 2026 09 18 whole sk
 docs/lyra/changes/2026-09-18-worker-ledger-and-test-contract.md	docs	md: 2026 09 18 worker ledger and test contract
 docs/lyra/changes/2026-09-19-coordinator-verification.md	docs	md: 2026 09 19 coordinator verification
 docs/lyra/changes/2026-09-19-cron-outcome.md	docs	md: 2026 09 19 cron outcome
+docs/lyra/changes/2026-09-19-focused-qa-skills.md	docs	md: 2026 09 19 focused qa skills
 docs/lyra/changes/2026-09-19-node-evidence.md	docs	md: 2026 09 19 node evidence
 docs/lyra/changes/2026-09-19-personal-qa-execution.md	docs	md: 2026 09 19 personal qa execution
 docs/lyra/changes/2026-09-19-skill-resources.md	docs	md: 2026 09 19 skill resources
@@ -3131,6 +3132,7 @@ plugins/ultimate-builder/progress_ledger_seed.py	plugins	Create the project prog
 plugins/ultimate-builder/project_brain.py	plugins	Verified, bounded project memory for Lyra Studio builds.
 plugins/ultimate-builder/project_learnings.py	plugins	Non-destructive reconciliation for Ultimate Builder project learnings.
 plugins/ultimate-builder/project_progress.py	plugins	Parse project progress conservatively and separate reports from evidence.
+plugins/ultimate-builder/project_qa_workflow.py	plugins	Choose complete QA skills and dependent work items for one project profile.
 plugins/ultimate-builder/project_queue_guards.py	plugins	Checks that must pass before any project job is created.
 plugins/ultimate-builder/project_repository.py	plugins	Create and verify project-local Git repositories without touching Lyra Git.
 plugins/ultimate-builder/project_run_cli.py	plugins	CLI adapter for durable Lyra project jobs.
@@ -3142,6 +3144,7 @@ plugins/ultimate-builder/project_work_units.py	plugins	Load bounded project work
 plugins/ultimate-builder/scripts/evaluate_candidates.py	plugins	py: evaluate candidates
 plugins/ultimate-builder/skills/app-it/SKILL.md	plugins	md: SKILL
 plugins/ultimate-builder/skills/app-it/agents/openai.yaml	plugins	yaml: openai
+plugins/ultimate-builder/skills/app-it/references/qa-selection.md	plugins	md: qa selection
 plugins/ultimate-builder/skills/ultimate-app-builder/SKILL.md	plugins	md: SKILL
 plugins/ultimate-builder/skills/ultimate-app-builder/references/engineering-standards.md	plugins	md: engineering standards
 plugins/ultimate-builder/skills/ultimate-app-builder/references/workflows/a11y-auditor/SKILL.md	plugins	md: SKILL
@@ -3158,6 +3161,11 @@ plugins/ultimate-builder/skills/ultimate-app-builder/references/workflows/oop-re
 plugins/ultimate-builder/skills/ultimate-app-builder/references/workflows/proj-manager/SKILL.md	plugins	md: SKILL
 plugins/ultimate-builder/skills/ultimate-app-builder/references/workflows/qa-engineer/SKILL.md	plugins	md: SKILL
 plugins/ultimate-builder/skills/ultimate-app-builder/references/workflows/qa-engineer/references/bug-report-template.md	plugins	md: bug report template
+plugins/ultimate-builder/skills/ultimate-app-builder/references/workflows/qa-engineer/references/legacy-testing.md	plugins	md: legacy testing
+plugins/ultimate-builder/skills/ultimate-app-builder/references/workflows/qa-engineer/references/legacy-verdict.md	plugins	md: legacy verdict
+plugins/ultimate-builder/skills/ultimate-app-builder/references/workflows/qa-evidence/SKILL.md	plugins	md: SKILL
+plugins/ultimate-builder/skills/ultimate-app-builder/references/workflows/qa-experience/SKILL.md	plugins	md: SKILL
+plugins/ultimate-builder/skills/ultimate-app-builder/references/workflows/qa-functional/SKILL.md	plugins	md: SKILL
 plugins/ultimate-builder/skills/ultimate-app-builder/references/workflows/req-engineer/SKILL.md	plugins	md: SKILL
 plugins/ultimate-builder/skills/ultimate-app-builder/references/workflows/req-engineer/references/site-research.md	plugins	md: site research
 plugins/ultimate-builder/skills/ultimate-app-builder/references/workflows/researcher/SKILL.md	plugins	md: SKILL
@@ -3172,6 +3180,7 @@ plugins/ultimate-builder/skills/ultimate-app-builder/references/workflows/ux-wri
 plugins/ultimate-builder/tests/preview_approval.py	plugins	Behavioral tests: preview approval
 plugins/ultimate-builder/tests/test_attempt_ceilings.py	plugins	Behavioral tests: attempt ceilings
 plugins/ultimate-builder/tests/test_call_limit_state.py	plugins	Behavioral tests: call limit state
+plugins/ultimate-builder/tests/test_focused_qa_workflow.py	plugins	Behavioral tests: focused qa workflow
 plugins/ultimate-builder/tests/test_plugin.py	plugins	Behavioral tests: plugin
 plugins/ultimate-builder/tests/test_plugin_api.py	plugins	Behavioral tests: plugin api
 plugins/ultimate-builder/tests/test_preview_api.py	plugins	Behavioral tests: preview api
@@ -5920,6 +5929,7 @@ tests/skills/test_darwinian_evolver_skill.py	tests	Behavioral tests: darwinian e
 tests/skills/test_design_resource_install.py	tests	Behavioral tests: design resource install
 tests/skills/test_engineering_standards.py	tests	Behavioral tests: engineering standards
 tests/skills/test_fetch_transcript.py	tests	Behavioral tests: fetch transcript
+tests/skills/test_focused_qa_skill.py	tests	Behavioral tests: focused qa skill
 tests/skills/test_google_workspace_api.py	tests	Behavioral tests: google workspace api
 tests/skills/test_google_workspace_credential_files.py	tests	Behavioral tests: google workspace credential files
 tests/skills/test_guided_agent_roster.py	tests	Behavioral tests: guided agent roster

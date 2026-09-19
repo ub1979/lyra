@@ -156,7 +156,7 @@
       "id": "anti-slop-audit",
       "summary": "UI and code output are checked against the relevant anti-slop rubric.",
       "mode": "exhorted",
-      "evidence": ["plugins/ultimate-builder/skills/ultimate-app-builder/references/workflows/code-reviewer/SKILL.md", "plugins/ultimate-builder/skills/ultimate-app-builder/references/workflows/qa-engineer/SKILL.md"]
+      "evidence": ["plugins/ultimate-builder/skills/ultimate-app-builder/references/workflows/code-reviewer/SKILL.md", "plugins/ultimate-builder/skills/ultimate-app-builder/references/workflows/qa-experience/SKILL.md"]
     }
   ],
   "tool_contract": {

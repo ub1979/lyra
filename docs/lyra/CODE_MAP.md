@@ -68,6 +68,7 @@ Durable project jobs → Hermes Kanban dispatcher → isolated worker sessions
 | Project jobs / bounded development scheduling / model repair | `plugins/ultimate-builder/project_runs.py`, `plugins/ultimate-builder/project_work_units.py`, `web/src/lib/guided-agent-model-preferences.ts`, `cli.py` goal-loop wiring | Task-graph parsing, real SQLite lifecycle, dependency gates, run fencing and provider/project isolation tests |
 | Automatic job decomposition | `hermes_cli/kanban_decompose.py` | Blanket-scope rejection and bounded replacement tests |
 | Bounded QA / budget handoff | `plugins/ultimate-builder/project_work_units.py`, `agent/worker_handoff.py`, `agent/turn_finalizer.py` | Real dependency/retry/legacy-job tests; real agent tool-loop cache-prefix and delegated-child isolation tests; SQLite summary persistence and stale-run fencing |
+| Functional / Experience QA selection | `plugins/ultimate-builder/project_qa_workflow.py`, `qa-functional`, `qa-experience`, `qa-evidence` plugin skills | Real SQLite profile/opt-in/dependency/final-item/reopen/legacy/control tests; registered skill delivery and budget integrity in `tests/skills/test_focused_qa_skill.py` |
 | Project-local Git boundary | `plugins/ultimate-builder/project_repository.py`, `scripts/lyra_git_guard.py`, `.githooks/` | Real parent/project repository, commit-hook and push-hook tests |
 | Worker Git ancestry | `hermes_cli/worker_git_guard.py`, `hermes_cli/kanban_db.py`, `tools/code_execution_tool.py` | Real Git ref transactions, Python execution, existing hooks, credential scrub and spawn tests |
 | Job creation notification policy | `hermes_cli/kanban_notifications.py` | CLI/tool/phase creation, opt-out and idempotent subscription tests |
@@ -104,6 +105,11 @@ Calculator follow-up boundaries:
   journeys instead of per-keystroke model round trips; the same queue tests
   preserve other profiles, coverage gates and existing-job bodies. See
   [`QA execution change`](changes/2026-09-19-personal-qa-execution.md).
+- New profile-aware QA: `project_qa_workflow.py` selects complete Functional
+  and Experience skills with a shared evidence contract. Personal defaults to
+  Functional; Reusable/Production use both. Existing jobs keep their saved shape;
+  new jobs avoid the old whole-campaign guidance. See
+  [`focused QA split`](changes/2026-09-19-focused-qa-skills.md).
 - Manifest-free Node evidence: `agent/node_test_command.py` and
   `tests/agent/test_node_test_evidence.py`.
 - One-shot outcomes: existing `cron/executions.py` ledger, `tools/cronjob_tools.py`,

@@ -68,7 +68,7 @@ def test_personal_profile_queues_one_real_smoke_stage_and_can_finish(setup):
     module, project = setup
     first = module.queue_project_run(project, ["qa-engineer"], build_profile="personal")
     qa = first["tasks"]
-    assert [task["work_item_id"] for task in qa] == ["QA-MVP-001"]
+    assert [task["work_item_id"] for task in qa] == ["QA-PERSONAL-FUNCTIONAL-001"]
     with module.kb.connect_closing() as conn:
         task = module.kb.get_task(conn, qa[0]["task_id"])
         assert "real browser" in task.body
