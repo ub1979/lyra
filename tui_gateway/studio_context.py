@@ -31,7 +31,9 @@ def studio_disabled_toolsets(skills: list[str]) -> list[str] | None:
     """
     if not is_studio_coordinator(skills):
         return None
-    return ["terminal", "code_execution", "delegation"]
+    # cronjob can execute scripts immediately and would recreate the shell
+    # work this role hands to durable workers. This is not a security sandbox.
+    return ["terminal", "code_execution", "delegation", "cronjob"]
 
 
 def studio_toolsets(

@@ -248,6 +248,7 @@ def build_verify_on_stop_nudge(
     changed_paths: Iterable[str],
     attempts: int = 0,
     max_attempts: int = 2,
+    available_tools: Iterable[str] | None = None,
 ) -> str | None:
     """Return a synthetic follow-up when edited code lacks fresh verification."""
     # Drop documentation/prose paths (markdown, skills, README, LICENSE, ...) —
@@ -272,6 +273,24 @@ def build_verify_on_stop_nudge(
     if state == "passed":
         return None
 
+    # A restricted agent cannot satisfy a shell verification request. Ask for
+    # one truthful handoff, not an execution workaround or an invented pass.
+    # None preserves the existing policy for callers without capability data.
+    if available_tools is not None and "terminal" not in available_tools:
+        if attempts:
+            return None
+        return (
+            "[System: The edited files do not have recorded passing execution "
+            "evidence, and this conversation has no terminal capability. "
+            "Finish with an honest handoff: distinguish any visual preview "
+            "inspection from executable verification and state which checks remain. "
+            "Hand those checks to an already assigned worker if one exists; otherwise "
+            "report the missing capability. Do not claim tests passed. Do not "
+            "create scripts, schedule cron jobs, delegate substitute checks, or "
+            "edit worker-owned artifacts to work around unavailable tools. "
+            "If work is already dispatched, leave it running and return to the user.]"
+        )
+
     # Optional shipped coding guidance, only paid when this evidence gate fires.
     try:
         from agent.verify_hooks import coding_verify_guidance
@@ -293,7 +312,9 @@ def build_verify_on_stop_nudge(
         command_instruction = (
             "No canonical test/lint/build command was detected. Create a focused "
             f"temporary verification script under `{temp_dir}` using an OS-safe "
-            "`tempfile` path with a `hermes-verify-` filename prefix, run it "
+            "`tempfile` path with a `hermes-verify-` filename prefix. Use the "
+            "terminal to create and execute it (generic file tools may refuse "
+            "the OS temporary directory); do not weaken file-path protections. Run it "
             "against the changed behavior, clean it up when possible, and "
             "summarize it explicitly as ad-hoc verification rather than suite "
             "green."

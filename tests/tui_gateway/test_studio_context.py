@@ -131,6 +131,18 @@ def test_custom_capabilities_survive_and_input_is_not_mutated():
     assert studio_toolsets(STUDIO, selected) == selected
 
 
+def test_real_coordinator_schema_cannot_use_cron_as_a_shell():
+    from model_tools import get_tool_definitions
+    from tui_gateway.studio_context import studio_disabled_toolsets
+
+    definitions = get_tool_definitions(
+        ["project-guide", "cronjob"],
+        disabled_toolsets=studio_disabled_toolsets(STUDIO), quiet_mode=True,
+    )
+    assert "cronjob" not in {item["function"]["name"] for item in definitions}
+    assert studio_disabled_toolsets(["ultimate-builder:sw-developer"]) is None
+
+
 def test_expanded_default_profile_is_lean_but_disabled_memory_stays_disabled():
     configured = [
         "web",

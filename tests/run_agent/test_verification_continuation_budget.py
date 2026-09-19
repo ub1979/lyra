@@ -81,6 +81,35 @@ def test_verify_on_stop_preserves_composed_report_at_budget_limit(agent, monkeyp
     assert not result["messages"][1].get("_verification_stop_synthetic")
 
 
+def test_restricted_preview_turn_finishes_after_one_real_handoff_nudge(agent, tmp_path, monkeypatch):
+    """Use the real loop and verifier; only model I/O is controlled."""
+    import json
+
+    (tmp_path / "package.json").write_text(
+        json.dumps({"scripts": {"test": "node --test"}}), encoding="utf-8"
+    )
+    preview = tmp_path / "preview.html"
+    preview.write_text("<button>Calculate</button>", encoding="utf-8")
+    agent.max_iterations = 6
+    agent.valid_tool_names = {"write_file", "browser_navigate", "project_run"}
+    calls = []
+
+    def model_call(kwargs):
+        calls.append(kwargs)
+        agent._turn_file_mutation_paths = {str(preview)}
+        return _response("Development is dispatched; the worker will verify the application.")
+
+    agent._interruptible_api_call = model_call
+    monkeypatch.setenv("HERMES_VERIFY_ON_STOP", "1")
+    with patch("hermes_cli.plugins.invoke_hook", return_value=[]):
+        result = agent.run_conversation("Hand off the approved preview")
+    assert result["completed"] is True
+    assert len(calls) == 2
+    assert agent._verification_stop_nudges == 1
+    assert agent._cached_system_prompt == "stable test prompt"
+    assert "worker will verify" in result["final_response"]
+
+
 def test_pre_verify_preserves_composed_report_at_budget_limit(agent, monkeypatch):
     def model_call(_api_kwargs):
         agent._turn_file_mutation_paths = {"changed.py"}
