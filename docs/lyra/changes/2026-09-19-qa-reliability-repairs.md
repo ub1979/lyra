@@ -93,5 +93,17 @@ same root-path denial on this Mac at baseline `1c2c18460` and current source for
 both temporary-file prefixes. It is not fixed by loosening security in this set.
 Actual worker-to-user handoff remains a user live-test item; these tests establish
 fail-closed command handling and absence of the unreachable five-minute wait.
+
+Stage 5: `agent/request_power.py` reuses caffeinate for active Studio coordinator
+provider requests on macOS, with owner PID and existing request-timeout bounds.
+It requests idle-system protection only (not display protection), releases on
+return/error and has bounded child cleanup. Missing capability is nonfatal.
+Workers retain their existing guard; other platforms/noncoordinators are no-ops.
+This closes the observed post-worker coordinator-request gap; it does not claim
+to prevent forced sleep/lid closure or protect arbitrary idle user waits.
+The 42 focused tests across power, browser request ownership, worker spawning and
+Studio policy pass. The first test run caught an over-broad subprocess mock in
+the new test; replaced it with a module-local OS boundary before rerunning.
+No real macOS power setting or live Lyra process was changed.
 No automated suite establishes that the live model will follow every skill or
 meet the proposed call/time target. Those remain user-run acceptance checks.

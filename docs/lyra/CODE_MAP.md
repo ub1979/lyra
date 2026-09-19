@@ -104,6 +104,8 @@ provider requests; the browser daemon retains a separate finite crash fallback.
 `tools/approval_outcome.py` preserves unresolved CLI approval reasons while
 remaining compatible with existing deny-only consumers; headless workers do not
 wait on an absent prompt_toolkit UI.
+`agent/request_power.py` covers active macOS Studio provider requests with bounded
+idle-system assertions, separate from existing worker and desktop protection.
 
 Calculator follow-up boundaries:
 

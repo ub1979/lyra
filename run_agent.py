@@ -5198,7 +5198,8 @@ class AIAgent:
         """Forwarder — see ``agent.chat_completion_helpers.interruptible_api_call``."""
         from agent.chat_completion_helpers import interruptible_api_call
         from tools.browser_request_lifetime import protect_browser_request
-        with protect_browser_request(self):
+        from agent.request_power import protect_studio_request
+        with protect_browser_request(self), protect_studio_request(self):
             return interruptible_api_call(self, api_kwargs)
 
     # ── Unified streaming API call ─────────────────────────────────────────
@@ -5622,7 +5623,8 @@ class AIAgent:
         """Forwarder — see ``agent.chat_completion_helpers.interruptible_streaming_api_call``."""
         from agent.chat_completion_helpers import interruptible_streaming_api_call
         from tools.browser_request_lifetime import protect_browser_request
-        with protect_browser_request(self):
+        from agent.request_power import protect_studio_request
+        with protect_browser_request(self), protect_studio_request(self):
             return interruptible_streaming_api_call(self, api_kwargs, on_first_delta=on_first_delta)
 
     def _try_activate_fallback(self, reason: "FailoverReason | None" = None) -> bool:
