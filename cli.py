@@ -12023,6 +12023,12 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         """
         import time as _time
 
+        from tools.approval_outcome import ApprovalDenied
+        # Single-query/quiet workers register this callback but never run the
+        # prompt_toolkit Application. An invisible modal cannot obtain consent.
+        if getattr(self, "_app", None) is None:
+            return ApprovalDenied("unavailable")
+
         with self._approval_lock:
             timeout = int(CLI_CONFIG.get("approvals", {}).get("timeout", 300))
             response_queue = queue.Queue()
@@ -12078,7 +12084,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             self._approval_deadline = 0
             self._paint_now()
             _cprint(f"\n{_DIM}  ⏱ Timeout — denying command{_RST}")
-            return "deny"
+            return ApprovalDenied("timeout")
 
     def _approval_choices(self, command: str, *, allow_permanent: bool = True,
                           smart_denied: bool = False) -> list[str]:

@@ -101,6 +101,9 @@ Functional/Experience scope. The user retains the next live acceptance run.
 real queue/report tests keep parent, child and explicit nonfunctional coverage.
 `tools/browser_request_lifetime.py` coordinates browser idle cleanup with bounded
 provider requests; the browser daemon retains a separate finite crash fallback.
+`tools/approval_outcome.py` preserves unresolved CLI approval reasons while
+remaining compatible with existing deny-only consumers; headless workers do not
+wait on an absent prompt_toolkit UI.
 
 Calculator follow-up boundaries:
 

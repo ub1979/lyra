@@ -76,5 +76,22 @@ fallback browsers are scoped to one command and retain their short timer.
 orphan cleanup; headed and Lightpanda compatibility tests also passed (56).
 Clock-controlled delay exceeds the former 120s expiry without a live provider.
 No real user browser is opened for acceptance testing; user owns that run.
+An extra browser compatibility run used an overly short 40s file timeout and
+timed out in existing hardening discovery; the full hardening file above passed
+with the normal runner limit in 141s. This was a test-run limit, not a pass.
+
+Stage 4: reproduced the headless CLI callback entering a modal queue with
+`_app=None` before implementation. It now fails closed immediately; timeout and
+unavailable input use a deny-compatible value with explicit reason. Both command
+and generic tool approval paths preserve the reason, with a needs_input handoff
+instruction instead of claiming the user denied or granting permission. No new
+approval channel and no security bypass. Interactive choices remain unchanged.
+357 approval tests passed with one separately confirmed baseline failure excluded;
+the final six headless/timeout regression cases also passed. The excluded
+`test_nonrecursive_verification_artifact_cleanup_is_not_dangerous` returns the
+same root-path denial on this Mac at baseline `1c2c18460` and current source for
+both temporary-file prefixes. It is not fixed by loosening security in this set.
+Actual worker-to-user handoff remains a user live-test item; these tests establish
+fail-closed command handling and absence of the unreachable five-minute wait.
 No automated suite establishes that the live model will follow every skill or
 meet the proposed call/time target. Those remain user-run acceptance checks.

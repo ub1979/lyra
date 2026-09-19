@@ -4472,6 +4472,7 @@ tests/cli/test_exit_delete_session.py	tests	Behavioral tests: exit delete sessio
 tests/cli/test_exit_summary_resume_hint.py	tests	Behavioral tests: exit summary resume hint
 tests/cli/test_exit_watchdog_signal_arm.py	tests	Behavioral tests: exit watchdog signal arm
 tests/cli/test_fast_command.py	tests	Behavioral tests: fast command
+tests/cli/test_headless_approval.py	tests	Behavioral tests: headless approval
 tests/cli/test_manual_compress.py	tests	Behavioral tests: manual compress
 tests/cli/test_moa_command.py	tests	Behavioral tests: moa command
 tests/cli/test_partial_compress.py	tests	Behavioral tests: partial compress
@@ -6524,6 +6525,7 @@ tests/website/test_generate_skill_docs.py	tests	Behavioral tests: generate skill
 tools/__init__.py	tools	py:   init
 tools/ansi_strip.py	tools	Strip ANSI escape sequences from subprocess output.
 tools/approval.py	tools	Dangerous command approval -- detection, prompting, and per-session state.
+tools/approval_outcome.py	tools	Preserve unresolved approval reasons without changing legacy deny semantics.
 tools/async_delegation.py	tools	py: async delegation
 tools/binary_extensions.py	tools	Binary file extensions to skip for text-based operations.
 tools/blueprints.py	tools	Blueprints: shareable plain-language automations layered on skills + cron.

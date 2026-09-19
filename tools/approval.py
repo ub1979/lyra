@@ -2838,6 +2838,11 @@ def _run_approval_gate(
     choice = prompt_dangerous_approval(display_target, description,
                                        approval_callback=approval_callback)
 
+    from tools.approval_outcome import unresolved_approval_result
+    unresolved = unresolved_approval_result(choice, pattern_key, description)
+    if unresolved is not None:
+        return unresolved
+
     if choice == "deny":
         return {
             "approved": False,
@@ -3599,6 +3604,11 @@ def check_all_command_guards(command: str, env_type: str,
         surface="cli",
         choice=choice,
     )
+
+    from tools.approval_outcome import unresolved_approval_result
+    unresolved = unresolved_approval_result(choice, primary_key, combined_desc)
+    if unresolved is not None:
+        return unresolved
 
     if choice == "deny":
         return {
