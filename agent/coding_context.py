@@ -808,6 +808,12 @@ def detect_project_facts(root: Path) -> ProjectFacts:
             if re.search(rf"^{re.escape(name)}\s*:", makefile, re.MULTILINE)
         )
 
+    if not verify:
+        from agent.node_test_command import has_builtin_node_tests
+
+        if has_builtin_node_tests(root):
+            verify.append("node --test")
+
     return ProjectFacts(
         manifests=manifests,
         package_managers=package_managers,
