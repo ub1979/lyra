@@ -9,6 +9,32 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.65] - 2026-09-19 — QA handoffs and reliable project stop
+
+### Fixed
+
+- Reject dependency waits without an unfinished prerequisite, preserving the
+  active worker instead of silently releasing it for an immediate retry.
+- Keep QA within testing and evidence: clarify coordinator handoffs, guard
+  worker scheduling and application file edits, and prohibit raw-CDP harnesses.
+- Cancel related project jobs atomically before terminating workers; retain
+  isolated descendant visibility and report unconfirmed worker exits honestly.
+- Preserve declared QA criteria, native browser-dialog recovery, resumed usage,
+  structured Studio status authority and active-request sleep protection.
+
+### Verification and limits
+
+- Affected regression suites: 1,418 passed. Assisted QA-only Tiny Counter retest:
+  40 unit tests and 59 Chromium Playwright checks passed; 29 model calls, about
+  six minutes, no automatic retry or Development job. Existing app source was
+  preserved. The initial interrupted attempt is retained in the test report.
+- Safari/Firefox testing was explicitly waived by the user for this publication;
+  neither browser is verified. This is not a global reduction of QA requirements
+  or an overall stability/speed guarantee. Channel remains beta.
+- Publishes the accumulated local reliability work documented below, including
+  previously local 0.19.63/0.19.64 changes. Restart idle Lyra processes to load
+  updated Python and prompt behavior; browser reload alone is insufficient.
+
 ## [0.19.64] - 2026-09-19 — focused QA and project recovery
 
 ### Changed

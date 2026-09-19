@@ -99,3 +99,11 @@ untested browser compatibility as a caveat instead of an acceptance blocker.
 Record/review that separately before changing Lyra; no implementation changes
 or new full-project run were made here. The current working tree, not the
 committed app source alone, is what passed. Nothing pushed.
+
+## Publication decision
+
+After reviewing these results, the user explicitly waived further Safari/Firefox
+testing and authorized publication of all 64 pending Lyra commits, plus the
+required 0.19.65 beta version update. The untested browsers remain unverified;
+the waiver does not turn missing evidence into a pass or change future projects'
+QA rules. The historical observations above remain unchanged.
