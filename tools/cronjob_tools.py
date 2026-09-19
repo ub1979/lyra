@@ -618,6 +618,7 @@ def _execute_job_now(job: Dict[str, Any]) -> Dict[str, Any]:
     Returns {"claimed": bool, "success": bool, "error": str|None}.
     """
     job_id = job["id"]
+    execution_id = None
     try:
         from cron.scheduler import run_one_job
 
@@ -636,19 +637,30 @@ def _execute_job_now(job: Dict[str, Any]) -> Dict[str, Any]:
                 reason = "Job is already being fired by the scheduler; not run again."
             return {"claimed": False, "success": False, "error": reason}
 
-        # run_one_job records last_run_at/last_status via mark_job_run (which
-        # also clears the fire claim) and returns True iff it processed the job.
-        processed = run_one_job(job)
-        refreshed = get_job(job_id) or {}
-        ok = refreshed.get("last_status") == "ok"
+        # Schedule lifetime is not execution lifetime: finite one-shots are
+        # removed on completion. Pin this exact attempt; processed != passed.
+        from cron.executions import create_execution, get_execution
+
+        execution = create_execution(job_id, source="direct")
+        execution_id = execution["id"]
+        processed = run_one_job({**job, "execution_id": execution["id"]})
+        outcome = get_execution(execution["id"]) or {}
+        ok = outcome.get("status") == "completed"
         return {
             "claimed": True,
             "success": bool(processed and ok),
-            "error": refreshed.get("last_error"),
+            "error": outcome.get("error") or (None if ok else "Execution has no confirmed successful outcome."),
         }
 
     except Exception as e:
         logger.error("Failed to execute cron job %s immediately: %s", job_id, e)
+        if execution_id:
+            try:
+                from cron.executions import finish_execution
+
+                finish_execution(execution_id, success=False, error=str(e))
+            except Exception:
+                logger.exception("Could not finalize cron execution %s", execution_id)
         try:
             mark_job_run(job_id, False, str(e))
         except Exception:

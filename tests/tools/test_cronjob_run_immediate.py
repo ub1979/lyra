@@ -7,6 +7,7 @@ last_run_at stayed null forever. Now action='run' claims the job (at-most-once,
 blocking a concurrent tick) and fires it inline via the shared run_one_job body.
 """
 import json
+import pytest
 from unittest.mock import patch
 
 from tools.cronjob_tools import cronjob, _execute_job_now
@@ -14,6 +15,16 @@ from tools.cronjob_tools import cronjob, _execute_job_now
 
 _JOB = {"id": "job-run-1", "name": "manual run", "prompt": "hi",
         "schedule": {"kind": "cron", "expr": "0 9 * * *"}}
+
+
+@pytest.fixture(autouse=True)
+def execution_result():
+    # These tests isolate tool wiring. Actual script + ledger behavior is
+    # covered in test_cronjob_run_outcome with real temporary stores.
+    with patch("cron.executions.create_execution", return_value={"id": "attempt"}), \
+         patch("cron.executions.get_execution", return_value={"status": "completed"}) as result, \
+         patch("cron.executions.finish_execution"):
+        yield result
 
 
 class TestCronjobRunExecutesImmediately:
@@ -88,8 +99,9 @@ class TestCronjobRunExecutesImmediately:
         m_run.assert_not_called()  # claim lost -> never fired
         m_notify.assert_not_called()  # the winning scheduler owns the re-arm
 
-    def test_run_reports_failure_from_last_status(self):
-        """A failed run is reported via the re-read job's last_status/last_error."""
+    def test_run_reports_failure_from_execution(self, execution_result):
+        """A failed run uses its exact attempt, not the surviving schedule."""
+        execution_result.return_value = {"status": "failed", "error": "provider 500"}
         failed = {"id": "job-run-1", "last_status": "error", "last_error": "provider 500"}
         with patch("tools.cronjob_tools.resolve_job_ref", return_value=dict(_JOB)), \
              patch("tools.cronjob_tools.claim_job_for_fire", return_value=True), \

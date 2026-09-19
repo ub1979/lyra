@@ -207,6 +207,14 @@ def recover_interrupted_executions() -> int:
     return changed
 
 
+def get_execution(execution_id: str) -> Optional[Dict[str, Any]]:
+    """Read the exact attempt, even after its one-shot schedule is removed."""
+    with _transaction() as conn:
+        return _record(conn.execute(
+            "SELECT * FROM executions WHERE id=?", (execution_id,),
+        ).fetchone())
+
+
 def list_executions(
     *, job_id: Optional[str] = None, limit: int = 50,
     before_claimed_at: Optional[str] = None,
