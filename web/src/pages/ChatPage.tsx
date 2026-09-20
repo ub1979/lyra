@@ -24,6 +24,7 @@ import { GuidedProgressMap } from '../components/GuidedProgressMap';
 import { GuidedAgentAvatar } from '../components/GuidedAgentAvatar';
 import { JobRunnerNotice } from '../components/JobRunnerNotice';
 import { useProjectLedger } from '../hooks/useProjectLedger';
+import { GUIDED_PROGRESS_REQUEST, useGuidedProgressCheck } from '../hooks/useGuidedProgressCheck';
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
@@ -87,7 +88,8 @@ import {
   unavailableGuidedModelAssignments,
   type GuidedUnavailableModelAssignment,
 } from "@/lib/guided-agent-routing";
-import { guidedSetupSeed, profileFromBuilderSeed, type GuidedBuildProfile } from "@/lib/guided-project-setup";
+import { builderStartsOnOpen, GUIDED_OPENING_MESSAGE, guidedSetupSeed, profileFromBuilderSeed, type GuidedBuildProfile } from "@/lib/guided-project-setup";
+import { readGuidedTeamSelection, saveGuidedTeamSelection } from "@/lib/guided-team-selection";
 import {
   guidedModelProviders,
   readGuidedModelPreferences,
@@ -167,7 +169,7 @@ import {
   projectAgentActivity,
   projectAgentSummary,
 } from "@/lib/project-agent-activity";
-import { projectAgentUsageTotal } from "@/lib/project-agent-usage";
+import { projectReportedUsage } from "@/lib/project-agent-usage";
 import {
   guidedClarificationAnswer,
   guidedClarificationMessage,
@@ -578,8 +580,8 @@ export function GuidedRuntimePanel({
   const model = usage.model || defaultModelLabel;
   const allJobs = projectAgentActivity(runState, runStateStale);
   const jobs = activeProjectAgentActivity(allJobs);
-  // Saved jobs report their own usage; it is never folded into Lyra's number.
-  const jobUsage = projectAgentUsageTotal(allJobs);
+  const totalUsage = projectReportedUsage(runState, usage);
+  const jobUsage = totalUsage.workers;
   const workingCount = activeWorkers.length + jobs.filter((job) => job.running).length;
   const status = runStateStale ? "Status unavailable" : projectAgentSummary(jobs, activeWorkers.length);
 
@@ -619,17 +621,17 @@ export function GuidedRuntimePanel({
         <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-text-secondary hover:text-midground">
           <span className="inline-flex items-center gap-1.5">
             <Activity className="h-3.5 w-3.5" />
-            Tokens
+            Total reported tokens
           </span>
           <strong className="text-midground">
-            {usage.reported
-              ? formatGuidedTokens(guidedUsageTotal(usage))
+            {totalUsage.reported
+              ? `${formatGuidedTokens(totalUsage.tokens)}${!totalUsage.complete || runStateStale ? " · partial" : ""}`
               : "Not reported yet"}
           </strong>
         </summary>
         <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 border-t border-current/10 px-2.5 py-2 text-[10px]">
-          <span className="text-text-secondary">Scope</span>
-          <strong className="text-right text-midground">Lyra only</strong>
+          <span className="text-text-secondary">Main Lyra</span>
+          <strong className="text-right text-midground">{usage.reported ? formatGuidedTokens(guidedUsageTotal(usage)) : "Not reported"}</strong>
           <span className="text-text-secondary">Fresh</span>
           <strong className="text-right text-midground">
             {usage.reported ? formatGuidedTokens(usage.input) : "—"}
@@ -672,7 +674,8 @@ export function GuidedRuntimePanel({
           </strong>
         </div>
         <p className="px-2.5 pb-2 text-[10px] text-text-secondary">
-          Reported usage only; auxiliary judge and summary calls are not included.
+          Main conversation plus saved project agents, including completed work and retries.
+          Worker reports can arrive later. Auxiliary calls and live chat delegations are not included in this total.
         </p>
       </details>
 
@@ -964,6 +967,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   );
   const workspaceParam = searchParams.get("workspace")?.trim() ?? "";
   const builderParam = searchParams.get("builder");
+  const [initialTeamSelection] = useState(() => readGuidedTeamSelection(window.localStorage, workspaceParam, builderParam));
+  const guidedTeamSelectionRef = useRef(initialTeamSelection);
   const resumeParam = searchParams.get("resume");
   const projectName =
     workspaceParam.split(/[\\/]/).filter(Boolean).pop() ?? "Project";
@@ -1395,6 +1400,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       workspaceParam,
     );
     selectedBuildProfile(searchParams.get("builder"), workspaceParam);
+    guidedTeamSelectionRef.current = readGuidedTeamSelection(window.localStorage, workspaceParam, searchParams.get("builder"));
     applyGuidedSpecialistIds(selected);
   }, [applyGuidedSpecialistIds, guided, searchParams, workspaceParam]);
   // Counts model turns (message.start) so a completed reply can refine only
@@ -1413,6 +1419,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       now: Date.now(),
       selectableSpecialistIds: GUIDED_SELECTABLE_SPECIALIST_IDS,
       selectedSpecialistIds: guidedSelectedSpecialistIdsRef.current,
+      teamSelectionMode: guidedTeamSelectionRef.current,
     }),
     [guidedClarificationRef],
   );
@@ -1518,6 +1525,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           current: guidedPhaseCurrentRef.current,
           models: guidedSkillModelsRef.current,
           provider: guidedModelProviderRef.current,
+          teamSelectionMode: guidedTeamSelectionRef.current,
         });
         writeGuidedPrompt(
           `${routing.join("\n")}\n${guidedPhaseContinuationDirective(phase, label)}`,
@@ -2298,6 +2306,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       completed: guidedPhasesCompletedRef.current,
       current: guidedPhaseCurrentRef.current,
       includeRequirements: options.applyAgentRouting !== false,
+      teamSelectionMode: guidedTeamSelectionRef.current,
       models: guidedSkillModelsRef.current,
       provider: guidedModelProviderRef.current,
     });
@@ -2310,6 +2319,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       guidedModelProviders(guidedSkillModelsRef.current, guidedModelProviderRef.current),
       GUIDED_SPECIALIST_LABELS,
       selectedBuildProfile(searchParams.get("builder"), workspaceParam),
+      guidedTeamSelectionRef.current,
     ) : "";
     const routedText = [...routing, setup, text].filter(Boolean).join("\n");
     // Bracketed paste, not raw typing: a multi-line prompt written straight to
@@ -2345,6 +2355,23 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     },
     [submitGuidedText],
   );
+
+  useGuidedProgressCheck({
+    workspace: workspaceParam,
+    enabled: guided && guidedMessageWorkspace === workspaceParam,
+    active: Boolean(guidedRunState?.active) && !guidedPaused,
+    canSend: () => isActive && !guidedRunStateStale && guidedAgentReadyRef.current &&
+      wsRef.current?.readyState === WebSocket.OPEN && guidedTurnSettledRef.current &&
+      guidedActivityRef.current.phase !== "working" && !guidedCompactingRef.current &&
+      !guidedClarificationRef.current && !guidedApprovalRef.current && !guidedModelReviewRef.current &&
+      !guidedSkillsOpen && !guidedInput.trim() && !guidedAttachments.length && !guidedAttachBusy,
+    submit: () => {
+      // submitGuidedText owns the existing PTY and normal turn lifecycle.
+      if (!guidedTurnSettledRef.current || guidedClarificationRef.current || guidedApprovalRef.current) return false;
+      submitGuidedText(GUIDED_PROGRESS_REQUEST, "Update me (automatic five-minute check-in)", { preserveDraft: true });
+      return true;
+    },
+  });
 
   const openGuidedSkills = useCallback(() => {
     setGuidedTeamRecommendationPending(false);
@@ -2431,6 +2458,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     }
     applyGuidedSpecialistIds(selected);
     guidedSkillModelsRef.current = models;
+    guidedTeamSelectionRef.current = "manual";
+    saveGuidedTeamSelection(window.localStorage, workspaceParam, "manual");
     setGuidedSkillModels(models);
     guidedModelReviewRef.current = null;
     setGuidedModelReview(null);
@@ -2778,6 +2807,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         current: guidedPhaseCurrentRef.current,
         models: guidedSkillModelsRef.current,
         provider: guidedModelProviderRef.current,
+        teamSelectionMode: guidedTeamSelectionRef.current,
       });
       writeGuidedPrompt(
         `${routing.join("\n")}\n${lastUserMessage.content}`,
@@ -3404,6 +3434,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           const next = new URLSearchParams(searchParams);
           next.delete("builder");
           setSearchParams(next, { replace: true });
+          if (!builderStartsOnOpen(builderSeed)) {
+            guidedTurnSettledRef.current = true;
+            setGuidedActivitySynced({ phase: "idle", text: "", specialist: null });
+            return;
+          }
           guidedTurnStartLineRef.current = Math.max(
             0,
             term.buffer.active.length - 1,
@@ -4862,9 +4897,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
                   guidedMessages.length === 0 &&
                   guidedActivity.phase === "idle" && (
                     <div className="rounded-xl border border-current/10 bg-midground/5 p-5 text-text-secondary">
-                      {ptyState === "open"
-                        ? "Let’s start building. What’s the cool idea?"
-                        : "Lyra is preparing your project conversation…"}
+                      {GUIDED_OPENING_MESSAGE}
                     </div>
                   )}
               </div>

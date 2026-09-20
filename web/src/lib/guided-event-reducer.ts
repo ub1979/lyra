@@ -271,7 +271,7 @@ export function applyGuidedResponse(
   else if (phaseCurrent && phases.completed.includes(phaseCurrent)) phaseCurrent = null;
 
   const skillSelection = extractAppItSkillSelection(phases.content, ctx.selectableSpecialistIds);
-  if (skillSelection) {
+  if (skillSelection && ctx.teamSelectionMode === "guided") {
     effects.push({
       kind: "openSkillsDialog",
       recommended: withRequiredGuidedSpecialists(skillSelection.skillIds, ctx.selectableSpecialistIds),

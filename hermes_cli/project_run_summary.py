@@ -64,7 +64,9 @@ def summarize_project_run(state: dict[str, Any]) -> dict[str, Any]:
         key=lambda task: int(task.get("last_activity_at") or 0),
         reverse=True,
     )
-    result = {key: value for key, value in state.items() if key != "tasks"}
+    # Historical usage is for the Studio counter, not repeated coordinator
+    # context. Keep the status summary bounded as completed jobs accumulate.
+    result = {key: value for key, value in state.items() if key not in {"tasks", "worker_usage"}}
     result.update({
         "summary_only": True,
         "status_counts": dict(

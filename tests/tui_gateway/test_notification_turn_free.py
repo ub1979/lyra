@@ -73,7 +73,7 @@ def test_requeued_failure_is_one_notice_and_no_turn(poller):
     kinds = [args[2].get("kind") for args in emitted if args[0] == "status.update"]
     assert "project_job" in kinds
     notice = next(args[2] for args in emitted if args[2].get("kind") == "project_job")
-    assert "attempt failed" in notice["text"]
+    assert "specific reason was not recorded" in notice["text"]
     assert notice["task_id"] == "t_arch" and notice["event_kind"] == "timed_out"
     assert not any(args[0] == "message.start" for args in emitted)
 

@@ -36,6 +36,10 @@ its scope with a full live project journey.
    persisted user message, not just a ready label. Never resend to make a failed
    startup look successful. Preserve the failure first; any user recovery is a
    separately labelled continuation.
+   With no supplied brief, a new project shows “whats the great idea you wanna
+   build” and waits without a model request. A manually chosen preset/custom
+   team must remain selected after reload; only “Let Lyra guide me” permits an
+   initial recommendation, and confirming a team ends that recommendation step.
 3. For an empty conversation, wait for the ready composer placeholder, type the
    message, then check Send is enabled. An empty draft intentionally disables Send.
 4. Scope selectors to the labelled surface: `Message Lyra`, `Send message`,

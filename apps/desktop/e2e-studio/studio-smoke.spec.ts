@@ -96,7 +96,7 @@ test('a user turn, a second turn, and the token panel all render in Studio', asy
   const panel = page.locator('aside[aria-label="Live agents and token usage"]')
   await expect(panel).toBeVisible()
   await expect(panel.getByText('Lyra ready', { exact: true })).toBeVisible()
-  const tokens = panel.locator('details').filter({ has: page.locator('summary', { hasText: 'Tokens' }) })
+  const tokens = panel.locator('details').filter({ has: page.locator('summary', { hasText: /tokens/i }) })
   await tokens.locator('summary').click()
   await expect(tokens.locator('summary strong')).not.toHaveText('Not reported yet', { timeout: 30_000 })
   await expect(tokens.getByText('Updated')).toBeVisible()
@@ -170,6 +170,7 @@ test('New Project submits its brief once without reconnecting between paste and 
   const prompt = echo.prompts[baseline]
   expect(prompt.split(brief)).toHaveLength(2)
   expect(prompt.match(/IDRAK_INTERNAL_SETUP_BEGIN/g)).toHaveLength(1)
+  expect(prompt).toContain('"team_selection_mode":"manual"')
   const paste = frames.find(frame => frame.text.startsWith('\x1b[200~'))!
   expect(paste).toBeTruthy()
   expect(frames.some(frame => frame.socket === paste.socket && frame.text === '\r')).toBe(true)
@@ -186,4 +187,64 @@ test('New Project submits its brief once without reconnecting between paste and 
   await expect(replies).toHaveCount(2, { timeout: 30_000 })
   expect(echo.prompts).toHaveLength(baseline + 2)
   expect(echo.prompts[baseline + 1]).not.toContain(brief)
+  expect(echo.prompts[baseline + 1]).toContain('Do not recommend another team')
 })
+
+for (const customize of [false, true]) {
+  test(`empty guided launch greets without inference and retains ${customize ? 'custom' : 'guided'} selection`, async ({ page }) => {
+    const baseline = echo.prompts.length
+    await page.goto(`${dashboard.url}/ultimate-builder`)
+    await page.getByRole('button', { name: /Let Lyra guide me/ }).click()
+    await page.getByRole('button', { name: 'Browse', exact: true }).click()
+    const picker = page.getByRole('dialog')
+    await picker.getByLabel('Folder path').fill(project)
+    await picker.getByRole('button', { name: 'Go', exact: true }).click()
+    await expect(picker.getByText(project, { exact: true })).toBeVisible()
+    await picker.getByRole('button', { name: 'Choose this folder', exact: true }).click()
+    await page.getByPlaceholder('My new app', { exact: true }).fill(customize ? 'Custom selection' : 'Guided selection')
+    await page.getByRole('radio', { name: /Personal/ }).click()
+    if (customize) {
+      await page.getByRole('button', { name: 'Customize team', exact: true }).click()
+      await page.locator('label.ub-skill').filter({ hasText: 'Development' }).click()
+    }
+    await page.getByRole('button', { name: 'Enter project studio →', exact: true }).click()
+    await expect(page.getByText('whats the great idea you wanna build', { exact: true })).toBeVisible()
+    const composer = page.getByLabel('Message Lyra')
+    await expect(composer).toHaveAttribute('placeholder', /Describe your idea/, { timeout: 60_000 })
+    expect(echo.prompts).toHaveLength(baseline)
+    await page.reload()
+    await expect(composer).toHaveAttribute('placeholder', /Describe your idea/, { timeout: 60_000 })
+    await expect(page.getByText('whats the great idea you wanna build', { exact: true })).toBeVisible()
+    expect(echo.prompts).toHaveLength(baseline)
+    await composer.fill('I want a tiny counter. Please acknowledge my chosen team.')
+    await page.getByRole('button', { name: 'Send message', exact: true }).click()
+    await expect.poll(() => echo.prompts.length, { timeout: 30_000 }).toBe(baseline + 1)
+    const prompt = echo.prompts[baseline]
+    expect(prompt).toContain(`"team_selection_mode":"${customize ? 'manual' : 'guided'}"`)
+    expect(prompt).toContain(customize ? 'Do not recommend another team' : 'The user chose Let Lyra guide me')
+    if (customize) expect(prompt).toContain('"enabled_specialists":["req-engineer","sw-developer"]')
+    await expect(page.locator('.lyra-studio-message').filter({ hasText: 'Echo:' })).toHaveCount(1, { timeout: 30_000 })
+    if (customize) {
+      // Only the project activity response is controlled here. The timer sends
+      // through the real composer, PTY, gateway and echo-provider transport.
+      await page.route('**/api/plugins/ultimate-builder/state*', async route => {
+        const response = await route.fetch()
+        const body = await response.json()
+        body.run_state = { ...body.run_state, active: true, state: 'working' }
+        await route.fulfill({ response, json: body })
+      })
+      await page.waitForResponse(response => response.url().includes('/api/plugins/ultimate-builder/state'))
+      await page.waitForFunction(() => {
+        const workspace = new URL(location.href).searchParams.get('workspace')!
+        return localStorage.getItem(`idrak-it.guided-progress-check.v1:${workspace}`) !== null
+      })
+      await page.evaluate(() => {
+        const workspace = new URL(location.href).searchParams.get('workspace')!
+        localStorage.setItem(`idrak-it.guided-progress-check.v1:${workspace}`, String(Date.now() - 1))
+      })
+      await expect.poll(() => echo.prompts.length, { timeout: 20_000 }).toBe(baseline + 2)
+      await expect(page.locator('.lyra-studio-message').filter({ hasText: 'Update me (automatic five-minute check-in)' })).toBeVisible()
+      expect(echo.prompts[baseline + 1]).toContain('Check existing project status only; do not start, retry, change, or approve work.')
+    }
+  })
+}

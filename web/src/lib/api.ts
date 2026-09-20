@@ -2029,6 +2029,8 @@ export interface UltimateBuilderRunState {
   /** Whether queued jobs can start now; absent from older backends. */
   job_runner?: JobRunnerHealth;
   tasks: UltimateBuilderRunTask[];
+  /** Usage includes superseded jobs omitted from the current phase map. */
+  worker_usage?: Pick<UltimateBuilderRunTask, "board" | "task_id" | "usage">[];
 }
 
 export interface UltimateBuilderRunControl {

@@ -233,10 +233,20 @@ describe("applyGuidedResponse — phases and hand-offs", () => {
     const { effects, state } = applyGuidedResponse(
       { ...INITIAL_GUIDED_STATE, turnSeq: 1 },
       "Here is my plan. [APP_IT_SKILLS_SET:researcher,sw-developer]",
-      ctx(),
+      ctx({ teamSelectionMode: "guided" }),
     );
     expect(effects).toEqual([{ kind: "openSkillsDialog", recommended: expect.arrayContaining(["researcher", "sw-developer"]) }]);
     expect(state.messages).toHaveLength(1);
+    expect(state.messages[0].content).not.toContain("APP_IT_SKILLS_SET");
+  });
+
+  it("does not reopen team selection for manual or already confirmed teams", () => {
+    const { effects, state } = applyGuidedResponse(
+      { ...INITIAL_GUIDED_STATE, turnSeq: 1 },
+      "I can help. [APP_IT_SKILLS_SET:researcher,sw-developer]",
+      ctx({ teamSelectionMode: "manual" }),
+    );
+    expect(effects.some(effect => effect.kind === "openSkillsDialog")).toBe(false);
     expect(state.messages[0].content).not.toContain("APP_IT_SKILLS_SET");
   });
 });

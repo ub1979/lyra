@@ -12209,7 +12209,28 @@ def test_resumed_tui_claims_saved_project_completion(monkeypatch, tmp_path):
     assert event["task_id"] == task_id
     visible, internal = server._kanban_tui_notification_text(event)
     assert "finished" in visible
-    assert "whether the whole application is finished" in internal
+    assert "whether the application is finished" in internal
+    assert "stop_reason" not in internal
+
+
+def test_saved_budget_reason_reaches_chat_through_real_notification_claim(monkeypatch, tmp_path):
+    from hermes_cli import kanban_db as kb
+
+    monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
+    monkeypatch.setattr(server, "_get_db", lambda: None)
+    with kb.connect_closing() as conn:
+        task_id = kb.create_task(conn, title="Development", assignee="default")
+        kb.add_notify_sub(conn, task_id=task_id, platform="tui", chat_id="budget-chat")
+        kb._record_task_failure(conn, task_id, error="Iteration budget exhausted (90/90)",
+                                outcome="timed_out", release_claim=True, end_run=True,
+                                failure_limit=2)
+    session = {"session_key": "budget-chat", "running": False}
+    event = server._claim_kanban_tui_notification("budget-ui", session)
+    assert event["event_details"]["error"] == "Iteration budget exhausted (90/90)"
+    visible, _ = server._kanban_tui_notification_text(event)
+    assert "90-step limit" in visible and "queued another attempt" in visible
+    session.pop("_kanban_notification_next_poll")
+    assert server._claim_kanban_tui_notification("budget-ui", session) is None
 
 
 def test_resumed_tui_skips_completion_for_task_archived_after_event(

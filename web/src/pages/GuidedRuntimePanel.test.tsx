@@ -55,7 +55,8 @@ describe("GuidedRuntimePanel", () => {
         coordinatorState={{ connection: "open", eventsConnected: true, working: false }}
       />,
     );
-    expect(reported).toContain("Lyra only");
+    expect(reported).toContain("Main Lyra");
+    expect(reported).toContain("10.7K · partial");
     expect(reported).toContain("10.5K · ~$0.013 · 1 of 2 reported");
     expect(reported).toContain("Updated");
     expect(reported).not.toContain("Not reported yet");

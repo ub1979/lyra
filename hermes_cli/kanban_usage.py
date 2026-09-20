@@ -7,8 +7,8 @@ obvious place but it is serialized into child worker prompts, so usage lives
 in its own ``task_events`` row instead: Studio can read it and no prompt
 ever sees it. A task without such a row has *unknown* usage, never zero.
 
-Rows are cumulative snapshots of one worker session. A retry is a new
-session, so a task's spending is the sum of the newest snapshot of every
+Rows are cumulative snapshots of one worker run. A retry is a new
+run, so a task's spending is the sum of the newest snapshot of every
 distinct attempt — never just the newest row, which would discard the
 earlier attempts' tokens.
 """
@@ -166,10 +166,14 @@ def record_worker_usage_snapshot(
 
 
 def _attempt_key(payload: dict, run_id: Optional[int], row_id: int) -> str:
+    # Compression rotates session IDs without resetting cumulative counters.
+    # The dispatcher's run ID remains the identity of that one paid attempt.
+    if run_id is not None:
+        return f"run:{run_id}"
     session_id = str(payload.get("session_id") or "")
     if session_id:
         return f"session:{session_id}"
-    return f"run:{run_id}" if run_id is not None else f"event:{row_id}"
+    return f"event:{row_id}"
 
 
 def _sum_attempts(attempts: list[dict]) -> dict:
@@ -194,7 +198,7 @@ def run_usage_totals_by_task(
 ) -> dict[str, dict]:
     """Total spending per task: newest cumulative snapshot of each distinct attempt, summed.
 
-    Each worker session writes cumulative snapshots, so within one attempt only
+    Each worker run writes cumulative snapshots, so within one attempt only
     the newest row counts; across retries every attempt's newest row is added.
     One query per chunk of ids. Tasks with no usage row are absent (unknown).
     """

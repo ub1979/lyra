@@ -1862,6 +1862,7 @@ docs/lyra/changes/2026-09-19-startup-submit-lifecycle.md	docs	md: 2026 09 19 sta
 docs/lyra/changes/2026-09-19-studio-status.md	docs	md: 2026 09 19 studio status
 docs/lyra/changes/2026-09-19-worker-handoff.md	docs	md: 2026 09 19 worker handoff
 docs/lyra/changes/2026-09-19-workflow-contract-repairs.md	docs	md: 2026 09 19 workflow contract repairs
+docs/lyra/changes/2026-09-20-chat-progress-and-selection.md	docs	md: 2026 09 20 chat progress and selection
 docs/lyra/file-index.tsv	docs	tsv: file index
 docs/middleware/README.md	docs	md: README
 docs/observability/README.md	docs	md: README
@@ -2191,7 +2192,7 @@ hermes_cli/web_dist/assets/RulesCompressed-Regular-BSXFyF4x.woff2	hermes_cli	Gen
 hermes_cli/web_dist/assets/RulesExpanded-Bold-DZA7s8Pa.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/RulesExpanded-Regular-l8uVympt.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/assets/index-BGAdPJZk.css	hermes_cli	Generated asset; edit its source and rebuild
-hermes_cli/web_dist/assets/index-CCgEwi21.js	hermes_cli	Generated asset; edit its source and rebuild
+hermes_cli/web_dist/assets/index-vrxeaPX6.js	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Bold.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Italic.woff2	hermes_cli	Generated asset; edit its source and rebuild
 hermes_cli/web_dist/fonts-terminal/JetBrainsMono-Regular.woff2	hermes_cli	Generated asset; edit its source and rebuild
@@ -7244,6 +7245,8 @@ web/src/contexts/useProfileScope.ts	web	ts: useProfileScope
 web/src/contexts/useSystemActions.ts	web	ts: useSystemActions
 web/src/hooks/useGuidedClarification.test.tsx	web	Behavioral tests: useGuidedClarification.test
 web/src/hooks/useGuidedClarification.ts	web	ts: useGuidedClarification
+web/src/hooks/useGuidedProgressCheck.test.tsx	web	Behavioral tests: useGuidedProgressCheck.test
+web/src/hooks/useGuidedProgressCheck.ts	web	ts: useGuidedProgressCheck
 web/src/hooks/useModalBehavior.test.tsx	web	Behavioral tests: useModalBehavior.test
 web/src/hooks/useModalBehavior.ts	web	ts: useModalBehavior
 web/src/hooks/useProjectLedger.test.tsx	web	Behavioral tests: useProjectLedger.test
@@ -7336,6 +7339,8 @@ web/src/lib/guided-session-recovery.test.ts	web	Behavioral tests: guided-session
 web/src/lib/guided-session-recovery.ts	web	ts: guided session recovery
 web/src/lib/guided-specialists-dialog.test.ts	web	Behavioral tests: guided-specialists-dialog.test
 web/src/lib/guided-specialists-dialog.ts	web	ts: guided specialists dialog
+web/src/lib/guided-team-selection.test.ts	web	Behavioral tests: guided-team-selection.test
+web/src/lib/guided-team-selection.ts	web	ts: guided team selection
 web/src/lib/guided-terminal-authority.test.ts	web	Behavioral tests: guided-terminal-authority.test
 web/src/lib/guided-terminal-authority.ts	web	ts: guided terminal authority
 web/src/lib/guided-tool-events.test.ts	web	Behavioral tests: guided-tool-events.test

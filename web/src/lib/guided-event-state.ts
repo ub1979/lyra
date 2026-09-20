@@ -96,6 +96,7 @@ export interface GuidedEventContext {
   now: number;
   selectableSpecialistIds: readonly string[];
   selectedSpecialistIds: readonly string[];
+  teamSelectionMode?: "manual" | "guided";
 }
 
 /** Decisions the reducer cannot carry out itself; ChatPage runs them. */

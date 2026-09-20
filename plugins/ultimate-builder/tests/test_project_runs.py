@@ -127,6 +127,30 @@ def test_run_state_reports_saved_worker_usage_or_none(tmp_path, monkeypatch):
     assert usage["cost_usd"] is None
 
 
+def test_usage_history_keeps_superseded_jobs_and_excludes_other_projects(tmp_path, monkeypatch):
+    monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
+    project = tmp_path / "project"
+    project.mkdir()
+    module = load_project_runs()
+    from hermes_cli.kanban_usage import record_run_usage
+
+    first = module.queue_project_run(project, ["sw-architect"])["tasks"][0]["task_id"]
+    with module.kb.connect_closing() as conn, module.kb.write_txn(conn):
+        record_run_usage(conn, first, {"input_tokens": 12, "session_id": "old"})
+    with module.kb.connect_closing() as conn:
+        module.kb.archive_task(conn, first)
+    second = module.queue_project_run(project, ["sw-architect"])["tasks"][0]["task_id"]
+    assert second != first
+    with module.kb.connect_closing() as conn, module.kb.write_txn(conn):
+        record_run_usage(conn, second, {"input_tokens": 30, "session_id": "new"})
+    state = module.project_run_state(project)
+    assert [item["task_id"] for item in state["tasks"]] == [second]
+    assert sum(item["usage"]["input_tokens"] for item in state["worker_usage"]) == 42
+    other = tmp_path / "other"
+    other.mkdir()
+    assert module.project_run_state(other)["worker_usage"] == []
+
+
 def test_reused_unfinished_phase_adopts_current_execution_bounds(tmp_path, monkeypatch):
     monkeypatch.setenv("HERMES_KANBAN_HOME", str(tmp_path / "hermes"))
     project = tmp_path / "project"

@@ -1,5 +1,5 @@
-import type { UltimateBuilderRunUsage } from './api'
-import { formatGuidedTokens } from './guided-agent-runtime'
+import type { UltimateBuilderRunUsage, UltimateBuilderRunState } from './api'
+import { formatGuidedTokens, guidedUsageTotal, type GuidedUsageSnapshot } from './guided-agent-runtime'
 
 export interface ProjectAgentUsage {
   input: number
@@ -63,6 +63,21 @@ export function projectAgentUsageTotal(
     tokens: reported.reduce((sum, item) => sum + projectAgentUsageTokens(item.usage), 0),
     costUsd: priced.reduce((sum, item) => sum + (item.usage.costUsd ?? 0), 0),
     costKnown: reported.length > 0 && priced.length === reported.length
+  }
+}
+
+/** The total uses durable jobs, never the subset of currently visible cards. */
+export function projectReportedUsage(state: UltimateBuilderRunState | null, coordinator: GuidedUsageSnapshot) {
+  const rows = state?.worker_usage ?? state?.tasks ?? []
+  const unique = new Map(rows.map(row => [`${row.board}:${row.task_id}`, row]))
+  const workers = projectAgentUsageTotal([...unique.values()].map(row => ({
+    usage: normalizeProjectAgentUsage(row.usage)
+  })))
+  return {
+    workers,
+    tokens: (coordinator.reported ? guidedUsageTotal(coordinator) : 0) + workers.tokens,
+    reported: coordinator.reported || workers.reported > 0,
+    complete: coordinator.reported && state !== null && state.state !== 'unavailable' && workers.reported === workers.total
   }
 }
 

@@ -204,6 +204,15 @@ smart defaults”; honour those exactly as the playbook specifies and continue.
 
 ## Recommend specialists
 
+Only recommend a team when `team_selection_mode` is `guided`: the user chose
+**Let Lyra guide me**. For `manual`, including a preset, custom team, or a team
+confirmed in the dashboard, use the selected agents and models directly. Do
+not recommend a replacement team, emit `APP_IT_SKILLS_SET`, or repeat team
+approval. If the chosen team cannot do the requested work, explain the concrete
+limitation and let the user change their selection. An
+`IDRAK_INTERNAL_TEAM_SELECTION` directive on the current turn takes precedence
+over older setup instructions. Confirmation ends the guided recommendation step.
+
 Choose the smallest useful set from the registered Ultimate Builder skills.
 Explain each recommendation in one short line.
 

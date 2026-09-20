@@ -38,6 +38,7 @@ Durable project jobs → Hermes Kanban dispatcher → isolated worker sessions
 |---|---|---|
 | Studio composition | `web/src/pages/ChatPage.tsx` | Web suite, production build and real Chrome agent-picker repaint path |
 | User-initiated Studio startup | `web/src/lib/guided-project-setup.ts` | First-request recovery and browser smoke: no inference on empty open |
+| Five-minute check-ins / selected team | `web/src/hooks/useGuidedProgressCheck.ts`, `web/src/lib/guided-team-selection.ts`, builder launcher | Timer deferral/deduplication, manual-versus-guided proposal gates, and real Studio launch/reload/PTY smoke |
 | Targeted failed-job recovery | `plugins/ultimate-builder/project_task_recovery.py` | Real SQLite/tool/CLI isolation, dependency, stale-event and rollback tests |
 | Project map / agent artwork | `web/src/components/GuidedProgressMap.tsx`, `web/src/components/GuidedAgentAvatar.tsx` | Rendering tests and production build |
 | Compact project status / polling | `plugins/ultimate-builder/project_status.py`, `web/src/hooks/useProjectLedger.ts` | Atomic snapshot, malformed/stale fallback, hook and project API tests |
@@ -96,6 +97,13 @@ Durable project jobs → Hermes Kanban dispatcher → isolated worker sessions
 | Release gates | `.github/workflows/ci.yml`, `scripts/run_tests_parallel.py` | CI classification/discovery tests |
 
 ## Complete file inventory
+
+Current focused change: [chat progress and selection](changes/2026-09-20-chat-progress-and-selection.md).
+Stop notices retain the originating event's reason; worker spending counts each
+run once across compression and includes superseded jobs separately from the
+current activity map. The main token headline combines the conversation and
+reported durable workers. Empty new projects show a local opening invitation;
+manual teams remain authoritative, and guided recommendations end on confirmation.
 
 Active repair set: [calculator QA reliability repairs](changes/2026-09-19-qa-reliability-repairs.md).
 Shared `qa-evidence` owns execution-method preflight independently of selected

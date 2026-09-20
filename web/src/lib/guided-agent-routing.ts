@@ -1,3 +1,5 @@
+import { guidedTeamSelectionDirective, type GuidedTeamSelectionMode } from "./guided-team-selection";
+
 export type GuidedRequirementsRoutingState = {
   completed: readonly string[];
   current: string | null;
@@ -100,6 +102,7 @@ export type GuidedProjectTurnRoutingState = GuidedRequirementsRoutingState & {
   includeRequirements?: boolean;
   models: Readonly<Record<string, string>>;
   provider: string;
+  teamSelectionMode?: GuidedTeamSelectionMode;
 };
 
 /** Compose every live guard together so send and retry paths cannot diverge. */
@@ -110,11 +113,13 @@ export function guidedProjectTurnDirectives({
   includeRequirements = true,
   models,
   provider,
+  teamSelectionMode = "manual",
 }: GuidedProjectTurnRoutingState): string[] {
   const directives = [
     guidedPlainLanguageTurnDirective(),
     guidedModelRoutingTurnDirective(provider, models),
     guidedProjectExecutionTurnDirective(approvedAgentIds),
+    guidedTeamSelectionDirective(teamSelectionMode),
   ];
   if (includeRequirements) {
     directives.push(guidedRequirementsTurnDirective({ completed, current }));

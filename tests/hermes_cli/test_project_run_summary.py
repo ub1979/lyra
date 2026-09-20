@@ -34,8 +34,10 @@ def test_bounded_summary_keeps_all_counts_attention_and_explicit_omissions():
         "activity_health": "stalled",
     })
     state = {"state": "needs_attention", "active": True, "tasks": tasks}
+    state["worker_usage"] = [{"task_id": task["task_id"], "usage": {"input_tokens": 9000}} for task in tasks]
     original = deepcopy(state)
     summary = summarize_project_run(state)
+    assert "worker_usage" not in summary
     assert summary["state"] == "needs_attention"
     assert summary["status_counts"] == {"done": 100, "blocked": 10, "running": 1}
     assert summary["attention_count"] == 11

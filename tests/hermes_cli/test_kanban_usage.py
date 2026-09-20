@@ -125,6 +125,16 @@ def test_legacy_rows_without_session_fall_back_to_run_then_event(board):
     assert total["attempts"] == 3
 
 
+def test_compression_rotates_session_without_creating_another_paid_attempt(board):
+    task_id = kb.create_task(board, title="Development", assignee="default")
+    with kb.write_txn(board):
+        for run_id, session_id, tokens in [(7, "before", 1200), (7, "after", 1800), (8, "retry", 400)]:
+            record_run_usage(board, task_id, {"session_id": session_id, "input_tokens": tokens}, run_id=run_id)
+    total = run_usage_totals_by_task(board, [task_id])[task_id]
+    assert total["input_tokens"] == 1800 + 400
+    assert total["attempts"] == 2
+
+
 def test_live_snapshots_are_throttled_and_only_written_when_calls_advance(
     tmp_path, monkeypatch
 ):

@@ -784,10 +784,10 @@ def project_run_state(workspace: str | Path) -> dict[str, Any]:
     # Worker usage is saved per task; read each board once so routine Studio
     # polling never grows with the number of jobs or their event history.
     usage_by_board: dict[str, dict[str, dict]] = {}
-    for board in {board for board, _task in latest.values()}:
+    for board in {board for board, _task in tasks}:
         with kb.connect_closing(board=board) as conn:
             usage_by_board[board] = run_usage_totals_by_task(
-                conn, [task.id for item_board, task in latest.values() if item_board == board]
+                conn, [task.id for item_board, task in tasks if item_board == board]
             )
     call_limit = _plugin_module("call_limit_state")
     items = []
@@ -870,6 +870,13 @@ def project_run_state(workspace: str | Path) -> dict[str, Any]:
             (int(item["last_activity_at"] or 0) for item in items), default=None
         ),
         "job_runner": _job_runner_health(),
+        # Activity shows the latest job per phase; spending also retains jobs
+        # replaced or archived later. Keep these concerns separate.
+        "worker_usage": [
+            {"board": board, "task_id": task.id,
+             "usage": usage_by_board.get(board, {}).get(task.id)}
+            for board, task in tasks
+        ],
         "qa_acceptance": qa_acceptance,
         "tasks": items,
     }

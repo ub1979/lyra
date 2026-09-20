@@ -107,6 +107,9 @@
   const WORKSPACE_STORAGE_PREFIXES = [
     PROJECT_SESSION_KEY_PREFIX,
     "idrak-it.guided-specialists.v1:",
+    "idrak-it.guided-team-selection.v1:",
+    "idrak-it.guided-build-profile.v1:",
+    "idrak-it.guided-progress-check.v1:",
     "idrak-it.guided-messages.v1:",
     "idrak-it.guided-phases.v1:",
   ];
@@ -350,6 +353,7 @@
     const [screen, setScreen] = useState("home");
     const [mode, setMode] = useState("new");
     const [templateId, setTemplateId] = useState("app-it");
+    const [teamSelectionMode, setTeamSelectionMode] = useState("guided");
     const [buildProfile, setBuildProfile] = useState("");
     const [selected, setSelected] = useState(withRequired([]));
     const [projectPath, setProjectPath] = useState("");
@@ -533,6 +537,7 @@
 
     const applyTemplate = function (template) {
       setTemplateId(template.id);
+      setTeamSelectionMode(template.id === "app-it" ? "guided" : "manual");
       setSelected(withRequired(template.skills));
       setBuildProfile(buildProfileForTemplate(template.id));
       if (template.models && typeof template.models === "object") {
@@ -556,6 +561,7 @@
 
     const toggleSkill = function (id) {
       if (REQUIRED_SKILL_IDS.indexOf(id) !== -1) return;
+      setTeamSelectionMode("manual");
       setSelected((current) => {
         const next = new Set(current);
         if (next.has(id)) next.delete(id);
@@ -719,17 +725,19 @@
           .some((skill) => selected.has(skill));
         const request = brief.trim() || defaultBrief(templateId, mode === "existing");
         const prompt = "IDRAK_INTERNAL_SETUP_BEGIN " + JSON.stringify({
-          instruction: "Lyra is the permanent user-facing coordinator. Start with the internal ultimate-builder:app-it skill, work only in the selected workspace, and keep internal skill names, tools, and orchestration out of user-facing messages. Vocabulary: to the user these are AGENTS — the requirements agent, the design agent, the development agent. Never say skill, specialist, playbook, or subagent in a user-facing message. The enabled_specialists list is the approved initial team, not an immutable restriction. Recommend only the smallest useful team. Emit APP_IT_SKILLS_SET to open the dashboard's editable recommendation; the marker itself never applies a team. Wait for the user's dashboard confirmation and the resulting IDRAK_INTERNAL_SKILLS_UPDATE before using added agents. Manual dashboard changes are authoritative. Load every agent with skill_view(name='ultimate-builder:<specialist-id>') immediately before running it, and never claim an agent ran unless its playbook was actually loaded. Requirements is mandatory but not always active: use skill_view(name='ultimate-builder:req-engineer') for the first meaningful brief without approved requirements, an active requirements interview, an explicit requirements revision, or a material change to scope, user-visible behavior, data, permissions, integrations, or acceptance criteria. Do not invoke it for greetings, status, explanations, approvals, pause/stop commands, ordinary in-scope feedback, or minor fixes. When needed, run its Grill, design-space exploration and approval gate in this conversation and produce an approved requirements.md before affected downstream work.",
+          instruction: "Lyra is the permanent user-facing coordinator. Start with the internal ultimate-builder:app-it skill, work only in the selected workspace, and keep internal skill names, tools, and orchestration out of user-facing messages. Vocabulary: to the user these are AGENTS — the requirements agent, the design agent, the development agent. Never say skill, specialist, playbook, or subagent in a user-facing message. The enabled_specialists list is the approved initial team, authoritative. Follow team_selection_mode: only guided permits a team recommendation; manual means use the selected team without suggesting another or asking for confirmation again. In guided mode only, emit APP_IT_SKILLS_SET to open the dashboard's editable recommendation; the marker itself never applies a team. Wait for the user's dashboard confirmation and the resulting IDRAK_INTERNAL_SKILLS_UPDATE before using added agents. Manual dashboard changes are authoritative. Load every agent with skill_view(name='ultimate-builder:<specialist-id>') immediately before running it, and never claim an agent ran unless its playbook was actually loaded. Requirements is mandatory but not always active: use skill_view(name='ultimate-builder:req-engineer') for the first meaningful brief without approved requirements, an active requirements interview, an explicit requirements revision, or a material change to scope, user-visible behavior, data, permissions, integrations, or acceptance criteria. Do not invoke it for greetings, status, explanations, approvals, pause/stop commands, ordinary in-scope feedback, or minor fixes. When needed, run its Grill, design-space exploration and approval gate in this conversation and produce an approved requirements.md before affected downstream work.",
           first_turn_gate: mode === "new"
-            ? "Speak as Lyra. Begin with a warm one-sentence greeting and ask exactly ONE short product question. The launcher already captured the build profile below; acknowledge and obey it, do not ask for scale again. Hand any remaining interview to the requirements agent. Then recommend the smallest useful agent team within the chosen profile and ask permission before adding it. Do not write code before the team and requirements are approved."
-            : "Speak as Lyra. Inspect the existing workspace read-only, then begin with a warm one-sentence greeting, briefly say what the project appears to be, and ask exactly ONE question about the outcome the user wants. Recommend the smallest useful specialist team and ask permission before adding it.",
+            ? "Speak as Lyra. Begin with a warm one-sentence greeting and ask exactly ONE short product question. The launcher already captured the build profile below; acknowledge and obey it, do not ask for scale again. Hand any remaining interview to the requirements agent. Only when team_selection_mode is guided, recommend the smallest useful agent team within the chosen profile and ask permission before adding it. Otherwise follow the already approved team. Do not write code before the team and requirements are approved."
+            : "Speak as Lyra. Inspect the existing workspace read-only, then begin with a warm one-sentence greeting, briefly say what the project appears to be, and ask exactly ONE question about the outcome the user wants. Only when team_selection_mode is guided, recommend the smallest useful agent team and ask permission before adding it. Otherwise follow the already approved team.",
           build_profile: mode === "new" ? buildProfile : "existing",
           build_profile_gate: mode === "new"
             ? "The user explicitly selected this build profile in Studio. It is authoritative. Personal means the bounded MVP fast path and forbids full task graphs or dedicated release/hardening programmes unless the user later opts in. Reusable means proportional planning and focused checks. Production permits the full release workflow. Words such as complete, whole, everything working, or find all issues never promote the profile. Ask before increasing it."
             : "Keep the existing project's established scale unless the requested change materially expands it; then ask one plain-language scale question before broad planning.",
           coordination_rule: "Remain the user's single point of contact. Queue only enabled specialist phases as durable background jobs and inspect their evidence when they finish. After dispatch, report who owns the work and end the turn; do not edit worker-owned artifacts or execute checks through cron. Remain available for user questions while jobs run. Stop for user approval at requirements, preview, team changes and final delivery. Before asking for preview approval, use project_run action=preview with preview_options for alternative designs, then ask exactly its returned question and choices through clarify. Never collect informal preview approval first or ask the user to wake an internal workflow.",
           project_git_rule: "The selected workspace owns a separate local Git repository prepared by Lyra. Before every Git action, verify that git rev-parse --show-toplevel is exactly the workspace. Run Git from that root only. Never stage, commit, reset, merge, rebase, or push Lyra's application repository during project work. Never push the project unless the user explicitly requests it in this conversation.",
-          skill_change_rule: "When proposing the smallest useful team, emit exactly one [APP_IT_SKILLS_SET:comma-separated-ids] marker. The dashboard will hide it and show editable checkboxes; the marker is a proposal, not approval. Do not use newly proposed agents until an IDRAK_INTERNAL_SKILLS_UPDATE arrives after the user confirms the selection. Treat that selection plus the specialist_models and specialist_providers maps as authoritative and acknowledge it briefly without emitting another marker.",
+          team_selection_mode: teamSelectionMode,
+          start_on_open: Boolean(brief.trim()) || mode === "existing",
+          skill_change_rule: "For manual selection, do not propose a team or emit APP_IT_SKILLS_SET. Only in guided mode, when proposing the smallest useful team, emit exactly one [APP_IT_SKILLS_SET:comma-separated-ids] marker. The dashboard will hide it and show editable checkboxes; the marker is a proposal, not approval. Do not use newly proposed agents until an IDRAK_INTERNAL_SKILLS_UPDATE arrives after the user confirms the selection. Treat that selection plus the specialist_models and specialist_providers maps as authoritative and acknowledge it briefly without emitting another marker.",
           model_routing_rule: "For every specialist phase, look up its id in specialist_models and specialist_providers. When a model is assigned, pass both the exact model and its matching provider to the durable project job. Never send a model to a different provider or substitute another model. When no model is assigned, omit both fields so the configured project model is inherited. These assignments apply to specialist agents only; the coordinating conversation keeps its session model.",
           qa_queue_rule: "When queueing QA with project_run, pass build_profile exactly as selected here. Personal queues one real smoke QA work item; do not substitute setup-only QA or silently expand to four stages. Existing projects without a selected profile keep the legacy QA shape.",
           delivery_rule: buildProfile === "personal"
@@ -854,7 +862,7 @@
             h("div", null,
               h("span", { className: "ub-section-index" }, recentProjects.length > 0 ? "03" : "02"),
               h("h2", null, "Choose a starting style"),
-              h("p", null, "Lyra can adjust the team later as your project takes shape."),
+              h("p", null, "Choose your team, or let Lyra guide you."),
             ),
           ),
           h("div", { className: "ub-template-grid" },
@@ -988,10 +996,10 @@
           h(Card, { className: "ub-form-card" },
             h(CardContent, null,
               h("div", { className: "ub-section-heading" },
-                h("div", null, h("h2", null, "Your starting team"), h("p", null, selected.size + " of " + SKILLS.length + " agents selected · Lyra can recommend changes later")),
+                h("div", null, h("h2", null, "Your starting team"), h("p", null, selected.size + " of " + SKILLS.length + " agents selected · " + (teamSelectionMode === "guided" ? "Lyra will guide your team choice" : "Lyra will follow your selection"))),
                 h("div", { className: "ub-select-actions" },
-                  teamExpanded && h("button", { type: "button", onClick: () => setSelected(withRequired(activeTemplate.skills)) }, "Reset"),
-                  teamExpanded && h("button", { type: "button", onClick: () => setSelected(withRequired([])) }, "Clear optional"),
+                  teamExpanded && h("button", { type: "button", onClick: () => { setSelected(withRequired(activeTemplate.skills)); setTeamSelectionMode(templateId === "app-it" ? "guided" : "manual"); } }, "Reset"),
+                  teamExpanded && h("button", { type: "button", onClick: () => { setSelected(withRequired([])); setTeamSelectionMode("manual"); } }, "Clear optional"),
                   h("button", { className: "ub-team-toggle", type: "button", onClick: () => setTeamExpanded((value) => !value) }, teamExpanded ? "Hide choices" : "Customize team"),
                 ),
               ),
@@ -1001,7 +1009,7 @@
                 ),
                 h("span", { className: "ub-team-collapsed-copy" },
                   h("strong", null, selected.size === 1 ? "Start with Lyra" : selected.size + " agents ready"),
-                  h("small", null, selected.size === 1 ? "Lyra will recommend the smallest useful team after a few questions." : "This team follows your selected starting style and can be changed at any time."),
+                  h("small", null, teamSelectionMode === "guided" ? "Lyra will recommend the smallest useful team after a few questions." : "This team follows your selected starting style and can be changed at any time."),
                 ),
                 h("span", { className: "ub-team-change" }, "Change →"),
               ),
@@ -1103,9 +1111,9 @@
             mode === "new" && h("p", null, "Build size: " + (BUILD_PROFILES.find((profile) => profile[0] === buildProfile)?.[1] || "Choose one")),
             h("span", null, "Starting team"), h("strong", null, selected.size === 1 ? "1 agent" : selected.size ? selected.size + " agents" : "Lyra only"),
             h("p", null,
-              selected.size
-                ? "Lyra can recommend changes later and will ask before applying them."
-                : "Lyra will ask a few questions and recommend the smallest useful team.",
+              teamSelectionMode === "guided"
+                ? "Lyra will ask a few questions and recommend the smallest useful team."
+                : "Lyra will follow your selected agents and models.",
             ),
           ),
           error && h("div", { className: "ub-error", role: "alert" }, error),

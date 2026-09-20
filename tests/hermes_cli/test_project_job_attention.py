@@ -42,9 +42,9 @@ def test_attention_tracks_latest_block_and_clears_on_resume(tmp_path, monkeypatc
         ("completed", "done", "finished"),
         ("completed", "review", "finished"),
         ("", "done", "finished"),
-        ("crashed", "ready", "attempt failed"),
-        ("timed_out", "running", "attempt failed"),
-        ("gave_up", "triage", "repeated failures"),
+        ("crashed", "ready", "worker process was no longer running"),
+        ("timed_out", "running", "specific reason was not recorded"),
+        ("gave_up", "triage", "needs a decision"),
         ("blocked", "blocked", "needs your attention"),
         ("block_loop_detected", "triage", "needs your attention"),
         ("", "running", "is continuing"),
@@ -71,6 +71,22 @@ def test_internal_envelope_stays_short_because_it_repeats_per_job_update():
     assert "qa_acceptance outranks Brain/prose" in preamble
     assert "needs_review means open gaps" in preamble
     assert "self-authored resolution cannot waive" in preamble
+
+
+@pytest.mark.parametrize(("kind", "status", "details", "reason", "next_step"), [
+    ("timed_out", "ready", {"error": "Iteration budget exhausted (90/90) — task could not complete"}, "90-step limit", "queued another attempt"),
+    ("gave_up", "blocked", {"error": "Iteration budget exhausted (90/90)"}, "cost-control limit", "needs a decision"),
+    ("timed_out", "running", {"limit_seconds": 2700}, "45-minute time limit", "now running"),
+    ("crashed", "ready", {"exit_kind": "signaled", "exit_code": 9}, "signal 9", "queued another attempt"),
+    ("crashed", "done", {"exit_code": 1}, "error code 1", "earlier attempt"),
+    ("gave_up", "blocked", {"error": "Provider unavailable"}, "Provider unavailable", "needs a decision"),
+])
+def test_stop_reason_and_current_next_step_are_independent(kind, status, details, reason, next_step):
+    visible, internal = notification_text({"task_title": "Development", "event_kind": kind,
+                                          "task_status": status, "event_details": details})
+    assert reason in visible and next_step in visible
+    assert reason in json.loads(internal.split("\nJob data: ", 1)[1])["stop_reason"]
+    assert "attempt failed" not in visible
 
 
 def test_review_notification_has_exact_reference_and_no_implied_approval():

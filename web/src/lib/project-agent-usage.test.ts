@@ -5,6 +5,9 @@ import {
   projectAgentUsageTokens,
   projectAgentUsageTotal
 } from './project-agent-usage'
+import { projectReportedUsage } from './project-agent-usage'
+import { normalizeGuidedUsage } from './guided-agent-runtime'
+import { savedRun, job } from './project-agent-activity.fixtures'
 
 const saved = {
   input_tokens: 1200,
@@ -20,6 +23,21 @@ const saved = {
 }
 
 describe('project agent usage', () => {
+  it('combines coordinator and unique historical jobs without dropping completed work', () => {
+    const state = savedRun([job({ task_id: 'current', usage: saved })])
+    state.worker_usage = [
+      { board: 'default', task_id: 'old', usage: saved },
+      { board: 'default', task_id: 'current', usage: saved },
+      { board: 'default', task_id: 'current', usage: saved },
+    ]
+    const coordinator = normalizeGuidedUsage({ input: 100, cache_read: 200, cache_write: 80, output: 50, reasoning: 20 })
+    const total = projectReportedUsage(state, coordinator)
+    expect(total.tokens).toBe(430 + 2 * 10500)
+    expect(total.workers.total).toBe(2)
+    expect(total.complete).toBe(true)
+    state.worker_usage.push({ board: 'default', task_id: 'unknown', usage: null })
+    expect(projectReportedUsage(state, coordinator)).toMatchObject({ tokens: total.tokens, complete: false })
+  })
   it('keeps a missing record as null instead of zero', () => {
     expect(normalizeProjectAgentUsage(null)).toBeNull()
     expect(normalizeProjectAgentUsage(undefined)).toBeNull()
