@@ -52,8 +52,12 @@ Tests and observed results:
   because desktop test dependencies were absent. Reused cached pinned JS
   Playwright 1.58.2 in ignored node_modules. Sandbox Chromium/socket restrictions
   required the same isolated smoke to run outside the sandbox.
+- Release 0.20.0 checks: 23 version and builder-dashboard tests passed; both
+  dashboard copies passed syntax and byte-parity checks; the maintained file
+  inventory check and production web build passed.
 Compatibility / restart: Rebuilt dashboard and updated backend required. Do not
 restart active user work. Existing saved data remains readable.
 Rollback / retained recovery data: Revert the focused commit; no data migration.
-Local commit / authorized push: Implementation approved; focused local commit
-after checks. No push requested; Lyra release version remains unchanged.
+Local commit / authorized push: Implementation commit `8b722c134`. The user
+authorized a push on 2026-09-20; release metadata is synchronized as Lyra
+0.20.0 beta in the following release commit.

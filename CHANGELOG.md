@@ -9,6 +9,32 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-09-20 — Studio progress and selected teams
+
+### Added
+
+- Ask Lyra for a read-only project update every five minutes while active work
+  is running and the project chat is available.
+- Open empty project chats with "whats the great idea you wanna build" without
+  spending a model turn or changing conversation history.
+
+### Fixed
+
+- Explain the recorded stop reason and current retry state instead of reporting
+  only that a Development attempt failed.
+- Report combined Lyra and project-agent token usage, retain superseded jobs,
+  and avoid double-counting cumulative usage when a run rotates session IDs.
+- Keep manual, preset and custom agent choices authoritative across launch and
+  resume; recommend a team only after the user chooses "Let Lyra guide me."
+
+### Verification and limits
+
+- 502 web tests, 831 relevant Python tests and four Chromium Studio scenarios
+  passed, with additional focused notification, summary and timer checks.
+- The browser smoke used temporary projects and an echo provider, not a live
+  end-to-end build. Restart idle Lyra processes to load backend changes; active
+  jobs are not restarted by this release. Channel remains beta.
+
 ## [0.19.65] - 2026-09-19 — QA handoffs and reliable project stop
 
 ### Fixed

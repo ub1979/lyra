@@ -2,7 +2,7 @@
   "name": "hermes",
   "productName": "Lyra",
   "private": true,
-  "version": "0.19.65",
+  "version": "0.20.0",
   "description": "Private desktop application for Lyra.",
   "author": "Lyra",
   "type": "module",
