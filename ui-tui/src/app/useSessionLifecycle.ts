@@ -179,22 +179,27 @@ export function useSessionLifecycle(opts: UseSessionLifecycleOptions) {
 
   const cancelResumeScrollRef = useRef<null | (() => void)>(null)
 
-  const resetSession = useCallback((preserveStartupDraft = false) => {
-    cancelResumeScrollRef.current?.()
-    cancelResumeScrollRef.current = null
-    turnController.fullReset()
-    setVoiceRecording(false)
-    setVoiceProcessing(false)
-    patchUiState({ bgTasks: new Set(), info: null, sid: null, usage: ZERO })
-    setHistoryItems([])
-    setLastUserMsg('')
-    setStickyPrompt('')
+  const resetSession = useCallback(
+    (preserveStartupDraft = false) => {
+      cancelResumeScrollRef.current?.()
+      cancelResumeScrollRef.current = null
+      turnController.fullReset()
+      setVoiceRecording(false)
+      setVoiceProcessing(false)
+      patchUiState({ bgTasks: new Set(), info: null, sid: null, usage: ZERO })
+      setHistoryItems([])
+      setLastUserMsg('')
+      setStickyPrompt('')
 
-    if (!preserveStartupDraft) {composerActions.setPasteSnips([])}
-    // Half-prune: new session has new keys, but keep a warm pool in case
-    // the user resumes back to the prior session.
-    evictInkCaches('half')
-  }, [composerActions, setHistoryItems, setLastUserMsg, setStickyPrompt, setVoiceProcessing, setVoiceRecording])
+      if (!preserveStartupDraft) {
+        composerActions.setPasteSnips([])
+      }
+      // Half-prune: new session has new keys, but keep a warm pool in case
+      // the user resumes back to the prior session.
+      evictInkCaches('half')
+    },
+    [composerActions, setHistoryItems, setLastUserMsg, setStickyPrompt, setVoiceProcessing, setVoiceRecording]
+  )
 
   useEffect(
     () => () => {

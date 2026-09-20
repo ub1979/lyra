@@ -141,7 +141,9 @@ export function useSubmission(opts: UseSubmissionOptions) {
     (queued: QueuedPrompt) => {
       const text = promptText(queued)
 
-      if (typeof queued !== 'string') {return send(text)}
+      if (typeof queued !== 'string') {
+        return send(text)
+      }
 
       if (text.startsWith('!')) {
         return shellExec(text.slice(1).trim())

@@ -17,12 +17,18 @@ it.each([null, 'previous-session'])('handles pending paste across session creati
   resetUiState()
   patchUiState({ sid: previous })
   let finishCreate!: (result: object) => void
-  const created = new Promise<object>(resolve => { finishCreate = resolve })
+  const created = new Promise<object>(resolve => {
+    finishCreate = resolve
+  })
 
   const request = vi.fn(async (method: string) => {
-    if (method === 'session.create') {return created}
+    if (method === 'session.create') {
+      return created
+    }
 
-    if (method === 'input.detect_drop') {return { matched: false }}
+    if (method === 'input.detect_drop') {
+      return { matched: false }
+    }
 
     return {}
   })
@@ -43,15 +49,31 @@ it.each([null, 'previous-session'])('handles pending paste across session creati
     const composer = useComposerState({ gw, submitRef, onClipboardPaste: noop })
 
     const lifecycle = useSessionLifecycle({
-      colsRef: { current: 80 }, composerActions: composer.actions, gw,
-      panel: noop, rpc: request as GatewayRpc, scrollRef: { current: null },
-      setHistoryItems: noop, setLastUserMsg: noop, setSessionStartedAt: noop,
-      setStickyPrompt: noop, setVoiceProcessing: noop, setVoiceRecording: noop, sys: noop
+      colsRef: { current: 80 },
+      composerActions: composer.actions,
+      gw,
+      panel: noop,
+      rpc: request as GatewayRpc,
+      scrollRef: { current: null },
+      setHistoryItems: noop,
+      setLastUserMsg: noop,
+      setSessionStartedAt: noop,
+      setStickyPrompt: noop,
+      setVoiceProcessing: noop,
+      setVoiceRecording: noop,
+      sys: noop
     })
 
     const submission = useSubmission({
-      appendMessage: noop, composerActions: composer.actions, composerRefs: composer.refs,
-      composerState: composer.state, gw, setLastUserMsg: noop, slashRef, submitRef, sys: noop
+      appendMessage: noop,
+      composerActions: composer.actions,
+      composerRefs: composer.refs,
+      composerState: composer.state,
+      gw,
+      setLastUserMsg: noop,
+      slashRef,
+      submitRef,
+      sys: noop
     })
 
     exposed = { composer, lifecycle, submission }
@@ -66,8 +88,10 @@ it.each([null, 'previous-session'])('handles pending paste across session creati
   streams.stdout.on('data', noop)
 
   const instance = renderSync(React.createElement(Harness), {
-    patchConsole: false, stdin: streams.stdin as NodeJS.ReadStream,
-    stdout: streams.stdout as NodeJS.WriteStream, stderr: streams.stderr as NodeJS.WriteStream
+    patchConsole: false,
+    stdin: streams.stdin as NodeJS.ReadStream,
+    stdout: streams.stdout as NodeJS.WriteStream,
+    stderr: streams.stderr as NodeJS.WriteStream
   })
 
   try {
@@ -78,7 +102,11 @@ it.each([null, 'previous-session'])('handles pending paste across session creati
     const full = 'Requirements\nfirst\nsecond\nthird\nfourth\nlast'
 
     const pasted = await snapshot.composer.actions.handleTextPaste({
-      text: full, value: '', cursor: 0, bracketed: true, hotkey: false
+      text: full,
+      value: '',
+      cursor: 0,
+      bracketed: true,
+      hotkey: false
     })
 
     expect(snapshot.composer.refs.pasteSnipsRef.current).toHaveLength(1)
