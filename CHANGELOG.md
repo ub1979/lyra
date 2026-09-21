@@ -9,6 +9,14 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+### Added
+
+- **Comparison build with modern Studio UI and bounded Project Brain.** This
+  branch keeps the 28 August direct specialist workflow while adding the newer
+  visual shell and compact, evidence-linked project memory. Later mandatory
+  Kanban project runs are intentionally absent so end-to-end build behaviour
+  can be compared directly.
+
 ## [0.19.5] - 2026-08-28 — reliable long model waits
 
 ### Fixed

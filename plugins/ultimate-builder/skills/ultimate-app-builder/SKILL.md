@@ -73,6 +73,12 @@ specified in `references/engineering-standards.md`:
   work, `sw-developer` a short one for small fixes; `code-reviewer` checks the
   diff against it and `qa-engineer` scopes regression from it.
 
+Project continuity lives in `.sdlc/project-brain.md`. Read it as a compact map
+before changing an existing project, then verify the relevant claims against
+source, tests, and Git. Refresh it after meaningful verified milestones and at
+handoff; do not rewrite it after every small action. Keep it under 16 KB and
+use the `context-save` playbook for repair or a deliberate checkpoint.
+
 ## Progressive workflow loading
 
 Each detailed playbook is a registered plugin skill. Before starting or
@@ -97,7 +103,7 @@ skill does not count as running a specialist.
 | Documentation | `tech-writer` | `README.md`, `docs/` |
 | Benchmark | `benchmark` | `benchmark-report.md` |
 | Health | `health` | `.sdlc/health-history.jsonl` |
-| Context | `context-save` | `.sdlc/context.md` |
+| Project memory | `context-save` | `.sdlc/project-brain.md` |
 | Specification | `spec` | `spec.md` |
 | Restructuring | `oop-restructurer` | `restructure-report.md` |
 | Learning | `learn` | `.sdlc/learnings.jsonl` |

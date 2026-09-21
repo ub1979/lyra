@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import re
 import secrets
@@ -34,6 +35,7 @@ _ARTIFACTS = (
     "DEPLOYMENT.md",
     "README.md",
     ".sdlc/debt.md",
+    ".sdlc/project-brain.md",
     ".sdlc/preview/index.html",
 )
 _PREVIEW_MAX_BYTES = 4 * 1024 * 1024
@@ -94,6 +96,19 @@ def _project(path: str) -> Path:
     if not candidate.is_dir():
         raise HTTPException(status_code=404, detail="Project directory not found")
     return candidate
+
+
+def _project_brain_module():
+    """Load the sibling module without relying on the hyphenated plugin name."""
+    path = Path(__file__).resolve().parents[1] / "project_brain.py"
+    spec = importlib.util.spec_from_file_location(
+        "lyra_ultimate_builder_project_brain", path
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Could not load Project Brain")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def _safe_text(path: Path, limit: int = 120_000) -> str:
@@ -360,6 +375,15 @@ def state(path: str = Query(..., min_length=1)) -> dict[str, Any]:
         "artifacts": artifacts,
         "learning_candidates": candidates,
     }
+
+
+@router.get("/brain")
+def project_brain(workspace: str = Query(..., min_length=1)) -> dict[str, Any]:
+    safety = _workspace_safety(workspace)
+    if not safety["allowed"]:
+        raise HTTPException(status_code=403, detail=safety["reason"])
+    project = _project(workspace)
+    return _project_brain_module().project_brain_state(project)
 
 
 @router.post("/preview/document")

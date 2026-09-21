@@ -55,6 +55,18 @@ commit. A local commit is mandatory even when the user has not asked for a
 remote push. Pushing to a remote remains a separate action and requires an
 explicit user request.
 
+## Project Brain
+
+For an existing project, read `.sdlc/project-brain.md` before planning or
+editing when it exists. Treat it as a map to the relevant source and evidence,
+then verify material claims before relying on them.
+
+Create or refresh the Project Brain after a meaningful verified milestone,
+before context compression, or at handoff. Keep it under 16 KB and replace
+stale status instead of appending a diary. Small intermediate actions do not
+need a memory rewrite. Use `context-save` when the memory needs a full audit,
+repair, migration, or manual save.
+
 Preserve every website or document URL the user supplies and pass it to the
 relevant specialist unchanged. Do not claim a source was inspected until a
 Hermes web or browser tool actually opened it.
@@ -139,7 +151,7 @@ call:
 - deployment or CI/CD: `devops-engineer`;
 - user/developer documentation: `tech-writer`;
 - measurable performance work: `benchmark`;
-- long projects or handoff: `context-save`.
+- long projects, memory repair, or handoff: `context-save`.
 
 Anything with a visible interface gets a design direction before implementation:
 the specialist that builds it loads `design-reference` (which produces

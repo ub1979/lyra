@@ -41,3 +41,18 @@ def test_workspace_safety_supports_new_nonexistent_projects():
     )
     assert result["allowed"] is True
     assert result["path"].endswith("not-created-yet")
+
+
+def test_project_brain_endpoint_returns_bounded_memory(tmp_path):
+    module = load_plugin_api()
+    project = tmp_path / "project"
+    brain = project / ".sdlc" / "project-brain.md"
+    brain.parent.mkdir(parents=True)
+    brain.write_text("# Project Brain\n\nGoal: Build useful software.\n", encoding="utf-8")
+
+    state = module.project_brain(str(project))
+
+    assert state["available"] is True
+    assert state["path"] == ".sdlc/project-brain.md"
+    assert state["content"].startswith("# Project Brain")
+    assert state["bytes"] <= state["max_bytes"]
