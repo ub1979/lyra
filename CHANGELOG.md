@@ -9,6 +9,8 @@ Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
 
 ## [Unreleased]
 
+## [0.19.6] - 2026-09-21 — Aug 28 UI and Brain comparison
+
 ### Added
 
 - **Comparison build with modern Studio UI and bounded Project Brain.** This
