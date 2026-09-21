@@ -91,6 +91,21 @@ That's it. On first run it installs dependencies, enables the builder plugin, an
 
 Click **New Project**, describe your app, and Lyra handles the rest.
 
+### Compare with the August 28 version
+
+When the `codex/aug28-ui-brain` comparison worktree is installed on the same
+computer, launch either version directly from this folder:
+
+```bash
+./start.sh       # current Lyra — http://localhost:9119
+./old_start.sh   # August 28 + new UI + Project Brain — http://localhost:9120
+```
+
+Use two terminal windows to run both at the same time. Each version keeps its
+generated projects in its own checkout. Press **Ctrl+C** in its terminal to
+stop that version. To choose a different comparison port, run
+`LYRA_OLD_PORT=9130 ./old_start.sh`.
+
 ### Using the CLI instead
 
 ```bash

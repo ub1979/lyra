@@ -1863,6 +1863,7 @@ docs/lyra/changes/2026-09-19-studio-status.md	docs	md: 2026 09 19 studio status
 docs/lyra/changes/2026-09-19-worker-handoff.md	docs	md: 2026 09 19 worker handoff
 docs/lyra/changes/2026-09-19-workflow-contract-repairs.md	docs	md: 2026 09 19 workflow contract repairs
 docs/lyra/changes/2026-09-20-chat-progress-and-selection.md	docs	md: 2026 09 20 chat progress and selection
+docs/lyra/changes/2026-09-21-comparison-launcher.md	docs	md: 2026 09 21 comparison launcher
 docs/lyra/file-index.tsv	docs	tsv: file index
 docs/middleware/README.md	docs	md: README
 docs/observability/README.md	docs	md: README
@@ -2310,6 +2311,7 @@ nix/packages.nix	nix	nix: packages
 nix/python.nix	nix	nix: python
 nix/tui.nix	nix	nix: tui
 nix/web.nix	nix	nix: web
+old_start.sh	root	sh: old start
 optional-mcps/blender/manifest.yaml	optional-mcps	yaml: manifest
 optional-mcps/linear/manifest.yaml	optional-mcps	yaml: manifest
 optional-mcps/n8n/manifest.yaml	optional-mcps	yaml: manifest
@@ -5953,6 +5955,7 @@ tests/run_interrupt_test.py	tests	Behavioral tests: run interrupt test
 tests/scripts/test_build_skills_index_health.py	tests	Behavioral tests: build skills index health
 tests/scripts/test_contributor_map.py	tests	Behavioral tests: contributor map
 tests/scripts/test_footgun_subprocess_encoding.py	tests	Behavioral tests: footgun subprocess encoding
+tests/scripts/test_old_start.py	tests	Behavioral tests: old start
 tests/secret_sources/__init__.py	tests	Behavioral tests:   init
 tests/secret_sources/conformance.py	tests	Behavioral tests: conformance
 tests/secret_sources/test_error_remediation.py	tests	Behavioral tests: error remediation

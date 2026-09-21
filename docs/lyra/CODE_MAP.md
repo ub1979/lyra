@@ -38,6 +38,7 @@ Durable project jobs → Hermes Kanban dispatcher → isolated worker sessions
 |---|---|---|
 | Studio composition | `web/src/pages/ChatPage.tsx` | Web suite, production build and real Chrome agent-picker repaint path |
 | User-initiated Studio startup | `web/src/lib/guided-project-setup.ts` | First-request recovery and browser smoke: no inference on empty open |
+| Local comparison launch | `start.sh`, `old_start.sh` | Current checkout stays on 9119; the verified `codex/aug28-ui-brain` worktree defaults to 9120 |
 | Five-minute check-ins / selected team | `web/src/hooks/useGuidedProgressCheck.ts`, `web/src/lib/guided-team-selection.ts`, builder launcher | Timer deferral/deduplication, manual-versus-guided proposal gates, and real Studio launch/reload/PTY smoke |
 | Targeted failed-job recovery | `plugins/ultimate-builder/project_task_recovery.py` | Real SQLite/tool/CLI isolation, dependency, stale-event and rollback tests |
 | Project map / agent artwork | `web/src/components/GuidedProgressMap.tsx`, `web/src/components/GuidedAgentAvatar.tsx` | Rendering tests and production build |
