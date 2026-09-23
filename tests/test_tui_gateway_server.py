@@ -2025,6 +2025,8 @@ def test_session_resume_passes_stored_runtime_to_agent(monkeypatch):
         "provider": "openai-codex",
         "base_url": "https://custom.example/v1",
         "api_mode": "chat_completions",
+        # Marks the override as a resume restore, not a user /model pin.
+        "restored": True,
     }
     assert captured["provider_override"] == "openai-codex"
     assert captured["reasoning_config_override"] == {"enabled": True, "effort": "high"}
@@ -2169,13 +2171,16 @@ def test_session_cwd_set_profile_session_updates_profile_db(monkeypatch, tmp_pat
     assert "launch_update" not in captured
 
 
-def test_stored_session_runtime_overrides_skips_bare_billing_provider():
+def test_stored_session_runtime_overrides_skips_bare_billing_provider(monkeypatch):
     """A bare billing bucket ("custom"/"auto"/"openrouter") must not be restored as the
     provider identity on resume. A custom endpoint that never used `/model` persists only
     `billing_provider="custom"`; restoring that broke `session.resume` with "No LLM provider
     configured" (agent_init treats it as non-routable). A real provider, or an explicit
     `model_config.provider`, is still restored.
     """
+    # Config names no provider, so a provider-less model is still restored
+    # (a named config provider drops it — see test_follow_config_model.py).
+    monkeypatch.setattr(server, "_load_cfg", lambda: {"model": {"default": "x"}})
     # Bare "custom" bucket, no explicit model_config.provider: no provider override restored.
     ov = server._stored_session_runtime_overrides({"model": "my-model", "billing_provider": "custom"})
     assert "provider_override" not in ov

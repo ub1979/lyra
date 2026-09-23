@@ -28,7 +28,7 @@ def version_module():
 
 
 def test_lyra_has_its_own_version(version_module):
-    assert re.fullmatch(r"\d+\.\d+\.\d+", version_module.LYRA_VERSION)
+    assert re.fullmatch(r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?", version_module.LYRA_VERSION)
     assert version_module.LYRA_CHANNEL in {"alpha", "beta", "rc", "stable"}
     assert version_module.LYRA_RELEASE_NAME.strip()
 

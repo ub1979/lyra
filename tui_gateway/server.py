@@ -30,6 +30,7 @@ from utils import is_truthy_value
 from tools.environments.local import hermes_subprocess_env
 from agent.replay_cleanup import sanitize_replay_history
 from tui_gateway import git_probe
+from tui_gateway.restored_model_override import RestoredModelOverride
 from tui_gateway.turn_marker import (
     clear_turn_marker,
     read_turn_marker,
@@ -1887,7 +1888,9 @@ def _start_agent_build(sid: str, session: dict) -> None:
             current["agent"] = agent
             # Baseline for the per-turn config sync; the profile home
             # override is still active here.
-            current["config_model_seen"] = _config_model_target()
+            current["config_model_seen"] = RestoredModelOverride.resume_sync_baseline(
+                bool(current.get("follow_config_model")), _config_model_target()
+            )
 
             # No eager slash-worker pre-warm: slash.exec spawns one on demand
             # (its error path already relies on that respawn to recover from a
@@ -3005,18 +3008,23 @@ def _stored_session_runtime_overrides(row: dict | None) -> dict:
             )
         provider = healed or ("" if not base_url else provider)
 
-    if model:
-        # Use the same dict-shaped override that live /model switches use so a
-        # DB-restored session can preserve custom endpoint metadata across both
-        # initial resume and later rebuilds (/new). Deliberately do not persist
-        # or restore raw api_key here; endpoint credentials should continue to
-        # come from config/env/provider resolution rather than the session DB.
-        overrides["model_override"] = {
-            "model": model,
-            "provider": provider or None,
-            "base_url": base_url or None,
-            "api_mode": api_mode or None,
-        }
+    # Use the same dict-shaped override that live /model switches use so a
+    # DB-restored session can preserve custom endpoint metadata across both
+    # initial resume and later rebuilds (/new). Deliberately do not persist
+    # or restore raw api_key here; endpoint credentials should continue to
+    # come from config/env/provider resolution rather than the session DB.
+    # The policy drops a model whose provider cannot be paired, so it is never
+    # sent to a different configured provider.
+    restored = RestoredModelOverride.build(
+        model=model,
+        provider=provider,
+        base_url=base_url,
+        api_mode=api_mode,
+        billing_provider=billing_provider,
+        configured_provider=_config_model_target()[1],
+    )
+    if restored:
+        overrides["model_override"] = restored
     if provider:
         overrides["provider_override"] = provider
     if isinstance(reasoning_config, dict):
@@ -3831,11 +3839,15 @@ def _apply_model_switch(
 
 def _sync_agent_model_with_config(sid: str, session: dict) -> None:
     """Adopt a config.yaml model change at turn start, like gateways do per
-    message. Sessions pinned with /model keep their choice; a failed switch
-    keeps the current model and never blocks the turn.
+    message. Sessions pinned with /model keep their choice; a model restored
+    on resume is not a pin and yields to a later config change. A failed
+    switch keeps the current model and never blocks the turn.
     """
     agent = session.get("agent")
-    if agent is None or session.get("model_override"):
+    if agent is None or RestoredModelOverride.blocks_config_sync(
+        session.get("model_override"),
+        bool(session.get("follow_config_model")),
+    ):
         return
     target = _config_model_target()
     if not target[0]:
@@ -3874,6 +3886,11 @@ def _sync_agent_model_with_config(sid: str, session: dict) -> None:
             sid,
             {"message": f"Could not switch to configured model {model}: {e}"},
         )
+        return
+    # The session now runs the configured model; drop the restored override
+    # so a later rebuild (/new, reconnect) cannot resurrect the old model.
+    if RestoredModelOverride.is_restored(session.get("model_override")):
+        session.pop("model_override", None)
 
 
 class CompressionLockHeld(Exception):
@@ -7159,6 +7176,9 @@ def _(rid, params: dict) -> dict:
     # local profile's state.db. None/own profile → the launch profile (unchanged).
     profile = (params.get("profile") or "").strip() or None
     profile_home = _profile_home(profile)
+    # Surfaces that present one configured model (the dashboard chat) ask the
+    # resumed session to follow it instead of pinning the chat's old model.
+    follow_config_model = is_truthy_value(params.get("follow_config_model", False))
 
     # In a profile scope, the agent OWNS a long-lived db handle bound to that
     # profile (do NOT auto-close it here). Otherwise reuse the shared launch db.
@@ -7374,6 +7394,7 @@ def _(rid, params: dict) -> dict:
             model_override=overrides.get("model_override"),
             resume_runtime_overrides=overrides or None,
         )
+        record["follow_config_model"] = follow_config_model
         if (live := _claim_or_reuse_live(sid, target, record, lease)) is not None:
             return _ok(rid, _reuse_live_payload(*live))
 
@@ -7508,6 +7529,7 @@ def _(rid, params: dict) -> dict:
                     _sessions[sid]["model_override"] = stored_runtime_overrides[
                         "model_override"
                     ]
+                _sessions[sid]["follow_config_model"] = follow_config_model
                 _sessions[sid]["display_history_prefix"] = display_history_prefix
                 # Remember the profile home so each turn re-binds HERMES_HOME (the
                 # agent persists to its own db, but mid-turn home reads — memory,

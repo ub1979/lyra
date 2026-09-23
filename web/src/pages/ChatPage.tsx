@@ -31,6 +31,7 @@ import {
   guidedSpecialistModelRowClass,
 } from "@/lib/guided-specialists-dialog";
 import { writeGuidedPrompt } from "@/lib/guided-composer-paste";
+import { ComposerReadinessWatcher } from "@/lib/guided-composer-readiness";
 import {
   CHAT_ATTACHMENT_ACCEPT,
   attachmentPromptBlock,
@@ -3470,7 +3471,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     let onDataDisposable: { dispose(): void } | null = null;
     let onResizeDisposable: { dispose(): void } | null = null;
     let guidedWriteDisposable: { dispose(): void } | null = null;
-    let builderSeedTimer: number | null = null;
+    let readinessWatcher: ComposerReadinessWatcher | null = null;
     guidedAgentReadyRef.current = false;
     setGuidedAgentReady(false);
     const forceFresh = forceFreshPtyRef.current;
@@ -3576,27 +3577,37 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         }, 800);
       }
       const builderSeed = searchParams.get("builder");
+      // Watch until the composer is ready. The watch never gives up: PTY
+      // output keeps re-checking, so a slow start cannot leave Send disabled.
+      const watchComposer = (onReady: () => void) => {
+        let slowNoticeShown = false;
+        readinessWatcher?.dispose();
+        readinessWatcher = new ComposerReadinessWatcher({
+          isReady: () =>
+            wsRef.current?.readyState === WebSocket.OPEN &&
+            !unmounting &&
+            terminalComposerIsReady(term),
+          onReady: () => {
+            if (slowNoticeShown) setBanner(null);
+            onReady();
+          },
+          onSlow: () => {
+            slowNoticeShown = true;
+            setBanner(
+              "Lyra is still starting. Send unlocks as soon as it is ready; if this takes much longer, reconnect the chat.",
+            );
+          },
+          scheduler: {
+            schedule: (run, delayMs) => window.setTimeout(run, delayMs),
+            cancel: (handle) => window.clearTimeout(handle),
+            now: () => Date.now(),
+          },
+        });
+      };
       if (builderSeed) {
-        const readyDeadline = Date.now() + 15_000;
         const sendWhenReady = () => {
           const active = wsRef.current;
           if (!active || active.readyState !== WebSocket.OPEN) return;
-          if (!terminalComposerIsReady(term)) {
-            if (Date.now() < readyDeadline) {
-              builderSeedTimer = window.setTimeout(sendWhenReady, 250);
-            } else {
-              appendGuidedError(
-                "The project conversation did not finish preparing. Reconnect the chat and try again.",
-              );
-              guidedTurnSettledRef.current = true;
-              setGuidedActivity({
-                phase: "idle",
-                text: "",
-                specialist: null,
-              });
-            }
-            return;
-          }
           guidedAgentReadyRef.current = true;
           setGuidedAgentReady(true);
           guidedWelcomeStartedRef.current = true;
@@ -3620,71 +3631,63 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
             send: (data) => active.send(data),
           });
         };
-        builderSeedTimer = window.setTimeout(sendWhenReady, 100);
+        watchComposer(sendWhenReady);
       } else {
-        const readyDeadline = Date.now() + 15_000;
         const markReady = () => {
-            if (wsRef.current?.readyState !== WebSocket.OPEN || unmounting) {
-            return;
-          }
-          if (terminalComposerIsReady(term)) {
-            guidedAgentReadyRef.current = true;
-            setGuidedAgentReady(true);
-            if (
-              guided &&
-              guidedMessagesRef.current.length === 0 &&
-              !guidedWelcomeStartedRef.current
-            ) {
-              guidedWelcomeStartedRef.current = true;
-              guidedTurnStartLineRef.current = Math.max(
-                0,
-                term.buffer.active.length - 1,
+          guidedAgentReadyRef.current = true;
+          setGuidedAgentReady(true);
+          if (
+            guided &&
+            guidedMessagesRef.current.length === 0 &&
+            !guidedWelcomeStartedRef.current
+          ) {
+            guidedWelcomeStartedRef.current = true;
+            guidedTurnStartLineRef.current = Math.max(
+              0,
+              term.buffer.active.length - 1,
+            );
+            guidedTurnSettledRef.current = false;
+            setGuidedActivity({
+              phase: "working",
+              text: "Lyra is getting to know your project…",
+              specialist: APP_IT_SPECIALIST,
+            });
+            // Resolve the listing first so the agent can greet in ONE model
+            // round-trip instead of inspecting and then greeting. Capped so a
+            // slow or unresponsive filesystem degrades to a plain greeting
+            // rather than stalling the session.
+            void Promise.race([
+              fetchProjectSummary(workspaceParam),
+              new Promise<string>((resolve) =>
+                window.setTimeout(() => resolve(""), 1500),
+              ),
+            ]).then((projectSummary) => {
+              if (wsRef.current?.readyState !== WebSocket.OPEN) return;
+              const welcome = guidedWelcomeSeed(
+                workspaceParam,
+                guidedSelectedSpecialistIdsRef.current,
+                guidedSkillModelsRef.current,
+                projectSummary,
               );
-              guidedTurnSettledRef.current = false;
-              setGuidedActivity({
-                phase: "working",
-                text: "Lyra is getting to know your project…",
-                specialist: APP_IT_SPECIALIST,
+              writeGuidedPrompt(welcome, {
+                  isOpen: () => wsRef.current?.readyState === WebSocket.OPEN,
+                  schedule: (run, delayMs) => window.setTimeout(run, delayMs),
+                send: (data) => wsRef.current?.send(data),
               });
-              // Resolve the listing first so the agent can greet in ONE model
-              // round-trip instead of inspecting and then greeting. Capped so a
-              // slow or unresponsive filesystem degrades to a plain greeting
-              // rather than stalling the session.
-              void Promise.race([
-                fetchProjectSummary(workspaceParam),
-                new Promise<string>((resolve) =>
-                  window.setTimeout(() => resolve(""), 1500),
-                ),
-              ]).then((projectSummary) => {
-                if (wsRef.current?.readyState !== WebSocket.OPEN) return;
-                const welcome = guidedWelcomeSeed(
-                  workspaceParam,
-                  guidedSelectedSpecialistIdsRef.current,
-                  guidedSkillModelsRef.current,
-                  projectSummary,
-                );
-                writeGuidedPrompt(welcome, {
-                    isOpen: () => wsRef.current?.readyState === WebSocket.OPEN,
-                    schedule: (run, delayMs) => window.setTimeout(run, delayMs),
-                  send: (data) => wsRef.current?.send(data),
-                });
-              });
-            }
-            return;
-          }
-          if (Date.now() < readyDeadline) {
-            builderSeedTimer = window.setTimeout(markReady, 250);
+            });
           }
         };
-        builderSeedTimer = window.setTimeout(markReady, 100);
+        watchComposer(markReady);
       }
     };
 
     ws.onmessage = (ev) => {
+      // Re-check composer readiness once xterm has parsed the frame.
+      const afterWrite = () => readinessWatcher?.notify();
       if (typeof ev.data === "string") {
-        term.write(ev.data);
+        term.write(ev.data, afterWrite);
       } else {
-        term.write(new Uint8Array(ev.data as ArrayBuffer));
+        term.write(new Uint8Array(ev.data as ArrayBuffer), afterWrite);
       }
     };
 
@@ -3966,10 +3969,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         clearTimeout(reconnectTimerRef.current);
         reconnectTimerRef.current = null;
       }
-      if (builderSeedTimer !== null) {
-        window.clearTimeout(builderSeedTimer);
-        builderSeedTimer = null;
-      }
+      readinessWatcher?.dispose();
+      readinessWatcher = null;
     };
   }, [
     hasActivated,

@@ -18,6 +18,7 @@ import type {
   SetupStatusResponse
 } from '../gatewayTypes.js'
 import { asRpcResult } from '../lib/rpc.js'
+import { sessionResumeParams } from '../lib/sessionResumeParams.js'
 import type { Msg, PanelSection, SessionInfo, Usage } from '../types.js'
 
 import type { ComposerActions, GatewayRpc, StateSetter } from './interfaces.js'
@@ -381,7 +382,7 @@ export function useSessionLifecycle(opts: UseSessionLifecycleOptions) {
 
         const previousSid = getUiState().sid
 
-        gw.request<SessionResumeResponse>('session.resume', { cols: colsRef.current, session_id: id })
+        gw.request<SessionResumeResponse>('session.resume', sessionResumeParams(id, colsRef.current))
           .then(raw => {
             const r = asRpcResult<SessionResumeResponse>(raw)
 

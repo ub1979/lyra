@@ -5,9 +5,29 @@ match `LYRA_VERSION` in `lyra_version.py` — a test enforces it, so bumping one
 without the other fails the build rather than shipping a lie.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
-Versions are `MAJOR.MINOR.PATCH`; the channel records the release's maturity.
+Versions are `MAJOR.MINOR.PATCH` with an optional pre-release suffix (`-a`); the channel records the release's maturity.
 
 ## [Unreleased]
+
+## [0.19.7-a] - 2026-09-23 — Model switching and send fixes
+
+### Fixed
+
+- **Changing the AI model mid-project now reaches the open project chat.** A
+  resumed chat no longer treats its old model as a locked choice: the next
+  message runs on the model chosen in AI model settings. A model you pick
+  with `/model` is still respected, and desktop chats keep their own models.
+- **An old model is never sent to a different provider.** A resumed session
+  whose provider was lost used to pair its old model with the newly selected
+  provider (e.g. `glm-5.2:cloud` sent to Codex, failing with HTTP 400). Such a
+  model is now dropped and the configured provider and model are used together.
+- **The Send button no longer stays disabled after a slow start.** The chat
+  keeps checking until Lyra is ready instead of giving up after 15 seconds,
+  and says so if startup is slow.
+
+### Changed
+
+- Versions may carry a pre-release suffix (`0.19.7-a`).
 
 ## [0.19.6] - 2026-09-21 — Aug 28 UI and Brain comparison
 
